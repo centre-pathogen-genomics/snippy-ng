@@ -2,7 +2,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/snippy-ng.svg)](https://pypi.org/project/snippy-ng)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snippy-ng.svg)](https://pypi.org/project/snippy-ng)
-
+[![Benchmark](https://byob.yarr.is/centre-pathogen-genomics/snippy-ng/benchmark)](https://github.com/centre-pathogen-genomics/snippy-ng/actions/workflows/benchmark.yaml)
 -----
 
 **Table of Contents**
