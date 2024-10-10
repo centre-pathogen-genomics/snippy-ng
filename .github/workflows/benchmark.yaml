@@ -42,6 +42,7 @@ jobs:
         uv pip install --system .
 
     - name: Benchmark
+      id: Benchmark
       run: |
         hyperfine \
           -m 100 \
@@ -67,5 +68,5 @@ jobs:
         NAME: benchmark
         ICON: https://raw.githubusercontent.com/centre-pathogen-genomics/snippy-ng/main/docs/images/bolt.svg
         STATUS: ${{ steps.Benchmark.outputs.BENCHMARK }}
-        COLOR: FFFF55
+        COLOR: f1c40f
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
