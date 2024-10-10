@@ -26,7 +26,6 @@ def snippy_ng():
     pass
 
 @snippy_ng.command()
-@click.option("--help", is_flag=True, callback=usage, expose_value=False, is_eager=True, help="This help")
 @click.option("--citation", is_flag=True, callback=show_citation, expose_value=False, help="Print citation for referencing this tool")
 @click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
 @click.option("--force/--no-force", default=False, help="Force overwrite of existing output folder")
