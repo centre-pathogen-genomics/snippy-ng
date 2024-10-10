@@ -1,0 +1,71 @@
+name: CLI experience
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  STABLE_PYTHON_VERSION: '3.12'
+  HYPERFINE_VERSION: '1.18.0'
+
+jobs:
+  response-time:
+    name: CLI responsiveness with latest Python
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.STABLE_PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+    - name: Install UV
+      run: curl -LsSf https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | sh
+
+    - name: Install hyperfine
+      uses: taiki-e/install-action@v2
+      with:
+        tool: hyperfine@${{ env.HYPERFINE_VERSION }}
+
+    - name: Install ourself
+      run: |
+        uv pip install --system .
+
+    - name: Benchmark
+      run: |
+        hyperfine \
+          -m 100 \
+          --warmup 10 \
+          --export-csv=hyperfine.csv \
+          "snippy-ng --help" \
+          "snippy-ng snippy --help"
+        # check if the max value in the mean column is less than 0.2 seconds
+        max=$(awk -F, 'NR>1 {print $2}' hyperfine.csv | sort -n | tail -n 1)
+        # convert to milliseconds
+        max=$(echo "$max * 1000" | bc)
+        # round to 1 decimal place
+        max=$(echo "scale=1; $max/1" | bc)
+        if (( $(echo "$max < 200" | bc -l) )); then
+          echo "::set-output name=data::'${max} ms'"
+        else
+          exit 1
+        fi
+        
+    - name: Benchmark badge
+      uses: RubbaBoy/BYOB@v1.3.0
+      with:
+        NAME: benchmark
+        ICON: https://raw.githubusercontent.com/centre-pathogen-genomics/snippy-ng/main/docs/images/bolt.svg
+        STATUS: ${{ steps.Benchmark.outputs.data }}
+        COLOR: FFFF55
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
