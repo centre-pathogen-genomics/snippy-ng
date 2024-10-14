@@ -7,6 +7,7 @@ theme:
   # homepage: https://write-the.wytamma.com
   # logo: assets/logo.png
   # favicon: images/favicon.png
+  custom_dir: docs/overrides
   palette: 
     - scheme: default
       toggle:
