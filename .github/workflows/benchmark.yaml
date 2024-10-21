@@ -49,7 +49,7 @@ jobs:
           --warmup 10 \
           --export-csv=hyperfine.csv \
           "snippy-ng --help" \
-          "snippy-ng snippy --help"
+          "snippy-ng snps --help"
         # check if the max value in the mean column is less than 0.2 seconds
         max=$(awk -F, 'NR>1 {print $2}' hyperfine.csv | sort -n | tail -n 1)
         # convert to milliseconds
