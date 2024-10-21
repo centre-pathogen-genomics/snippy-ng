@@ -5,5 +5,5 @@ __version__ = "0.0.1"
 
 # Version and executable information
 EXE = "snippy-ng"
-AUTHOR = "Your Name"
-URL = "https://example.com"
+AUTHOR = "Wytamma Wirth & Torsten Seemann"
+URL = "https://github.com/centre-pathogen-genomics/snippy-ng"
