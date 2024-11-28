@@ -29,7 +29,8 @@ class Dependency:
             raise MissingDependencyError(
                 f"Could not find dependency {self.name}! Please install it."
             )
-        return self._base_validator()
+        version = self.get_version_from_cli()
+        return self._base_validator(version)
 
     def format_version_requirements(self):
         requirements = []
@@ -44,8 +45,8 @@ class Dependency:
         if not requirements:
             return self.name
         return f'{self.name} {",".join(requirements)}'
-
-    def _base_validator(self) -> Version:
+    
+    def get_version_from_cli(self):
         cmd = [self.name]
         if self.version_arg:
             cmd.append(self.version_arg)
@@ -61,13 +62,14 @@ class Dependency:
                 f"Could not extract version from '{result}' for {self.name}."
             )
 
-        version = match.group(0)  # Get the matched version string
-
+        return match.group(0)
+    
+    def _base_validator(self, version_str) -> Version:
         try:
-            parsed_version = parse(version)
+            parsed_version = parse(version_str)
         except InvalidVersion:
             raise InvalidDependencyVersionError(
-                f"Could not parse version '{version}' for {self.name}."
+                f"Could not parse version '{version_str}' for {self.name}."
             )
 
         # Validate the extracted version against the given constraints
@@ -89,7 +91,25 @@ class Dependency:
             )
 
         return parsed_version
+ 
+class PythonDependency(Dependency):
+    def check(self):
+        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError
 
+        try:
+            version = version(self.name)
+        except PackageNotFoundError:
+            raise MissingDependencyError(
+                f"Could not find dependency {self.name}! Please install it."
+            )
+        return self._base_validator(version)
+
+# Python Dependencies
+biopython = PythonDependency(
+    "biopython",
+    citation="Peter J. A. Cock, Tiago Antao, Jeffrey T. Chang, Brad A. Chapman, Cymon J. Cox, Andrew Dalke, Iddo Friedberg, Thomas Hamelryck, Frank Kauff, Bartek Wilczynski, Michiel J. L. de Hoon, Biopython: freely available Python tools for computational molecular biology and bioinformatics, Bioinformatics, Volume 25, Issue 11, June 2009, Pages 1422-1423, https://doi.org/10.1093/bioinformatics/btp163"
+)
 
 # Alignment
 samtools = Dependency(
