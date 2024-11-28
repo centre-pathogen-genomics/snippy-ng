@@ -14,9 +14,14 @@ class Pipeline:
     stages: List[BaseStage]
     line: str = "-" * 39
 
-    def __init__(self, stages: List[BaseStage]):
+    def __init__(self, stages: List[BaseStage] = None):
+        if stages is None:
+            stages = []
         self.stages = stages
-        
+    
+    def add_stage(self, stage):
+        self.stages.append(stage)
+
     @property
     def dependencies(self):
         return [dep for stage in self.stages for dep in stage._dependencies]
@@ -32,7 +37,7 @@ class Pipeline:
 
     def welcome(self):
         self.log(self.line)
-        self.log("  🦘 ⚡ ✂️ Running Snippy-NG ✂️ ⚡ 🦘")
+        self.log("  🦘 ⚡✂️   Running Snippy-NG  ✂️  ⚡🦘")
         self.log(self.line)
         self.log(f"Version: {__version__}")
         self.log(self.line)

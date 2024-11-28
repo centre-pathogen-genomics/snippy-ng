@@ -98,13 +98,13 @@ def snps(**kwargs):
     # Choose stages to include in the pipeline
     stages = []
     try:
-        setup = PrepareReference(input=kwargs["reference"], outdir=kwargs["outdir"])
+        setup = PrepareReference(input=kwargs["reference"], ref_fmt=reference_format)
         kwargs["reference"] = setup.output.reference
         stages.append(setup)
-        if not kwargs["bam"]:
-            aligner = BWAMEMReadsAligner(**kwargs)
-        else:
+        if kwargs["bam"]:
             aligner = PreAlignedReads(**kwargs)
+        else:
+            aligner = BWAMEMReadsAligner(**kwargs)
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
         stages.append(FreebayesCaller(**kwargs))
