@@ -27,7 +27,9 @@ classifiers = [
 dependencies = [
   "click",
   "packaging",
-  "pydantic"
+  "pydantic",
+  "biopython",
+  "bcbio-gff",
 ]
 
 [project.urls]
