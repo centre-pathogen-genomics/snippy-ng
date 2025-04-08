@@ -7,6 +7,7 @@ from io import StringIO
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
+from snippy_ng.exceptions import SkipStageError
 
 from pydantic import BaseModel
 
@@ -66,6 +67,9 @@ class BaseStage(BaseModel):
             except subprocess.CalledProcessError as e:
                 logger.error(f"Command failed with exit code {e.returncode}")
                 raise RuntimeError(f"Failed to run command: {cmd}")
+            except SkipStageError as e:
+                logger.warning(f"Skipping stage: {e}")
+                raise e
             except Exception as e:
                 logger.error(f"Function call failed: {e}")
                 raise RuntimeError(f"Failed to run function: {cmd}")

@@ -66,7 +66,7 @@ def snps(**kwargs):
     from snippy_ng.stages.setup import PrepareReference
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, PreAlignedReads
     from snippy_ng.stages.calling import FreebayesCaller
-    from snippy_ng.exceptions import DependencyError
+    from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.seq_utils import guess_format
 
     from pydantic import ValidationError
@@ -130,6 +130,9 @@ def snps(**kwargs):
     snippy.set_working_directory(kwargs["outdir"])
     try:
         snippy.run(quiet=kwargs["quiet"])
+    except MissingOutputError as e:
+        snippy.error(e)
+        return 1
     except RuntimeError as e:
         snippy.error(e)
         return 1

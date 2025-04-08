@@ -1,8 +1,9 @@
 import random
 from typing import List
 import os
+from pathlib import Path
 
-from snippy_ng.exceptions import DependencyError
+from snippy_ng.exceptions import DependencyError, SkipStageError, MissingOutputError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, URL
 from snippy_ng.stages.base import BaseStage
@@ -28,7 +29,10 @@ class Pipeline:
 
     def log(self, msg):
         logger.info(msg)
-
+    
+    def warning(self, msg):
+        logger.warning(msg)
+    
     def debug(self, msg):
         logger.debug(msg)
 
@@ -50,6 +54,7 @@ class Pipeline:
         for stage in self.stages:
             self.log(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
+                # TODO: skip if already checked
                 try:
                     version = dependency.check()
                     self.log(f"Found {dependency.name} v{version}")
@@ -71,8 +76,16 @@ class Pipeline:
         for stage in self.stages:
             self.log(f"RUNNING {stage.name} STAGE...")
             self.log(stage)
-            stage.run(quiet)
-            self.log(f"STAGE {stage.name} COMPLETE!")
+            try:
+                stage.run(quiet)
+                for name, output in stage.output:
+                    if not Path(output).exists():
+                        self.error(f"Output file {output} not found!")
+                        raise MissingOutputError("Output file not found!")
+                self.log(f"STAGE {stage.name} COMPLETE!")
+            except SkipStageError:
+                self.stages.remove(stage)
+                self.warning(f"STAGE {stage.name} SKIPPED!")
 
     def cleanup(self):
         # Clean up unnecessary files
@@ -84,8 +97,8 @@ class Pipeline:
         for stage in self.stages:
             for dependency in stage._dependencies:
                 if dependency.citation:
-                    citations.append(dependency)
-        return citations
+                    citations.append(dependency.citation)
+        return sorted(set(citations))
 
     def goodbye(self):
         messages = [
@@ -119,6 +132,6 @@ class Pipeline:
         self.log(self.line)
         self.log("  🦘 ⚡ ✂️ Snippy-NG complete! ✂️ ⚡ 🦘")
         self.log(self.line)
-        self.log(f"Please cite the following:\n{'- ' + '\n- '.join(set(c.citation for c in self.citations))}")
+        self.log(f"Please cite the following:\n{'- ' + '\n- '.join(self.citations)}")
         self.log(self.line)
         self.log(f"{random.choice(messages)}")

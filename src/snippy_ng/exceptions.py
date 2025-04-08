@@ -12,3 +12,9 @@ class InvalidDependencyVersionError(DependencyError):
 
 class MissingInputError(Exception):
     pass
+
+class MissingOutputError(Exception):
+    pass
+
+class SkipStageError(Exception):
+    pass
