@@ -39,8 +39,8 @@ class FreebayesCaller(Caller):
     @property
     def output(self) -> FreebayesCallerOutput:
         return FreebayesCallerOutput(
-                raw_vcf=self.prefix + "raw.vcf",
-                filter_vcf=self.prefix + "flit.vcf"
+                raw_vcf=self.prefix + ".raw.vcf",
+                filter_vcf=self.prefix + ".flit.vcf"
             )
 
     @property
