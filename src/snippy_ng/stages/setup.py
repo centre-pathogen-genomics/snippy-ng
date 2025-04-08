@@ -65,8 +65,6 @@ class PrepareReference(BaseStage):
         nseq = 0
         nfeat = 0
         with open(output_fasta_path, "w") as fasta_out, open(output_gff_path, "w") as gff_out:
-            gff_writer = GFF.GFF3Writer()  # Initialize BCBio GFF writer
-
             for seq_record in seq_records:
                 # Check for duplicate sequences
                 if seq_record.id in ref_seq_dict:
