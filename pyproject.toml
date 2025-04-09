@@ -65,8 +65,8 @@ cov = [
   "cov-report",
 ]
 release = [
-  "semantic-release version",
-  "semantic-release changelog",
+  "semantic-release version --no-commit",
+  "hatch version $(semantic-release version --print)",
 ]
 
 [[tool.hatch.envs.all.matrix]]
