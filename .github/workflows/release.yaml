@@ -1,4 +1,4 @@
-name: Test and coverage
+name: Release
 
 on:
   push:
@@ -64,6 +64,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Setup | Force release branch to be at workflow sha
         run: |
