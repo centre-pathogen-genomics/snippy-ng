@@ -1,7 +1,6 @@
 .DS_Store
 *.pyc
 hyperfine.csv
-snps.*
 out
 # pixi environments
 .pixi
@@ -10,3 +9,5 @@ output
 env
 activate.sh
 environment.sh
+coverage.xml
+.coverage

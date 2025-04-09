@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import samtools, bwa, samclip
-from pydantic import Field, validator, BaseModel
+from pydantic import Field, field_validator, BaseModel
 
 
 class AlignerOutput(BaseModel):
@@ -60,7 +60,8 @@ class BWAMEMReadsAligner(Aligner):
     )
     bwaopt: str = Field("", description="Additional BWA options")
 
-    @validator("reads")
+    @field_validator("reads")
+    @classmethod
     def check_reads(cls, v):
         if not v:
             raise ValueError("Reads list must not be empty")
@@ -89,7 +90,8 @@ class PreAlignedReads(Aligner):
 
     _dependencies = [samtools, samclip]
 
-    @validator("bam")
+    @field_validator("bam")
+    @classmethod
     def bam_exists(cls, v):
         if not v.exists():
             raise ValueError("BAM file does not exist")
