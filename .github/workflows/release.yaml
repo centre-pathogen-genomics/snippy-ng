@@ -118,3 +118,4 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
           prerelease: true
+          ssh_private_signing_key: ${{ secrets.DEPLOY_KEY }}
