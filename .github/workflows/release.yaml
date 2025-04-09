@@ -175,6 +175,11 @@ jobs:
       - name: Install Hatch
         run: pip install hatch
       
+      - name: Configure git
+        run: |
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+
       - name: Merge develop into main
         run: |
           git checkout main
