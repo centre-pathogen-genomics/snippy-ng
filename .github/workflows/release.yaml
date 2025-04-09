@@ -185,6 +185,9 @@ jobs:
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: hatch run release
+        run: |
+          hatch run release
+          git add .
+          git commit -m "Release v$(hatch run semantic-release version --print)"
       
 
