@@ -1,8 +1,6 @@
 name: Test and coverage
 
 on:
-  push:
-    branches: [main]          # every push to main
   pull_request:               # and every PR targeting main
     branches: [main]
 
@@ -34,10 +32,3 @@ jobs:
           diff-branch: main
           coverage-reduction-failure: true   # 🔴 makes the job fail
           fail: true                         # same, explicit
-          publish: true                      # nice PR summary comment
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.xml
-          tokens: ${{ secrets.CODECOV_TOKEN }}
