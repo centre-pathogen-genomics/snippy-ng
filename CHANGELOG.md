@@ -1,6 +1,38 @@
 # CHANGELOG
 
 
+## v0.3.2 (2025-04-09)
+
+### Bug Fixes
+
+- Push changes
+  ([`11816a9`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/11816a9e9971251c747a85053b12aab89a1cdf04))
+
+
+## v0.3.1 (2025-04-09)
+
+### Bug Fixes
+
+- Commit release
+  ([`4d494b8`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/4d494b8998b27c675db78af3e87b8b72f548d39c))
+
+
+## v0.3.0 (2025-04-09)
+
+### Chores
+
+- Remove benchmark workflow
+  ([`c835035`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/c8350356cc3a70d7b1636173c29018d58a72dffa))
+
+### Features
+
+- Add benchmark to release workflow
+  ([`0b9c3ff`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/0b9c3ff52b09dce9f4ff348245a250bc4e533579))
+
+- Update release
+  ([`6c3370d`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/6c3370d4116b345a7c5e53212b549a586819c0d6))
+
+
 ## v0.2.1 (2025-04-09)
 
 ### Bug Fixes
