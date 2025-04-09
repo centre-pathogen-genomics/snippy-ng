@@ -91,3 +91,24 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.pixi.project]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "linux-aarch64", "osx-64"]
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+# python dependencies
+bcbio-gff = { version = ">=0.7.1,<0.8", channel = "bioconda" }
+click   = { version = "*", channel = "conda-forge" }
+packaging =  { version = "*", channel = "conda-forge" }
+pydantic  = { version = "*", channel = "conda-forge" }
+biopython = { version = "*", channel = "conda-forge" }
+# external dependencies
+samtools = { version = "<1.21", channel = "bioconda" }
+samclip = { version = ">=0.4.0", channel = "bioconda" }
+bwa = { version = ">=0.7.19,<0.8", channel = "bioconda" }
+freebayes = { version = ">=1.3.2", channel = "bioconda" }
+bcftools = { version = ">=1.21,<2", channel = "bioconda" }
+vt = { version = ">=0.57721,<2016", channel = "bioconda" }  # doesn't work on osx-arm64
