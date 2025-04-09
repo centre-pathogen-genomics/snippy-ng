@@ -8,27 +8,11 @@ permissions:
   contents: write
 
 jobs:
+
   test-and-coverage:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/tests.yml 
+    secrets: inherit                     # pass all secrets down
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set-up pixi environment
-        uses: prefix-dev/setup-pixi@v0.8.3
-
-      - name: Install Hatch
-        run: pip install hatch
-
-      - name: Run tests with coverage
-        run: |
-          hatch run cov
-      
-      - name: Fail if coverage decreased
-        uses: insightsengineering/coverage-action@v2
-        with:
-          path: ./coverage.xml
-          diff: true
-          diff-branch: main
-          coverage-reduction-failure: true   # 🔴 makes the job fail
-          fail: true                         # same, explicit
+  benchmark:
+    uses: ./.github/workflows/benchmark.yml
+    secrets: inherit
