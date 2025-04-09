@@ -1,4 +1,4 @@
-name: CLI experience
+name: Benchmark responsiveness of CLI commands 
 
 on:
   push:
