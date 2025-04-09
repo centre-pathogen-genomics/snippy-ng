@@ -1,0 +1,59 @@
+name: CLI Benchmark
+
+on:
+  workflow_call:      # allows this workflow to be re‑used
+    secrets: inherit  # caller passes all its secrets automatically
+
+jobs:
+  benchmark:
+    name: CLI responsiveness with latest Python
+    runs-on: ubuntu-latest
+    permissions: write-all
+    env:
+      STABLE_PYTHON_VERSION: '3.12'
+      HYPERFINE_VERSION: '1.18.0'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python ${{ env.STABLE_PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | sh
+
+      - name: Install hyperfine
+        uses: taiki-e/install-action@v2
+        with:
+          tool: hyperfine@${{ env.HYPERFINE_VERSION }}
+
+      - name: Install ourself
+        run: uv pip install --system .
+
+      - name: Benchmark
+        id: Benchmark
+        run: |
+          hyperfine -m 100 --warmup 10 --export-csv=hyperfine.csv \
+            "snippy-ng --help" \
+            "snippy-ng snps --help"
+          max=$(awk -F, 'NR>1 {print $2}' hyperfine.csv | sort -n | tail -1)
+          max=$(echo "$max * 1000" | bc)            # s → ms
+          max=$(printf "%.1f" "$max")
+          if (( $(echo "$max > 200" | bc -l) )); then
+            exit 1
+          fi
+          echo "BENCHMARK=${max} ms" >> "$GITHUB_OUTPUT"
+
+      - name: Benchmark badge
+        uses: RubbaBoy/BYOB@v1.3.0
+        with:
+          NAME: benchmark
+          ICON: https://raw.githubusercontent.com/centre-pathogen-genomics/snippy-ng/main/docs/images/bolt.svg
+          STATUS: ${{ steps.Benchmark.outputs.BENCHMARK }}
+          COLOR: f1c40f
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
