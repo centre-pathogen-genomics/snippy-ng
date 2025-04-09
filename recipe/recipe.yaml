@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/prefix-dev/recipe-format/main/schema.json
+
+package:
+  name: snippy-ng
+  version: "0.0.1"
+
+source:
+  path: ../
+
+build:
+  number: 0
+  noarch: python
+  script:
+    - python -m pip install . -v
+
+requirements:
+  host:
+    - python >=3.8
+    - pip
+    - hatchling
+  run:
+    - python >=3.8
+    - click
+    - packaging
+    - pydantic
+    - biopython
+    - bcbio-gff
+
+tests:
+  - python:
+      imports:
+        - snippy_ng

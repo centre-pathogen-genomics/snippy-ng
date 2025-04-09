@@ -3,3 +3,10 @@
 hyperfine.csv
 snps.*
 out
+# pixi environments
+.pixi
+*.egg-info
+output
+env
+activate.sh
+environment.sh
