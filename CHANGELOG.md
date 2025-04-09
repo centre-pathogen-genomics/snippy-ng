@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.2.0 (2025-04-09)
+
+### Features
+
+- Add ssh key
+  ([`814c2d8`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/814c2d8c80aee7006c07b2e243cfcc8d704eed18))
+
+- Add token to release workflow
+  ([`2e3b879`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2e3b8796eca56869580b45d8716c774e93f88ac9))
+
+
 ## v0.1.0 (2025-04-09)
 
 ### Bug Fixes
