@@ -1,10 +1,12 @@
 # CHANGELOG
 
 
-## v0.1.0-rc.2 (2025-04-09)
-
-
 ## v0.1.0 (2025-04-09)
+
+### Bug Fixes
+
+- Replace semantic-release action
+  ([`005dab1`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/005dab184ff80719f55ca51b40224a90a2ad9c06))
 
 ### Features
 
