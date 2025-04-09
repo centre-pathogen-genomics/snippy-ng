@@ -194,5 +194,6 @@ jobs:
           hatch run release
           git add .
           git commit -m "Release v$(hatch run semantic-release version --print)"
+          git push
       
 
