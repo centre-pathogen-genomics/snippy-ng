@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    branches: [dev] 
   workflow_dispatch: # manual trigger
     
   
@@ -19,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: 'dev'
+          ref: 'main'
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set-up pixi environment
@@ -126,7 +124,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: 'dev'
+          ref: 'main'
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Setup | Force release branch to be at workflow sha
@@ -179,13 +177,6 @@ jobs:
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
-
-      - name: Merge develop into main
-        run: |
-          git checkout main
-          git pull
-          git merge origin/dev
-          git push
 
       - name: Release
         env:
