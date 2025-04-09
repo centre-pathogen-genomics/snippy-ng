@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.1.0-rc.2 (2025-04-09)
+
+
+## v0.1.0 (2025-04-09)
+
+### Features
+
+- Add manual release workflow
+  ([`d01c77a`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/d01c77a97b1f772a605b8237f2efb5d34774113d))
+
+
 ## v0.1.0-rc.1 (2025-04-09)
 
 ### Bug Fixes
