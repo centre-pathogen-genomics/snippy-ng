@@ -111,13 +111,9 @@ jobs:
 
           printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
 
-      - name: Action | Semantic Version Release
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Release
         id: release
-        # Adjust tag with desired version if applicable.
-        uses: python-semantic-release/python-semantic-release@v9.21.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          git_committer_name: "github-actions"
-          git_committer_email: "actions@users.noreply.github.com"
-          prerelease: true
-          ssh_private_signing_key: ${{ secrets.DEPLOY_KEY }}
+        run: hatch run release
