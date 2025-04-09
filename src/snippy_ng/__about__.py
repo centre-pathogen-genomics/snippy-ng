@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Wytamma Wirth <wytamma.wirth@me.com>
 #
 # SPDX-License-Identifier: MIT
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # Version and executable information
 EXE = "snippy-ng"

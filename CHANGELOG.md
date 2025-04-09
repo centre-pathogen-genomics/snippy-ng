@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.2.1 (2025-04-09)
+
+### Bug Fixes
+
+- Update release.yaml
+  ([`36ffa42`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/36ffa42f5c47e92b98d5a48a2156f458f3c5e4c1))
+
+
 ## v0.2.0 (2025-04-09)
 
 ### Features
