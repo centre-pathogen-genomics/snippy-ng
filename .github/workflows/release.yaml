@@ -116,4 +116,6 @@ jobs:
 
       - name: Release
         id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: hatch run release
