@@ -1,7 +1,20 @@
 # CHANGELOG
 
 
+## v0.3.9 (2025-04-10)
+
+### Bug Fixes
+
+- Update pixi-pack-install-script version to v2
+  ([`6489690`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/64896908c9eaf500b9091e14fd5160dedeadf725))
+
+
 ## v0.3.8 (2025-04-10)
+
+### Bug Fixes
+
+- Update checkout step to use release tag and bump pixi-pack-install-script version
+  ([`4d481a7`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/4d481a70fa77209663ff04bc968884b170b9976a))
 
 
 ## v0.3.7 (2025-04-10)
