@@ -13,8 +13,15 @@
 
 ## Installation
 
+`snippy-ng` is available on [PyPI](https://pypi.org/project/snippy-ng/) and can be installed using `pip` (without external dependencies):
 ```console
 pip install snippy-ng
+```
+
+The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
+
+```console
+curl -sSL https://github.com/centre-pathogen-genomics/snippy-ng/releases/latest/download/install.sh | bash
 ```
 
 ## License
