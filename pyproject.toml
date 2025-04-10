@@ -100,6 +100,7 @@ exclude_lines = [
 
 [tool.semantic_release]
 version_variables = ["src/snippy_ng/__about__.py:__version__"]
+repository = "git@github.com:centre-pathogen-genomics/snippy-ng.git"
 
 [tool.pixi.project]
 channels = ["conda-forge", "bioconda"]
