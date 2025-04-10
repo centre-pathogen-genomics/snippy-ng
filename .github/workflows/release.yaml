@@ -104,21 +104,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Pixi-Pack
-        uses: wytamma/pixi-pack-action@v5
+        uses: wytamma/pixi-pack-action@v5.1
         with:
           platform: ${{ matrix.platform }}
           recipe: "recipe/recipe.yaml"
           rattler-build-channels: "conda-forge,bioconda"
+          version: ${{ needs.release.outputs.tag }}
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release.outputs.tag }}
-          files: "${{ github.event.repository.name }}-*.sh, install.sh"
+          files: "${{ github.event.repository.name }}-*.sh"
   
   create-install-script:
     runs-on: ubuntu-latest
-    needs: pack-pixi-environments
+    needs: [pack-pixi-environments, release]
     steps:
       - name: Create install script
         uses: wytamma/pixi-pack-install-script@v1
@@ -128,5 +129,5 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release.outputs.tag }} 
+          tag_name: ${{ needs.release.outputs.tag }}
           files: "install.sh"
