@@ -11,3 +11,4 @@ activate.sh
 environment.sh
 coverage.xml
 .coverage
+dist/

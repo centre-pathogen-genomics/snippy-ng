@@ -1,4 +1,4 @@
-# snippy-ng
+# Snippy-NG
 
 [![PyPI - Version](https://img.shields.io/pypi/v/snippy-ng.svg)](https://pypi.org/project/snippy-ng)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snippy-ng.svg)](https://pypi.org/project/snippy-ng)
@@ -13,9 +13,9 @@
 
 ## Installation
 
-`snippy-ng` is available on [PyPI](https://pypi.org/project/snippy-ng/) and can be installed using `pip` (without external dependencies):
+`snippy` is available on [PyPI](https://pypi.org/project/snippy-ng/) and can be installed using `pip` (without external dependencies):
 ```console
-pip install snippy-ng
+pip install snippy-nextgen
 ```
 
 The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
