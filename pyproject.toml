@@ -64,10 +64,6 @@ cov = [
   "test-cov",
   "cov-report",
 ]
-release = [
-  "semantic-release version --no-push",
-  "semantic-release changelog",
-]
 
 [[tool.hatch.envs.all.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
@@ -101,6 +97,9 @@ exclude_lines = [
 [tool.semantic_release]
 version_variables = ["src/snippy_ng/__about__.py:__version__"]
 repository = "git@github.com:centre-pathogen-genomics/snippy-ng.git"
+
+[tool.semantic_release.remote]
+ignore_token_for_push = true 
 
 [tool.pixi.project]
 channels = ["conda-forge", "bioconda"]
