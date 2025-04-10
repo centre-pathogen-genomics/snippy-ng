@@ -76,8 +76,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           hatch run release
-          git add .
-          git commit -m "chore(release): v$(hatch run semantic-release version --print)"
           git push
   
   build-and-release:
