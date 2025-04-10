@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v0.4.0 (2025-04-10)
+
+### Bug Fixes
+
+- Update PyPI badge links to reflect the correct project name
+  ([`187c3e9`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/187c3e9f9f05c7af73ee5845128075ad4bbf26a5))
+
+- Update README and .gitignore for consistency and clarity
+  ([`1c6b0ed`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/1c6b0ed938beb3b021f7ea1193052f39431c6e21))
+
+### Features
+
+- Add pypi job for building and publishing packages
+  ([`c50cc9f`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/c50cc9f6ecabcf44268e13f56339884b743524c5))
+
+- Update project name and enhance metadata in pyproject.toml
+  ([`3be44bb`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/3be44bbbe21ef9ab89b4a6cb45aa2cdae9ce3f83))
+
+
 ## v0.3.9 (2025-04-10)
 
 ### Bug Fixes
