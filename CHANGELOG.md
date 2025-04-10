@@ -5,6 +5,23 @@
 
 ### Bug Fixes
 
+- Add 'force' input to release workflow to skip tests and benchmarks
+  ([`c44bbd7`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/c44bbd7de66e53dbb8006e7ddf7142b2267afc92))
+
+- Remove unused release commands and update semantic release configuration
+  ([`8cdb251`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/8cdb2517fd5ecbdfcb6e4e6528976e0275acec41))
+
+- Update release job conditions to include 'force' input for immediate release
+  ([`212ad06`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/212ad06e1d5ab72e1f2918b509383ba7f23c8356))
+
+- Update SSH remote configuration and add repository URL for semantic release
+  ([`6adbfb8`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/6adbfb89808fa87b43c1c77335df6e5d0dd85dba))
+
+
+## v0.3.3 (2025-04-09)
+
+### Bug Fixes
+
 - Correct file extensions from .yml to .yaml in workflow configuration
   ([`af66615`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/af6661544c1a7ca6aded178eab87fcc2ddce1ca9))
 
@@ -13,6 +30,12 @@
 
 - Correct permissions configuration in benchmark workflow
   ([`30430bf`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/30430bfeffa554c91e63c5823a1c8447196d510d))
+
+- Enhance SSH configuration for deployment in release workflow
+  ([`7a180e9`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/7a180e9ac564c4b1d4486f73d407c1a6d66cd037))
+
+- Manual release workflow
+  ([`2a6d406`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2a6d4065cd61ed90f973e7275411f4dfcefcd57b))
 
 - Remove unnecessary checkout options in workflow configurations
   ([`a0e065d`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/a0e065dfb26cc404e4fbef24fc55909d7e678c3c))
@@ -29,6 +52,9 @@
 - Remove unnecessary secrets inheritance from benchmark workflow
   ([`f9d374a`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/f9d374a051aae6e96423e8512d4da84139ae2d33))
 
+- Update job dependencies in release workflow
+  ([`8cba440`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/8cba4408ccaa0a63d61cca20cf7215b2fead26ef))
+
 - Update permissions and secrets configuration in workflows
   ([`2cf045c`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2cf045ce70a776152368ea3e818abddbdaf5160c))
 
@@ -37,6 +63,9 @@
 
 - Update release command to prevent pushing during versioning
   ([`904903e`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/904903e7b78f27e4b818ee21cc77960b7431b8d7))
+
+- Update release workflow to use semantic-release and rename jobs
+  ([`6bb0728`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/6bb0728be26b4e4c71307ec74e464a59440307ec))
 
 ### Chores
 
@@ -52,14 +81,6 @@
 
 - Streamline CI workflows by modularizing tests and benchmarks
   ([`87ba582`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/87ba582965c7454293dd5f9a6d7c5377b5769465))
-
-
-## v0.3.3 (2025-04-09)
-
-### Bug Fixes
-
-- Manual release workflow
-  ([`2a6d406`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2a6d4065cd61ed90f973e7275411f4dfcefcd57b))
 
 
 ## v0.3.2 (2025-04-09)
