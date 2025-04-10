@@ -3,13 +3,19 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "snippy-ng"
+name = "snippy-nextgen"
 dynamic = ["version"]
-description = ''
+description = 'The Next Generation of Microbial Variant Calling with Snippy'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
-keywords = []
+keywords = [
+  "snippy",
+  "variant calling",
+  "bioinformatics",
+  "genomics",
+  "microbial genomics",
+]
 authors = [
   { name = "Wytamma Wirth", email = "wytamma.wirth@me.com" },
 ]
@@ -33,15 +39,18 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/unknown/snippy-ng#readme"
-Issues = "https://github.com/unknown/snippy-ng/issues"
-Source = "https://github.com/unknown/snippy-ng"
+Documentation = "https://github.com/centre-pathogen-genomics/snippy-ng#readme"
+Issues = "https://github.com/centre-pathogen-genomics/snippy-ng/issues"
+Source = "https://github.com/centre-pathogen-genomics/snippy-ng"
 
 [project.scripts]
 snippy-ng = "snippy_ng.cli:snippy_ng"
 
 [tool.hatch.version]
 path = "src/snippy_ng/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snippy_ng"]
 
 [tool.hatch.envs.default]
 dependencies = [
