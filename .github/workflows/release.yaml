@@ -29,6 +29,9 @@ jobs:
       id-token: write
       contents: write
 
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+
     steps:
       - name: Checkout release branch
         uses: actions/checkout@v4
@@ -78,15 +81,14 @@ jobs:
 
           git remote -v            # quick sanity-check
 
-      - name: Show who can push
-        run: ssh -T git@github.com || true
-        env:
-          GIT_SSH_COMMAND: "ssh -i ${{ secrets.DEPLOY_KEY }} -o StrictHostKeyChecking=no"
-
       - name: Release
+        id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: hatch run semantic-release version 
+        run: |
+          hatch run semantic-release version
+          TAG=$(hatch run semantic-release version --print-last-released-tag)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
   
   pack-pixi-environments:
     runs-on: ubuntu-latest
@@ -111,6 +113,7 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.release.outputs.tag }}
           files: "${{ github.event.repository.name }}-*.sh, install.sh"
   
   create-install-script:
@@ -125,4 +128,5 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.release.outputs.tag }} 
           files: "install.sh"
