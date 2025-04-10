@@ -9,11 +9,6 @@ on:
         required: false
         type: boolean
         default: false
-    secrets:
-      DEPLOY_KEY:
-        required: true
-      CODECOV_TOKEN:
-        required: true
 
 jobs:
   test-and-coverage:
@@ -40,9 +35,10 @@ jobs:
           diff-branch: main
           coverage-reduction-failure: true
           fail: true
-          publish: ${{ inputs.publish }}
+          publish: true 
 
       - name: Upload coverage reports to Codecov
+        if: ${{ inputs.publish }}
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
