@@ -1,12 +1,23 @@
 # CHANGELOG
 
 
+## v0.3.8 (2025-04-10)
+
+
 ## v0.3.7 (2025-04-10)
 
 ### Bug Fixes
 
+- Add support for linux-aarch64 platform in release workflow
+  ([`cb021ce`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/cb021cea133dff5eacd559562cdda53a3cc2f0f7))
+
 - Update pixi-pack action version and adjust release workflow outputs
   ([`72c7fac`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/72c7fac91a9c874f8d89964b7f1c69f796a1406a))
+
+### Documentation
+
+- Add installation script command to README
+  ([`71d7cc7`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/71d7cc700dacfcdce47282181928dd58e200985c))
 
 
 ## v0.3.6 (2025-04-10)
