@@ -2,13 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:   # manual trigger
-    inputs:
-      force:
-        description: "Skip tests & benchmarks and release immediately"
-        type: boolean
-        required: false
-        default: false   
-
 
 permissions:
   contents: write
@@ -16,22 +9,17 @@ permissions:
 
 jobs:
   test-and-coverage:
-    if: ${{ github.event.inputs.force != 'true' }}  # skip if force is true
     uses: ./.github/workflows/tests.yaml 
     with:
       publish: true
     secrets: inherit                     # pass all secrets down
 
   benchmark:
-    if: ${{ github.event.inputs.force != 'true' }}  # skip if force is true
     uses: ./.github/workflows/benchmark.yaml
     secrets: inherit
 
   release:
     needs: [test-and-coverage, benchmark]
-    if: ${{ inputs.force == 'true' ||
-            (needs.test-and-coverage.result == 'success' &&
-             needs.benchmark.result       == 'success') }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
