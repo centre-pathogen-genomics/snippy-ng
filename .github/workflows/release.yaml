@@ -75,10 +75,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          hatch run release
-          git push
+          hatch run semantic-release version 
   
-  build-and-release:
+  pack-pixi-environments:
     runs-on: ubuntu-latest
     needs: release
 
@@ -96,13 +95,14 @@ jobs:
         with:
           platform: ${{ matrix.platform }}
           recipe: "recipe/recipe.yaml"
+          pixi-pack-version: "0.4.0"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           files: "${{ github.event.repository.name }}-*.sh, install.sh"
   
-  create-install-script-and-release:
+  create-install-script:
     runs-on: ubuntu-latest
     needs: build-and-release
     steps:
