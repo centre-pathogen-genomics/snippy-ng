@@ -29,6 +29,9 @@ jobs:
 
   release:
     needs: [test-and-coverage, benchmark]
+    if: ${{ inputs.force == 'true' ||
+            (needs.test-and-coverage.result == 'success' &&
+             needs.benchmark.result       == 'success') }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
