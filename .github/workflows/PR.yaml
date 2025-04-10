@@ -12,7 +12,7 @@ jobs:
   test-and-coverage:
     uses: ./.github/workflows/tests.yaml
     permissions:               # 👈 grant the scopes downstream
-      contents: read
+      contents: write
       pull-requests: write
     secrets: inherit                     # pass all secrets down
 
