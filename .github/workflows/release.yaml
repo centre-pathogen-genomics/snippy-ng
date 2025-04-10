@@ -73,7 +73,9 @@ jobs:
 
       - name: Switch the remote to SSH (so the deploy key is used)
         run: |
-          git remote set-url origin git@github.com:${{ github.repository }}.git
+          git remote set-url     origin git@github.com:${{ github.repository }}.git
+          git remote set-url --push origin git@github.com:${{ github.repository }}.git
+
           git remote -v            # quick sanity-check
 
       - name: Show who can push
