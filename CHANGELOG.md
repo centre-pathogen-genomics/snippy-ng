@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.3.5 (2025-04-10)
+
+### Bug Fixes
+
+- Remove 'force' input from release workflow and adjust job conditions
+  ([`a4ebebc`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/a4ebebc4c5239d36c7dbb66f472b646c8980c688))
+
+- Update pixi-pack action to v5 and modify build channels
+  ([`0bb02a1`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/0bb02a1f93ece23de566799df057582d95fa83e3))
+
+
 ## v0.3.4 (2025-04-10)
 
 ### Bug Fixes
