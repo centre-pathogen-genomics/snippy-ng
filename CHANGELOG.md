@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.6 (2025-04-10)
+
+### Bug Fixes
+
+- Update release workflow to capture and use the release tag output
+  ([`0738d37`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/0738d37bd494d71cd9b6afe2f8351c9f2d5f7a35))
+
+
 ## v0.3.5 (2025-04-10)
 
 ### Bug Fixes
