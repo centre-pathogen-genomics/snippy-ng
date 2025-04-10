@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.7 (2025-04-10)
+
+### Bug Fixes
+
+- Update pixi-pack action version and adjust release workflow outputs
+  ([`72c7fac`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/72c7fac91a9c874f8d89964b7f1c69f796a1406a))
+
+
 ## v0.3.6 (2025-04-10)
 
 ### Bug Fixes
