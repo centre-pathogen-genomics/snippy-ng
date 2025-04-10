@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/3c8248a0-cf44-4aa3-a555-7ffb55284b4a)![image](https://github.com/user-attachments/assets/adaf632d-8764-4885-a0bf-42a2049f51f2)# Snippy-NG
+# Snippy-NG
 
 [![PyPI - Version](https://img.shields.io/pypi/v/snippy-nextgen.svg)](https://pypi.org/project/snippy-nextgen)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snippy-nextgen.svg)](https://pypi.org/project/snippy-nextgen)
