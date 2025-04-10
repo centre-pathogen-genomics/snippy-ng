@@ -1,6 +1,67 @@
 # CHANGELOG
 
 
+## v0.3.4 (2025-04-10)
+
+### Bug Fixes
+
+- Correct file extensions from .yml to .yaml in workflow configuration
+  ([`af66615`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/af6661544c1a7ca6aded178eab87fcc2ddce1ca9))
+
+- Correct file extensions in workflow configuration
+  ([`00c9495`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/00c9495624b7542e2df5f0d5509ee3242e656b98))
+
+- Correct permissions configuration in benchmark workflow
+  ([`30430bf`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/30430bfeffa554c91e63c5823a1c8447196d510d))
+
+- Remove unnecessary checkout options in workflow configurations
+  ([`a0e065d`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/a0e065dfb26cc404e4fbef24fc55909d7e678c3c))
+
+- Remove unnecessary git add and commit commands from release workflow
+  ([`b2dbead`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/b2dbead5319eeed504a2f1e770fabd13eb50c93b))
+
+- Remove unnecessary Git ref input from workflow configuration
+  ([`50dba48`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/50dba48a7389ccdcdb8f46cfdadfb81a38f3943d))
+
+- Remove unnecessary secrets from workflow configuration
+  ([`054c62c`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/054c62ccad2a8ab9668a99592bbe4de2b6eb05ce))
+
+- Remove unnecessary secrets inheritance from benchmark workflow
+  ([`f9d374a`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/f9d374a051aae6e96423e8512d4da84139ae2d33))
+
+- Update permissions and secrets configuration in workflows
+  ([`2cf045c`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2cf045ce70a776152368ea3e818abddbdaf5160c))
+
+- Update permissions to write for contents in workflows
+  ([`f423c10`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/f423c1072ea33c1b390095c2f5849e6458d586bb))
+
+- Update release command to prevent pushing during versioning
+  ([`904903e`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/904903e7b78f27e4b818ee21cc77960b7431b8d7))
+
+### Chores
+
+- Update commit message format for release step
+  ([`ea4ced7`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/ea4ced70efb1c46269f952d0f6aff9bcae70751c))
+
+### Continuous Integration
+
+- Add build and release jobs to workflow
+  ([`7dd8d9d`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/7dd8d9d24588f6d76eca823173c83a538f6975db))
+
+### Refactoring
+
+- Streamline CI workflows by modularizing tests and benchmarks
+  ([`87ba582`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/87ba582965c7454293dd5f9a6d7c5377b5769465))
+
+
+## v0.3.3 (2025-04-09)
+
+### Bug Fixes
+
+- Manual release workflow
+  ([`2a6d406`](https://github.com/centre-pathogen-genomics/snippy-ng/commit/2a6d4065cd61ed90f973e7275411f4dfcefcd57b))
+
+
 ## v0.3.2 (2025-04-09)
 
 ### Bug Fixes
