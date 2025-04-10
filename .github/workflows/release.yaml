@@ -71,11 +71,20 @@ jobs:
           git config --local user.email "github-actions@github.com"
           git config --local user.name  "GitHub Actions"
 
+      - name: Switch the remote to SSH (so the deploy key is used)
+        run: |
+          git remote set-url origin git@github.com:${{ github.repository }}.git
+          git remote -v            # quick sanity-check
+
+      - name: Show who can push
+        run: ssh -T git@github.com || true
+        env:
+          GIT_SSH_COMMAND: "ssh -i ${{ secrets.DEPLOY_KEY }} -o StrictHostKeyChecking=no"
+
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          hatch run semantic-release version 
+        run: hatch run semantic-release version 
   
   pack-pixi-environments:
     runs-on: ubuntu-latest
