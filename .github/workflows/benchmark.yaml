@@ -2,7 +2,6 @@ name: CLI Benchmark
 
 on:
   workflow_call:      # allows this workflow to be re‑used
-    secrets: inherit  # caller passes all its secrets automatically
 
 jobs:
   benchmark:
