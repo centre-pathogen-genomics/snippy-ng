@@ -102,11 +102,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Pixi-Pack
-        uses: wytamma/pixi-pack-action@v4.1
+        uses: wytamma/pixi-pack-action@v5
         with:
           platform: ${{ matrix.platform }}
           recipe: "recipe/recipe.yaml"
-          pixi-pack-version: "0.4.0"
+          rattler-build-channels: "conda-forge,bioconda"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
