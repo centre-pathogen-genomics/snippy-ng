@@ -10,9 +10,12 @@ permissions:
 jobs:
 
   test-and-coverage:
-    uses: ./.github/workflows/tests.yml 
+    uses: ./.github/workflows/tests.yaml
+    permissions:               # 👈 grant the scopes downstream
+      contents: write
+      pull-requests: write
     secrets: inherit                     # pass all secrets down
 
   benchmark:
-    uses: ./.github/workflows/benchmark.yml
+    uses: ./.github/workflows/benchmark.yaml
     secrets: inherit

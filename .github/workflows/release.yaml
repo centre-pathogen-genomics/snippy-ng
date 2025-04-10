@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   test-and-coverage:
@@ -78,3 +79,41 @@ jobs:
           git add .
           git commit -m "chore(release): v$(hatch run semantic-release version --print)"
           git push
+  
+  build-and-release:
+    runs-on: ubuntu-latest
+    needs: release
+
+    strategy:
+      matrix:
+        platform: ["osx-64", "linux-64"]
+      fail-fast: true
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Run Pixi-Pack
+        uses: wytamma/pixi-pack-action@v4.1
+        with:
+          platform: ${{ matrix.platform }}
+          recipe: "recipe/recipe.yaml"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "${{ github.event.repository.name }}-*.sh, install.sh"
+  
+  create-install-script-and-release:
+    runs-on: ubuntu-latest
+    needs: build-and-release
+    steps:
+      - name: Create install script
+        uses: wytamma/pixi-pack-install-script@v1
+        with:
+          entrypoint: "snippy-ng"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "install.sh"

@@ -4,32 +4,24 @@ on:
   # makes this workflow reusable
   workflow_call:
     inputs:
-      ref:
-        description: Git ref to check out (defaults to main)
-        required: false
-        type: string
       publish:
         description: Whether to publish coverage reports to Codecov
         required: false
         type: boolean
         default: false
     secrets:
-      DEPLOY_KEY:
-        required: true
       CODECOV_TOKEN:
         required: true
 
 jobs:
   test-and-coverage:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+      pull-requests: write  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set-up pixi environment
         uses: prefix-dev/setup-pixi@v0.8.3
@@ -48,9 +40,10 @@ jobs:
           diff-branch: main
           coverage-reduction-failure: true
           fail: true
-          publish: ${{ inputs.publish }}
+          publish: true 
 
       - name: Upload coverage reports to Codecov
+        if: ${{ inputs.publish }}
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
