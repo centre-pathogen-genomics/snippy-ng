@@ -7,7 +7,8 @@ jobs:
   benchmark:
     name: CLI responsiveness with latest Python
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      contents: write 
     env:
       STABLE_PYTHON_VERSION: '3.12'
       HYPERFINE_VERSION: '1.18.0'
