@@ -90,6 +90,27 @@ jobs:
           TAG=$(hatch run semantic-release version --print-last-released-tag)
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
   
+  pypi:
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          path: .cache
+      - name: Install hatch
+        run: pip install hatch
+      - name: Build & publish
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          hatch build
+          hatch publish -u __token__ -a $PYPI_TOKEN
+
   pack-pixi-environments:
     runs-on: ubuntu-latest
     needs: release
