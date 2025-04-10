@@ -4,10 +4,6 @@ on:
   # makes this workflow reusable
   workflow_call:
     inputs:
-      ref:
-        description: Git ref to check out (defaults to main)
-        required: false
-        type: string
       publish:
         description: Whether to publish coverage reports to Codecov
         required: false
