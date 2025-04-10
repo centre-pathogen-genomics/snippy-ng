@@ -65,7 +65,7 @@ cov = [
   "cov-report",
 ]
 release = [
-  "semantic-release version --no-commit",
+  "semantic-release version --no-push",
   "semantic-release changelog",
 ]
 
