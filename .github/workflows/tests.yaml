@@ -26,10 +26,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set-up pixi environment
         uses: prefix-dev/setup-pixi@v0.8.3
