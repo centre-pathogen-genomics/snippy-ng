@@ -8,7 +8,7 @@
 [![Benchmark](https://byob.yarr.is/centre-pathogen-genomics/snippy-ng/benchmark)](https://cpg.org.au/snippy-blog/posts/2024-10-10-snappy-snippy)
 -----
 
-🚨 Snippy-NG is under construction and should not replace Snippy just yet 🚨
+🚨 Snippy-NG is under construction and should not replace Snippy 🚨
 ----
 
 **Table of Contents**
