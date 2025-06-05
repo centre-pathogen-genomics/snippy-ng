@@ -9,8 +9,24 @@ class GlobalOption(click.Option):
         self.is_global = True
 
 GLOBAL_DEFS = [
+     {
+        "param_decls": ("--outdir", "-o"),
+        "attrs": {
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
+            "required": True,
+            "help": "Where to put everything",
+        },
+    },
     {
-        "param_decls": ("--cpus",),
+        "param_decls": ("--tmpdir", "-t"),
+        "attrs": {
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
+            "default": tempfile.gettempdir(),
+            "help": "Temporary directory for fast storage (e.g., local SSD)",
+        },
+    },
+    {
+        "param_decls": ("--cpus", "-c"),
         "attrs": {
             "type": int,
             "default": 1,
@@ -18,27 +34,11 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--ram",),
+        "param_decls": ("--ram", "-r"),
         "attrs": {
             "type": int,
             "default": 8,
             "help": "Try and keep RAM under this many GB",
-        },
-    },
-    {
-        "param_decls": ("--outdir", "-o"),
-        "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
-            "default": '.',
-            "help": "Where to put everything",
-        },
-    },
-    {
-        "param_decls": ("--tmpdir",),
-        "attrs": {
-            "type": click.Path(),
-            "default": tempfile.gettempdir(),
-            "help": "Temporary directory for fast storage (e.g., local SSD)",
         },
     },
     {
