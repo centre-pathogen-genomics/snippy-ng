@@ -9,12 +9,8 @@ from pydantic import Field
 
 # Define the base Pydantic model for alignment parameters
 class Caller(BaseStage):
-    cpus: int = Field(1, description="Number of CPU cores to use")
-    ram: int = Field(4, description="RAM in GB to use")
     reference: Path = Field(..., description="Reference file",)
     prefix: str = Field(..., description="Output file prefix")
-    tmpdir: Path = Field('/tmp', description="Temporary directory")
-
 
 class FreebayesCallerOutput(BaseOutput):
     raw_vcf: str

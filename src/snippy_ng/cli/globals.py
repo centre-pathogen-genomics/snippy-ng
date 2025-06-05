@@ -1,5 +1,6 @@
 import click
 import tempfile
+from pathlib import Path
 
 
 class GlobalOption(click.Option):
@@ -9,7 +10,7 @@ class GlobalOption(click.Option):
 
 GLOBAL_DEFS = [
     {
-        "param_decls": ("--threads",),
+        "param_decls": ("--cpus",),
         "attrs": {
             "type": int,
             "default": 1,
@@ -20,14 +21,14 @@ GLOBAL_DEFS = [
         "param_decls": ("--ram",),
         "attrs": {
             "type": int,
-            "default": None,
+            "default": 8,
             "help": "Try and keep RAM under this many GB",
         },
     },
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(),
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "default": '.',
             "help": "Where to put everything",
         },
