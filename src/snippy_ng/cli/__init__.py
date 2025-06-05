@@ -31,12 +31,12 @@ def version(ctx, param, value):
 
 @click.group(
     cls=BugCatchingGroup,
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120},
 )
-@click.version_option(version=__version__, prog_name=EXE)
-@click.option("--citation", is_flag=True, callback=show_citation, expose_value=False,
+@click.version_option(__version__, "--version", "-v", prog_name=EXE)
+@click.option("--citation", "-c", is_flag=True, callback=show_citation, expose_value=False,
               help="Print citation for referencing Snippy-NG.")
-@click.option("--bug", is_flag=True, callback=bug_report, expose_value=False,
+@click.option("--bug", "-b", is_flag=True, callback=bug_report, expose_value=False,
               help="Report a bug or issue with Snippy-NG.")
 def snippy_ng():
     """
