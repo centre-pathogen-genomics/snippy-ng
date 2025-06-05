@@ -1,5 +1,4 @@
 import click
-from pathlib import Path
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 
 
@@ -14,7 +13,6 @@ from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--targets", default='', type=click.STRING, help="Only call SNPs from this BED file")
 @click.option("--subsample", default=1.0, type=float, help="Subsample FASTQ to this proportion")
-@click.option("--outdir", required=True, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output folder")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--report/--no-report", default=False, help="Produce report with visual alignment per variant")
 @click.option("--cleanup/--no-cleanup", default=False, help="Remove unnecessary files (e.g., BAMs)")
@@ -74,7 +72,11 @@ def run(**kwargs):
     # Choose stages to include in the pipeline
     stages = []
     try:
-        setup = PrepareReference(input=kwargs["reference"], ref_fmt=reference_format)
+        setup = PrepareReference(
+            input=kwargs["reference"],
+            ref_fmt=reference_format,
+            **kwargs,
+        )
         kwargs["reference"] = setup.output.reference
         stages.append(setup)
         if kwargs["bam"]:
@@ -85,8 +87,7 @@ def run(**kwargs):
         stages.append(aligner)
         stages.append(FreebayesCaller(**kwargs))
     except ValidationError as e:
-        error_msg = "\n".join([f"{e['loc'][0]} ({e['input']}). {e['msg']}." for e in e.errors()])
-        error(error_msg)
+        error(e)
     
     # Move from CLI land into Pipeline land
     snippy = Pipeline(stages=stages)
