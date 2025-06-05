@@ -5,7 +5,7 @@ from pathlib import Path
 
 from snippy_ng.exceptions import DependencyError, SkipStageError, MissingOutputError
 from snippy_ng.logging import logger
-from snippy_ng.__about__ import __version__, URL
+from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages.base import BaseStage
 
 class Pipeline:
@@ -106,9 +106,9 @@ class Pipeline:
         messages = [
             "May the SNPs be with you.",
             "Wishing you a life free of homopolymer errors.",
-            f"Found a bug? Post it at {URL}/issues",
-            f"Have a suggestion? Tell me at {URL}/issues",
-            f"The Snippy manual is at {URL}/blob/master/README.md",
+            f"Found a bug? Post it at {GITHUB_URL}/issues",
+            f"Have a suggestion? Tell me at {GITHUB_URL}/issues",
+            f"The Snippy manual is at {GITHUB_URL}/blob/master/README.md",
             "Questionable SNP? Try the --report option to see the alignments.",
             "Did you know? Snippy is a combination of SNP, Skippy, and snappy.",
             "Set phasers to align… your SNPs.",
@@ -116,10 +116,10 @@ class Pipeline:
             "Resistance to accurate SNP calling is futile.",
             "Wishing you a genome that's logically consistent…",
             "The final frontier of variant calling.",
-            f"Make it so: Report your issues at {URL}/issues.",
+            f"Make it so: Report your issues at {GITHUB_URL}/issues.",
             "Highly logical and warp-speed fast.",
             "Live long and SNP accurately.",
-            f"Looking for guidance? The Snippy manual is at {URL}.",
+            f"Looking for guidance? The Snippy manual is at {DOCS_URL}.",
             "Beam me up, Snippy! Your SNPs are ready.",
             "SNP analysis at warp factor 9!",
             "Keep calm and trust Snippy to get your variants right.",

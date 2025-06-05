@@ -6,4 +6,6 @@ __version__ = "0.4.0"
 # Version and executable information
 EXE = "snippy-ng"
 AUTHOR = "Wytamma Wirth & Torsten Seemann"
-URL = "https://github.com/centre-pathogen-genomics/snippy-ng"
+GITHUB_URL = "https://github.com/centre-pathogen-genomics/snippy-ng"
+DOCS_URL = "https://cpg.org.au/snippy-ng"
+BLOG_URL = "https://snippy.cpg.org.au"
