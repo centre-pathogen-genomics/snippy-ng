@@ -136,9 +136,9 @@ def stub_everything(monkeypatch, tmp_path):
         ),
     ],
 )
-def test_snps_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_run):
+def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_run):
     """
-    Parameterised test for the `snps` command.
+    Parameterised test for the `run` command.
     """
 
     # --------------- Arrange --------------------------------------------------
@@ -158,7 +158,7 @@ def test_snps_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_r
     if case_name == "bad_reference":
         monkeypatch.setattr("snippy_ng.seq_utils.guess_format", lambda _: None)
 
-    args = ["snps"] + extra(paths)
+    args = ["run"] + extra(paths)
     runner = CliRunner()
 
     # --------------- Act ------------------------------------------------------
