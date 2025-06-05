@@ -25,7 +25,7 @@ def bug_report(ctx, param, value):
 def version(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
-    click.echo(f"{EXE} version {__version__}")
+    click.echo(__version__)
     ctx.exit()
 
 
@@ -33,7 +33,7 @@ def version(ctx, param, value):
     cls=BugCatchingGroup,
     context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120},
 )
-@click.version_option(__version__, "--version", "-v", prog_name=EXE)
+@click.option("--version", "-v", is_flag=True, callback=version, expose_value=False, help="Show version and exit.")
 @click.option("--citation", "-c", is_flag=True, callback=show_citation, expose_value=False,
               help="Print citation for referencing Snippy-NG.")
 @click.option("--bug", "-b", is_flag=True, callback=bug_report, expose_value=False,
