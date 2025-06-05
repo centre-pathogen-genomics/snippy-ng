@@ -51,7 +51,7 @@ class BugCatchingGroup(click.Group):
                 full_tb = "<unable to capture traceback>"
 
             click.echo()
-            click.echo(horizontal_rule("Bug report template (copy/paste the sections below into GitHub)"), err=True)
+            click.echo(horizontal_rule("Bug report template (copy/paste the sections below into GitHub)", color='bold_red'), err=True)
 
             click.echo("\n**Describe the bug**", err=True)
             click.echo("> A clear and concise description of what the bug is.\n", err=True)
