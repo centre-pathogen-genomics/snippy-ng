@@ -44,7 +44,7 @@ class Pipeline:
 
     def validate_dependencies(self):
         invalid = []
-        self.hr("CHECKING DEPENDENCIES")
+        self.hr("CheckDependencies")
         for stage in self.stages:
             self.log(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
@@ -62,7 +62,7 @@ class Pipeline:
         
     def set_working_directory(self, directory):
         # Set the working directory
-        self.hr()
+        self.hr("SetWorkingDirectory")
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
