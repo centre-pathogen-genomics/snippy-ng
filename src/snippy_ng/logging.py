@@ -1,6 +1,5 @@
 import logging
 import os
-import logging.handlers
 import re
 
 # https://medium.com/analytics-vidhya/python-logging-colorize-your-arguments-41567a754ac 
@@ -15,6 +14,24 @@ class ColorCodes:
     purple = "\x1b[1;35m"
     reset = "\x1b[0m"
 
+
+def horizontal_rule(msg = "", style: str = '=', color: str = ''):
+    """Create a horizontal rule with a message in the middle."""
+    try:
+        terminal_width = os.get_terminal_size().columns
+    except OSError:
+        terminal_width = 80
+    msg_length = len(msg)
+    if msg_length != 0:
+        msg = f" {msg} "
+        msg_length += 2  # account for spaces around the message
+    left_padding = max((terminal_width - msg_length) // 2, 5)  # ensure at least 5 characters padding
+    right_padding = max(terminal_width - left_padding - msg_length, 5)  # ensure at least 5 characters padding
+    
+    color = getattr(ColorCodes, color, ColorCodes.reset)
+    
+    line = f"{style * left_padding}{color}{msg}{ColorCodes.reset}{style * right_padding}"
+    return line
 
 class ColorizedArgsFormatter(logging.Formatter):
     arg_colors = [ColorCodes.purple, ColorCodes.light_blue]
