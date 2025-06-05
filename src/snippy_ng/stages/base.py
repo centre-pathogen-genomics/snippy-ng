@@ -26,7 +26,6 @@ class Command(BaseModel):
 class BaseStage(BaseModel):
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
-    outdir: Path = Field(description="Output directory")
     tmpdir: Path = Field(description="Temporary directory")
 
     _dependencies: List[Dependency] = []
