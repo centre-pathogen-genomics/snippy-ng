@@ -34,7 +34,7 @@ def run(**kwargs):
 
     Examples:
 
-        $ snippy-ng snps --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng run --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
