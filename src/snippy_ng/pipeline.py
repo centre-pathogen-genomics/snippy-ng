@@ -74,7 +74,9 @@ class Pipeline:
     def run(self, quiet=False):
         # Run pipeline sequentially
         for stage in self.stages:
-            self.log(f"RUNNING {stage.name} STAGE...")
+            self.log(self.line)
+            self.log(f"RUNNING STAGE: {stage.name}...")
+            self.log(self.line)
             self.log(stage)
             try:
                 stage.run(quiet)
