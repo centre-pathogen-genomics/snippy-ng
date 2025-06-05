@@ -1,16 +1,10 @@
 import click
-from click import Context
 from pathlib import Path
+from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(context_settings={"help_option_names": ["-h", "--help"]}, short_help="Run SNP calling pipeline")
-@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
-@click.option("--skip-check/--no-skip-check", default=False, help="Skip dependency checks")
-@click.option("--force/--no-force", default=False, help="Force overwrite of existing output folder")
-@click.option("-q", "--quiet/--no-quiet", default=False, help="No screen output")
-@click.option("--cpus", default=8, type=int, help="Maximum number of CPU cores to use")
-@click.option("--ram", default=8, type=int, help="Try and keep RAM under this many GB")
-@click.option("--tmpdir", default='/tmp', type=click.Path(), help="Fast temporary storage eg. local SSD")
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
+@snippy_global_options
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
@@ -34,8 +28,9 @@ from pathlib import Path
 @click.option("--maxsoft", default=10, type=int, help="Maximum soft clipping to allow")
 @click.option("--bwaopt", default='', type=click.STRING, help="Extra BWA MEM options")
 @click.option("--fbopt", default='', type=click.STRING, help="Extra Freebayes options")
-@click.pass_context
-def run(ctx: Context, **kwargs):
+@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
+@click.option("--skip-check/--no-skip-check", default=False, help="Skip dependency checks")
+def run(**kwargs):
     """
     Drop-in replacement for Snippy with feature parity.
 
