@@ -1,15 +1,16 @@
 from contextlib import contextmanager
 from abc import abstractmethod
-from typing import List, Callable
+from typing import List, Callable, Optional
 import subprocess
 import sys
 from io import StringIO
+from pathlib import Path
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import SkipStageError
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class BaseOutput(BaseModel):
     pass
@@ -23,6 +24,11 @@ class Command(BaseModel):
         return self.description
 
 class BaseStage(BaseModel):
+    cpus: int = Field(1, description="Number of CPU cores to use")
+    ram: Optional[int] = Field(4, description="RAM in GB to use")
+    outdir: Path = Field(description="Output directory")
+    tmpdir: Path = Field(description="Temporary directory")
+
     _dependencies: List[Dependency] = []
     
     @property

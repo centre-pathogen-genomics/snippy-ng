@@ -9,11 +9,8 @@ class AlignerOutput(BaseModel):
     bam: str
 
 class Aligner(BaseStage):
-    cpus: int = Field(1, description="Number of CPU cores to use")
-    ram: int = Field(4, description="RAM in GB to use")
     reference: Path = Field(..., description="Reference file")
     prefix: str = Field(..., description="Output file prefix")
-    tmpdir: Path = Field("/tmp", description="Temporary directory")
     maxsoft: int = Field(10, description="Maximum soft clipping to allow")
 
     @property

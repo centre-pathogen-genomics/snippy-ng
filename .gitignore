@@ -12,3 +12,4 @@ environment.sh
 coverage.xml
 .coverage
 dist/
+__pycache__/
