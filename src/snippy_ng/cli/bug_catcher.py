@@ -1,5 +1,5 @@
 import click
-from snippy_ng.__about__ import __version__, EXE, GITHUB_URL, LINE_STYLE
+from snippy_ng.__about__ import __version__, EXE, GITHUB_URL 
 
 class BugCatchingGroup(click.Group):
     """
@@ -18,7 +18,6 @@ class BugCatchingGroup(click.Group):
             import traceback
             import platform
             from urllib.parse import quote
-            from os import get_terminal_size
             from snippy_ng.logging import horizontal_rule
             
             traceback.print_exc(file=sys.stderr)
