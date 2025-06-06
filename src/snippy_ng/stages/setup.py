@@ -54,8 +54,17 @@ class PrepareReference(BaseStage):
             output_fasta_path (Path): Path to save the extracted FASTA file.
             output_gff_path (Path): Path to save the extracted GFF3 file.
         """
+        import gzip
         try:
-            seq_records = SeqIO.parse(reference_path, ref_fmt)
+            # Open gzipped or plain text reference
+            open_func = open
+            try:
+                with open(reference_path, 'rt') as test_fh:
+                    test_fh.read(1)
+            except UnicodeDecodeError:
+                open_func = gzip.open
+            with open_func(reference_path, 'rt') as ref_fh:
+                seq_records = list(SeqIO.parse(ref_fh, ref_fmt))
         except Exception as e:
             raise ValueError(f"Failed to parse {reference_path} with format {ref_fmt}: {e}")
 
