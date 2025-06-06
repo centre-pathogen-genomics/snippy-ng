@@ -26,7 +26,7 @@ pip install snippy-nextgen
 The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
 
 ```console
-curl -sSL https://github.com/centre-pathogen-genomics/snippy-ng/releases/latest/download/install.sh | bash
+curl -sSL https://github.com/centre-pathogen-genomics/snippy-ng/releases/latest/download/install.sh | bash -s -- --force
 ```
 
 ## License
