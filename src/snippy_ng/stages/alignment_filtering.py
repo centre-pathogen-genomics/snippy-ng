@@ -6,8 +6,8 @@ from pydantic import Field, field_validator, BaseModel
 
 
 class AlignmentFilterOutput(BaseModel):
-    bam: str
-    bam_index: str
+    bam: Path
+    bam_index: Path
 
 
 class AlignmentFilter(BaseStage):

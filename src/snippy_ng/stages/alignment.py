@@ -6,7 +6,7 @@ from pydantic import Field, field_validator, BaseModel
 
 
 class AlignerOutput(BaseModel):
-    bam: str
+    bam: Path
 
 class Aligner(BaseStage):
     reference: Path = Field(..., description="Reference file")
