@@ -44,11 +44,15 @@ class Pipeline:
 
     def validate_dependencies(self):
         invalid = []
+        checked = set()
         self.hr("CheckDependencies")
         for stage in self.stages:
             self.log(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
-                # TODO: skip if already checked
+                if dependency.name in checked:
+                    self.log(f"Skipping {dependency.name}, already checked.")
+                    continue
+                checked.add(dependency.name)
                 try:
                     version = dependency.check()
                     self.log(f"Found {dependency.name} v{version}")
