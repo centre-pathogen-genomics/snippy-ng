@@ -1,6 +1,7 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
+from snippy_ng.stages.align_filter import AlignFilter
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
@@ -78,6 +79,11 @@ def short(**kwargs):
             aligner = MinimapAligner(**kwargs)
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
+        # Filter alignment
+        align_filter = AlignFilter(**kwargs)
+        kwargs["bam"] = align_filter.output.bam
+        stages.append(align_filter)
+        # SNP calling
         stages.append(FreebayesCaller(**kwargs))
     except ValidationError as e:
         error(e)
