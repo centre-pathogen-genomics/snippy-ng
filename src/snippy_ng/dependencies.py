@@ -53,7 +53,7 @@ class Dependency:
 
         result = subprocess.run(
             cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True
-        ).stdout
+        ).stdout.strip()
 
         # Apply regex pattern from version_extractor to extract version
         match = re.search(self.version_pattern, result)
@@ -125,6 +125,13 @@ bwa = Dependency(
     version_arg=None,
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
+minimap2 = Dependency(
+    "minimap2",
+    citation="Heng Li, Minimap2: pairwise alignment for nucleotide sequences, Bioinformatics, Volume 34, Issue 18, 15 September 2018, Pages 3099–3103, https://doi.org/10.1093/bioinformatics/bty191",
+    version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
+    min_version="2.17",
+)
+
 # Calling
 freebayes = Dependency(
     "freebayes",

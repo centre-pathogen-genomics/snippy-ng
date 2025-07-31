@@ -8,28 +8,13 @@ from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
-@click.option("--se", "--single", default='', type=click.STRING, help="Single-end reads")
-@click.option("--ctgs", "--contigs", default='', type=click.STRING, help="Use these contigs instead of reads")
-@click.option("--peil", default='', type=click.STRING, help="Paired-end interleaved reads")
+@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
+@click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
-@click.option("--targets", default='', type=click.STRING, help="Only call SNPs from this BED file")
-@click.option("--subsample", default=1.0, type=float, help="Subsample FASTQ to this proportion")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
-@click.option("--report/--no-report", default=False, help="Produce report with visual alignment per variant")
-@click.option("--cleanup/--no-cleanup", default=False, help="Remove unnecessary files (e.g., BAMs)")
-@click.option("--rgid", default='', type=click.STRING, help="Use this @RG ID in the BAM header")
-@click.option("--unmapped/--no-unmapped", default=False, help="Keep unmapped reads in BAM and write FASTQ")
-@click.option("--mapqual", default=60, type=int, help="Minimum read mapping quality to consider")
-@click.option("--basequal", default=13, type=int, help="Minimum base quality to consider")
-@click.option("--mincov", default=10, type=int, help="Minimum site depth for calling alleles")
-@click.option("--minfrac", default=0.0, type=float, help="Minimum proportion for variant evidence (0=AUTO)")
-@click.option("--minqual", default=100.0, type=float, help="Minimum quality in VCF column 6")
-@click.option("--maxsoft", default=10, type=int, help="Maximum soft clipping to allow")
-@click.option("--bwaopt", default='', type=click.STRING, help="Extra BWA MEM options")
-@click.option("--fbopt", default='', type=click.STRING, help="Extra Freebayes options")
-@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
 @click.option("--skip-check/--no-skip-check", default=False, help="Skip dependency checks")
-def run(**kwargs):
+@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
+def short(**kwargs):
     """
     Drop-in replacement for Snippy with feature parity.
 
@@ -39,7 +24,7 @@ def run(**kwargs):
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
-    from snippy_ng.stages.alignment import BWAMEMReadsAligner, PreAlignedReads
+    from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.seq_utils import guess_format
@@ -85,10 +70,13 @@ def run(**kwargs):
                 )
             kwargs["reference"] = setup.output.reference
             stages.append(setup)
+        # Aligner
         if kwargs["bam"]:
             aligner = PreAlignedReads(**kwargs)
-        else:
+        elif kwargs["aligner"] == "bwamem":
             aligner = BWAMEMReadsAligner(**kwargs)
+        else:
+            aligner = MinimapAligner(**kwargs)
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
         stages.append(FreebayesCaller(**kwargs))
