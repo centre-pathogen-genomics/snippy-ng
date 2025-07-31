@@ -1,4 +1,4 @@
-from glasscandle import Watcher
+from watcher import Watcher
 
 
 watch = Watcher("glasscandle.json")
