@@ -1,19 +1,19 @@
 name: GlassCandle
 on:
-  # push:
-  #   branches: 
-  #     - master
-  #     - main
   schedule:
-      - cron: '0 0 * * *' # Run daily at midnight
-  workflow_dispatch: # Allow manual triggering
+    - cron: '0 0 * * *' # daily at 00:00 UTC
+  workflow_dispatch:
 
+permissions:
+  contents: write
 
 jobs:
   glasscandle:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,29 +23,25 @@ jobs:
 
       - name: Install dependencies
         run: pip install glasscandle
-      
+
       - name: Run GlassCandle
         env:
-          # Slack webhook URL stored as GitHub secret
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          # Email notifications (stored as secrets)
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          # Mastodon (stored as secrets)
           MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
           MASTODON_API_BASE_URL: ${{ secrets.MASTODON_API_BASE_URL }}
-          # Bluesky (stored as secrets)
           BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
+        run: python watcher.py
 
-        run: python watcher.py 
-
-      - name: Commit and push version database changes
+      - name: Commit and push version database changes to glasscandle branch
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GlassCandle"
-          git add .
+          git add -A
           git diff --staged --quiet || git commit -m "Update version database [skip ci]"
-          git push
+          # create/update remote branch "glasscandle" without switching branches
+          git push origin HEAD:refs/heads/glasscandle
