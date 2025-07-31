@@ -40,7 +40,7 @@ jobs:
           BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
 
-        run: python glasscandle.py 
+        run: python watcher.py 
 
       - name: Commit and push version database changes
         run: |
