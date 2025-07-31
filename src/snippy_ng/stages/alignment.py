@@ -131,7 +131,7 @@ class MinimapAligner(Aligner):
     def commands(self) -> List[str]:
         """Constructs the Minimap2 alignment commands."""
         fasta_index = f"samtools faidx {self.reference}" # TODO refactor to use common_commands
-        minimap_cmd = f"minimap2 -x sr -a {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
+        minimap_cmd = f"minimap2 -a {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
         samtools_sort_cmd = f"samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}"
 
         full_cmd = f"{minimap_cmd} | {samtools_sort_cmd}"
