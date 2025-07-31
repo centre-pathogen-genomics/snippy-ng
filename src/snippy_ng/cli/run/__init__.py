@@ -27,8 +27,6 @@ from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 @click.option("--maxsoft", default=10, type=int, help="Maximum soft clipping to allow")
 @click.option("--bwaopt", default='', type=click.STRING, help="Extra BWA MEM options")
 @click.option("--fbopt", default='', type=click.STRING, help="Extra Freebayes options")
-@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
-@click.option("--skip-check/--no-skip-check", default=False, help="Skip dependency checks")
 def run(**kwargs):
     """
     Drop-in replacement for Snippy with feature parity.

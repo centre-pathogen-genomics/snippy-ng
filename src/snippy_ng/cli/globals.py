@@ -56,7 +56,23 @@ GLOBAL_DEFS = [
             "default": False,
             "help": "Minimal screen output",
         },
-    }
+    },
+    {
+        "param_decls": ("--skip-check", "-k"),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Skip dependency checks",
+        },
+    },
+    {
+        "param_decls": ("--check", "-d"),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Check dependencies are installed then exit",
+        },
+    },
 ]
 
 

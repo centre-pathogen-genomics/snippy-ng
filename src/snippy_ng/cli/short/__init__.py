@@ -12,8 +12,6 @@ from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
-@click.option("--skip-check/--no-skip-check", default=False, help="Skip dependency checks")
-@click.option("--check/--no-check", default=False, help="Check dependencies are installed then exit")
 def short(**kwargs):
     """
     Drop-in replacement for Snippy with feature parity.
@@ -76,6 +74,7 @@ def short(**kwargs):
         elif kwargs["aligner"] == "bwamem":
             aligner = BWAMEMReadsAligner(**kwargs)
         else:
+            kwargs["aligner_opts"] = "-x sr " + kwargs.get("aligner_opts", "")
             aligner = MinimapAligner(**kwargs)
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
@@ -87,7 +86,7 @@ def short(**kwargs):
     snippy = Pipeline(stages=stages)
     snippy.welcome()
 
-    if not kwargs["skip_check"]:
+    if not kwargs.get("skip_check", False):
         try:
             snippy.validate_dependencies()
         except DependencyError as e:
