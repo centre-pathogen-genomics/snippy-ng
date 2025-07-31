@@ -67,17 +67,16 @@ class BugCatchingGroup(click.Group):
                        "you can add 'conda list' output here as well.\n", err=True)
             click.echo(f"- OS: `{os_info}`", err=True)
             click.echo(f"- Snippy-NG version: `{snippy_version}`\n", err=True)
+            
+            click.echo("**Additional context**", err=True)
+            click.echo("> Add any other context about the problem here. (e.g., input files, "
+                       "exact command arguments, steps to reproduce, etc.)\n", err=True)
 
             click.echo("**Backtrace**", err=True)
             click.echo("> If possible, please include the complete error log below.\n", err=True)
             click.echo("```", err=True)
             click.echo(full_tb.rstrip("\n"), err=True)
             click.echo("```\n", err=True)
-
-            click.echo("**Additional context**", err=True)
-            click.echo("> Add any other context about the problem here. (e.g., input files, "
-                       "exact command arguments, steps to reproduce, etc.)\n", err=True)
-
 
             click.echo(horizontal_rule(), err=True)
             click.echo(
