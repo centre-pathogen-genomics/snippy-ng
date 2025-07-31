@@ -18,6 +18,5 @@ watch.conda("vt", channel="bioconda")
 
 if __name__ == "__main__":
     updated = watch.run()  # Run once
-    # trigger github test
     
 

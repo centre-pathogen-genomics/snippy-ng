@@ -1,17 +1,18 @@
 from pathlib import Path
 from typing import List
 from snippy_ng.stages.base import BaseStage
-from snippy_ng.dependencies import samtools, bwa, samclip
+from snippy_ng.dependencies import samtools, bwa, samclip, minimap2
 from pydantic import Field, field_validator, BaseModel
 
 
 class AlignerOutput(BaseModel):
-    bam: str
+    bam: Path
 
 class Aligner(BaseStage):
     reference: Path = Field(..., description="Reference file")
     prefix: str = Field(..., description="Output file prefix")
     maxsoft: int = Field(10, description="Maximum soft clipping to allow")
+    aligner_opts: str = Field("", description="Additional options for the aligner")
 
     @property
     def output(self) -> AlignerOutput:
@@ -55,7 +56,6 @@ class BWAMEMReadsAligner(Aligner):
     reads: List[str] = Field(
         default_factory=list, description="List of input read files"
     )
-    bwaopt: str = Field("", description="Additional BWA options")
 
     @field_validator("reads")
     @classmethod
@@ -71,7 +71,7 @@ class BWAMEMReadsAligner(Aligner):
         """Constructs the BWA alignment commands."""
         fasta_index = f"samtools faidx {self.reference}"
         bwa_index_cmd = f"bwa index {self.reference}"
-        bwa_cmd = f"bwa mem {self.bwaopt} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
+        bwa_cmd = f"bwa mem {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
 
         full_cmd = self.build_alignment_command(bwa_cmd)
         index_cmd = self.build_index_command()
@@ -102,4 +102,39 @@ class PreAlignedReads(Aligner):
 
         full_cmd = self.build_alignment_command(view_cmd)
         index_cmd = self.build_index_command()
+        return [fasta_index, full_cmd, index_cmd]
+    
+class MinimapAligner(Aligner):
+    """
+    Align reads to a reference using Minimap2.
+    """
+
+    reads: List[str] = Field(
+        default_factory=list, description="List of input read files"
+    )
+
+    @field_validator("reads")
+    @classmethod
+    def check_reads(cls, v):
+        if not v:
+            raise ValueError("Reads list must not be empty")
+        return v
+    
+    @property
+    def ram_per_thread(self) -> int:
+        """Calculate RAM per thread in MB."""
+        return max(1, self.ram // self.cpus)
+
+    _dependencies = [minimap2, samtools]
+
+    @property
+    def commands(self) -> List[str]:
+        """Constructs the Minimap2 alignment commands."""
+        fasta_index = f"samtools faidx {self.reference}" # TODO refactor to use common_commands
+        minimap_cmd = f"minimap2 -a {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
+        samtools_sort_cmd = f"samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}"
+
+        full_cmd = f"{minimap_cmd} | {samtools_sort_cmd}"
+        index_cmd = self.build_index_command()
+        
         return [fasta_index, full_cmd, index_cmd]

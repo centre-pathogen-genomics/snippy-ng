@@ -3,6 +3,7 @@ import webbrowser
 
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.run import run
+from snippy_ng.cli.short import short
 from snippy_ng.cli.bug_catcher import BugCatchingGroup
 
 
@@ -48,3 +49,4 @@ def snippy_ng():
 # Register Subcommands #
 ########################
 snippy_ng.add_command(run)
+snippy_ng.add_command(short)

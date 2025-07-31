@@ -22,7 +22,7 @@ GLOBAL_DEFS = [
         "attrs": {
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "default": tempfile.gettempdir(),
-            "help": "Temporary directory for fast storage (e.g., local SSD)",
+            "help": "Temporary directory for fast storage",
         },
     },
     {
@@ -56,7 +56,23 @@ GLOBAL_DEFS = [
             "default": False,
             "help": "Minimal screen output",
         },
-    }
+    },
+    {
+        "param_decls": ("--skip-check", "-k"),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Skip dependency checks",
+        },
+    },
+    {
+        "param_decls": ("--check", "-d"),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Check dependencies are installed then exit",
+        },
+    },
 ]
 
 
