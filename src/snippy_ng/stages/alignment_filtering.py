@@ -5,12 +5,12 @@ from snippy_ng.dependencies import samtools
 from pydantic import Field, field_validator, BaseModel
 
 
-class AlignFilterOutput(BaseModel):
+class AlignmentFilterOutput(BaseModel):
     bam: str
     bam_index: str
 
 
-class AlignFilter(BaseStage):
+class AlignmentFilter(BaseStage):
     """
     Filter BAM files using Samtools to remove unwanted alignments.
     """
@@ -26,9 +26,9 @@ class AlignFilter(BaseStage):
     _dependencies = [samtools]
     
     @property
-    def output(self) -> AlignFilterOutput:
+    def output(self) -> AlignmentFilterOutput:
         filtered_bam = f"{self.prefix}.filtered.bam"
-        return AlignFilterOutput(
+        return AlignmentFilterOutput(
             bam=filtered_bam,
             bam_index=f"{filtered_bam}.bai"
         )
@@ -88,7 +88,7 @@ class AlignFilter(BaseStage):
         return [filter_cmd, index_cmd]
 
 
-class AlignFilterByRegion(AlignFilter):
+class AlignmentFilterByRegion(AlignmentFilter):
     """
     Filter BAM file to include only alignments in specified regions.
     """
@@ -103,7 +103,7 @@ class AlignFilterByRegion(AlignFilter):
         return v
 
 
-class AlignFilterByQuality(AlignFilter):
+class AlignmentFilterByQuality(AlignmentFilter):
     """
     Filter BAM file based on mapping quality and alignment flags.
     """
@@ -112,7 +112,7 @@ class AlignFilterByQuality(AlignFilter):
     exclude_flags: int = Field(3844, description="SAM flags to exclude (default + supplementary)")
 
 
-class AlignFilterProperPairs(AlignFilter):
+class AlignmentFilterProperPairs(AlignmentFilter):
     """
     Filter BAM file to include only properly paired reads.
     """

@@ -1,7 +1,7 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
-from snippy_ng.stages.align_filter import AlignFilter
+from snippy_ng.stages.alignment_filtering import AlignmentFilter
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
@@ -80,7 +80,7 @@ def short(**kwargs):
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
         # Filter alignment
-        align_filter = AlignFilter(**kwargs)
+        align_filter = AlignmentFilter(**kwargs)
         kwargs["bam"] = align_filter.output.bam
         stages.append(align_filter)
         # SNP calling
