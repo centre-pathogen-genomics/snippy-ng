@@ -5,14 +5,14 @@ from snippy_ng.dependencies import fastp
 from pydantic import Field, field_validator, BaseModel
 
 
-class CleanReadsFastpOutput(BaseModel):
+class FastpCleanReadsOutput(BaseModel):
     cleaned_r1: str
     cleaned_r2: Optional[str] = None
     html_report: str
     json_report: str
 
 
-class CleanReadsFastp(BaseStage):
+class FastpCleanReads(BaseStage):
     """
     Clean and filter FASTQ reads using fastp.
     
@@ -47,13 +47,13 @@ class CleanReadsFastp(BaseStage):
         return v
     
     @property
-    def output(self) -> CleanReadsFastpOutput:
+    def output(self) -> FastpCleanReadsOutput:
         cleaned_r1 = f"{self.prefix}.cleaned.R1.fastq.gz"
         cleaned_r2 = None
         if len(self.reads) == 2:
             cleaned_r2 = f"{self.prefix}.cleaned.R2.fastq.gz"
         
-        return CleanReadsFastpOutput(
+        return FastpCleanReadsOutput(
             cleaned_r1=cleaned_r1,
             cleaned_r2=cleaned_r2,
             html_report=f"{self.prefix}.fastp.html",
@@ -117,7 +117,7 @@ class CleanReadsFastp(BaseStage):
         return [self.build_fastp_command()]
 
 
-class CleanReadsFastpAggressive(CleanReadsFastp):
+class FastpCleanReadsAggressive(FastpCleanReads):
     """
     Aggressive read cleaning for low-quality samples.
     """
@@ -129,7 +129,7 @@ class CleanReadsFastpAggressive(CleanReadsFastp):
     dedup: bool = Field(True, description="Enable deduplication by default")
 
 
-class CleanReadsFastpConservative(CleanReadsFastp):
+class FastpCleanReadsConservative(FastpCleanReads):
     """
     Conservative read cleaning to retain maximum data.
     """

@@ -23,7 +23,7 @@ def short(**kwargs):
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
-    from snippy_ng.stages.clean_reads import CleanReadsFastp
+    from snippy_ng.stages.clean_reads import FastpCleanReads
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
     from snippy_ng.stages.alignment_filtering import AlignmentFilter
     from snippy_ng.stages.calling import FreebayesCaller
@@ -74,7 +74,7 @@ def short(**kwargs):
         
         # Clean reads (optional)
         if kwargs["clean_reads"] and kwargs["reads"]:
-            clean_reads_stage = CleanReadsFastp(**kwargs)
+            clean_reads_stage = FastpCleanReads(**kwargs)
             # Update reads to use cleaned reads
             kwargs["reads"] = [clean_reads_stage.output.cleaned_r1]
             if clean_reads_stage.output.cleaned_r2:
