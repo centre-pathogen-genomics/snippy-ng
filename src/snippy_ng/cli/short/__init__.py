@@ -9,6 +9,7 @@ from snippy_ng.stages.alignment_filtering import AlignmentFilter
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
+@click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
@@ -23,6 +24,7 @@ def short(**kwargs):
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
+    from snippy_ng.stages.clean_reads import CleanReadsFastp
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
@@ -69,6 +71,16 @@ def short(**kwargs):
                 )
             kwargs["reference"] = setup.output.reference
             stages.append(setup)
+        
+        # Clean reads (optional)
+        if kwargs["clean_reads"] and kwargs["reads"]:
+            clean_reads_stage = CleanReadsFastp(**kwargs)
+            # Update reads to use cleaned reads
+            kwargs["reads"] = [clean_reads_stage.output.cleaned_r1]
+            if clean_reads_stage.output.cleaned_r2:
+                kwargs["reads"].append(clean_reads_stage.output.cleaned_r2)
+            stages.append(clean_reads_stage)
+        
         # Aligner
         if kwargs["bam"]:
             aligner = PreAlignedReads(**kwargs)
