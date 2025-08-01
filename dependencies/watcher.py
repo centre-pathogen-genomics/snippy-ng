@@ -1,3 +1,5 @@
+import tomllib
+
 from glasscandle import Watcher
 from glasscandle.notifications import slack_notifier
 
@@ -9,19 +11,12 @@ watch = Watcher(
     on_change=slack_notify
 )
 
-watch.conda("bcbio-gff", channel="bioconda")
-watch.conda("click", channel="conda-forge")
-watch.conda("packaging", channel="conda-forge")
-watch.conda("pydantic", channel="conda-forge")
-watch.conda("biopython", channel="conda-forge")
-watch.conda("samtools", channel="bioconda")
-watch.conda("samclip", channel="bioconda")
-watch.conda("bwa", channel="bioconda")
-watch.conda("minimap2", channel="bioconda")
-watch.conda("freebayes", channel="bioconda")
-watch.conda("bcftools", channel="bioconda")
-watch.conda("vt", channel="bioconda")
+# dynamically add dependencies from pyproject.toml
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
 
+for dep in data['tool']['pixi']['dependencies']: 
+    watch.conda(dep)
 
 if __name__ == "__main__":
     updated = watch.run()
