@@ -34,12 +34,12 @@ jobs:
           git config --local user.email "github-actions@github.com"
           git config --local user.name  "GitHub Actions"
 
-      - name: Switch the remote to SSH (so the deploy key is used)
-        run: |
-          git remote set-url     origin git@github.com:${{ github.repository }}.git
-          git remote set-url --push origin git@github.com:${{ github.repository }}.git
+      # - name: Switch the remote to SSH (so the deploy key is used)
+      #   run: |
+      #     git remote set-url     origin git@github.com:${{ github.repository }}.git
+      #     git remote set-url --push origin git@github.com:${{ github.repository }}.git
 
-          git remote -v            # quick sanity-check
+      #     git remote -v            # quick sanity-check
 
       - name: Run GlassCandle
         env:
