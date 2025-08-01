@@ -6,7 +6,7 @@ slack_notify = slack_notifier()
 
 watch = Watcher(
     "dependencies/versions.json",
-    # on_change=slack_notify
+    on_change=slack_notify
 )
 
 watch.conda("bcbio-gff", channel="bioconda")
