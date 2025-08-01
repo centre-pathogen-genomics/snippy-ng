@@ -148,3 +148,10 @@ vt = Dependency(
     citation="Adrian Tan, Gonçalo R. Abecasis, Hyun Min Kang, Unified representation of genetic variants, Bioinformatics, Volume 31, Issue 13, July 2015, Pages 2202–2204, https://doi.org/10.1093/bioinformatics/btv112",
     version_pattern=r"v(\d+\.\d+)",
 )
+
+# Read cleaning
+fastp = Dependency(
+    "fastp",
+    citation="Shifu Chen, Yanqing Zhou, Yaru Chen, Jia Gu, fastp: an ultra-fast all-in-one FASTQ preprocessor, Bioinformatics, Volume 34, Issue 17, September 2018, Pages i884–i890, https://doi.org/10.1093/bioinformatics/bty560",
+    min_version="0.20.0",
+)
