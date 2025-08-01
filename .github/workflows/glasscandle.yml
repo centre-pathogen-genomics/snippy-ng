@@ -37,11 +37,19 @@ jobs:
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
         run: python watcher.py
 
+      - name: Switch the remote to SSH (so the deploy key is used)
+        run: |
+          git remote set-url     origin git@github.com:${{ github.repository }}.git
+          git remote set-url --push origin git@github.com:${{ github.repository }}.git
+
+          git remote -v            # quick sanity-check
+
       - name: Commit and push version database changes to glasscandle branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GlassCandle"
           git add -A
           git diff --staged --quiet || git commit -m "Update version database [skip ci]"
-          # create/update remote branch "glasscandle" without switching branches
-          git push origin HEAD:refs/heads/glasscandle
+          git push
