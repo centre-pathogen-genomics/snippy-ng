@@ -1,7 +1,6 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
-from snippy_ng.stages.alignment_filtering import AlignmentFilter
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
@@ -26,6 +25,7 @@ def short(**kwargs):
     from snippy_ng.stages.setup import PrepareReference
     from snippy_ng.stages.clean_reads import CleanReadsFastp
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
+    from snippy_ng.stages.alignment_filtering import AlignmentFilter
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.seq_utils import guess_format
