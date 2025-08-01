@@ -1,7 +1,10 @@
 from glasscandle import Watcher
+from glasscandle.notifications import slack_notifier
 
 
-watch = Watcher("glasscandle.json")
+slack_notify = slack_notifier()
+
+watch = Watcher("dependencies/versions.json", on_change=slack_notify)
 
 watch.conda("bcbio-gff", channel="bioconda")
 watch.conda("click", channel="conda-forge")
@@ -17,6 +20,6 @@ watch.conda("vt", channel="bioconda")
 
 
 if __name__ == "__main__":
-    updated = watch.run()  # Run once
+    updated = watch.run()
     
 
