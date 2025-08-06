@@ -55,21 +55,6 @@ class AtRunTime:
     def __bool__(self):
         """Return True without triggering computation (AtRunTime objects are always truthy)."""
         return True
-    
-    def __eq__(self, other):
-        """Check equality without triggering computation unless comparing to None."""
-        if other is None:
-            return False
-        # For other comparisons, would need to compute the value
-        if isinstance(other, AtRunTime):
-            # Both are AtRunTime objects, compare functions if possible
-            return self._func == other._func
-        # For non-None comparisons with other types, we need to compute
-        return self.value == other
-    
-    def __ne__(self, other):
-        """Check inequality."""
-        return not self.__eq__(other)
 
     @property
     def value(self):
