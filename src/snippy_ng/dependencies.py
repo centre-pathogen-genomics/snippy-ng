@@ -155,3 +155,11 @@ fastp = Dependency(
     citation="Shifu Chen, Yanqing Zhou, Yaru Chen, Jia Gu, fastp: an ultra-fast all-in-one FASTQ preprocessor, Bioinformatics, Volume 34, Issue 17, September 2018, Pages i884–i890, https://doi.org/10.1093/bioinformatics/bty560",
     min_version="0.20.0",
 )
+
+# Read statistics
+seqkit = Dependency(
+    "seqkit",
+    citation="Wei Shen, Shuai Le, Yan Li, Fuquan Hu, SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA/Q File Manipulation, PLoS ONE 11(10): e0163962. https://doi.org/10.1371/journal.pone.0163962",
+    min_version="2.0.0",
+    version_arg="version"
+)

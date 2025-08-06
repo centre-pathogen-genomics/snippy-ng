@@ -75,6 +75,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.2-h8c095d6_2.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/samtools-1.20-h50ea8bc_1.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.10.0-he881be0_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sysroot_linux-64-2.17-h0157908_18.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/tabixpp-1.1.2-hbefcdb2_4.tar.bz2
@@ -158,6 +159,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/readline-8.2-h8382b9d_2.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/samtools-0.1.19-h0b41a95_13.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/seqkit-2.10.0-h8865c2f_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/tabixpp-1.1.2-h1c6109c_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/tk-8.6.13-h194ca79_0.conda
@@ -237,6 +239,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/rhash-1.4.5-ha44c9a9_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/samtools-1.20-h94387ee_1.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-64/seqkit-2.10.0-h193322a_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/tabixpp-1.1.2-hd217303_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-h1abcd95_1.conda
@@ -2477,6 +2480,32 @@ packages:
   license: MIT
   size: 464128
   timestamp: 1720646789514
+- conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.10.0-he881be0_1.tar.bz2
+  sha256: 1ca6d0c271f014d1f3fd87a89e53f98f402fb3de78e2830ccf82d7f39f5bd8b4
+  md5: e0bc0299f3b1df4e735b27f008d35615
+  license: MIT
+  license_family: MIT
+  purls: []
+  size: 13761815
+  timestamp: 1754028764122
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/seqkit-2.10.0-h8865c2f_1.tar.bz2
+  sha256: ecac5892b686faa92f7a2c59cfdcdecc4b8d45d7e8f5c622b7cf8c56eb212617
+  md5: fb78d7487f7621feb35e966bd1849186
+  license: MIT
+  license_family: MIT
+  purls: []
+  size: 12927094
+  timestamp: 1754028585254
+- conda: https://conda.anaconda.org/bioconda/osx-64/seqkit-2.10.0-h193322a_1.tar.bz2
+  sha256: c0cc2192f66282faee8c70af6cf7d252cbffbeff9a3482fad16e6e3f1ffb90a9
+  md5: 6d7ddf476de3318c289109cdb91c49ae
+  constrains:
+  - __osx>=10.12
+  license: MIT
+  license_family: MIT
+  purls: []
+  size: 13370025
+  timestamp: 1754029606844
 - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
   sha256: 41db0180680cc67c3fa76544ffd48d6a5679d96f4b71d7498a759e94edc9a2db
   md5: a451d576819089b0d672f18768be0f65
