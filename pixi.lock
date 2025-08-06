@@ -72,6 +72,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.9-h9e4cc4f_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python_abi-3.12-6_cp312.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/rasusa-2.1.1-hc1c3326_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.2-h8c095d6_2.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/samtools-1.20-h50ea8bc_1.tar.bz2
@@ -156,6 +157,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python-3.12.9-h1683364_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python_abi-3.12-6_cp312.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/rasusa-2.1.1-h3af2550_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/readline-8.2-h8382b9d_2.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/samtools-0.1.19-h0b41a95_13.tar.bz2
@@ -235,6 +237,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/python-3.12.9-h9ccd52b_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/python_abi-3.12-6_cp312.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-64/rasusa-2.1.1-h489dadc_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/readline-8.2-h7cca4af_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/rhash-1.4.5-ha44c9a9_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
@@ -2396,6 +2399,37 @@ packages:
   purls: []
   size: 6929
   timestamp: 1743483235505
+- conda: https://conda.anaconda.org/bioconda/linux-64/rasusa-2.1.1-hc1c3326_0.tar.bz2
+  sha256: 672eb1c7f33537b02c868e073264eb32e6229516caf0acf1c64271b088a7d974
+  md5: 164dd71df9218bea3532c14e5c90a9fa
+  depends:
+  - libgcc >=13
+  constrains:
+  - __glibc >=2.17
+  license: MIT
+  purls: []
+  size: 2045476
+  timestamp: 1753424928063
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/rasusa-2.1.1-h3af2550_0.tar.bz2
+  sha256: 189fa73f8518fbf27ca542349eea9076de761a306e4400dd671382d9b3f61ee1
+  md5: 79f7143635eb8c0b7f25e86827d54b77
+  depends:
+  - libgcc >=13
+  constrains:
+  - __glibc >=2.17
+  license: MIT
+  purls: []
+  size: 2089137
+  timestamp: 1753424757967
+- conda: https://conda.anaconda.org/bioconda/osx-64/rasusa-2.1.1-h489dadc_0.tar.bz2
+  sha256: 2a4840e47db4ba4069cb0214e5c6a639fb505f3de82b72396f4ef2579f53d0a8
+  md5: fdb53333649c8b3a20637982caa1e486
+  constrains:
+  - __osx >=10.13
+  license: MIT
+  purls: []
+  size: 1887740
+  timestamp: 1753425850777
 - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.2-h8c095d6_2.conda
   sha256: 2d6d0c026902561ed77cd646b5021aef2d4db22e57a5b0178dfc669231e06d2c
   md5: 283b96675859b20a825f8fa30f311446

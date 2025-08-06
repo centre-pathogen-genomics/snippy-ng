@@ -163,3 +163,11 @@ seqkit = Dependency(
     min_version="2.0.0",
     version_arg="version"
 )
+
+# Read downsampling
+rasusa = Dependency(
+    "rasusa",
+    citation="Hall, M. B., (2022). Rasusa: Randomly subsample sequencing reads to a specified coverage. Journal of Open Source Software, 7(69), 3941, https://doi.org/10.21105/joss.03941",
+    min_version="0.7.0",
+    version_arg="--version"
+)
