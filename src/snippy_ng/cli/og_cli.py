@@ -3,7 +3,7 @@ import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Backwards-compatible SNP calling pipeline")
 @snippy_global_options
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
@@ -27,13 +27,13 @@ from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 @click.option("--maxsoft", default=10, type=int, help="Maximum soft clipping to allow")
 @click.option("--bwaopt", default='', type=click.STRING, help="Extra BWA MEM options")
 @click.option("--fbopt", default='', type=click.STRING, help="Extra Freebayes options")
-def run(**kwargs):
+def og(**kwargs):
     """
     Drop-in replacement for Snippy with feature parity.
 
     Examples:
 
-        $ snippy-ng run --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference

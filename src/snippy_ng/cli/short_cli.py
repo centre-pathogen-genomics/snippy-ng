@@ -3,7 +3,8 @@ import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
+
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline for short reads")
 @snippy_global_options
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
@@ -19,7 +20,7 @@ def short(**kwargs):
 
     Examples:
 
-        $ snippy-ng run --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
@@ -29,12 +30,9 @@ def short(**kwargs):
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.seq_utils import guess_format
-
+    from snippy_ng.cli.utils import error
     from pydantic import ValidationError
 
-    def error(msg):
-        click.echo(f"Error: {msg}", err=True)
-        raise click.Abort()
 
     if not kwargs["force"] and kwargs["outdir"].exists():
         error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
