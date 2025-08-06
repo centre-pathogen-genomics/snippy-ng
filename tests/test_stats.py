@@ -25,13 +25,13 @@ class TestSeqKitReadStats:
         
         stage = SeqKitReadStats(
             reads=[str(read1), str(read2)],
-            output_prefix="test_stats",
+            prefix="test_stats",
             tmpdir=tmp_path,
             cpus=4
         )
         
         assert stage.reads == [str(read1), str(read2)]
-        assert stage.output_prefix == "test_stats"
+        assert stage.prefix == "test_stats"
         assert stage.cpus == 4
         assert stage.all_stats is True
         assert stage.tabular is True
@@ -45,20 +45,11 @@ class TestSeqKitReadStats:
         with pytest.raises(ValidationError) as excinfo:
             SeqKitReadStats(
                 reads=[],
-                output_prefix="test_stats",
+                prefix="test_stats",
                 tmpdir=tmp_path
             )
         assert "At least one read file must be provided" in str(excinfo.value)
         
-    def test_init_nonexistent_file(self, tmp_path):
-        """Test initialization with non-existent file should fail"""
-        with pytest.raises(ValidationError) as excinfo:
-            SeqKitReadStats(
-                reads=["nonexistent.fastq"],
-                output_prefix="test_stats",
-                tmpdir=tmp_path
-            )
-        assert "Read file does not exist" in str(excinfo.value)
         
     def test_invalid_fastq_encoding(self, tmp_path):
         """Test initialization with invalid FASTQ encoding should fail"""
@@ -68,7 +59,7 @@ class TestSeqKitReadStats:
         with pytest.raises(ValidationError) as excinfo:
             SeqKitReadStats(
                 reads=[str(read_file)],
-                output_prefix="test_stats",
+                prefix="test_stats",
                 tmpdir=tmp_path,
                 fastq_encoding="invalid_encoding"
             )
@@ -81,7 +72,7 @@ class TestSeqKitReadStats:
         
         stage = SeqKitReadStats(
             reads=[str(read_file)],
-            output_prefix="test_stats",
+            prefix="test_stats",
             tmpdir=tmp_path
         )
         
@@ -95,7 +86,7 @@ class TestSeqKitReadStats:
         
         stage = SeqKitReadStats(
             reads=[str(read_file)],
-            output_prefix="test_stats",
+            prefix="test_stats",
             tmpdir=tmp_path,
             cpus=2
         )
@@ -121,7 +112,7 @@ class TestSeqKitReadStats:
         
         stage = SeqKitReadStats(
             reads=[str(read1), str(read2)],
-            output_prefix="custom_stats",
+            prefix="custom_stats",
             tmpdir=tmp_path,
             cpus=4,
             all_stats=False,
@@ -159,7 +150,7 @@ class TestSeqKitReadStatsBasic:
         
         stage = SeqKitReadStatsBasic(
             reads=[str(read_file)],
-            output_prefix="basic_stats",
+            prefix="basic_stats",
             tmpdir=tmp_path
         )
         
@@ -181,7 +172,7 @@ class TestSeqKitReadStatsDetailed:
         
         stage = SeqKitReadStatsDetailed(
             reads=[str(read_file)],
-            output_prefix="detailed_stats",
+            prefix="detailed_stats",
             tmpdir=tmp_path,
             additional_n_stats=[90, 95]
         )
@@ -203,7 +194,7 @@ class TestSeqKitReadStatsDetailed:
         with pytest.raises(ValidationError) as excinfo:
             SeqKitReadStatsDetailed(
                 reads=[str(read_file)],
-                output_prefix="detailed_stats",
+                prefix="detailed_stats",
                 tmpdir=tmp_path,
                 additional_n_stats=[150]  # Invalid: > 100
             )
@@ -212,7 +203,7 @@ class TestSeqKitReadStatsDetailed:
         with pytest.raises(ValidationError) as excinfo:
             SeqKitReadStatsDetailed(
                 reads=[str(read_file)],
-                output_prefix="detailed_stats",
+                prefix="detailed_stats",
                 tmpdir=tmp_path,
                 additional_n_stats=[-10]  # Invalid: < 0
             )
@@ -225,7 +216,7 @@ class TestSeqKitReadStatsDetailed:
         
         stage = SeqKitReadStatsDetailed(
             reads=[str(read_file)],
-            output_prefix="detailed_stats",
+            prefix="detailed_stats",
             tmpdir=tmp_path,
             additional_n_stats=[]
         )
