@@ -11,6 +11,7 @@ from snippy_ng.dependencies import biopython
 class PrepareReferenceOutput(BaseOutput):
     reference: Path
     gff: Path
+    meta: Path
 
 
 class PrepareReference(BaseStage):
@@ -28,6 +29,7 @@ class PrepareReference(BaseStage):
         return PrepareReferenceOutput(
             reference=self.reference_dir / f"{self.reference_prefix}.fa",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
+            meta=self.reference_dir / f"{self.reference_prefix}.json",
         )
 
     @property
@@ -73,6 +75,7 @@ class PrepareReference(BaseStage):
         feature_id_counter = {}
         nseq = 0
         nfeat = 0
+        total_length = 0
         with open(output_fasta_path, "w") as fasta_out, open(output_gff_path, "w") as gff_out:
             for seq_record in seq_records:
                 # Check for duplicate sequences
@@ -88,6 +91,7 @@ class PrepareReference(BaseStage):
                 # Write to FASTA
                 SeqIO.write(seq_record, fasta_out, "fasta")
                 nseq += 1
+                total_length += len(dna)
 
                 # Process features for GFF
                 new_features = []
@@ -133,6 +137,20 @@ class PrepareReference(BaseStage):
                 # Write GFF features if any
                 if new_features:
                     GFF.write([seq_record], gff_out)
+                
+        # Write JSON metadata
+        metadata = {
+            "reference": str(reference_path),
+            "format": ref_fmt,
+            "num_sequences": nseq,
+            "total_length": total_length,
+            "num_features": nfeat,
+            "feature_counts": {ftype: count for ftype, count in feature_id_counter.items()},
+        }
+        with open(self.output.meta, "w") as json_out:
+            import json
+            json.dump(metadata, json_out, indent=4)
+
 
         print(f"Wrote {nseq} sequences to {output_fasta_path}")
         print(f"Wrote {nfeat} features to {output_gff_path}" if nfeat > 0 else f"No features found in {reference_path}")

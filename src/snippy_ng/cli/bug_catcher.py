@@ -18,7 +18,7 @@ class BugCatchingGroup(click.Group):
             import traceback
             import platform
             from urllib.parse import quote
-            from snippy_ng.logging import horizontal_rule
+            from snippy_ng.logging import logger
             
             traceback.print_exc(file=sys.stderr)
 
@@ -50,41 +50,41 @@ class BugCatchingGroup(click.Group):
             except Exception:
                 full_tb = "<unable to capture traceback>"
 
-            click.echo()
-            click.echo(horizontal_rule("Bug report template (copy/paste the sections below into GitHub)", color='bold_red'), err=True)
+            logger.echo(err=True)
+            logger.horizontal_rule("Bug report template (copy/paste the sections below into GitHub)", color='red')
 
-            click.echo("\n**Describe the bug**", err=True)
-            click.echo("> A clear and concise description of what the bug is.\n", err=True)
+            logger.echo("\n**Describe the bug**", err=True)
+            logger.echo("> A clear and concise description of what the bug is.\n", err=True)
 
-            click.echo("You encountered an exception. Here is the exception message:\n", err=True)
-            click.echo(f"```\n{type(e).__name__}: {e}\n```\n", err=True)
+            logger.echo("You encountered an exception. Here is the exception message:\n", err=True)
+            logger.echo(f"```\n{type(e).__name__}: {e}\n```\n", err=True)
 
-            click.echo("The command you ran was:\n", err=True)
-            click.echo(f"```\n{cmd_string}\n```\n", err=True)
+            logger.echo("The command you ran was:\n", err=True)
+            logger.echo(f"```\n{cmd_string}\n```\n", err=True)
 
-            click.echo("**Environment**", err=True)
-            click.echo("> Please provide your OS and Snippy-NG version. If you are running in conda, "
+            logger.echo("**Environment**", err=True)
+            logger.echo("> Please provide your OS and Snippy-NG version. If you are running in conda, "
                        "you can add 'conda list' output here as well.\n", err=True)
-            click.echo(f"- OS: `{os_info}`", err=True)
-            click.echo(f"- Snippy-NG version: `{snippy_version}`\n", err=True)
+            logger.echo(f"- OS: `{os_info}`", err=True)
+            logger.echo(f"- Snippy-NG version: `{snippy_version}`\n", err=True)
             
-            click.echo("**Additional context**", err=True)
-            click.echo("> Add any other context about the problem here. (e.g., input files, "
+            logger.echo("**Additional context**", err=True)
+            logger.echo("> Add any other context about the problem here. (e.g., input files, "
                        "exact command arguments, steps to reproduce, etc.)\n", err=True)
 
-            click.echo("**Backtrace**", err=True)
-            click.echo("> If possible, please include the complete error log below.\n", err=True)
-            click.echo("```", err=True)
-            click.echo(full_tb.rstrip("\n"), err=True)
-            click.echo("```\n", err=True)
+            logger.echo("**Backtrace**", err=True)
+            logger.echo("> If possible, please include the complete error log below.\n", err=True)
+            logger.echo("```", err=True)
+            logger.echo(full_tb.rstrip("\n"), err=True)
+            logger.echo("```\n", err=True)
 
-            click.echo(horizontal_rule(), err=True)
-            click.echo(
+            logger.horizontal_rule()
+            logger.echo(
                 "\nOh no! You broke Snippy-NG... Congrats! Please use the following URL to report this bug:",
                 err=True,
             )
-            click.echo(f"\n{url}\n", err=True)
-            click.echo("Above is a pre-filled bug report template. "
+            logger.echo(f"\n{url}\n", err=True)
+            logger.echo("Above is a pre-filled bug report template. "
                        "Please copy/paste it into the GitHub issue form.\n", err=True)
             
             sys.exit(1)

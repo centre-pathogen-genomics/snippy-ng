@@ -3,12 +3,13 @@ import click
 from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline")
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline for short reads")
 @snippy_global_options
-@click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA, GenBank, EMBL)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
+@click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
@@ -19,22 +20,20 @@ def short(**kwargs):
 
     Examples:
 
-        $ snippy-ng run --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference
-    from snippy_ng.stages.clean_reads import CleanReadsFastp
+    from snippy_ng.stages.clean_reads import FastpCleanReads
+    from snippy_ng.stages.stats import SeqKitReadStatsBasic
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
     from snippy_ng.stages.alignment_filtering import AlignmentFilter
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.seq_utils import guess_format
-
+    from snippy_ng.cli.utils import error
     from pydantic import ValidationError
 
-    def error(msg):
-        click.echo(f"Error: {msg}", err=True)
-        raise click.Abort()
 
     if not kwargs["force"] and kwargs["outdir"].exists():
         error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
@@ -74,13 +73,46 @@ def short(**kwargs):
         
         # Clean reads (optional)
         if kwargs["clean_reads"] and kwargs["reads"]:
-            clean_reads_stage = CleanReadsFastp(**kwargs)
+            clean_reads_stage = FastpCleanReads(**kwargs)
             # Update reads to use cleaned reads
             kwargs["reads"] = [clean_reads_stage.output.cleaned_r1]
             if clean_reads_stage.output.cleaned_r2:
                 kwargs["reads"].append(clean_reads_stage.output.cleaned_r2)
             stages.append(clean_reads_stage)
-        
+        if kwargs.get("downsample"):
+            from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
+            from snippy_ng.stages import at_run_time
+            
+            # Create a closure that captures the setup stage
+            def make_genome_length_getter():
+                _setup = setup if 'setup' in locals() else None
+                _outdir = kwargs["outdir"]
+                
+                def get_genome_length():
+                    import json
+                    # Use the setup stage's metadata file if available
+                    if _setup and hasattr(_setup, 'output'):
+                        meta_path = _setup.output.meta
+                    else:
+                        meta_path = _outdir / "reference" / "ref.json"
+                    with open(meta_path, 'r') as f:
+                        metadata = json.load(f)
+                    return int(metadata['total_length'])
+                
+                return get_genome_length
+            
+            downsample_stage = RasusaDownsampleReadsByCoverage(
+                coverage=kwargs["downsample"],
+                genome_length=at_run_time(make_genome_length_getter()),
+                **kwargs
+            )
+            # Update reads to use downsampled reads
+            kwargs["reads"] = [downsample_stage.output.downsampled_r1]
+            if downsample_stage.output.downsampled_r2:
+                kwargs["reads"].append(downsample_stage.output.downsampled_r2)
+            stages.append(downsample_stage)
+        # SeqKit read statistics
+        stages.append(SeqKitReadStatsBasic(**kwargs))
         # Aligner
         if kwargs["bam"]:
             aligner = PreAlignedReads(**kwargs)

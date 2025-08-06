@@ -2,9 +2,10 @@ import random
 from typing import List
 import os
 from pathlib import Path
+import time
 
 from snippy_ng.exceptions import DependencyError, SkipStageError, MissingOutputError
-from snippy_ng.logging import logger, horizontal_rule
+from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages.base import BaseStage
 
@@ -26,10 +27,13 @@ class Pipeline:
     def dependencies(self):
         return [dep for stage in self.stages for dep in stage._dependencies]
 
-    def hr(self, msg="", style='-', color='light_blue'):
+    def hr(self, msg="", style='-', color='blue'):
         """Print a horizontal rule."""
-        print(horizontal_rule(msg, style=style, color=color))
-        
+        logger.horizontal_rule(msg, style=style, color=color)
+
+    def echo(self, message):
+        logger.echo(message, err=True)
+
     def log(self, msg):
         logger.info(msg)
     
@@ -72,6 +76,7 @@ class Pipeline:
 
     def run(self, quiet=False):
         # Run pipeline sequentially
+        self.start_time = time.perf_counter()
         for stage in self.stages:
             self.hr(f"{stage.name}")
             self.log(stage)
@@ -84,6 +89,7 @@ class Pipeline:
             except SkipStageError:
                 self.stages.remove(stage)
                 self.warning(f"STAGE {stage.name} SKIPPED!")
+        self.end_time = time.perf_counter()
 
     def cleanup(self):
         # Clean up unnecessary files
@@ -140,7 +146,11 @@ class Pipeline:
         self.hr()
         self.hr("Snippy-NG completed!", style=" ", color="green")
         self.hr()
-        self.log(f"Please cite the following:\n{'- ' + '\n- '.join(self.citations)}")
+        self.echo(f"Total runtime: {self.end_time - self.start_time:.2f} seconds")
+        self.echo(f"Documentation: {DOCS_URL}")
+        self.echo(f"GitHub: {GITHUB_URL}")
+        self.hr("Citations")
+        self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
         self.hr()
         # Print a random goodbye message
-        self.hr(f"{random.choice(messages)}", style=" ", color="None")
+        self.hr(f"{random.choice(messages)}", style=" ", color=None)

@@ -14,6 +14,7 @@ GLOBAL_DEFS = [
         "attrs": {
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "required": True,
+            "default": Path("out"),
             "help": "Where to put everything",
         },
     },

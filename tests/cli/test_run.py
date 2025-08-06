@@ -158,7 +158,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     if case_name == "bad_reference":
         monkeypatch.setattr("snippy_ng.seq_utils.guess_format", lambda _: None)
 
-    args = ["run"] + extra(paths)
+    args = ["og"] + extra(paths)
     runner = CliRunner()
 
     # --------------- Act ------------------------------------------------------
