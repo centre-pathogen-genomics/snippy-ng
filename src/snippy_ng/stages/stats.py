@@ -77,9 +77,6 @@ class SeqKitReadStats(BaseStage):
         """
         if not v or len(v) == 0:
             raise ValueError("At least one read file must be provided")
-        for read_file in v:
-            if not Path(read_file).exists():
-                raise ValueError(f"Read file does not exist: {read_file}")
         return v
     
     @field_validator("fastq_encoding")
