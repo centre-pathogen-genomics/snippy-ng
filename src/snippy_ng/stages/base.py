@@ -51,20 +51,21 @@ class BaseStage(BaseModel):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
             logger.info(f"Running: {cmd}") 
-            stdout = None
-            stderr = subprocess.STDOUT
+            stdout = sys.stderr
+            stderr = sys.stderr
             if quiet:
                 stdout = subprocess.DEVNULL
                 stderr = subprocess.DEVNULL
             try:
                 if isinstance(cmd, Command):
                     if quiet:
-                        # Redirect stdout and stderr to StringIO
+                        # Capture output if quiet mode is enabled
                         with StringIO() as out, StringIO() as err, \
                                 self.redirect_output(out), self.redirect_error(err):
                             cmd.func(*cmd.args)
                     else:
-                        cmd.func(*cmd.args)
+                        with self.redirect_stdout_to_err():
+                            cmd.func(*cmd.args)
                 elif isinstance(cmd, str):
                     subprocess.run(cmd, shell=True, check=True, stdout=stdout, stderr=stderr, text=True)
                 else:
@@ -79,6 +80,15 @@ class BaseStage(BaseModel):
                 logger.error(f"Function call failed: {e}")
                 raise RuntimeError(f"Failed to run function: {cmd}")
     
+    @contextmanager
+    def redirect_stdout_to_err(self):
+        original_stdout = sys.stdout
+        sys.stdout = sys.stderr
+        try:
+            yield
+        finally:
+            sys.stdout = original_stdout
+
     @contextmanager
     def redirect_output(self, output_stream):
         original_stdout = sys.stdout
