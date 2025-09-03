@@ -6,7 +6,7 @@ import click
 from click.testing import CliRunner
 
 
-from snippy_ng.cli.bug_catcher import BugCatchingGroup
+from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 from snippy_ng.__about__ import GITHUB_URL
 
 

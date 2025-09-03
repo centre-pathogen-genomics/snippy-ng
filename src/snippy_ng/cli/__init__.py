@@ -4,7 +4,7 @@ import webbrowser
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.og_cli import og
 from snippy_ng.cli.short_cli import short
-from snippy_ng.cli.bug_catcher import BugCatchingGroup
+from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
 def show_citation(ctx, param, value):
