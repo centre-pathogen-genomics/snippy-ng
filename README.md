@@ -30,6 +30,27 @@ The complete snippy-ng environment (including all dependencies) can be installed
 curl -sSL https://github.com/centre-pathogen-genomics/snippy-ng/releases/latest/download/install.sh | bash -s -- --force
 ```
 
+## Development
+
+To set up a development environment, clone the repository and install `pixi` and `hatch`. Pixi is used to manage external dependencies, and Hatch is used to manage the Python package development.
+
+```console
+git clone git@github.com:centre-pathogen-genomics/snippy-ng.git && cd snippy-ng
+curl -fsSL https://pixi.sh/install.sh | bash
+brew install hatch
+```
+
+Activate the pixi environment and launch a hatch shell. THis will install all dependencies and set up the development environment.
+
+```console
+pixi shell
+hatch shell
+```
+
+```console
+snippy-ng --help
+```
+
 ## License
 
 `snippy-ng` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
