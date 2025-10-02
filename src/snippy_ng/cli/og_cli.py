@@ -1,6 +1,6 @@
 from pathlib import Path
 import click
-from snippy_ng.cli.globals import CommandWithGlobals, snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Backwards-compatible SNP calling pipeline")
