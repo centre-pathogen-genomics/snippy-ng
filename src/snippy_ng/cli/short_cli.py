@@ -20,7 +20,7 @@ def short(**kwargs):
 
     Examples:
 
-        $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
     from snippy_ng.stages.setup import PrepareReference

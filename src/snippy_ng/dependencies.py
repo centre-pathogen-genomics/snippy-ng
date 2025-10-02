@@ -143,11 +143,6 @@ bcftools = Dependency(
     citation="Petr Danecek, James K Bonfield, Jennifer Liddle, John Marshall, Valeriu Ohan, Martin O Pollard, Andrew Whitwham, Thomas Keane, Shane A McCarthy, Robert M Davies, Heng Li, Twelve years of SAMtools and BCFtools, GigaScience, Volume 10, Issue 2, February 2021, giab008, https://doi.org/10.1093/gigascience/giab008",
     version_pattern=r"(\d+\.\d+)",
 )
-vt = Dependency(
-    "vt",
-    citation="Adrian Tan, Gonçalo R. Abecasis, Hyun Min Kang, Unified representation of genetic variants, Bioinformatics, Volume 31, Issue 13, July 2015, Pages 2202–2204, https://doi.org/10.1093/bioinformatics/btv112",
-    version_pattern=r"v(\d+\.\d+)",
-)
 
 # Read cleaning
 fastp = Dependency(
