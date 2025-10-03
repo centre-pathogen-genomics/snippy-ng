@@ -30,6 +30,7 @@ def short(**kwargs):
     from snippy_ng.stages.alignment_filtering import AlignmentFilter
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
+    from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
     from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
     from pydantic import ValidationError
@@ -69,6 +70,7 @@ def short(**kwargs):
                     **kwargs,
                 )
             kwargs["reference"] = setup.output.reference
+            kwargs["features"] = setup.output.gff
             stages.append(setup)
         
         # Clean reads (optional)
@@ -128,7 +130,11 @@ def short(**kwargs):
         kwargs["bam"] = align_filter.output.bam
         stages.append(align_filter)
         # SNP calling
-        stages.append(FreebayesCaller(**kwargs))
+        caller = FreebayesCaller(**kwargs)
+        stages.append(caller)
+        kwargs["variants"] = caller.output.filter_vcf
+        # Consequences calling
+        stages.append(BcftoolsConsequencesCaller(**kwargs))
     except ValidationError as e:
         error(e)
     
