@@ -2,9 +2,7 @@ from snippy_ng.stages.base import BaseStage, BaseOutput, Command
 from pydantic import Field
 from pathlib import Path
 from Bio import SeqIO
-from BCBio import GFF
 from Bio.Seq import Seq
-from Bio.SeqFeature import SeqFeature, SimpleLocation
 
 from snippy_ng.dependencies import biopython
 
@@ -48,7 +46,7 @@ class PrepareReference(BaseStage):
     def process_reference(self, reference_path: Path, ref_fmt: str, output_fasta_path: Path, output_gff_path: Path):
         """
         Extracts FASTA and GFF3 from a reference file.
-        Determines input format and writes GFF only if features exist.
+        Determines input format and writes Ensembl-style GFF3 only if features exist.
 
         Args:
             reference_path (Path): Path to the reference file.
@@ -72,11 +70,15 @@ class PrepareReference(BaseStage):
 
         # Prepare outputs
         ref_seq_dict = {}
-        feature_id_counter = {}
+        gene_counter = 0
         nseq = 0
         nfeat = 0
         total_length = 0
+        
         with open(output_fasta_path, "w") as fasta_out, open(output_gff_path, "w") as gff_out:
+            # Write GFF3 header
+            gff_out.write("##gff-version 3\n")
+            
             for seq_record in seq_records:
                 # Check for duplicate sequences
                 if seq_record.id in ref_seq_dict:
@@ -93,51 +95,148 @@ class PrepareReference(BaseStage):
                 nseq += 1
                 total_length += len(dna)
 
-                # Process features for GFF
-                new_features = []
+                # Write sequence region directive for GFF3
+                gff_out.write(f"##sequence-region {seq_record.id} 1 {len(dna)}\n")
+
+                # Group features by gene/transcript hierarchy
+                genes = {}
+                standalone_features = []
+                
                 for feature in seq_record.features:
                     ftype = feature.type
-                    if ftype in ("source", "gene", "misc_feature"):
+                    if ftype in ("source", "misc_feature"):
                         continue  # Skip unwanted features
 
-                    # Count features by type
-                    if ftype not in feature_id_counter:
-                        feature_id_counter[ftype] = 0
-                    feature_id_counter[ftype] += 1
-
-                    # Add ID to qualifiers
+                    # Determine gene and transcript IDs
+                    gene_id = None
+                    transcript_id = None
+                    
                     if "locus_tag" in feature.qualifiers:
-                        feature_id = feature.qualifiers["locus_tag"][0]
+                        gene_id = feature.qualifiers["locus_tag"][0]
+                    elif "gene" in feature.qualifiers:
+                        gene_id = feature.qualifiers["gene"][0]
                     else:
-                        feature_id = f"{ftype}_{feature_id_counter[ftype]}"
-                    feature.qualifiers["ID"] = feature_id
+                        gene_counter += 1
+                        gene_id = f"gene_{gene_counter}"
 
-                    # Add Name to qualifiers if gene tag is present
-                    if "gene" in feature.qualifiers:
-                        feature.qualifiers["Name"] = feature.qualifiers["gene"][0]
+                    # For features that need transcripts (CDS, exon, UTRs)
+                    if ftype in ("CDS", "exon", "five_prime_UTR", "three_prime_UTR"):
+                        transcript_id = f"{gene_id}_transcript_1"
+                        
+                        if gene_id not in genes:
+                            genes[gene_id] = {
+                                'feature': feature,
+                                'transcripts': {},
+                                'start': feature.location.start + 1,  # Convert to 1-based
+                                'end': feature.location.end,
+                                'strand': '+' if feature.location.strand == 1 else '-' if feature.location.strand == -1 else '.'
+                            }
+                        else:
+                            # Extend gene boundaries
+                            genes[gene_id]['start'] = min(genes[gene_id]['start'], feature.location.start + 1)
+                            genes[gene_id]['end'] = max(genes[gene_id]['end'], feature.location.end)
+                        
+                        if transcript_id not in genes[gene_id]['transcripts']:
+                            genes[gene_id]['transcripts'][transcript_id] = {
+                                'features': [],
+                                'start': feature.location.start + 1,
+                                'end': feature.location.end,
+                                'strand': '+' if feature.location.strand == 1 else '-' if feature.location.strand == -1 else '.'
+                            }
+                        else:
+                            # Extend transcript boundaries
+                            transcript = genes[gene_id]['transcripts'][transcript_id]
+                            transcript['start'] = min(transcript['start'], feature.location.start + 1)
+                            transcript['end'] = max(transcript['end'], feature.location.end)
+                        
+                        genes[gene_id]['transcripts'][transcript_id]['features'].append(feature)
+                    
+                    elif ftype == "gene":
+                        if gene_id not in genes:
+                            genes[gene_id] = {
+                                'feature': feature,
+                                'transcripts': {},
+                                'start': feature.location.start + 1,
+                                'end': feature.location.end,
+                                'strand': '+' if feature.location.strand == 1 else '-' if feature.location.strand == -1 else '.'
+                            }
+                    else:
+                        # Standalone features (tRNA, rRNA, etc.)
+                        standalone_features.append(feature)
 
-                    # Assign source
-                    feature.qualifiers["source"] = "snippy-ng"
-
-                    # Set phase for CDS features; '.' for others
-                    phase = "0" if ftype == "CDS" else "."
-                    feature.qualifiers["phase"] = phase
-
-                    new_feature = SeqFeature(
-                        location=SimpleLocation(feature.location.start, feature.location.end, strand=feature.location.strand),
-                        type=ftype,
-                        qualifiers=feature.qualifiers,
-                    )
-                    new_features.append(new_feature)
+                # Write genes and their transcripts
+                for gene_id, gene_data in genes.items():
+                    gene_feature = gene_data['feature']
+                    
+                    # Determine biotype
+                    biotype = "protein_coding"  # Default
+                    if gene_feature.type == "tRNA":
+                        biotype = "tRNA"
+                    elif gene_feature.type == "rRNA":
+                        biotype = "rRNA"
+                    elif gene_feature.type in ("ncRNA", "misc_RNA"):
+                        biotype = "misc_RNA"
+                    
+                    # Get gene name
+                    gene_name = ""
+                    if "gene" in gene_feature.qualifiers:
+                        gene_name = f";Name={gene_feature.qualifiers['gene'][0]}"
+                    elif "product" in gene_feature.qualifiers:
+                        gene_name = f";Name={gene_feature.qualifiers['product'][0]}"
+                    
+                    # Write gene line
+                    gff_out.write(f"{seq_record.id}\tsnipy-ng\tgene\t{gene_data['start']}\t{gene_data['end']}\t.\t{gene_data['strand']}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}\n")
                     nfeat += 1
-
-                # Update record features
-                seq_record.features = new_features
-
-                # Write GFF features if any
-                if new_features:
-                    GFF.write([seq_record], gff_out)
+                    
+                    # Write transcripts and their features
+                    for transcript_id, transcript_data in gene_data['transcripts'].items():
+                        # Write transcript line
+                        gff_out.write(f"{seq_record.id}\tsnipy-ng\ttranscript\t{transcript_data['start']}\t{transcript_data['end']}\t.\t{transcript_data['strand']}\t.\tID=transcript:{transcript_id};Parent=gene:{gene_id};biotype={biotype}\n")
+                        nfeat += 1
+                        
+                        # Write transcript features (CDS, exon, UTRs)
+                        for feature in transcript_data['features']:
+                            start = feature.location.start + 1  # Convert to 1-based
+                            end = feature.location.end
+                            strand = '+' if feature.location.strand == 1 else '-' if feature.location.strand == -1 else '.'
+                            phase = "0" if feature.type == "CDS" else "."
+                            
+                            gff_out.write(f"{seq_record.id}\tsnipy-ng\t{feature.type}\t{start}\t{end}\t.\t{strand}\t{phase}\tParent=transcript:{transcript_id}\n")
+                            nfeat += 1
                 
+                # Write standalone features as genes without transcripts
+                for feature in standalone_features:
+                    gene_counter += 1
+                    gene_id = f"gene_{gene_counter}"
+                    
+                    if "locus_tag" in feature.qualifiers:
+                        gene_id = feature.qualifiers["locus_tag"][0]
+                    elif "gene" in feature.qualifiers:
+                        gene_id = feature.qualifiers["gene"][0]
+                    
+                    start = feature.location.start + 1  # Convert to 1-based
+                    end = feature.location.end
+                    strand = '+' if feature.location.strand == 1 else '-' if feature.location.strand == -1 else '.'
+                    
+                    # Determine biotype
+                    biotype = "protein_coding"  # Default
+                    if feature.type == "tRNA":
+                        biotype = "tRNA"
+                    elif feature.type == "rRNA":
+                        biotype = "rRNA"
+                    elif feature.type in ("ncRNA", "misc_RNA"):
+                        biotype = "misc_RNA"
+                    
+                    # Get gene name
+                    gene_name = ""
+                    if "gene" in feature.qualifiers:
+                        gene_name = f";Name={feature.qualifiers['gene'][0]}"
+                    elif "product" in feature.qualifiers:
+                        gene_name = f";Name={feature.qualifiers['product'][0]}"
+                    
+                    gff_out.write(f"{seq_record.id}\tsnipy-ng\tgene\t{start}\t{end}\t.\t{strand}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}\n")
+                    nfeat += 1
+                    
         # Write JSON metadata
         metadata = {
             "reference": str(reference_path),
@@ -145,12 +244,10 @@ class PrepareReference(BaseStage):
             "num_sequences": nseq,
             "total_length": total_length,
             "num_features": nfeat,
-            "feature_counts": {ftype: count for ftype, count in feature_id_counter.items()},
         }
         with open(self.output.meta, "w") as json_out:
             import json
             json.dump(metadata, json_out, indent=4)
-
 
         print(f"Wrote {nseq} sequences to {output_fasta_path}")
         print(f"Wrote {nfeat} features to {output_gff_path}" if nfeat > 0 else f"No features found in {reference_path}")
