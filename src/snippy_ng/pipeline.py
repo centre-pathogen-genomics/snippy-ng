@@ -84,8 +84,7 @@ class Pipeline:
                 stage.run(quiet)
                 for name, output in stage.output:
                     if not Path(output).exists():
-                        self.error(f"Output file {output} not found!")
-                        raise MissingOutputError("Output file not found!")
+                        raise MissingOutputError(f"Output file {output} not found!")
             except SkipStageError:
                 self.stages.remove(stage)
                 self.warning(f"STAGE {stage.name} SKIPPED!")

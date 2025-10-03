@@ -4,18 +4,14 @@ environments:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
     - url: https://conda.anaconda.org/bioconda/
-    indexes:
-    - https://pypi.org/simple
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-2_gnu.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyh7e72e81_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/bcftools-1.21-h3a4d415_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/biopython-1.85-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/bwa-0.7.19-h577a1d6_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/linux-64/bx-python-0.13.0-py312h5e9d817_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-h4bc722e_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.4-hb9d3cd8_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ca-certificates-2025.1.31-hbcca054_0.conda
@@ -69,7 +65,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/perl-5.32.1-7_hd590300_perl5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.11.2-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pydantic-core-2.33.1-py312h3b7be25_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.9-h9e4cc4f_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python_abi-3.12-6_cp312.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/rasusa-2.1.1-hc1c3326_0.tar.bz2
@@ -77,7 +72,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/samtools-1.20-h50ea8bc_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.10.0-he881be0_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/sysroot_linux-64-2.17-h0157908_18.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/tabixpp-1.1.2-hbefcdb2_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h4845f30_101.conda
@@ -90,15 +84,12 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/wget-1.21.4-hda4d442_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
-      - pypi: https://files.pythonhosted.org/packages/4d/fc/fb0ad7988b7db0bd88c2764fd6b82657786e61cd5ab7f051e823c1aa1d4a/bcbio_gff-0.7.1-py3-none-any.whl
       linux-aarch64:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/_openmp_mutex-4.5-2_gnu.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyh7e72e81_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bcftools-1.21-h9618498_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/biopython-1.85-py312hb2c0f52_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bwa-0.7.19-h0cbc5ad_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bx-python-0.13.0-py312h645634a_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/bzip2-1.0.8-h68df207_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/c-ares-1.34.4-h86ecc28_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ca-certificates-2025.1.31-hcefe29a_0.conda
@@ -151,7 +142,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/perl-5.32.1-7_h31becfc_perl5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.11.2-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/pydantic-core-2.33.1-py312h8cbf658_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python-3.12.9-h1683364_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python_abi-3.12-6_cp312.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/rasusa-2.1.1-h3af2550_0.tar.bz2
@@ -159,7 +149,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/samtools-0.1.19-h0b41a95_13.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/seqkit-2.10.0-h8865c2f_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/tabixpp-1.1.2-h1c6109c_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/tk-8.6.13-h194ca79_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.13.1-hf5ce1d7_0.conda
@@ -171,14 +160,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/wget-1.21.4-h3861a24_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/zlib-1.3.1-h86ecc28_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/zstd-1.5.7-hbcf94c1_2.conda
-      - pypi: https://files.pythonhosted.org/packages/4d/fc/fb0ad7988b7db0bd88c2764fd6b82657786e61cd5ab7f051e823c1aa1d4a/bcbio_gff-0.7.1-py3-none-any.whl
       osx-64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyh7e72e81_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/bcftools-1.21-h0a67c2f_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/biopython-1.85-py312h01d7ebd_1.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/bwa-0.7.19-h7f84b70_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/osx-64/bx-python-0.13.0-py312he0d4a5b_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/bzip2-1.0.8-hfdf4475_7.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/c-ares-1.34.4-hf13058a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/ca-certificates-2025.1.31-h8857fd0_0.conda
@@ -225,7 +211,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/perl-5.32.1-7_h10d778d_perl5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.11.2-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/pydantic-core-2.33.1-py312hb59e30e_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/python-3.12.9-h9ccd52b_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/python_abi-3.12-6_cp312.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/rasusa-2.1.1-h489dadc_0.tar.bz2
@@ -234,7 +219,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/samclip-0.4.0-hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/samtools-1.20-h94387ee_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/seqkit-2.10.0-h193322a_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/tabixpp-1.1.2-hd217303_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-h1abcd95_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.13.1-hf5ce1d7_0.conda
@@ -246,14 +230,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/wget-1.21.4-hca547e6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zlib-1.3.1-hd23fc13_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-h8210216_2.conda
-      - pypi: https://files.pythonhosted.org/packages/4d/fc/fb0ad7988b7db0bd88c2764fd6b82657786e61cd5ab7f051e823c1aa1d4a/bcbio_gff-0.7.1-py3-none-any.whl
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyhdfd78af_3.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/bcftools-1.21-h48e1df0_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/biopython-1.85-py313hcdf3177_2.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/bwa-0.7.19-hba9b596_1.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/osx-arm64/bx-python-0.14.0-py313h68dcb1e_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/bzip2-1.0.8-hd037594_8.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.5-h5505292_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2025.8.3-hbd8a1cb_0.conda
@@ -303,7 +284,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/perl-5.32.1-7_h4614cfb_perl5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.11.9-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pydantic-core-2.33.2-py313hf3ab51e_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.13.7-h5c937ed_100_cp313.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.13-8_cp313.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/rasusa-2.2.2-h56ff5df_0.conda
@@ -313,7 +293,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/samtools-1.6-hd980e65_13.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/seqkit-2.10.1-hd5f1084_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/seqlib-1.2.0-hce97e86_0.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/tabixpp-1.1.2-hce97e86_4.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-h892fb3f_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
@@ -325,7 +304,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/wget-1.21.4-he2df1f1_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
-      - pypi: https://files.pythonhosted.org/packages/4d/fc/fb0ad7988b7db0bd88c2764fd6b82657786e61cd5ab7f051e823c1aa1d4a/bcbio_gff-0.7.1-py3-none-any.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
   sha256: fe51de6107f9edc7aa4f786a70f4a883943bc9d39b3bb7307c04c41410990726
@@ -373,35 +351,6 @@ packages:
   - pkg:pypi/annotated-types?source=hash-mapping
   size: 18074
   timestamp: 1733247158254
-- pypi: https://files.pythonhosted.org/packages/4d/fc/fb0ad7988b7db0bd88c2764fd6b82657786e61cd5ab7f051e823c1aa1d4a/bcbio_gff-0.7.1-py3-none-any.whl
-  name: bcbio-gff
-  version: 0.7.1
-  sha256: 98b18c797fbabd27f47c2edc2a5c5e75d37a353cc2286684c4650728e66ff8fd
-  requires_dist:
-  - six
-  - biopython
-- conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyh7e72e81_2.tar.bz2
-  sha256: 2db414ca5c086630233ece8e2056e5c4342020c07c1ffc46aa99ed19c5d8b200
-  md5: 6e4203bff55d74b1633daa186b1438d7
-  depends:
-  - biopython <=1.86
-  - bx-python
-  - python
-  - six
-  license: Biopython License Agreement
-  size: 21938
-  timestamp: 1725522773418
-- conda: https://conda.anaconda.org/bioconda/noarch/bcbio-gff-0.7.1-pyhdfd78af_3.tar.bz2
-  sha256: e8fa1cd4e3c31047c66e17475c2c5360efaeb61092d3e9a4d85de295bc101aeb
-  md5: bc9f6b2307b876989ba2e18f09892a9d
-  depends:
-  - biopython
-  - bx-python
-  - python >=3
-  - six
-  license: Biopython License Agreement
-  size: 24794
-  timestamp: 1753991330784
 - conda: https://conda.anaconda.org/bioconda/linux-64/bcftools-1.21-h3a4d415_1.tar.bz2
   sha256: c7ffe2ecd1cc4d1f7713862894e22888be7f3b94bbed06b953e497e06b360967
   md5: 450dd12e649521429696cc62a30f7dce
@@ -546,76 +495,6 @@ packages:
   license_family: GPL3
   size: 222696
   timestamp: 1747108594670
-- conda: https://conda.anaconda.org/bioconda/linux-64/bx-python-0.13.0-py312h5e9d817_1.tar.bz2
-  sha256: 22eba908e967cef98580f88ffa75c047ba87b75a6dd191aede7fafcb5a71898f
-  md5: a00d442a89ed06b0f28353ee93d54c08
-  depends:
-  - libgcc >=13
-  - libstdcxx >=13
-  - libzlib >=1.3.1,<2.0a0
-  - numpy >=1.21,<3
-  - numpy >=2.2.0,<3.0a0
-  - pyparsing
-  - python >=3.12,<3.13.0a0
-  - python_abi 3.12.* *_cp312
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/bx-python?source=hash-mapping
-  size: 1171762
-  timestamp: 1733931649122
-- conda: https://conda.anaconda.org/bioconda/linux-aarch64/bx-python-0.13.0-py312h645634a_1.tar.bz2
-  sha256: 603658074120b66d35a89e869fe8082a6087662c66caadcc4463a47d39600a4d
-  md5: a4795a814f69a25bede35784aa113c7d
-  depends:
-  - libgcc >=13
-  - libstdcxx >=13
-  - libzlib >=1.3.1,<2.0a0
-  - numpy >=1.21,<3
-  - numpy >=2.2.0,<3.0a0
-  - pyparsing
-  - python >=3.12,<3.13.0a0
-  - python_abi 3.12.* *_cp312
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/bx-python?source=hash-mapping
-  size: 1142947
-  timestamp: 1733802841890
-- conda: https://conda.anaconda.org/bioconda/osx-64/bx-python-0.13.0-py312he0d4a5b_1.tar.bz2
-  sha256: 28baec2e569b6c3d1d14220ab2feca5c2a7bc3a44794b31a2db0691cfd41195d
-  md5: d9391408a53f236cec451f1cff1720e9
-  depends:
-  - libcxx >=18
-  - libzlib >=1.3.1,<2.0a0
-  - numpy >=1.21,<3
-  - numpy >=2.2.0,<3.0a0
-  - pyparsing
-  - python >=3.12,<3.13.0a0
-  - python_abi 3.12.* *_cp312
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/bx-python?source=hash-mapping
-  size: 1048986
-  timestamp: 1733806268116
-- conda: https://conda.anaconda.org/bioconda/osx-arm64/bx-python-0.14.0-py313h68dcb1e_0.tar.bz2
-  sha256: 6a6bbbba83c18e9e8fbf00192d35849c7a100fbbf6c303dd152a719b41e20582
-  md5: 13ec773a1ec1a9be900015a6f11da177
-  depends:
-  - libcxx >=18
-  - libzlib >=1.3.1,<2.0a0
-  - numpy >=1.23,<3
-  - numpy >=1.25
-  - pyparsing
-  - python >=3.13,<3.14.0a0
-  - python_abi 3.13.* *_cp313
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/bx-python?source=hash-mapping
-  size: 1081744
-  timestamp: 1753918983420
 - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-h4bc722e_7.conda
   sha256: 5ced96500d945fb286c9c838e54fa759aa04a7129c59800f0846b4335cee770d
   md5: 62ee74e96c5ebb0af99386de58cf9553
@@ -2943,29 +2822,6 @@ packages:
   - pkg:pypi/pydantic-core?source=hash-mapping
   size: 1720344
   timestamp: 1746625313921
-- conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
-  sha256: b92afb79b52fcf395fd220b29e0dd3297610f2059afac45298d44e00fcbf23b6
-  md5: 513d3c262ee49b54a8fec85c5bc99764
-  depends:
-  - python >=3.9
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/pyparsing?source=hash-mapping
-  size: 95988
-  timestamp: 1743089832359
-- conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
-  sha256: 6814b61b94e95ffc45ec539a6424d8447895fef75b0fec7e1be31f5beee883fb
-  md5: 6c8979be6d7a17692793114fa26916e8
-  depends:
-  - python >=3.10
-  - python
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/pyparsing?source=compressed-mapping
-  size: 104044
-  timestamp: 1758436411254
 - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.9-h9e4cc4f_1_cpython.conda
   build_number: 1
   sha256: 77f2073889d4c91a57bc0da73a0466d9164dbcf6191ea9c3a7be6872f784d625
@@ -3317,29 +3173,6 @@ packages:
   purls: []
   size: 406681
   timestamp: 1739918460043
-- conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
-  sha256: 41db0180680cc67c3fa76544ffd48d6a5679d96f4b71d7498a759e94edc9a2db
-  md5: a451d576819089b0d672f18768be0f65
-  depends:
-  - python >=3.9
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/six?source=hash-mapping
-  size: 16385
-  timestamp: 1733381032766
-- conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
-  sha256: 458227f759d5e3fcec5d9b7acce54e10c9e1f4f4b7ec978f3bfd54ce4ee9853d
-  md5: 3339e3b65d58accf4ca4fb8748ab16b3
-  depends:
-  - python >=3.9
-  - python
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/six?source=hash-mapping
-  size: 18455
-  timestamp: 1753199211006
 - conda: https://conda.anaconda.org/conda-forge/noarch/sysroot_linux-64-2.17-h0157908_18.conda
   sha256: 69ab5804bdd2e8e493d5709eebff382a72fab3e9af6adf93a237ccf8f7dbd624
   md5: 460eba7851277ec1fd80a1a24080787a
