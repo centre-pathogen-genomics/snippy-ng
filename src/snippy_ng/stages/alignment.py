@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List
+import shlex
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import samtools, bwa, samclip, minimap2
 from pydantic import Field, field_validator, BaseModel
@@ -24,7 +25,7 @@ class Aligner(BaseStage):
         sort_cpus = max(1, int(self.cpus / 2))
         sort_ram = f"{1000 * self.ram // sort_cpus}M"
         sort_cpus = f"--threads {sort_cpus - 1}"
-        sort_temp = f"-T {self.tmpdir}"
+        sort_temp = f"-T {shlex.quote(str(self.tmpdir))}"
         sort_options = f"-l 0 {sort_temp} {sort_cpus} -m {sort_ram}"
 
         sort_name_cmd = f"samtools sort -n {sort_options}"
@@ -35,17 +36,17 @@ class Aligner(BaseStage):
 
     def build_samclip_command(self) -> str:
         """Constructs the samclip command to remove soft-clipped bases."""
-        return f"samclip --max {self.maxsoft} --ref {self.reference}.fai"
+        return f"samclip --max {self.maxsoft} --ref {shlex.quote(str(self.reference) + '.fai')}"
 
     def build_alignment_command(self, align_cmd: str) -> str:
         """Constructs the full alignment pipeline command."""
         samclip_cmd = self.build_samclip_command()
         common_cmds = " | ".join(self.common_commands)
-        return f"{align_cmd} | {samclip_cmd} | {common_cmds} > {self.output.bam}"
+        return f"{align_cmd} | {samclip_cmd} | {common_cmds} > {shlex.quote(str(self.output.bam))}"
 
     def build_index_command(self) -> str:
         """Returns the samtools index command."""
-        return f"samtools index {self.output.bam}"
+        return f"samtools index {shlex.quote(str(self.output.bam))}"
 
 
 class BWAMEMReadsAligner(Aligner):
@@ -69,9 +70,9 @@ class BWAMEMReadsAligner(Aligner):
     @property
     def commands(self) -> List[str]:
         """Constructs the BWA alignment commands."""
-        fasta_index = f"samtools faidx {self.reference}"
-        bwa_index_cmd = f"bwa index {self.reference}"
-        bwa_cmd = f"bwa mem {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
+        fasta_index = f"samtools faidx {shlex.quote(str(self.reference))}"
+        bwa_index_cmd = f"bwa index {shlex.quote(str(self.reference))}"
+        bwa_cmd = f"bwa mem {self.aligner_opts} -t {self.cpus} {shlex.quote(str(self.reference))} {' '.join(shlex.quote(str(r)) for r in self.reads)}"
 
         full_cmd = self.build_alignment_command(bwa_cmd)
         index_cmd = self.build_index_command()
@@ -97,8 +98,8 @@ class PreAlignedReads(Aligner):
     @property
     def commands(self) -> List[str]:
         """Constructs the commands to extract reads from a BAM file."""
-        fasta_index = f"samtools faidx {self.reference}"
-        view_cmd = f"samtools view -h -O SAM {self.bam}"
+        fasta_index = f"samtools faidx {shlex.quote(str(self.reference))}"
+        view_cmd = f"samtools view -h -O SAM {shlex.quote(str(self.bam))}"
 
         full_cmd = self.build_alignment_command(view_cmd)
         index_cmd = self.build_index_command()
@@ -130,9 +131,9 @@ class MinimapAligner(Aligner):
     @property
     def commands(self) -> List[str]:
         """Constructs the Minimap2 alignment commands."""
-        fasta_index = f"samtools faidx {self.reference}" # TODO refactor to use common_commands
-        minimap_cmd = f"minimap2 -a {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
-        samtools_sort_cmd = f"samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}"
+        fasta_index = f"samtools faidx {shlex.quote(str(self.reference))}" # TODO refactor to use common_commands
+        minimap_cmd = f"minimap2 -a {self.aligner_opts} -t {self.cpus} {shlex.quote(str(self.reference))} {' '.join(shlex.quote(str(r)) for r in self.reads)}"
+        samtools_sort_cmd = f"samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {shlex.quote(str(self.output.bam))}"
 
         full_cmd = f"{minimap_cmd} | {samtools_sort_cmd}"
         index_cmd = self.build_index_command()

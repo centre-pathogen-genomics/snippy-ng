@@ -1,6 +1,7 @@
 # Concrete Alignment Strategies
 from pathlib import Path
 from typing import List
+import shlex
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
@@ -45,13 +46,13 @@ class BcftoolsConsequencesCaller(Caller):
                 features_found = False
         
         if not features_found:
-            cmd = f"cp {self.variants} {self.output.annotated_vcf}"
+            cmd = f"cp {shlex.quote(str(self.variants))} {shlex.quote(str(self.output.annotated_vcf))}"
             return [cmd]
         
         bcf_csq_cmd = (
-            f"bcftools csq -f {self.reference} "
-            f"-g {self.features} "
-            f"-o {self.output.annotated_vcf} "
-            f"{self.variants}"
+            f"bcftools csq -f {shlex.quote(str(self.reference))} "
+            f"-g {shlex.quote(str(self.features))} "
+            f"-o {shlex.quote(str(self.output.annotated_vcf))} "
+            f"{shlex.quote(str(self.variants))}"
         )
         return [bcf_csq_cmd]

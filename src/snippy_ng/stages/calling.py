@@ -1,6 +1,7 @@
 # Concrete Alignment Strategies
 from pathlib import Path
 from typing import List
+import shlex
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import freebayes, bcftools
@@ -47,7 +48,9 @@ class FreebayesCaller(Caller):
             ] + [
                 f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]
             ])
-        generate_regions_cmd = f"fasta_generate_regions.py {self.reference}.fai 1000000 > {self.reference}.txt"
-        freebayes_cmd = f"freebayes-parallel {self.reference}.txt {self.cpus} {self.fbopt} -f {self.reference} {self.bam} > {self.output.raw_vcf}"
-        bcftools_cmd = f"bcftools view --include '{bcf_filter}' {self.output.raw_vcf} | bcftools norm -f {self.reference} - | bcftools annotate --remove '{keep_vcf_tags}' > {self.output.filter_vcf}"
+        reference_fai = shlex.quote(str(self.reference) + ".fai")
+        reference_txt = shlex.quote(str(self.reference) + ".txt")
+        generate_regions_cmd = f"fasta_generate_regions.py {reference_fai} 1000000 > {reference_txt}"
+        freebayes_cmd = f"freebayes-parallel {reference_txt} {self.cpus} {self.fbopt} -f {shlex.quote(str(self.reference))} {shlex.quote(str(self.bam))} > {shlex.quote(self.output.raw_vcf)}"
+        bcftools_cmd = f"bcftools view --include '{bcf_filter}' {shlex.quote(self.output.raw_vcf)} | bcftools norm -f {shlex.quote(str(self.reference))} - | bcftools annotate --remove '{keep_vcf_tags}' > {shlex.quote(self.output.filter_vcf)}"
         return [generate_regions_cmd, freebayes_cmd, bcftools_cmd]

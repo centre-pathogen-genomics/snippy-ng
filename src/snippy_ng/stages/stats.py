@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List
+import shlex
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import seqkit
 from pydantic import Field, field_validator, BaseModel
@@ -152,10 +153,10 @@ class SeqKitReadStats(BaseStage):
             cmd_parts.append(self.additional_options)
         
         # Input files
-        cmd_parts.extend(self.reads)
+        cmd_parts.extend(shlex.quote(str(r)) for r in self.reads)
         
         # Output redirection
-        cmd_parts.append(f"> {self.output.stats_tsv}")
+        cmd_parts.append(f"> {shlex.quote(self.output.stats_tsv)}")
         
         return " ".join(cmd_parts)
     
@@ -290,9 +291,9 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
             cmd_parts.append(self.additional_options)
         
         # Input files
-        cmd_parts.extend(self.reads)
+        cmd_parts.extend(shlex.quote(str(r)) for r in self.reads)
         
         # Output redirection
-        cmd_parts.append(f"> {self.output.stats_tsv}")
+        cmd_parts.append(f"> {shlex.quote(self.output.stats_tsv)}")
         
         return " ".join(cmd_parts)

@@ -3,6 +3,7 @@ from pydantic import Field
 from pathlib import Path
 from Bio import SeqIO
 from Bio.Seq import Seq
+import shlex
 
 from snippy_ng.dependencies import biopython
 
@@ -38,8 +39,8 @@ class PrepareReference(BaseStage):
             description=f"Extract FASTA and GFF from reference ({self.ref_fmt})"
         ) 
         return [
-            f"rm -f {self.output.reference}",
-            f"mkdir -p {self.reference_dir}",
+            f"rm -f {shlex.quote(str(self.output.reference))}",
+            f"mkdir -p {shlex.quote(str(self.reference_dir))}",
             process_reference_cmd,
         ]
     

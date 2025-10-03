@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional, Any
+import shlex
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import rasusa
 from pydantic import Field, field_validator, model_validator, BaseModel
@@ -194,9 +195,9 @@ class RasusaDownsampleReads(BaseStage):
             cmd_parts.extend(["--num", str(self.num_reads)])
         
         # Output files (one -o flag per output file)
-        cmd_parts.extend(["-o", self.output.downsampled_r1])
+        cmd_parts.extend(["-o", shlex.quote(self.output.downsampled_r1)])
         if self.output.downsampled_r2:
-            cmd_parts.extend(["-o", self.output.downsampled_r2])
+            cmd_parts.extend(["-o", shlex.quote(self.output.downsampled_r2)])
         
         # Random seed
         if self.seed is not None:
@@ -216,7 +217,7 @@ class RasusaDownsampleReads(BaseStage):
             cmd_parts.append(self.additional_options)
         
         # Input files (at the end)
-        cmd_parts.extend(self.reads)
+        cmd_parts.extend(shlex.quote(str(r)) for r in self.reads)
         
         return " ".join(cmd_parts)
     

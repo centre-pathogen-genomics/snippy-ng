@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
+import shlex
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import fastp
 from pydantic import Field, field_validator, BaseModel
@@ -65,18 +66,18 @@ class FastpCleanReads(BaseStage):
         cmd_parts = ["fastp"]
         
         # Input files
-        cmd_parts.append(f"-i {self.reads[0]}")
+        cmd_parts.append(f"-i {shlex.quote(str(self.reads[0]))}")
         if len(self.reads) == 2:
-            cmd_parts.append(f"-I {self.reads[1]}")
+            cmd_parts.append(f"-I {shlex.quote(str(self.reads[1]))}")
         
         # Output files
-        cmd_parts.append(f"-o {self.output.cleaned_r1}")
+        cmd_parts.append(f"-o {shlex.quote(self.output.cleaned_r1)}")
         if self.output.cleaned_r2:
-            cmd_parts.append(f"-O {self.output.cleaned_r2}")
+            cmd_parts.append(f"-O {shlex.quote(self.output.cleaned_r2)}")
         
         # Reports
-        cmd_parts.append(f"-h {self.output.html_report}")
-        cmd_parts.append(f"-j {self.output.json_report}")
+        cmd_parts.append(f"-h {shlex.quote(self.output.html_report)}")
+        cmd_parts.append(f"-j {shlex.quote(self.output.json_report)}")
         
         # Threading
         if self.cpus > 1:
