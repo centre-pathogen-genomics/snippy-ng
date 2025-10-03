@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
+import shlex
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import samtools
 from pydantic import Field, field_validator, BaseModel
@@ -56,7 +57,7 @@ class AlignmentFilter(BaseStage):
         if self.regions:
             if Path(self.regions).exists():
                 # Assume it's a BED file
-                cmd_parts.append(f"-L {self.regions}")
+                cmd_parts.append(f"-L {shlex.quote(self.regions)}")
             else:
                 # Assume it's a region string, add it at the end
                 pass  # Will be added after input file
@@ -66,19 +67,19 @@ class AlignmentFilter(BaseStage):
             cmd_parts.append(self.additional_filters)
         
         # Add input and output
-        cmd_parts.append(str(self.bam))
+        cmd_parts.append(shlex.quote(str(self.bam)))
         
         # Add region string if not a file
         if self.regions and not Path(self.regions).exists():
-            cmd_parts.append(self.regions)
+            cmd_parts.append(shlex.quote(self.regions))
         
-        cmd_parts.append(f"> {self.output.bam}")
+        cmd_parts.append(f"> {shlex.quote(str(self.output.bam))}")
         
         return " ".join(cmd_parts)
     
     def build_index_command(self) -> str:
         """Returns the samtools index command."""
-        return f"samtools index {self.output.bam}"
+        return f"samtools index {shlex.quote(str(self.output.bam))}"
     
     @property
     def commands(self) -> List[str]:
