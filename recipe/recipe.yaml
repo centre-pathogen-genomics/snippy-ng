@@ -24,7 +24,6 @@ requirements:
     - packaging
     - pydantic
     - biopython
-    - bcbio-gff
 
 tests:
   - python:
