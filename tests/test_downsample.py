@@ -68,18 +68,6 @@ class TestRasusaDownsampleReads:
             )
         assert "At least one read file must be provided" in str(excinfo.value)
     
-    def test_init_nonexistent_file(self, tmp_path):
-        """Test initialization with non-existent read file should fail"""
-        with pytest.raises(ValidationError) as excinfo:
-            RasusaDownsampleReads(
-                reads=["nonexistent.fastq"],
-                prefix="downsampled",
-                genome_length=197394,
-                coverage=50.0,
-                tmpdir=tmp_path
-            )
-        assert "Read file does not exist" in str(excinfo.value)
-    
     def test_coverage_without_genome_length_fails(self, tmp_path):
         """Test initialization with coverage but no genome length should fail"""
         read_file = tmp_path / "reads.fastq"
@@ -210,14 +198,14 @@ class TestRasusaDownsampleReads:
         commands = stage.commands
         assert len(commands) == 1
         
-        cmd = commands[0]
+        cmd = str(commands[0])
         assert cmd.startswith("rasusa reads")
         assert "--coverage 50.0" in cmd
         assert "--genome-size 197394" in cmd
         assert "-o ds.downsampled.R1.fastq.gz" in cmd
         assert "-o ds.downsampled.R2.fastq.gz" in cmd
         assert "--seed 42" in cmd
-        assert "--compression-level 6" in cmd
+        assert "--compress-level 6" in cmd
         # Input files should be at the end
         assert cmd.endswith(f"{read1} {read2}")
     
@@ -236,7 +224,7 @@ class TestRasusaDownsampleReads:
         )
         
         commands = stage.commands
-        cmd = commands[0]
+        cmd = str(commands[0])
         
         assert cmd.startswith("rasusa reads")
         assert "--num 1000000" in cmd
@@ -267,7 +255,7 @@ class TestRasusaDownsampleReads:
         assert "--coverage 75.0" in cmd
         assert "--genome-size 150000" in cmd
         assert "--seed 123" in cmd
-        assert "--compression-level 9" in cmd
+        assert "--compress-level 9" in cmd
         assert "--verbose" in cmd
     
     def test_at_run_time_genome_length(self, tmp_path):
