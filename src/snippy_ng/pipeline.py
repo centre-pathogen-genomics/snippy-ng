@@ -82,9 +82,12 @@ class Pipeline:
             self.log(stage)
             try:
                 stage.run(quiet)
-                for name, output in stage.output:
-                    if not Path(output).exists():
-                        raise MissingOutputError(f"Output file {output} not found!")
+                for name, path in stage.output:
+                    if not path:  # Skip empty outputs
+                        continue
+                    if Path(path).exists():
+                        continue
+                    raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
             except SkipStageError:
                 self.stages.remove(stage)
                 self.warning(f"STAGE {stage.name} SKIPPED!")
