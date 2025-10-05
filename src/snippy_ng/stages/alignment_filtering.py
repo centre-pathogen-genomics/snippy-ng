@@ -6,14 +6,6 @@ from pydantic import Field, field_validator, BaseModel, AfterValidator
 from shlex import quote as shlex_quote
 
 
-def escape_str(v: Any) -> str:
-    """Escape a string for safe shell usage."""
-    return shlex_quote(str(v))
-
-
-
-EscapedString = Annotated[str, AfterValidator(escape_str)]
-
 class AlignmentFilterOutput(BaseModel):
     bam: Path
     bam_index: Path
