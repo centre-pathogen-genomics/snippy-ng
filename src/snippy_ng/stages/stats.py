@@ -1,6 +1,5 @@
-from pathlib import Path
 from typing import List
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, ShellCommand
 from snippy_ng.dependencies import seqkit
 from pydantic import Field, field_validator, BaseModel
 
@@ -111,7 +110,7 @@ class SeqKitReadStats(BaseStage):
             stats_tsv=f"{self.prefix}.stats.tsv"
         )
     
-    def build_seqkit_stats_command(self) -> str:
+    def build_seqkit_stats_command(self) -> ShellCommand:
         """Constructs the seqkit stats command.
         
         Builds the complete seqkit stats command with all specified options
@@ -155,9 +154,7 @@ class SeqKitReadStats(BaseStage):
         cmd_parts.extend(self.reads)
         
         # Output redirection
-        cmd_parts.append(f"> {self.output.stats_tsv}")
-        
-        return " ".join(cmd_parts)
+        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}") 
     
     @property
     def commands(self) -> List[str]:
@@ -244,7 +241,7 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
                 raise ValueError(f"N-statistic values must be between 0 and 100, got: {stat}")
         return v
     
-    def build_seqkit_stats_command(self) -> str:
+    def build_seqkit_stats_command(self) -> ShellCommand:
         """Constructs the seqkit stats command with additional N-statistics.
         
         Builds the complete seqkit stats command including any additional
@@ -293,6 +290,4 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         cmd_parts.extend(self.reads)
         
         # Output redirection
-        cmd_parts.append(f"> {self.output.stats_tsv}")
-        
-        return " ".join(cmd_parts)
+        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}")

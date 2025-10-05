@@ -1,4 +1,4 @@
-from snippy_ng.stages.base import BaseStage, BaseOutput, Command
+from snippy_ng.stages.base import BaseStage, BaseOutput
 from pydantic import Field
 from pathlib import Path
 from Bio import SeqIO
@@ -8,6 +8,7 @@ from snippy_ng.dependencies import biopython
 
 class PrepareReferenceOutput(BaseOutput):
     reference: Path
+    reference_index: Path
     gff: Path
     meta: Path
 
@@ -26,21 +27,25 @@ class PrepareReference(BaseStage):
     def output(self) -> PrepareReferenceOutput:
         return PrepareReferenceOutput(
             reference=self.reference_dir / f"{self.reference_prefix}.fa",
+            reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
             meta=self.reference_dir / f"{self.reference_prefix}.json",
+            
         )
 
     @property
     def commands(self):
-        process_reference_cmd = Command(
+        process_reference_cmd = self.python_cmd(
             func=self.process_reference, 
             args=(self.input, self.ref_fmt, self.output.reference, self.output.gff), 
             description=f"Extract FASTA and GFF from reference ({self.ref_fmt})"
         ) 
+        fasta_index_cmd = self.shell_cmd("samtools faidx {self.output.reference}")
         return [
-            f"rm -f {self.output.reference}",
-            f"mkdir -p {self.reference_dir}",
+            self.shell_cmd("rm -f {self.output.reference}"),
+            self.shell_cmd("mkdir -p {self.reference_dir}"),
             process_reference_cmd,
+            fasta_index_cmd, 
         ]
     
     def process_reference(self, reference_path: Path, ref_fmt: str, output_fasta_path: Path, output_gff_path: Path):

@@ -30,22 +30,22 @@ class Aligner(BaseStage):
         sort_name_cmd = f"samtools sort -n {sort_options}"
         fixmate_cmd = f"samtools fixmate -m {sort_cpus} - -"
         sort_cord_cmd = f"samtools sort {sort_options}"
-        markdup_cmd = f"samtools markdup {sort_temp} {sort_cpus} -r -s - -"
+        markdup_cmd = f"samtools markdup {sort_cpus} -r -s - -"
         return [sort_name_cmd, fixmate_cmd, sort_cord_cmd, markdup_cmd]
 
     def build_samclip_command(self) -> str:
         """Constructs the samclip command to remove soft-clipped bases."""
-        return f"samclip --max {self.maxsoft} --ref {self.reference}.fai"
+        return self.shell_cmd("samclip --max {self.maxsoft} --ref {self.reference}.fai")
 
     def build_alignment_command(self, align_cmd: str) -> str:
         """Constructs the full alignment pipeline command."""
         samclip_cmd = self.build_samclip_command()
         common_cmds = " | ".join(self.common_commands)
-        return f"{align_cmd} | {samclip_cmd} | {common_cmds} > {self.output.bam}"
+        return self.shell_cmd(f"{align_cmd} | {samclip_cmd} | {common_cmds} > {self.output.bam}")
 
     def build_index_command(self) -> str:
         """Returns the samtools index command."""
-        return f"samtools index {self.output.bam}"
+        return self.shell_cmd("samtools index {self.output.bam}")
 
 
 class BWAMEMReadsAligner(Aligner):
@@ -68,14 +68,14 @@ class BWAMEMReadsAligner(Aligner):
 
     @property
     def commands(self) -> List[str]:
-        """Constructs the BWA alignment commands."""
-        fasta_index = f"samtools faidx {self.reference}"
-        bwa_index_cmd = f"bwa index {self.reference}"
-        bwa_cmd = f"bwa mem {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
+        """Constructs the BWA alignment commands."""  
+        bwa_index_cmd = self.shell_cmd("bwa index {self.reference}")
+        reads_escaped = [self.escape(str(r)) for r in self.reads]
+        bwa_cmd = self.shell_cmd(f"bwa mem {self.aligner_opts} -t {self.cpus} {{self.reference}} {' '.join(reads_escaped)}")
 
         full_cmd = self.build_alignment_command(bwa_cmd)
         index_cmd = self.build_index_command()
-        return [fasta_index, bwa_index_cmd, full_cmd, index_cmd]
+        return [bwa_index_cmd, full_cmd, index_cmd]
 
 
 class PreAlignedReads(Aligner):
@@ -97,12 +97,11 @@ class PreAlignedReads(Aligner):
     @property
     def commands(self) -> List[str]:
         """Constructs the commands to extract reads from a BAM file."""
-        fasta_index = f"samtools faidx {self.reference}"
-        view_cmd = f"samtools view -h -O SAM {self.bam}"
+        view_cmd = self.shell_cmd("samtools view -h -O SAM {self.bam}")
 
         full_cmd = self.build_alignment_command(view_cmd)
         index_cmd = self.build_index_command()
-        return [fasta_index, full_cmd, index_cmd]
+        return [full_cmd, index_cmd]
     
 class MinimapAligner(Aligner):
     """
@@ -130,11 +129,11 @@ class MinimapAligner(Aligner):
     @property
     def commands(self) -> List[str]:
         """Constructs the Minimap2 alignment commands."""
-        fasta_index = f"samtools faidx {self.reference}" # TODO refactor to use common_commands
-        minimap_cmd = f"minimap2 -a {self.aligner_opts} -t {self.cpus} {self.reference} {' '.join(self.reads)}"
-        samtools_sort_cmd = f"samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}"
+        reads_escaped = [self.escape(str(r)) for r in self.reads]
+        minimap_cmd = self.shell_cmd(f"minimap2 -a {self.aligner_opts} -t {self.cpus} {{self.reference}} {' '.join(reads_escaped)}")
+        samtools_sort_cmd = self.shell_cmd("samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}")
 
-        full_cmd = f"{minimap_cmd} | {samtools_sort_cmd}"
+        full_cmd = self.shell_cmd(f"{minimap_cmd} | {samtools_sort_cmd}")
         index_cmd = self.build_index_command()
         
-        return [fasta_index, full_cmd, index_cmd]
+        return [full_cmd, index_cmd]
