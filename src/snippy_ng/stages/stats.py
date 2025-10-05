@@ -154,7 +154,7 @@ class SeqKitReadStats(BaseStage):
         cmd_parts.extend(self.reads)
         
         # Output redirection
-        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}") 
+        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}")
     
     @property
     def commands(self) -> List[str]:
