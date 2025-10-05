@@ -18,3 +18,6 @@ class MissingOutputError(Exception):
 
 class SkipStageError(Exception):
     pass
+
+class InvalidCommandTypeError(Exception):
+    pass

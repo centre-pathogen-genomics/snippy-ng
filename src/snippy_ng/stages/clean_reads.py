@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, ShellCommand
 from snippy_ng.dependencies import fastp
 from pydantic import Field, field_validator, BaseModel
 
@@ -60,23 +60,23 @@ class FastpCleanReads(BaseStage):
             json_report=f"{self.prefix}.fastp.json"
         )
     
-    def build_fastp_command(self) -> str:
+    def build_fastp_command(self) -> ShellCommand:
         """Constructs the fastp command for read cleaning."""
         cmd_parts = ["fastp"]
         
         # Input files
-        cmd_parts.append(f"-i {self.reads[0]}")
+        cmd_parts.append(f"-i {self.escape(self.reads[0])}")
         if len(self.reads) == 2:
-            cmd_parts.append(f"-I {self.reads[1]}")
+            cmd_parts.append(f"-I {self.escape(self.reads[1])}")
         
         # Output files
-        cmd_parts.append(f"-o {self.output.cleaned_r1}")
+        cmd_parts.append(f"-o {self.escape(self.output.cleaned_r1)}")
         if self.output.cleaned_r2:
-            cmd_parts.append(f"-O {self.output.cleaned_r2}")
+            cmd_parts.append(f"-O {self.escape(self.output.cleaned_r2)}")
         
         # Reports
-        cmd_parts.append(f"-h {self.output.html_report}")
-        cmd_parts.append(f"-j {self.output.json_report}")
+        cmd_parts.append(f"-h {self.escape(self.output.html_report)}")
+        cmd_parts.append(f"-j {self.escape(self.output.json_report)}")
         
         # Threading
         if self.cpus > 1:
@@ -109,10 +109,10 @@ class FastpCleanReads(BaseStage):
         if self.additional_options:
             cmd_parts.append(self.additional_options)
         
-        return " ".join(cmd_parts)
+        return self.shell_cmd(" ".join(cmd_parts))
     
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List[ShellCommand]:
         """Constructs the fastp cleaning command."""
         return [self.build_fastp_command()]
 

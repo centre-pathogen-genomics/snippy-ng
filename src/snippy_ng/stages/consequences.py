@@ -45,13 +45,8 @@ class BcftoolsConsequencesCaller(Caller):
                 features_found = False
         
         if not features_found:
-            cmd = f"cp {self.variants} {self.output.annotated_vcf}"
+            cmd = self.shell_cmd("cp {self.variants} {self.output.annotated_vcf}")
             return [cmd]
         
-        bcf_csq_cmd = (
-            f"bcftools csq -f {self.reference} "
-            f"-g {self.features} "
-            f"-o {self.output.annotated_vcf} "
-            f"{self.variants}"
-        )
+        bcf_csq_cmd = self.shell_cmd("bcftools csq -f {self.reference} -g {self.features} -o {self.output.annotated_vcf} {self.variants}")
         return [bcf_csq_cmd]

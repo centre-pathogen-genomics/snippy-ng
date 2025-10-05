@@ -70,7 +70,7 @@ class RasusaDownsampleReads(BaseStage):
     @field_validator("reads")
     @classmethod
     def validate_reads(cls, v):
-        """Validate that read files are provided and exist.
+        """Validate that read files are provided.
         
         Args:
             v: List of read file paths to validate.
@@ -83,9 +83,6 @@ class RasusaDownsampleReads(BaseStage):
         """
         if not v or len(v) == 0:
             raise ValueError("At least one read file must be provided")
-        for read_file in v:
-            if not Path(read_file).exists():
-                raise ValueError(f"Read file does not exist: {read_file}")
         return v
     
     @model_validator(mode='after')
@@ -194,9 +191,9 @@ class RasusaDownsampleReads(BaseStage):
             cmd_parts.extend(["--num", str(self.num_reads)])
         
         # Output files (one -o flag per output file)
-        cmd_parts.extend(["-o", self.output.downsampled_r1])
+        cmd_parts.extend(["-o", self.escape(self.output.downsampled_r1)])
         if self.output.downsampled_r2:
-            cmd_parts.extend(["-o", self.output.downsampled_r2])
+            cmd_parts.extend(["-o", self.escape(self.output.downsampled_r2)])
         
         # Random seed
         if self.seed is not None:
@@ -209,16 +206,16 @@ class RasusaDownsampleReads(BaseStage):
         # Compression level
         if (self.output.downsampled_r1.endswith(".gz") or 
             (self.output.downsampled_r2 and self.output.downsampled_r2.endswith(".gz"))):
-            cmd_parts.extend(["--compression-level", str(self.compression_level)])
+            cmd_parts.extend(["--compress-level", str(self.compression_level)])
         
         # Additional options
         if self.additional_options:
             cmd_parts.append(self.additional_options)
         
         # Input files (at the end)
-        cmd_parts.extend(self.reads)
+        cmd_parts.extend([self.escape(read) for read in self.reads])
         
-        return " ".join(cmd_parts)
+        return self.shell_cmd(" ".join(cmd_parts))
     
     @property
     def commands(self) -> List[str]:

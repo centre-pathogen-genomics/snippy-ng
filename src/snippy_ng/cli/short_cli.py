@@ -71,6 +71,7 @@ def short(**kwargs):
                 )
             kwargs["reference"] = setup.output.reference
             kwargs["features"] = setup.output.gff
+            kwargs["reference_index"] = setup.output.reference_index
             stages.append(setup)
         
         # Clean reads (optional)

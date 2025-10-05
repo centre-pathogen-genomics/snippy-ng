@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Annotated, Any
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import samtools
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator, BaseModel, AfterValidator
+from shlex import quote as shlex_quote
 
 
 class AlignmentFilterOutput(BaseModel):
@@ -66,19 +67,19 @@ class AlignmentFilter(BaseStage):
             cmd_parts.append(self.additional_filters)
         
         # Add input and output
-        cmd_parts.append(str(self.bam))
+        cmd_parts.append(self.escape(self.bam))
         
         # Add region string if not a file
         if self.regions and not Path(self.regions).exists():
             cmd_parts.append(self.regions)
         
-        cmd_parts.append(f"> {self.output.bam}")
-        
-        return " ".join(cmd_parts)
+        cmd_parts.append(f"> {self.escape(self.output.bam)}")
+
+        return self.shell_cmd(" ".join(cmd_parts))
     
     def build_index_command(self) -> str:
         """Returns the samtools index command."""
-        return f"samtools index {self.output.bam}"
+        return self.shell_cmd("samtools index {self.output.bam}")
     
     @property
     def commands(self) -> List[str]:
