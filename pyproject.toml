@@ -35,6 +35,7 @@ dependencies = [
   "packaging",
   "pydantic",
   "biopython",
+  "tstrings-backport>=0.1.5,<0.2",
 ]
 
 [project.urls]
