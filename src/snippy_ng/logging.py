@@ -29,7 +29,8 @@ class Logger():
         self.echo(self._format("WARNING", msg), err=True)
     
     def debug(self, msg):
-        self.echo(self._format("DEBUG", msg), err=True)
+        if os.getenv("SNIPPY_DEBUG", "0") == "1":
+            self.echo(self._format("DEBUG", msg), err=True)
     
     def error(self, msg):
         self.echo(self._format("ERROR", msg), err=True)
