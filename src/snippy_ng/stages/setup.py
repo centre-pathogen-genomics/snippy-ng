@@ -35,18 +35,23 @@ class PrepareReference(BaseStage):
 
     @property
     def commands(self):
-        process_reference_cmd = self.python_cmd(
-            func=self.process_reference, 
-            args=(self.input, self.ref_fmt, self.output.reference, self.output.gff), 
-            description=f"Extract FASTA and GFF from reference ({self.ref_fmt})"
-        ) 
-        fasta_index_cmd = self.shell_cmd("samtools faidx {self.output.reference}")
-        return [
-            self.shell_cmd("rm -f {self.output.reference}"),
-            self.shell_cmd("mkdir -p {self.reference_dir}"),
-            process_reference_cmd,
-            fasta_index_cmd, 
-        ]
+            process_reference_cmd = self.python_cmd(
+                func=self.process_reference,
+                args=(self.input, self.ref_fmt, self.output.reference, self.output.gff),
+                description=f"Extract FASTA and GFF from reference ({self.ref_fmt})"
+            )
+            return [
+                self.shell_cmd([
+                    "rm", "-f", str(self.output.reference)
+                ], description=f"Remove existing reference FASTA: {self.output.reference}"),
+                self.shell_cmd([
+                    "mkdir", "-p", str(self.reference_dir)
+                ], description=f"Create reference directory: {self.reference_dir}"),
+                process_reference_cmd,
+                self.shell_cmd([
+                    "samtools", "faidx", str(self.output.reference)
+                ], description=f"Index reference FASTA with samtools faidx: {self.output.reference}"),
+            ]
     
     def process_reference(self, reference_path: Path, ref_fmt: str, output_fasta_path: Path, output_gff_path: Path):
         """

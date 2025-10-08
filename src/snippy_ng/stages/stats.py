@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 from snippy_ng.stages.base import BaseStage, ShellCommand
 from snippy_ng.dependencies import seqkit
@@ -117,51 +118,59 @@ class SeqKitReadStats(BaseStage):
         including threading, output format, encoding, and file handling options.
         
         Returns:
-            str: Complete seqkit stats command ready for execution.
+            ShellCommand: Complete seqkit stats command ready for execution.
         """
-        cmd_parts = ["seqkit stats"]
+        shell_cmd = self.shell_cmd(
+            command=["seqkit", "stats"],
+            description=f"Generate read statistics for {len(self.reads)} files using seqkit stats"
+        )
         
         # Threading
         if self.cpus > 1:
-            cmd_parts.append(f"-j {self.cpus}")
+            shell_cmd.command.extend(["-j", str(self.cpus)])
         
         # Output format options
         if self.tabular:
-            cmd_parts.append("-T")
+            shell_cmd.command.append("-T")
         
         if self.all_stats:
-            cmd_parts.append("-a")
+            shell_cmd.command.append("-a")
         
         if self.basename_only:
-            cmd_parts.append("-b")
+            shell_cmd.command.append("-b")
         
         if self.skip_errors:
-            cmd_parts.append("-e")
+            shell_cmd.command.append("-e")
         
         # FASTQ encoding
         if self.fastq_encoding != "sanger":
-            cmd_parts.append(f"-E {self.fastq_encoding}")
+            shell_cmd.command.extend(["-E", self.fastq_encoding])
         
         # Gap letters
         if self.gap_letters != "- .":
-            cmd_parts.append(f'-G "{self.gap_letters}"')
+            shell_cmd.command.extend(["-G", self.gap_letters])
         
-        # Additional options
+        # Additional options (split if it contains spaces)
         if self.additional_options:
-            cmd_parts.append(self.additional_options)
+            import shlex
+            shell_cmd.command.extend(shlex.split(self.additional_options))
         
         # Input files
-        cmd_parts.extend(self.reads)
+        shell_cmd.command.extend(self.reads)
         
-        # Output redirection
-        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}")
+        # Create shell command with output file
+        return self.shell_pipeline(
+            commands=[shell_cmd],
+            description=f"Generate read statistics for {len(self.reads)} files using seqkit stats",
+            output_file=Path(self.output.stats_tsv)
+        )
     
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List[ShellCommand]:
         """Get the list of commands to execute for this stage.
         
         Returns:
-            List[str]: List containing the seqkit stats command.
+            List[ShellCommand]: List containing the seqkit stats command.
         """
         return [self.build_seqkit_stats_command()]
 
@@ -248,46 +257,55 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         N-statistics specified in the additional_n_stats parameter.
         
         Returns:
-            str: Complete seqkit stats command with N-statistics options.
+            ShellCommand: Complete seqkit stats command with N-statistics options.
         """
-        cmd_parts = ["seqkit stats"]
+        shell_cmd = self.shell_cmd(
+            command=["seqkit", "stats"],
+            description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats"
+        ) 
         
         # Threading
         if self.cpus > 1:
-            cmd_parts.append(f"-j {self.cpus}")
+            shell_cmd.command.extend(["-j", str(self.cpus)])
         
         # Output format options
         if self.tabular:
-            cmd_parts.append("-T")
+            shell_cmd.command.append("-T")
         
         if self.all_stats:
-            cmd_parts.append("-a")
+            shell_cmd.command.append("-a")
         
         # Additional N-statistics
         if self.additional_n_stats:
             n_stats_str = ",".join(map(str, self.additional_n_stats))
-            cmd_parts.append(f"-N {n_stats_str}")
+            shell_cmd.command.extend(["-N", n_stats_str])
         
         if self.basename_only:
-            cmd_parts.append("-b")
+            shell_cmd.command.append("-b")
         
         if self.skip_errors:
-            cmd_parts.append("-e")
+            shell_cmd.command.append("-e")
         
         # FASTQ encoding
         if self.fastq_encoding != "sanger":
-            cmd_parts.append(f"-E {self.fastq_encoding}")
+            shell_cmd.command.extend(["-E", self.fastq_encoding])
         
         # Gap letters
         if self.gap_letters != "- .":
-            cmd_parts.append(f'-G "{self.gap_letters}"')
+            shell_cmd.command.extend(["-G", self.gap_letters])
         
-        # Additional options
+        # Additional options (split if it contains spaces)
         if self.additional_options:
-            cmd_parts.append(self.additional_options)
+            import shlex
+            shell_cmd.command.extend(shlex.split(self.additional_options))
         
         # Input files
-        cmd_parts.extend(self.reads)
+        shell_cmd.command.extend(self.reads)
         
-        # Output redirection
-        return self.shell_cmd(f"{' '.join(cmd_parts)} > {{self.output.stats_tsv}}")
+        # Create shell command with output file
+        n_stats_desc = f" with N-statistics {self.additional_n_stats}" if self.additional_n_stats else ""
+        return self.shell_pipeline(
+            commands=[shell_cmd],
+            description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats{n_stats_desc}",
+            output_file=Path(self.output.stats_tsv)
+        )

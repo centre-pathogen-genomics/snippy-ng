@@ -48,7 +48,7 @@ class FreebayesCaller(Caller):
             )
 
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the Freebayes variant calling commands."""
         bcf_filter = f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} && (FMT/AO)/(FMT/DP)>={self.minfrac}'
         keep_vcf_tags = ",".join([
@@ -56,7 +56,53 @@ class FreebayesCaller(Caller):
             ] + [
                 f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]
             ])
-        generate_regions_cmd = self.shell_cmd("fasta_generate_regions.py {self.reference_index} 1000000 > {self.output.regions}")
-        freebayes_cmd = self.shell_cmd(f"freebayes-parallel {{self.output.regions}} {{self.cpus}} {self.fbopt} -f {{self.reference}} {{self.bam}} > {{self.output.raw_vcf}}")
-        bcftools_cmd = self.shell_cmd(f"bcftools view --include '{bcf_filter}' {{self.output.raw_vcf}} | bcftools norm -f {{self.reference}} - | bcftools annotate --remove '{keep_vcf_tags}' > {{self.output.filter_vcf}}")
-        return [generate_regions_cmd, freebayes_cmd, bcftools_cmd]
+        
+        # Generate regions command with output redirection
+        generate_regions_cmd = self.shell_cmd([
+            "fasta_generate_regions.py", str(self.reference_index), "1000000"
+        ], description="Generate genomic regions for parallel variant calling")
+        
+        generate_regions_pipeline = self.shell_pipeline(
+            commands=[generate_regions_cmd],
+            description="Generate regions file for parallel processing",
+            output_file=Path(self.output.regions)
+        )
+        
+        # Freebayes command with output redirection
+        freebayes_cmd_parts = ["freebayes-parallel", str(self.output.regions), str(self.cpus)]
+        if self.fbopt:
+            import shlex
+            freebayes_cmd_parts.extend(shlex.split(self.fbopt))
+        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
+        
+        freebayes_cmd = self.shell_cmd(
+            freebayes_cmd_parts,
+            description="Call variants with Freebayes in parallel"
+        )
+        
+        freebayes_pipeline = self.shell_pipeline(
+            commands=[freebayes_cmd],
+            description="Freebayes variant calling",
+            output_file=Path(self.output.raw_vcf)
+        )
+        
+        # BCFtools pipeline: view | norm | annotate
+        bcftools_view_cmd = self.shell_cmd([
+            "bcftools", "view", "--include", bcf_filter, str(self.output.raw_vcf)
+        ], description="Filter variants by quality and depth")
+        
+        bcftools_norm_cmd = self.shell_cmd([
+            "bcftools", "norm", "-f", str(self.reference), "-"
+        ], description="Normalize variants")
+        
+        bcftools_annotate_cmd = self.shell_cmd([
+            "bcftools", "annotate", "--remove", keep_vcf_tags
+        ], description="Remove unnecessary VCF annotations")
+        
+        bcftools_pipeline = self.shell_pipeline(
+            commands=[bcftools_view_cmd, bcftools_norm_cmd, bcftools_annotate_cmd],
+            description="Filter, normalize and annotate variants",
+            output_file=Path(self.output.filter_vcf)
+        )
+        
+        return [generate_regions_pipeline, freebayes_pipeline, bcftools_pipeline]
