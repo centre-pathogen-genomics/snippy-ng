@@ -250,7 +250,7 @@ class TestRasusaDownsampleReads:
         )
         
         commands = stage.commands
-        cmd = commands[0]
+        cmd = str(commands[0])
         
         assert "--coverage 75.0" in cmd
         assert "--genome-size 150000" in cmd
@@ -288,12 +288,12 @@ class TestRasusaDownsampleReads:
         assert call_count == 0
         
         # Function should be called when building command
-        command = stage.build_rasusa_command()
+        command = str(stage.build_rasusa_command())
         assert call_count == 1
         assert "--genome-size 197394" in command
         
         # Function should not be called again (cached)
-        command2 = stage.build_rasusa_command()
+        command2 = str(stage.build_rasusa_command())
         assert call_count == 1
         assert command == command2
 
@@ -359,7 +359,7 @@ class TestRasusaDownsampleReadsByCoverage:
         assert call_count == 0
         
         # Function should be called when building command
-        command = stage.build_rasusa_command()
+        command = str(stage.build_rasusa_command())
         assert call_count == 1
         assert "--genome-size 150000" in command
         assert "--coverage 30.0" in command

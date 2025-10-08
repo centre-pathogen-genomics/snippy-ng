@@ -63,7 +63,7 @@ def test_new_output_structure():
         
         # Test command generation
         print("\nTesting command generation...")
-        command = stage.build_rasusa_command()
+        command = str(stage.build_rasusa_command())
         print(f"Command: {command}")
         
         assert "-o test.downsampled.R1.fastq.gz" in command
