@@ -27,7 +27,7 @@ pip install snippy-nextgen
 The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
 
 ```console
-curl -sSL https://github.com/centre-pathogen-genomics/snippy-ng/releases/latest/download/install.sh | bash -s -- --force
+curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
 ```
 
 ## Development
@@ -36,8 +36,10 @@ To set up a development environment, clone the repository and install `pixi` and
 
 ```console
 git clone git@github.com:centre-pathogen-genomics/snippy-ng.git && cd snippy-ng
+# install pixi if not already installed
 curl -fsSL https://pixi.sh/install.sh | bash
-brew install hatch
+# install hatch if not already installed
+pixi global add hatch
 ```
 
 Activate the pixi environment and launch a hatch shell. THis will install all dependencies and set up the development environment.
