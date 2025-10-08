@@ -1,7 +1,6 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
-from snippy_ng.stages.setup import LoadReference
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline for short reads")
@@ -24,7 +23,7 @@ def short(**kwargs):
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
-    from snippy_ng.stages.setup import PrepareReference
+    from snippy_ng.stages.setup import LoadReference, PrepareReference
     from snippy_ng.stages.clean_reads import FastpCleanReads
     from snippy_ng.stages.stats import SeqKitReadStatsBasic
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
