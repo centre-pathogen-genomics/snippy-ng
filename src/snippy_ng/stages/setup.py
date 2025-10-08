@@ -319,7 +319,6 @@ class LoadReference(BaseStage):
             reference_path (Path): Path to the reference FASTA file.
             reference_index_path (Path): Path to the reference index file.
             gff_path (Path): Path to the GFF file.
-            expected_reference_path (Path, optional): Path to expected reference for comparison.
         """
         import json
 
