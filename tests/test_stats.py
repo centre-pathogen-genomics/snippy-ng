@@ -94,7 +94,7 @@ class TestSeqKitReadStats:
         commands = stage.commands
         assert len(commands) == 1
         
-        cmd = commands[0]
+        cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-j 2" in cmd
         assert "-T" in cmd  # tabular
@@ -120,12 +120,12 @@ class TestSeqKitReadStats:
             basename_only=True,
             skip_errors=False,
             fastq_encoding="illumina-1.3+",
-            gap_letters="N -",
+            gap_letters="'N -'",
             additional_options="--some-option"
         )
         
         commands = stage.commands
-        cmd = commands[0]
+        cmd = str(commands[0])
         
         assert "seqkit stats" in cmd
         assert "-j 4" in cmd
@@ -134,7 +134,7 @@ class TestSeqKitReadStats:
         assert "-b" in cmd  # basename_only
         assert "-e" not in cmd  # skip_errors disabled
         assert "-E illumina-1.3+" in cmd
-        assert '-G "N -"' in cmd
+        assert "-G 'N -'" in cmd
         assert "--some-option" in cmd
         assert str(read1) in cmd
         assert str(read2) in cmd
@@ -157,7 +157,7 @@ class TestSeqKitReadStatsBasic:
         assert stage.all_stats is False
         
         commands = stage.commands
-        cmd = commands[0]
+        cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" not in cmd  # all_stats disabled
 
@@ -181,7 +181,7 @@ class TestSeqKitReadStatsDetailed:
         assert stage.additional_n_stats == [90, 95]
         
         commands = stage.commands
-        cmd = commands[0]
+        cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" in cmd  # all_stats enabled
         assert "-N 90,95" in cmd  # additional N-stats

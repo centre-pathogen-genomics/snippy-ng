@@ -52,7 +52,7 @@ def test_at_runtime():
         
         print("\nNow building the rasusa command...")
         # When we build the command, str() will be called on genome_length
-        command = stage.build_rasusa_command()
+        command = str(stage.build_rasusa_command())
         
         print(f"Call count after building command: {call_count}")
         print(f"Generated command: {command}")

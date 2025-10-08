@@ -65,29 +65,29 @@ class FastpCleanReads(BaseStage):
         cmd_parts = ["fastp"]
         
         # Input files
-        cmd_parts.append(f"-i {self.escape(self.reads[0])}")
+        cmd_parts.extend(["-i", str(self.reads[0])])
         if len(self.reads) == 2:
-            cmd_parts.append(f"-I {self.escape(self.reads[1])}")
+            cmd_parts.extend(["-I", str(self.reads[1])])
         
         # Output files
-        cmd_parts.append(f"-o {self.escape(self.output.cleaned_r1)}")
+        cmd_parts.extend(["-o", str(self.output.cleaned_r1)])
         if self.output.cleaned_r2:
-            cmd_parts.append(f"-O {self.escape(self.output.cleaned_r2)}")
+            cmd_parts.extend(["-O", str(self.output.cleaned_r2)])
         
         # Reports
-        cmd_parts.append(f"-h {self.escape(self.output.html_report)}")
-        cmd_parts.append(f"-j {self.escape(self.output.json_report)}")
+        cmd_parts.extend(["-h", str(self.output.html_report)])
+        cmd_parts.extend(["-j", str(self.output.json_report)])
         
         # Threading
         if self.cpus > 1:
-            cmd_parts.append(f"--thread {self.cpus}")
+            cmd_parts.extend(["--thread", str(self.cpus)])
         
         # Quality filtering
-        cmd_parts.append(f"--length_required {self.min_length}")
-        cmd_parts.append("--cut_tail_window_size 4")
-        cmd_parts.append(f"--cut_tail_mean_quality {self.quality_cutoff}")
-        cmd_parts.append(f"--unqualified_percent_limit {self.unqualified_percent_limit}")
-        cmd_parts.append(f"--n_base_limit {self.n_base_limit}")
+        cmd_parts.extend(["--length_required", str(self.min_length)])
+        cmd_parts.extend(["--cut_tail_window_size", "4"])
+        cmd_parts.extend(["--cut_tail_mean_quality", str(self.quality_cutoff)])
+        cmd_parts.extend(["--unqualified_percent_limit", str(self.unqualified_percent_limit)])
+        cmd_parts.extend(["--n_base_limit", str(self.n_base_limit)])
         
         # Adapter detection and trimming
         if len(self.reads) == 2 and self.detect_adapter_for_pe:
@@ -105,14 +105,19 @@ class FastpCleanReads(BaseStage):
         if self.overrepresentation_analysis:
             cmd_parts.append("--overrepresentation_analysis")
         
-        # Additional options
+        # Additional options (split if it contains spaces)
         if self.additional_options:
-            cmd_parts.append(self.additional_options)
+            import shlex
+            cmd_parts.extend(shlex.split(self.additional_options))
         
-        return self.shell_cmd(" ".join(cmd_parts))
+        read_type = "paired-end" if len(self.reads) == 2 else "single-end"
+        return self.shell_cmd(
+            command=cmd_parts,
+            description=f"Clean and filter {read_type} reads using fastp"
+        )
     
     @property
-    def commands(self) -> List[ShellCommand]:
+    def commands(self) -> List:
         """Constructs the fastp cleaning command."""
         return [self.build_fastp_command()]
 

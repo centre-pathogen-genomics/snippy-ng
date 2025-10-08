@@ -34,55 +34,60 @@ class AlignmentFilter(BaseStage):
             bam_index=f"{filtered_bam}.bai"
         )
     
-    def build_filter_command(self) -> str:
+    def build_filter_command(self):
         """Constructs the samtools view command for filtering."""
-        cmd_parts = ["samtools view -b"]
+        cmd_parts = ["samtools", "view", "-b"]
         
         # Add threading
         if self.cpus > 1:
-            cmd_parts.append(f"--threads {self.cpus - 1}")
+            cmd_parts.extend(["--threads", str(self.cpus - 1)])
         
         # Add mapping quality filter
         if self.min_mapq > 0:
-            cmd_parts.append(f"-q {self.min_mapq}")
+            cmd_parts.extend(["-q", str(self.min_mapq)])
         
         # Add flag filters
         if self.exclude_flags:
-            cmd_parts.append(f"-F {self.exclude_flags}")
+            cmd_parts.extend(["-F", str(self.exclude_flags)])
         
         if self.include_flags is not None:
-            cmd_parts.append(f"-f {self.include_flags}")
+            cmd_parts.extend(["-f", str(self.include_flags)])
         
-        # Add regions if specified
-        if self.regions:
-            if Path(self.regions).exists():
-                # Assume it's a BED file
-                cmd_parts.append(f"-L {self.regions}")
-            else:
-                # Assume it's a region string, add it at the end
-                pass  # Will be added after input file
+        # Add regions if specified as BED file
+        if self.regions and Path(self.regions).exists():
+            cmd_parts.extend(["-L", str(self.regions)])
         
-        # Add additional filters
+        # Add additional filters (split if it contains spaces)
         if self.additional_filters:
-            cmd_parts.append(self.additional_filters)
+            import shlex
+            cmd_parts.extend(shlex.split(self.additional_filters))
         
-        # Add input and output
-        cmd_parts.append(self.escape(self.bam))
+        # Add input file
+        cmd_parts.append(str(self.bam))
         
         # Add region string if not a file
         if self.regions and not Path(self.regions).exists():
-            cmd_parts.append(self.regions)
+            cmd_parts.append(str(self.regions))
         
-        cmd_parts.append(f"> {self.escape(self.output.bam)}")
-
-        return self.shell_cmd(" ".join(cmd_parts))
+        filter_cmd = self.shell_cmd(
+            command=cmd_parts,
+            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}"
+        )
+        
+        return self.shell_pipeline(
+            commands=[filter_cmd],
+            description="Filter BAM alignments",
+            output_file=Path(self.output.bam)
+        )
     
-    def build_index_command(self) -> str:
+    def build_index_command(self):
         """Returns the samtools index command."""
-        return self.shell_cmd("samtools index {self.output.bam}")
+        return self.shell_cmd([
+            "samtools", "index", str(self.output.bam)
+        ], description=f"Index filtered BAM file: {self.output.bam}")
     
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the filtering commands."""
         filter_cmd = self.build_filter_command()
         index_cmd = self.build_index_command()

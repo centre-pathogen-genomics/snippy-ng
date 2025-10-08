@@ -33,7 +33,7 @@ class BcftoolsConsequencesCaller(Caller):
         )
 
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the bcftools csq command."""
         # check if features file exists and is not empty
         features_found = True
@@ -45,8 +45,16 @@ class BcftoolsConsequencesCaller(Caller):
                 features_found = False
         
         if not features_found:
-            cmd = self.shell_cmd("cp {self.variants} {self.output.annotated_vcf}")
+            cmd = self.shell_cmd([
+                "cp", str(self.variants), str(self.output.annotated_vcf)
+            ], description=f"Copy VCF file (no features found): {self.variants} -> {self.output.annotated_vcf}")
             return [cmd]
         
-        bcf_csq_cmd = self.shell_cmd("bcftools csq -f {self.reference} -g {self.features} -o {self.output.annotated_vcf} {self.variants}")
+        bcf_csq_cmd = self.shell_cmd([
+            "bcftools", "csq", 
+            "-f", str(self.reference),
+            "-g", str(self.features),
+            "-o", str(self.output.annotated_vcf),
+            str(self.variants)
+        ], description="Annotate variants with consequences using bcftools csq")
         return [bcf_csq_cmd]

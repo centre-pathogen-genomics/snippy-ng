@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, ShellPipeline
 from snippy_ng.dependencies import samtools, bwa, samclip, minimap2
 from pydantic import Field, field_validator, BaseModel
 
@@ -19,33 +19,58 @@ class Aligner(BaseStage):
         return AlignerOutput(bam=self.prefix + ".bam")
 
     @property
-    def common_commands(self) -> List[str]:
+    def common_commands(self) -> List:
         """Common commands for sorting, fixing mates, and marking duplicates."""
         sort_cpus = max(1, int(self.cpus / 2))
         sort_ram = f"{1000 * self.ram // sort_cpus}M"
-        sort_cpus = f"--threads {sort_cpus - 1}"
-        sort_temp = f"-T {self.tmpdir}"
-        sort_options = f"-l 0 {sort_temp} {sort_cpus} -m {sort_ram}"
+        sort_threads = str(sort_cpus - 1)
+        sort_temp = str(self.tmpdir)
+        
+        sort_name_cmd = self.shell_cmd([
+            "samtools", "sort", "-n", "-l", "0", "-T", sort_temp, 
+            "--threads", sort_threads, "-m", sort_ram
+        ], description="Sort BAM by read name")
+        
+        fixmate_cmd = self.shell_cmd([
+            "samtools", "fixmate", "-m", "--threads", sort_threads, "-", "-"
+        ], description="Fix mate pair information")
+        
+        sort_coord_cmd = self.shell_cmd([
+            "samtools", "sort", "-l", "0", "-T", sort_temp,
+            "--threads", sort_threads, "-m", sort_ram
+        ], description="Sort BAM by coordinates")
+        
+        markdup_cmd = self.shell_cmd([
+            "samtools", "markdup", "--threads", sort_threads, "-r", "-s", "-", "-"
+        ], description="Mark and remove duplicates")
+        
+        return [sort_name_cmd, fixmate_cmd, sort_coord_cmd, markdup_cmd]
 
-        sort_name_cmd = f"samtools sort -n {sort_options}"
-        fixmate_cmd = f"samtools fixmate -m {sort_cpus} - -"
-        sort_cord_cmd = f"samtools sort {sort_options}"
-        markdup_cmd = f"samtools markdup {sort_cpus} -r -s - -"
-        return [sort_name_cmd, fixmate_cmd, sort_cord_cmd, markdup_cmd]
-
-    def build_samclip_command(self) -> str:
+    def build_samclip_command(self):
         """Constructs the samclip command to remove soft-clipped bases."""
-        return self.shell_cmd("samclip --max {self.maxsoft} --ref {self.reference}.fai")
+        return self.shell_cmd([
+            "samclip", "--max", str(self.maxsoft), "--ref", f"{self.reference}.fai"
+        ], description="Remove excessive soft-clipped bases")
 
-    def build_alignment_command(self, align_cmd: str) -> str:
+    def build_alignment_pipeline(self, align_cmd) -> ShellPipeline:
         """Constructs the full alignment pipeline command."""
         samclip_cmd = self.build_samclip_command()
-        common_cmds = " | ".join(self.common_commands)
-        return self.shell_cmd(f"{align_cmd} | {samclip_cmd} | {common_cmds} > {self.output.bam}")
+        common_cmds = self.common_commands
+        
+        # Create pipeline: align_cmd | samclip | sort_name | fixmate | sort_coord | markdup
+        pipeline_commands = [align_cmd, samclip_cmd] + common_cmds
+        
+        return self.shell_pipeline(
+            commands=pipeline_commands,
+            description="Alignment pipeline: align -> samclip -> sort by name -> fixmate -> sort by coord -> markdup",
+            output_file=Path(self.output.bam)
+        )
 
-    def build_index_command(self) -> str:
+    def build_index_command(self):
         """Returns the samtools index command."""
-        return self.shell_cmd("samtools index {self.output.bam}")
+        return self.shell_cmd([
+            "samtools", "index", str(self.output.bam)
+        ], description=f"Index BAM file {self.output.bam}")
 
 
 class BWAMEMReadsAligner(Aligner):
@@ -67,15 +92,29 @@ class BWAMEMReadsAligner(Aligner):
     _dependencies = [samtools, bwa, samclip]
 
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the BWA alignment commands."""  
-        bwa_index_cmd = self.shell_cmd("bwa index {self.reference}")
-        reads_escaped = [self.escape(str(r)) for r in self.reads]
-        bwa_cmd = self.shell_cmd(f"bwa mem {self.aligner_opts} -t {self.cpus} {{self.reference}} {' '.join(reads_escaped)}")
+        bwa_index_cmd = self.shell_cmd([
+            "bwa", "index", str(self.reference)
+        ], description=f"Index reference with BWA: {self.reference}")
+        
+        # Build BWA mem command
+        bwa_cmd_parts = ["bwa", "mem"]
+        if self.aligner_opts:
+            import shlex
+            bwa_cmd_parts.extend(shlex.split(self.aligner_opts))
+        bwa_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        bwa_cmd_parts.extend([str(r) for r in self.reads])
+        
+        bwa_cmd = self.shell_cmd(
+            bwa_cmd_parts,
+            description=f"Align {len(self.reads)} read files with BWA-MEM"
+        )
 
-        full_cmd = self.build_alignment_command(bwa_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(bwa_cmd)
         index_cmd = self.build_index_command()
-        return [bwa_index_cmd, full_cmd, index_cmd]
+        
+        return [bwa_index_cmd, alignment_pipeline, index_cmd]
 
 
 class PreAlignedReads(Aligner):
@@ -95,13 +134,16 @@ class PreAlignedReads(Aligner):
         return v
 
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the commands to extract reads from a BAM file."""
-        view_cmd = self.shell_cmd("samtools view -h -O SAM {self.bam}")
+        view_cmd = self.shell_cmd([
+            "samtools", "view", "-h", "-O", "SAM", str(self.bam)
+        ], description=f"Extract reads from BAM file: {self.bam}")
 
-        full_cmd = self.build_alignment_command(view_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(view_cmd)
         index_cmd = self.build_index_command()
-        return [full_cmd, index_cmd]
+        
+        return [alignment_pipeline, index_cmd]
     
 class MinimapAligner(Aligner):
     """
@@ -127,13 +169,32 @@ class MinimapAligner(Aligner):
     _dependencies = [minimap2, samtools]
 
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Constructs the Minimap2 alignment commands."""
-        reads_escaped = [self.escape(str(r)) for r in self.reads]
-        minimap_cmd = self.shell_cmd(f"minimap2 -a {self.aligner_opts} -t {self.cpus} {{self.reference}} {' '.join(reads_escaped)}")
-        samtools_sort_cmd = self.shell_cmd("samtools sort --threads {self.cpus} -m {self.ram_per_thread}M > {self.output.bam}")
+        # Build minimap2 command
+        minimap_cmd_parts = ["minimap2", "-a"]
+        if self.aligner_opts:
+            import shlex
+            minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
+        minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        minimap_cmd_parts.extend([str(r) for r in self.reads])
+        
+        minimap_cmd = self.shell_cmd(
+            minimap_cmd_parts,
+            description=f"Align {len(self.reads)} read files with Minimap2"
+        )
+        
+        samtools_sort_cmd = self.shell_cmd([
+            "samtools", "sort", "--threads", str(self.cpus), 
+            "-m", f"{self.ram_per_thread}M"
+        ], description="Sort alignment output")
 
-        full_cmd = self.shell_cmd(f"{minimap_cmd} | {samtools_sort_cmd}")
+        # Create pipeline
+        pipeline = self.shell_pipeline(
+            commands=[minimap_cmd, samtools_sort_cmd],
+            description="Minimap2 alignment and sorting pipeline",
+            output_file=Path(self.output.bam)
+        )
         index_cmd = self.build_index_command()
         
-        return [full_cmd, index_cmd]
+        return [pipeline, index_cmd]

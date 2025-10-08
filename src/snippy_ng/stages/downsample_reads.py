@@ -171,7 +171,7 @@ class RasusaDownsampleReads(BaseStage):
             downsampled_r2=downsampled_r2
         )
     
-    def build_rasusa_command(self) -> str:
+    def build_rasusa_command(self):
         """Build the rasusa command for downsampling reads.
         
         Constructs the complete rasusa command with all specified options
@@ -179,7 +179,7 @@ class RasusaDownsampleReads(BaseStage):
         Uses the correct rasusa command syntax: rasusa reads [OPTIONS] [INPUT_FILES]
         
         Returns:
-            str: Complete rasusa command ready for execution.
+            ShellCommand: Complete rasusa command ready for execution.
         """
         cmd_parts = ["rasusa", "reads"]
         
@@ -191,9 +191,9 @@ class RasusaDownsampleReads(BaseStage):
             cmd_parts.extend(["--num", str(self.num_reads)])
         
         # Output files (one -o flag per output file)
-        cmd_parts.extend(["-o", self.escape(self.output.downsampled_r1)])
+        cmd_parts.extend(["-o", str(self.output.downsampled_r1)])
         if self.output.downsampled_r2:
-            cmd_parts.extend(["-o", self.escape(self.output.downsampled_r2)])
+            cmd_parts.extend(["-o", str(self.output.downsampled_r2)])
         
         # Random seed
         if self.seed is not None:
@@ -208,21 +208,26 @@ class RasusaDownsampleReads(BaseStage):
             (self.output.downsampled_r2 and self.output.downsampled_r2.endswith(".gz"))):
             cmd_parts.extend(["--compress-level", str(self.compression_level)])
         
-        # Additional options
+        # Additional options (split if it contains spaces)
         if self.additional_options:
-            cmd_parts.append(self.additional_options)
+            import shlex
+            cmd_parts.extend(shlex.split(self.additional_options))
         
         # Input files (at the end)
-        cmd_parts.extend([self.escape(read) for read in self.reads])
+        cmd_parts.extend([str(read) for read in self.reads])
         
-        return self.shell_cmd(" ".join(cmd_parts))
+        coverage_desc = f"coverage {self.coverage}x" if self.coverage else f"{self.num_reads} reads"
+        return self.shell_cmd(
+            command=cmd_parts,
+            description=f"Downsample reads to {coverage_desc} using rasusa"
+        )
     
     @property
-    def commands(self) -> List[str]:
+    def commands(self) -> List:
         """Get the list of commands to execute for this stage.
         
         Returns:
-            List[str]: List containing the rasusa command.
+            List: List containing the rasusa command.
         """
         return [self.build_rasusa_command()]
 
