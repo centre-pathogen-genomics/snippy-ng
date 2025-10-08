@@ -79,7 +79,7 @@ class Pipeline:
         self.start_time = time.perf_counter()
         for stage in self.stages:
             self.hr(f"{stage.name}")
-            self.log(stage)
+            self.debug(stage)
             try:
                 stage.run(quiet)
                 for name, path in stage.output:

@@ -32,7 +32,7 @@ class ShellCommand(BaseModel):
     def __str__(self):
         return " ".join(self.command)
 
-class ShellPipeline(BaseModel):
+class ShellCommandPipeline(BaseModel):
     commands: List[ShellCommand]
     description: str
     output_file: Optional[Path] = None
@@ -66,7 +66,7 @@ class BaseStage(BaseModel):
 
     @property
     @abstractmethod
-    def commands(self) -> List[ShellPipeline | ShellCommand | PythonCommand]:
+    def commands(self) -> List[ShellCommandPipeline | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -84,7 +84,7 @@ class BaseStage(BaseModel):
         """Creates a shell command."""
         return ShellCommand(command=command, description=description)
     
-    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellPipeline:
+    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipeline:
         """Creates a shell pipeline."""
         # Validate that all commands are ShellCommand objects
         for i, cmd in enumerate(commands):
@@ -93,13 +93,14 @@ class BaseStage(BaseModel):
                     f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
                     f"Use self.shell_cmd() to create ShellCommand objects."
                 )
-        return ShellPipeline(commands=commands, description=description, output_file=output_file)
+        return ShellCommandPipeline(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
-            logger.info(f"Running: {cmd}") 
+            logger.info(cmd.description)
+            logger.info(f"❯ {cmd}") 
             stdout = sys.stderr
             stderr = sys.stderr
             if quiet:
@@ -117,7 +118,7 @@ class BaseStage(BaseModel):
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
                     subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
-                elif isinstance(cmd, ShellPipeline):
+                elif isinstance(cmd, ShellCommandPipeline):
                     processes = []
                     prev_stdout = None
                     output_file = cmd.output_file

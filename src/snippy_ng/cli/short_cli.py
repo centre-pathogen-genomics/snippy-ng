@@ -1,6 +1,7 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
+from snippy_ng.stages.setup import LoadReference
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline for short reads")
@@ -57,8 +58,14 @@ def short(**kwargs):
     stages = []
     try:
         if Path(kwargs["reference"]).is_dir():
-            # TODO use json file to get reference
-            kwargs["reference"] = (Path(kwargs["reference"]) / "reference" / "ref.fa").resolve()
+            setup = LoadReference(
+                    reference_dir=kwargs["reference"], 
+                    **kwargs,
+                )
+            kwargs["reference"] = setup.output.reference
+            kwargs["features"] = setup.output.gff
+            kwargs["reference_index"] = setup.output.reference_index
+            stages.append(setup)
         else:
             reference_format = guess_format(kwargs["reference"])
             if not reference_format:

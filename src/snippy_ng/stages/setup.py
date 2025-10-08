@@ -1,5 +1,5 @@
 from snippy_ng.stages.base import BaseStage, BaseOutput
-from pydantic import Field
+from pydantic import Field, field_validator
 from pathlib import Path
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -29,7 +29,7 @@ class PrepareReference(BaseStage):
             reference=self.reference_dir / f"{self.reference_prefix}.fa",
             reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
-            meta=self.reference_dir / f"{self.reference_prefix}.json",
+            meta=self.reference_dir / "metadata.json",
             
         )
 
@@ -47,6 +47,9 @@ class PrepareReference(BaseStage):
                 self.shell_cmd([
                     "mkdir", "-p", str(self.reference_dir)
                 ], description=f"Create reference directory: {self.reference_dir}"),
+                self.shell_cmd([
+                     "cp", str(self.input), str(self.reference_dir / self.input.name)
+                ], description=f"Copy reference file to reference directory: {self.input} -> {self.reference_dir / self.input.name}"),
                 process_reference_cmd,
                 self.shell_cmd([
                     "samtools", "faidx", str(self.output.reference)
@@ -249,11 +252,13 @@ class PrepareReference(BaseStage):
                     
         # Write JSON metadata
         metadata = {
-            "reference": str(reference_path),
+            "reference": reference_path.name,
             "format": ref_fmt,
             "num_sequences": nseq,
             "total_length": total_length,
             "num_features": nfeat,
+            "prefix": self.reference_prefix,
+            "datetime": __import__("datetime").datetime.now().isoformat(),
         }
         with open(self.output.meta, "w") as json_out:
             import json
@@ -261,3 +266,92 @@ class PrepareReference(BaseStage):
 
         print(f"Wrote {nseq} sequences to {output_fasta_path}")
         print(f"Wrote {nfeat} features to {output_gff_path}" if nfeat > 0 else f"No features found in {reference_path}")
+
+
+class LoadReferenceOutput(BaseOutput):
+    reference: Path
+    reference_index: Path
+    gff: Path
+    meta: Path
+
+
+class LoadReference(BaseStage):
+    reference_dir: Path = Field(..., description="Path to reference directory")
+    reference_prefix: str = Field("ref", description="Reference prefix")
+
+    _dependencies = [
+        biopython,
+    ]
+
+    @field_validator("reference_dir")
+    @classmethod
+    def must_contain_metadata(cls, v: Path):
+        meta_path = v / "metadata.json"
+        if not meta_path.exists():
+            raise ValueError(f"Reference was given as a directory ({v}) but does not contain the required metadata.json file!")
+        return v
+
+    @property
+    def output(self) -> LoadReferenceOutput:
+        return LoadReferenceOutput(
+            reference=self.reference_dir / f"{self.reference_prefix}.fa",
+            reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
+            gff=self.reference_dir / f"{self.reference_prefix}.gff",
+            meta=self.reference_dir / "metadata.json",
+        )
+
+    @property
+    def commands(self):
+        validate_reference_cmd = self.python_cmd(
+            func=self.validate_reference,
+            args=(self.output.meta, self.output.reference, self.output.reference_index, self.output.gff),
+            description="Validate reference files and metadata"
+        )
+        return [validate_reference_cmd]
+    
+    def validate_reference(self, meta_path: Path, reference_path: Path, reference_index_path: Path, gff_path: Path):
+        """
+        Validates that reference files exist and metadata is consistent.
+        Optionally compares against an expected reference file.
+
+        Args:
+            meta_path (Path): Path to the metadata.json file.
+            reference_path (Path): Path to the reference FASTA file.
+            reference_index_path (Path): Path to the reference index file.
+            gff_path (Path): Path to the GFF file.
+        """
+        import json
+
+        # Check if all required files exist
+        required_files = {
+            "metadata": meta_path,
+            "reference FASTA": reference_path,
+            "reference index": reference_index_path,
+            "GFF": gff_path
+        }
+        
+        missing_files = []
+        for file_type, file_path in required_files.items():
+            if not file_path.exists():
+                missing_files.append(f"{file_type}: {file_path}")
+        
+        if missing_files:
+            raise FileNotFoundError("Missing required reference files:\n" + "\n".join(missing_files))
+
+        # Load and validate metadata
+        try:
+            with open(meta_path, 'r') as f:
+                metadata = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            raise ValueError(f"Failed to read metadata file {meta_path}: {e}")
+
+        required_metadata_fields = ["reference", "format", "num_sequences", "total_length", "num_features", "prefix", "datetime"]
+        missing_fields = [field for field in required_metadata_fields if field not in metadata]
+        if missing_fields:
+            raise ValueError(f"Missing required metadata fields: {missing_fields}")
+
+        print("✓ Reference validation successful:")
+        print(f"  - Reference: {reference_path} ({metadata['num_sequences']} sequences, {metadata['total_length']} bp)")
+        print(f"  - Index: {reference_index_path}")
+        print(f"  - GFF: {gff_path} ({metadata['num_features']} features)")
+        print(f"  - Metadata: {meta_path}")
