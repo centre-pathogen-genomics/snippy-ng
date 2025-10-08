@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
 from typing import List, Callable, Optional
 import subprocess
@@ -11,7 +11,6 @@ from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError, SkipStageError
 
 from pydantic import BaseModel, Field
-from tstrings import t, Template
 from shlex import quote
 
 
@@ -22,20 +21,30 @@ class PythonCommand(BaseModel):
     func: Callable
     args: List = []
     description: str
-    
+
     def __str__(self):
-        return self.description
+        return f"{self.func.__name__}({', '.join(map(str, self.args))})"
 
 class ShellCommand(BaseModel):
-    command: str
-    description: Optional[str] = None
-    
-    def __str__(self):
-        return self.command
-    
-    def __contains__(self, item):
-        return item in self.command
+    command: List[str]
+    description: str
 
+    def __str__(self):
+        return " ".join(self.command)
+
+class ShellPipeline(BaseModel):
+    commands: List[ShellCommand]
+    description: str
+    output_file: Optional[Path] = None
+
+    def __str__(self):
+        output_file = ''
+        if self.output_file:
+            output_file = f" > {self.output_file}"
+        return f"{' | '.join(str(cmd) for cmd in self.commands)}{output_file}"
+    
+    def __iter__(self):
+        return iter(self.commands)
 
 class BaseStage(BaseModel):
     cpus: int = Field(1, description="Number of CPU cores to use")
@@ -57,28 +66,34 @@ class BaseStage(BaseModel):
 
     @property
     @abstractmethod
-    def commands(self) -> List[ShellCommand | PythonCommand]:
+    def commands(self) -> List[ShellPipeline | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
     def escape(self, user_value) -> str:
         """Returns an escaped string for shell commands."""
         return quote(str(user_value))
-
-    def shell_cmd(self, command: str, description: Optional[str] = None) -> ShellCommand:
-        """Creates an escaped shell command from a template."""
-        template: Template = t(command)
-        interpolations = []
-        for interpolation in template.interpolations:
-            interpolations.append(self.escape(interpolation.value))
-        new_command_template = Template(template.strings, tuple(interpolations))
-        return ShellCommand(command="".join(new_command_template), description=description)
     
     def python_cmd(self, func: Callable, args: List = [], description: Optional[str] = None) -> PythonCommand:
         """Creates a Python command."""
         if description is None:
-            description = f"{func.__name__} with arguments {args}"
+            description = f"{func.__name__} with arguments {', '.join(args)}"
         return PythonCommand(func=func, args=args, description=description)
+    
+    def shell_cmd(self, command: List[str], description: str) -> ShellCommand:
+        """Creates a shell command."""
+        return ShellCommand(command=command, description=description)
+    
+    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellPipeline:
+        """Creates a shell pipeline."""
+        # Validate that all commands are ShellCommand objects
+        for i, cmd in enumerate(commands):
+            if not isinstance(cmd, ShellCommand):
+                raise InvalidCommandTypeError(
+                    f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
+                    f"Use self.shell_cmd() to create ShellCommand objects."
+                )
+        return ShellPipeline(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
@@ -101,12 +116,60 @@ class BaseStage(BaseModel):
                         with self.redirect_stdout_to_err():
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
-                    subprocess.run(str(cmd), shell=True, check=True, stdout=stdout, stderr=stderr, text=True)
+                    subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
+                elif isinstance(cmd, ShellPipeline):
+                    processes = []
+                    prev_stdout = None
+                    output_file = cmd.output_file
+                    
+                    if not cmd.commands:
+                        raise ValueError("No commands to run in the pipeline")
+                    
+                    with (open(output_file, 'w') if output_file else nullcontext(stdout)) as final_stdout:
+                        for i, pipeline_part in enumerate(cmd.commands):
+                            # Determine stdout for this process
+                            if i == len(cmd.commands) - 1:
+                                # Last process - output to final destination
+                                process_stdout = final_stdout
+                            else:
+                                # Intermediate process - output to pipe
+                                process_stdout = subprocess.PIPE
+                            
+                            p = subprocess.Popen(
+                                pipeline_part.command, 
+                                stdin=prev_stdout, 
+                                stdout=process_stdout, 
+                                stderr=stderr,
+                                text=True
+                            )
+                            
+                            # Close the previous stdout pipe (we're done with it)
+                            if prev_stdout is not None:
+                                prev_stdout.close()
+                            
+                            # Set up for next iteration
+                            if i < len(cmd.commands) - 1:
+                                prev_stdout = p.stdout
+                            
+                            processes.append(p)
+                        
+                        # Wait for all processes to complete
+                        for p in processes:
+                            p.wait()
+                        
+                        # Check for failures
+                        failed_processes = [p for p in processes if p.returncode != 0]
+                        if failed_processes:
+                            failed_process = failed_processes[0]  # Report first failure
+                            raise subprocess.CalledProcessError(
+                                returncode=failed_process.returncode, 
+                                cmd=failed_process.args
+                            )
                 else:
-                    raise InvalidCommandTypeError(f"Command must be of type ShellCommand or PythonCommand, got {type(cmd)}")
+                    raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"Command failed with exit code {e.returncode}")
-                raise RuntimeError(f"Failed to run command: {cmd}")
+                raise RuntimeError(f"Failed to run command: {e.cmd}")
             except SkipStageError as e:
                 logger.warning(f"Skipping stage: {e}")
                 raise e
@@ -142,4 +205,3 @@ class BaseStage(BaseModel):
             yield
         finally:
             sys.stderr = original_stderr
-        
