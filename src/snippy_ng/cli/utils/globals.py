@@ -55,7 +55,7 @@ GLOBAL_DEFS = [
         "attrs": {
             "is_flag": True,
             "default": False,
-            "help": "Minimal screen output",
+            "help": "Capture tool output",
         },
     },
     {
