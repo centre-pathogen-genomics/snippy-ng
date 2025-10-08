@@ -1,9 +1,9 @@
 {
       "conda": {
             "bcbio-gff": "0.7.1",
-            "click": "8.2.1",
+            "click": "8.3.0",
             "packaging": "25.0",
-            "pydantic": "2.11.7",
+            "pydantic": "2.11.10",
             "biopython": "1.85",
             "samtools": "1.20",
             "samclip": "0.4.0",
@@ -12,6 +12,8 @@
             "bcftools": "1.22",
             "vt": "2015.11.10",
             "minimap2": "2.30",
-            "fastp": "1.0.1"
+            "fastp": "1.0.1",
+            "seqkit": "2.10.1",
+            "rasusa": "2.2.2"
       }
 }
