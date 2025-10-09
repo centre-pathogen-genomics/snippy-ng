@@ -33,6 +33,7 @@ class FreebayesCaller(Caller):
     mincov: int = Field(10, description="Minimum site depth for calling alleles")
     minfrac: float = Field(0.0, description="Minimum proportion for variant evidence (0=AUTO)")
     minqual: float = Field(100.0, description="Minimum quality in VCF column 6")
+    exclude_insertions: bool = Field(True, description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference")
 
     _dependencies = [
         freebayes,
@@ -51,6 +52,8 @@ class FreebayesCaller(Caller):
     def commands(self) -> List:
         """Constructs the Freebayes variant calling commands."""
         bcf_filter = f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} && (FMT/AO)/(FMT/DP)>={self.minfrac}'
+        if self.exclude_insertions:
+            bcf_filter += ' && INFO/TYPE!="ins"'
         keep_vcf_tags = ",".join([
                 f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]
             ] + [
@@ -79,7 +82,6 @@ class FreebayesCaller(Caller):
             freebayes_cmd_parts,
             description="Call variants with Freebayes in parallel"
         )
-        
         freebayes_pipeline = self.shell_pipeline(
             commands=[freebayes_cmd],
             description="Freebayes variant calling",
@@ -90,7 +92,7 @@ class FreebayesCaller(Caller):
         bcftools_view_cmd = self.shell_cmd([
             "bcftools", "view", "--include", bcf_filter, str(self.output.raw_vcf)
         ], description="Filter variants by quality and depth")
-        
+
         bcftools_norm_cmd = self.shell_cmd([
             "bcftools", "norm", "-f", str(self.reference), "-"
         ], description="Normalize variants")
