@@ -30,7 +30,7 @@ class ShellCommand(BaseModel):
     description: str
 
     def __str__(self):
-        return " ".join(self.command)
+        return " ".join(quote(arg) for arg in self.command)
 
 class ShellCommandPipeline(BaseModel):
     commands: List[ShellCommand]
