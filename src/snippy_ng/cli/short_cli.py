@@ -35,6 +35,7 @@ def short(**kwargs):
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
     from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
     from snippy_ng.stages.compression import BgzipCompressor
+    from snippy_ng.stages.copy import CopyFile
     from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
     from pydantic import ValidationError
@@ -162,6 +163,15 @@ def short(**kwargs):
         # Apply masking stages
         masking_stages = apply_masks(kwargs)
         stages.extend(masking_stages)
+
+        # rename final consensus output to standard prefix
+        final_consensus = masking_stages[-1].output.fasta if masking_stages else pseudo.output.fasta
+        copy_final = CopyFile(
+            input=final_consensus,
+            output_path=f"{kwargs['prefix']}.fasta",
+            **kwargs,
+        )
+        stages.append(copy_final)
             
     except ValidationError as e:
         error(e)
