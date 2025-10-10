@@ -146,7 +146,9 @@ class Pipeline:
             "SNPs detected, Captain! Ready for the next mission.",
         ]
         self.hr()
+        self.echo('')
         self.hr("Snippy-NG completed!", style=" ", color="green")
+        self.echo('')
         self.hr()
         self.echo(f"Total runtime: {self.end_time - self.start_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
