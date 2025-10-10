@@ -17,7 +17,7 @@ class BgzipCompressorOutput(BaseOutput):
 
 class BgzipCompressor(Compressor):
     """
-    Compress a file using gzip.
+    Compress a file using bgzip.
     """
 
     @property
