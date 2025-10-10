@@ -166,3 +166,10 @@ rasusa = Dependency(
     min_version="0.7.0",
     version_arg="--version"
 )
+
+bedtools = Dependency(
+    "bedtools",
+    citation="Aaron R. Quinlan, Ira M. Hall, BEDTools: a flexible suite of utilities for comparing genomic features, Bioinformatics, Volume 26, Issue 6, March 2010, Pages 841–842, https://doi.org/10.1093/bioinformatics/btq033",
+    min_version="2.29.0",
+    version_pattern=r"(\d+\.\d+\.\d+)",
+)

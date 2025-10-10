@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import List, Optional, Annotated, Any
+from typing import List, Optional
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import samtools
-from pydantic import Field, field_validator, BaseModel, AfterValidator
-from shlex import quote as shlex_quote
+from pydantic import Field, field_validator, BaseModel
 
 
 class AlignmentFilterOutput(BaseModel):
