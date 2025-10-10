@@ -12,6 +12,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
+@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 def short(**kwargs):
@@ -31,6 +33,8 @@ def short(**kwargs):
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
+    from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
+    from snippy_ng.stages.compression import BgzipCompressor
     from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
     from pydantic import ValidationError
@@ -141,7 +145,24 @@ def short(**kwargs):
         stages.append(caller)
         kwargs["variants"] = caller.output.filter_vcf
         # Consequences calling
-        stages.append(BcftoolsConsequencesCaller(**kwargs))
+        consequences = BcftoolsConsequencesCaller(**kwargs) 
+        stages.append(consequences)
+        # Compress VCF
+        gzip = BgzipCompressor(
+            input=consequences.output.annotated_vcf,
+            suffix="gz",
+            **kwargs,
+        )
+        stages.append(gzip)
+        # Pseudo-alignment
+        pseudo = BcftoolsPseudoAlignment(vcf_gz=gzip.output.compressed, **kwargs)
+        stages.append(pseudo)
+        kwargs["reference"] = pseudo.output.fasta
+        
+        # Apply masking stages
+        masking_stages = apply_masks(kwargs)
+        stages.extend(masking_stages)
+            
     except ValidationError as e:
         error(e)
     
@@ -173,3 +194,71 @@ def short(**kwargs):
     snippy.cleanup()
     snippy.goodbye()
 
+
+def apply_masks(kwargs):
+    """
+    Apply masking stages in sequence: min-depth mask (optional), zero-depth mask, and user mask (optional).
+    
+    Args:
+        kwargs: Dictionary containing pipeline parameters
+        stages: List of existing pipeline stages (for reference)
+    
+    Returns:
+        List of masking stages to add to the pipeline
+    """
+    from snippy_ng.stages.masks import ZeroDepthMask, ApplyMask, MinDepthMask
+    
+    masking_stages = []
+    original_prefix = kwargs["prefix"]
+    
+    # Define masking configurations
+    mask_configs = []
+    
+    # Min depth mask (conditional)
+    if kwargs["min_depth"] > 0:
+        mask_configs.append({
+            "mask_stage": MinDepthMask,
+            "mask_kwargs": {"filter": f"<{kwargs['min_depth']}"},
+            "apply_kwargs": {"char": "n"},
+            "suffix": "mindepth"
+        })
+    
+    # Zero depth mask (always applied)
+    mask_configs.append({
+        "mask_stage": ZeroDepthMask,
+        "mask_kwargs": {},
+        "apply_kwargs": {"char": "-"},
+        "suffix": "zero_depth"
+    })
+    
+    # User mask (conditional)
+    if kwargs["mask"]:
+        mask_configs.append({
+            "mask_stage": None,  # No mask generation stage needed
+            "bed_file": Path(kwargs["mask"]),
+            "apply_kwargs": {"char": "N"},
+            "suffix": "user"
+        })
+    
+    # Apply masks in sequence
+    for config in mask_configs:
+        # Generate mask if needed
+        if config["mask_stage"]:
+            mask_stage_kwargs = {**kwargs, **config.get("mask_kwargs", {})}
+            mask_stage = config["mask_stage"](**mask_stage_kwargs)
+            masking_stages.append(mask_stage)
+            bed_file = mask_stage.output.bed
+        else:
+            bed_file = config["bed_file"]
+        
+        # Apply mask to reference
+        kwargs["prefix"] = f"{original_prefix}.{config['suffix']}"
+        apply_mask_kwargs = {**kwargs, "bed": bed_file, **config["apply_kwargs"]}
+        apply_mask = ApplyMask(**apply_mask_kwargs)
+        masking_stages.append(apply_mask)
+        
+        # Update reference for next iteration
+        kwargs["reference"] = apply_mask.output.fasta
+        kwargs["prefix"] = original_prefix
+    
+    return masking_stages
