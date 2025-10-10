@@ -29,7 +29,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.psudo.fasta")
+            fasta=Path(f"{self.prefix}.pseudo.fasta")
         )
 
     @property
