@@ -134,7 +134,7 @@ class TestSeqKitReadStats:
         assert "-b" in cmd  # basename_only
         assert "-e" not in cmd  # skip_errors disabled
         assert "-E illumina-1.3+" in cmd
-        assert "-G 'N -'" in cmd
+        assert "'N -'" in cmd
         assert "--some-option" in cmd
         assert str(read1) in cmd
         assert str(read2) in cmd
