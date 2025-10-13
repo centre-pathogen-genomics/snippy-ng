@@ -17,6 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
+@click.option("--continue", is_flag=True, default=False, help="Continue from the last run, skipping completed stages")
 def short(**kwargs):
     """
     Short read SNP calling pipeline
@@ -196,7 +197,7 @@ def short(**kwargs):
     # Set working directory to output folder
     snippy.set_working_directory(kwargs["outdir"])
     try:
-        snippy.run(quiet=kwargs["quiet"])
+        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue"])
     except MissingOutputError as e:
         snippy.error(e)
         return 1

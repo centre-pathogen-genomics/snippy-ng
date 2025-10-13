@@ -74,14 +74,25 @@ class Pipeline:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def run(self, quiet=False):
+    def run(self, quiet=False, continue_last_run=False):
         # Run pipeline sequentially
         self.start_time = time.perf_counter()
         for stage in self.stages:
             self.hr(f"{stage.name}")
             self.debug(stage)
             try:
-                stage.run(quiet)
+                try:
+                    if continue_last_run and stage.check_outputs():
+                        self.log(f"{stage.name} already completed, skipping...")
+                        continue
+                    stage.run(quiet)
+                except (RuntimeError, KeyboardInterrupt) as e:
+                    # remove outputs if stage fails
+                    for name, path in stage.output:
+                        if path and Path(path).exists():
+                            self.warning(f"Removing incomplete output '{name}' ({path}) due to error.")
+                            Path(path).unlink()
+                    raise e
                 for name, path in stage.output:
                     if not path:  # Skip empty outputs
                         continue
