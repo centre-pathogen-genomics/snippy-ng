@@ -16,9 +16,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
+@click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 def short(**kwargs):
     """
-    Drop-in replacement for Snippy with feature parity.
+    Short read SNP calling pipeline
 
     Examples:
 
@@ -35,7 +36,8 @@ def short(**kwargs):
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
     from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
     from snippy_ng.stages.compression import BgzipCompressor
-    from snippy_ng.stages.copy import CopyFile
+    from snippy_ng.stages.masks import ComprehensiveMask
+    from snippy_ng.stages.copy import CopyFasta
     from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
     from pydantic import ValidationError
@@ -160,15 +162,16 @@ def short(**kwargs):
         stages.append(pseudo)
         kwargs["reference"] = pseudo.output.fasta
         
-        # Apply masking stages
-        masking_stages = apply_masks(kwargs)
-        stages.extend(masking_stages)
+        # Apply comprehensive masking
+        comprehensive_mask = ComprehensiveMask(
+            **kwargs
+        )
+        stages.append(comprehensive_mask)
 
-        # rename final consensus output to standard prefix
-        final_consensus = masking_stages[-1].output.fasta if masking_stages else pseudo.output.fasta
-        copy_final = CopyFile(
-            input=final_consensus,
-            output_path=f"{kwargs['prefix']}.fasta",
+        # Copy final masked consensus to standard output location
+        copy_final = CopyFasta(
+            input=comprehensive_mask.output.masked_fasta,
+            output_path=f"{kwargs['prefix']}.afa",
             **kwargs,
         )
         stages.append(copy_final)
@@ -205,70 +208,4 @@ def short(**kwargs):
     snippy.goodbye()
 
 
-def apply_masks(kwargs):
-    """
-    Apply masking stages in sequence: min-depth mask (optional), zero-depth mask, and user mask (optional).
-    
-    Args:
-        kwargs: Dictionary containing pipeline parameters
-        stages: List of existing pipeline stages (for reference)
-    
-    Returns:
-        List of masking stages to add to the pipeline
-    """
-    from snippy_ng.stages.masks import ZeroDepthMask, ApplyMask, MinDepthMask
-    
-    masking_stages = []
-    original_prefix = kwargs["prefix"]
-    
-    # Define masking configurations
-    mask_configs = []
-    
-    # Min depth mask (conditional)
-    if kwargs["min_depth"] > 0:
-        mask_configs.append({
-            "mask_stage": MinDepthMask,
-            "mask_kwargs": {"filter": f"<{kwargs['min_depth']}"},
-            "apply_kwargs": {"char": "n"},
-            "suffix": "mindepth"
-        })
-    
-    # Zero depth mask (always applied)
-    mask_configs.append({
-        "mask_stage": ZeroDepthMask,
-        "mask_kwargs": {},
-        "apply_kwargs": {"char": "-"},
-        "suffix": "zero_depth"
-    })
-    
-    # User mask (conditional)
-    if kwargs["mask"]:
-        mask_configs.append({
-            "mask_stage": None,  # No mask generation stage needed
-            "bed_file": Path(kwargs["mask"]),
-            "apply_kwargs": {"char": "N"},
-            "suffix": "user"
-        })
-    
-    # Apply masks in sequence
-    for config in mask_configs:
-        # Generate mask if needed
-        if config["mask_stage"]:
-            mask_stage_kwargs = {**kwargs, **config.get("mask_kwargs", {})}
-            mask_stage = config["mask_stage"](**mask_stage_kwargs)
-            masking_stages.append(mask_stage)
-            bed_file = mask_stage.output.bed
-        else:
-            bed_file = config["bed_file"]
-        
-        # Apply mask to reference
-        kwargs["prefix"] = f"{original_prefix}.{config['suffix']}"
-        apply_mask_kwargs = {**kwargs, "bed": bed_file, **config["apply_kwargs"]}
-        apply_mask = ApplyMask(**apply_mask_kwargs)
-        masking_stages.append(apply_mask)
-        
-        # Update reference for next iteration
-        kwargs["reference"] = apply_mask.output.fasta
-        kwargs["prefix"] = original_prefix
-    
-    return masking_stages
+
