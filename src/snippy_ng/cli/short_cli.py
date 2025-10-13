@@ -14,6 +14,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
+@click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
@@ -37,7 +38,7 @@ def short(**kwargs):
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
     from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
     from snippy_ng.stages.compression import BgzipCompressor
-    from snippy_ng.stages.masks import ComprehensiveMask
+    from snippy_ng.stages.masks import DepthMask, UserMask, HetMask
     from snippy_ng.stages.copy import CopyFasta
     from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
@@ -161,17 +162,36 @@ def short(**kwargs):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(vcf_gz=gzip.output.compressed, **kwargs)
         stages.append(pseudo)
-        kwargs["reference"] = pseudo.output.fasta
+        kwargs['reference'] = pseudo.output.fasta
         
-        # Apply comprehensive masking
-        comprehensive_mask = ComprehensiveMask(
+        # Apply depth masking
+        depth_mask = DepthMask(
             **kwargs
         )
-        stages.append(comprehensive_mask)
+        stages.append(depth_mask)
+        kwargs['reference'] = depth_mask.output.masked_fasta
+
+        # Apply heterozygous and low quality sites masking
+        het_mask = HetMask(
+            vcf=caller.output.raw_vcf,  # Use raw VCF for complete site information
+            **kwargs
+        )
+        stages.append(het_mask)
+        kwargs['reference'] = het_mask.output.masked_fasta
+        
+        # Apply user mask if provided
+        if kwargs["mask"]:
+            user_mask = UserMask(
+                mask_bed=Path(kwargs["mask"]),
+                **kwargs
+            )
+            stages.append(user_mask)
+            kwargs['reference'] = user_mask.output.masked_fasta
 
         # Copy final masked consensus to standard output location
+        from snippy_ng.stages.copy import CopyFasta
         copy_final = CopyFasta(
-            input=comprehensive_mask.output.masked_fasta,
+            input=kwargs['reference'],
             output_path=f"{kwargs['prefix']}.afa",
             **kwargs,
         )
