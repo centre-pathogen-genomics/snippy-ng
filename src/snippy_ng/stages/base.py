@@ -179,7 +179,16 @@ class BaseStage(BaseModel):
             except Exception as e:
                 logger.error(f"Function call failed: {e}")
                 raise RuntimeError(f"Failed to run function: {cmd}")
-    
+
+    def check_outputs(self) -> bool:
+        """Check if all expected output files exist."""
+        for _, path in self.output:
+            if not path:
+                continue
+            if not Path(path).exists():
+                return False
+        return True
+
     @contextmanager
     def redirect_stdout_to_err(self):
         original_stdout = sys.stdout
