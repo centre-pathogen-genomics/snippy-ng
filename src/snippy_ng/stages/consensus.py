@@ -10,7 +10,6 @@ from pydantic import Field
 
 class PseudoAlignment(BaseStage):
     reference: Path = Field(..., description="Reference file")
-    mask: Optional[Path] = Field(None, description="Input mask file")
     prefix: str = Field(..., description="Output file prefix")
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
@@ -37,12 +36,9 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         """Constructs the bcftools consensus command."""
 
         bcf_csq_args = ["bcftools", "consensus"]
-        if self.mask:
-            bcf_csq_args.extend(["--mask", str(self.mask), "--mask-with", "N"])
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),
-            "--mark-del", "-",
             str(self.vcf_gz),
         ]) 
         return [
