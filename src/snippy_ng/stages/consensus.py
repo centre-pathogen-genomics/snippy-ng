@@ -39,6 +39,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),
+            "--mark-del", "-",
             str(self.vcf_gz),
         ]) 
         return [
