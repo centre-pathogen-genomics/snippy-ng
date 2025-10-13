@@ -65,84 +65,90 @@ class FreebayesCaller(Caller):
 
     @property
     def commands(self) -> List:
-        """Constructs the Freebayes variant calling commands."""
-        bcf_filter = f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} && (FMT/AO)/(FMT/DP)>={self.mindepth}'
+        """Constructs the Freebayes variant calling and postprocessing commands."""
+
+        # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
+        base_filter = (
+            f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} '
+            f'&& (FMT/AO)/(FMT/DP)>={self.mindepth} && N_ALT=1 && ALT!="*"'
+        )
         if self.exclude_insertions:
-            bcf_filter += ' && INFO/TYPE!="ins"'
+            base_filter += ' && strlen(ALT) <= strlen(REF)'
+
+        # Keep only the tags you want; everything else is dropped.
         keep_vcf_tags = ",".join(
             [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
             + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
         )
 
-        # Generate regions command with output redirection
+        # 1) Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
             ["fasta_generate_regions.py", str(self.reference_index), "202106"],
             description="Generate genomic regions for parallel variant calling",
         )
-
         generate_regions_pipeline = self.shell_pipeline(
             commands=[generate_regions_cmd],
             description="Generate regions file for parallel processing",
             output_file=Path(self.output.regions),
         )
 
-        # Freebayes command with output redirection
+        # 2) FreeBayes parallel call
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "-p",
-            "2",
-            "-P",
-            "0",
-            "-C",
-            "2",
-            "-F",
-            str(self.minfrac),
-            "--min-coverage",
-            str(self.mincov),
-            "--min-repeat-entropy",
-            "1.0",
-            "-q",
-            "13",
-            "-m",
-            "60",
+            "-p", "2",
+            "-P", "0",
+            "-C", "2",
+            "-F", str(self.minfrac),
+            "--min-coverage", str(self.mincov),
+            "--min-repeat-entropy", "1.0",
+            "-q", "13",
+            "-m", "60",
             "--strict-vcf",
         ]
         if self.fbopt:
             import shlex
-
             freebayes_cmd_parts.extend(shlex.split(self.fbopt))
         freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
 
         freebayes_cmd = self.shell_cmd(
-            freebayes_cmd_parts, description="Call variants with Freebayes in parallel"
+            freebayes_cmd_parts,
+            description="Call variants with FreeBayes in parallel",
         )
         freebayes_pipeline = self.shell_pipeline(
             commands=[freebayes_cmd],
-            description="Freebayes variant calling",
+            description="FreeBayes variant calling",
             output_file=Path(self.output.raw_vcf),
         )
 
-        # BCFtools pipeline: view | norm | annotate
-        bcftools_view_cmd = self.shell_cmd(
-            ["bcftools", "view", "--include", bcf_filter, str(self.output.raw_vcf)],
-            description="Filter variants by quality and depth",
+        # 3) bcftools: normalize & split -> recompute TYPE -> filter -> annotate
+        # Important changes:
+        #   - normalize & split before filtering so TYPE/length logic is correct
+        #   - +fill-tags -t TYPE derives TYPE from REF/ALT for reliable ins/del/snp labels
+        bcftools_norm_cmd = self.shell_cmd(
+            ["bcftools", "norm", "-f", str(self.reference), "-m", "-both", str(self.output.raw_vcf)],
+            description="Normalize and split multiallelic variants",
         )
 
-        bcftools_norm_cmd = self.shell_cmd(
-            ["bcftools", "norm", "-a", "-f", str(self.reference), "-"],
-            description="Normalize variants",
+        bcftools_filltags_cmd = self.shell_cmd(
+            ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+            description="Recompute TYPE from REF/ALT",
+        )
+
+        bcftools_view_cmd = self.shell_cmd(
+            ["bcftools", "view", "--include", base_filter, "-"],
+            description="Filter variants after normalization and TYPE recomputation",
         )
 
         bcftools_annotate_cmd = self.shell_cmd(
-            ["bcftools", "annotate", "--remove", keep_vcf_tags],
+            ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
             description="Remove unnecessary VCF annotations",
         )
 
         bcftools_pipeline = self.shell_pipeline(
-            commands=[bcftools_view_cmd, bcftools_norm_cmd, bcftools_annotate_cmd],
-            description="Filter, normalize and annotate variants",
+            commands=[bcftools_norm_cmd, bcftools_filltags_cmd, bcftools_view_cmd, bcftools_annotate_cmd],
+            description="Normalize, recompute TYPE, filter, and annotate variants",
             output_file=Path(self.output.filter_vcf),
         )
 
