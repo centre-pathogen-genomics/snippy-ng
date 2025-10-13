@@ -2,6 +2,7 @@
 *.pyc
 hyperfine.csv
 out
+og_out
 # pixi environments
 .pixi
 *.egg-info
