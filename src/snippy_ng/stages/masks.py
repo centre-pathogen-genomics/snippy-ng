@@ -1,95 +1,139 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
-from snippy_ng.dependencies import bedtools, bcftools
+from snippy_ng.dependencies import bedtools 
 
 from pydantic import Field
 
 
-class Mask(BaseStage):
+
+class ComprehensiveMaskOutput(BaseOutput):
+    """Output from the comprehensive masking stage"""
+    masked_fasta: Path
+    min_depth_bed: Optional[Path] = None
+    zero_depth_bed: Path
+    zero_depth_masked_fasta: Optional[Path] = None
+    min_depth_masked_fasta: Optional[Path] = None
+
+
+class ComprehensiveMask(BaseStage):
+    """
+    Comprehensive masking stage that generates depth-based masks and applies them sequentially.
+    
+    This stage:
+    1. Generates min-depth mask BED file (if min_depth > 0)
+    2. Generates zero-depth mask BED file
+    3. Applies masks sequentially to the reference FASTA
+    4. Optionally applies user-supplied mask
+    """
     bam: Path = Field(..., description="Input BAM file")
-    prefix: str = Field(..., description="Output file prefix")
-    filter: str = Field(..., description="Filter for coverage, e.g. '==0' for zero coverage regions")
     reference: Path = Field(..., description="Reference FASTA file")
-
-
-class DepthMaskOutPut(BaseOutput):
-    bed: Path
-
-class DepthMask(Mask):
-    """
-    Create a BED file of regions from a BAM file based on coverage filter
-    """
-    _dependencies = [
-        bcftools
-    ]
-
-    @property
-    def output(self) -> DepthMaskOutPut:
-        return DepthMaskOutPut(
-            bed=Path(f"{self.prefix}.{self.name.lower()}.bed")
-        )
-
-    @property
-    def commands(self) -> List:
-        """Constructs the bedtools genomecov command to create a BED file of regions based on coverage filter."""
-        mask_zero_cov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
-            description="Generate genome coverage in BED format"
-        )
-        awk_cmd = self.shell_cmd(
-            ["awk", f'$4{self.filter} {{print $1"\t"$2"\t"$3}}'],
-            description=f"Apply coverage filter ({self.filter}) to create mask file"
-        )
-        return [self.shell_pipeline(
-            [mask_zero_cov_cmd, awk_cmd], 
-            output_file=self.output.bed, 
-            description=f"Create mask for regions based on coverage filter ({self.filter})")
-        ]
-
-class ZeroDepthMask(DepthMask):
-    """
-    Create a BED file of zero-coverage regions from a BAM file
-    """
-    filter: str = Field("==0", description="Filter for coverage, e.g. '==0' for zero coverage regions")
-
-class MinDepthMask(DepthMask):
-    """
-    Create a BED file of low-coverage regions from a BAM file
-    """
-    filter: str = Field("<10", description="Filter for coverage, e.g. '<10' for regions with coverage less than 10")
-
-class ApplyMaskOutput(BaseOutput):
-    fasta: Path
-
-class ApplyMask(BaseStage):
-    """
-    Apply a BED mask to a reference FASTA file, replacing masked regions with 'N's.
-    """
-    bed: Path = Field(..., description="Input mask file")
     prefix: str = Field(..., description="Output file prefix")
-    reference: Path = Field(..., description="Reference file")
-    char: str = Field("N", description="Character to use for masking (default: 'N')")
+    min_depth: int = Field(0, description="Minimum depth threshold (0 = skip min depth masking)")
+    user_mask: Optional[Path] = Field(None, description="Optional user-supplied BED mask file")
 
     _dependencies = [
         bedtools
     ]
 
     @property
-    def output(self) -> ApplyMaskOutput:
-        return ApplyMaskOutput(
-            fasta=Path(f"{self.prefix}.masked.fasta")
+    def output(self) -> ComprehensiveMaskOutput:
+        return ComprehensiveMaskOutput(
+            masked_fasta=Path(f"{self.prefix}.masked.afa"),
+            min_depth_bed=Path(f"{self.prefix}.mindepth.bed") if self.min_depth > 0 else None,
+            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed"),
+            min_depth_masked_fasta=Path(f"{self.prefix}.mindepth_masked.afa") if self.min_depth > 0 else None,
+            zero_depth_masked_fasta=Path(f"{self.prefix}.zerodepth_masked.afa")
         )
 
     @property
     def commands(self) -> List:
-        """Constructs the bedtools maskfasta command."""
-        mask_fasta_cmd = self.shell_cmd([
+        """Generate all masking commands in sequence"""
+        commands = []
+        
+        # Generate min-depth mask if requested
+        if self.min_depth > 0:
+            min_depth_cmd = self._generate_depth_mask_commands(
+                filter_condition=f"<{self.min_depth}",
+                output_bed=self.output.min_depth_bed,
+                description=f"Generate min-depth mask (depth < {self.min_depth})"
+            )
+            commands.extend(min_depth_cmd)
+        
+        # Generate zero-depth mask (always)
+        zero_depth_cmd = self._generate_depth_mask_commands(
+            filter_condition="==0",
+            output_bed=self.output.zero_depth_bed,
+            description="Generate zero-depth mask"
+        )
+        commands.extend(zero_depth_cmd)
+        
+        # Apply masks sequentially
+        current_fasta = self.reference
+        
+        # Apply min-depth mask first (with 'n')
+        if self.min_depth > 0:
+            commands.append(self._apply_mask_command(
+                input_fasta=current_fasta,
+                mask_bed=self.output.min_depth_bed,
+                output_fasta=self.output.min_depth_masked_fasta,
+                mask_char="n",
+                description=f"Apply min-depth mask (< {self.min_depth})"
+            ))
+            current_fasta = self.output.min_depth_masked_fasta
+        
+        # Apply zero-depth mask (with '-')
+        commands.append(self._apply_mask_command(
+            input_fasta=current_fasta,
+            mask_bed=self.output.zero_depth_bed,
+            output_fasta=self.output.zero_depth_masked_fasta,
+            mask_char="-",
+            description="Apply zero-depth mask"
+        ))
+        current_fasta = self.output.zero_depth_masked_fasta
+        
+        # Apply user mask if provided (with 'N')
+        if self.user_mask:
+            commands.append(self._apply_mask_command(
+                input_fasta=current_fasta,
+                mask_bed=self.user_mask,
+                output_fasta=self.output.masked_fasta,
+                mask_char="N",
+                description="Apply user-supplied mask"
+            ))
+        else:
+            # Just copy the final result
+            commands.append(self.shell_cmd([
+                "cp", str(current_fasta), str(self.output.masked_fasta)
+            ], description="Copy final masked FASTA"))
+        
+        return commands
+    
+    def _generate_depth_mask_commands(self, filter_condition: str, output_bed: Path, description: str) -> List:
+        """Generate commands to create a depth-based mask BED file using bedtools genomecov"""
+        genomecov_cmd = self.shell_cmd(
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            description="Generate genome coverage in BED format"
+        )
+        awk_cmd = self.shell_cmd(
+            ["awk", f'$4{filter_condition} {{print $1"\\t"$2"\\t"$3}}'],
+            description=f"Filter for regions with depth {filter_condition}"
+        )
+        
+        return [self.shell_pipeline(
+            [genomecov_cmd, awk_cmd], 
+            output_file=output_bed, 
+            description=description
+        )]
+    
+    def _apply_mask_command(self, input_fasta: Path, mask_bed: Path, output_fasta: Path, mask_char: str, description: str):
+        """Generate command to apply a mask to a FASTA file"""
+        return self.shell_cmd([
             "bedtools", "maskfasta",
-            "-fi", str(self.reference),
-            "-bed", str(self.bed),
-            "-fo", str(self.output.fasta),
-            "-mc", self.char
-        ], description="Apply BED mask to FASTA file")
-        return [mask_fasta_cmd] 
+            "-fi", str(input_fasta),
+            "-bed", str(mask_bed),
+            "-fo", str(output_fasta),
+            "-fullHeader",
+            "-mc", mask_char
+        ], description=description)
