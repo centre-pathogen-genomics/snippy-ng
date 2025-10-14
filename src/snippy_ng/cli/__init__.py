@@ -1,5 +1,5 @@
 import click
-import webbrowser
+import os
 
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.og_cli import og
@@ -17,6 +17,7 @@ def show_citation(ctx, param, value):
 def bug_report(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
+    import webbrowser
     url = f"{GITHUB_URL}/issues/new?template=bug_report.md&labels=bug&type=bug"
     click.echo(f"Please report bugs at: {url}")
     webbrowser.open(url, new=2)
@@ -48,5 +49,6 @@ def snippy_ng():
 ########################
 # Register Subcommands #
 ########################
-snippy_ng.add_command(og)
+if os.getenv("SNIPPY_NG_OG_ENABLED", "0") == "1":
+    snippy_ng.add_command(og)
 snippy_ng.add_command(short)
