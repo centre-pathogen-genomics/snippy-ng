@@ -166,7 +166,7 @@ class MinimapAligner(Aligner):
         """Calculate RAM per thread in MB."""
         return max(1, self.ram // self.cpus)
 
-    _dependencies = [minimap2, samtools]
+    _dependencies = [minimap2, samtools, samclip]
 
     @property
     def commands(self) -> List:
@@ -183,18 +183,8 @@ class MinimapAligner(Aligner):
             minimap_cmd_parts,
             description=f"Align {len(self.reads)} read files with Minimap2"
         )
-        
-        samtools_sort_cmd = self.shell_cmd([
-            "samtools", "sort", "--threads", str(self.cpus), 
-            "-m", f"{self.ram_per_thread}M"
-        ], description="Sort alignment output")
 
-        # Create pipeline
-        pipeline = self.shell_pipeline(
-            commands=[minimap_cmd, samtools_sort_cmd],
-            description="Minimap2 alignment and sorting pipeline",
-            output_file=Path(self.output.bam)
-        )
+        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
         index_cmd = self.build_index_command()
         
-        return [pipeline, index_cmd]
+        return [alignment_pipeline, index_cmd]
