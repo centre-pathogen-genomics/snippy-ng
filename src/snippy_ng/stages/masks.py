@@ -128,7 +128,7 @@ class UserMask(BaseStage):
     reference: Path = Field(..., description="Reference FASTA file")
     mask_bed: Path = Field(..., description="User-supplied BED mask file")
     prefix: str = Field(..., description="Output file prefix")
-    mask_char: str = Field("N", description="Character to use for masking (default: 'N')")
+    mask_char: str = Field("X", description="Character to use for masking")
 
     _dependencies = [
         bedtools
