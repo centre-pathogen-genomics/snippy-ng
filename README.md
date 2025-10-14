@@ -12,6 +12,8 @@
 🚨 Snippy-NG is under construction and should not replace Snippy 🚨
 ----
 
+Check out our progress in the [Snippy-NG Development Blog](https://snippy.cpg.org.au/)!
+
 **Table of Contents**
 
 - [Installation](#installation)
