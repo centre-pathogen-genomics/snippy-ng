@@ -84,8 +84,8 @@ def short(**kwargs):
                     ref_fmt=reference_format,
                     **kwargs,
                 )
-            kwargs["reference"] = setup.output.reference
-            kwargs["features"] = setup.output.gff
+            kwargs["features"]        = setup.output.gff
+            kwargs["reference"]       = setup.output.reference
             kwargs["reference_index"] = setup.output.reference_index
             stages.append(setup)
         
@@ -113,8 +113,7 @@ def short(**kwargs):
             if downsample_stage.output.downsampled_r2:
                 kwargs["reads"].append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
-        # SeqKit read statistics
-        stages.append(SeqKitReadStatsBasic(**kwargs))
+        
         # Aligner
         if kwargs["bam"]:
             aligner = PreAlignedReads(**kwargs)
@@ -123,6 +122,9 @@ def short(**kwargs):
         else:
             kwargs["aligner_opts"] = "-x sr " + kwargs.get("aligner_opts", "")
             aligner = MinimapAligner(**kwargs)
+        if not kwargs["bam"]:
+            # SeqKit read statistics
+            stages.append(SeqKitReadStatsBasic(**kwargs))
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
         # Filter alignment
