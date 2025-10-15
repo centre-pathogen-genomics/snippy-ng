@@ -1,16 +1,16 @@
 from pathlib import Path
 from typing import List, Optional
 from snippy_ng.stages.base import BaseStage
-from snippy_ng.dependencies import samtools
+from snippy_ng.dependencies import samtools, bcftools
 from pydantic import Field, field_validator, BaseModel
 
 
-class AlignmentFilterOutput(BaseModel):
+class BamFilterOutput(BaseModel):
     bam: Path
     bam_index: Path
 
 
-class AlignmentFilter(BaseStage):
+class BamFilter(BaseStage):
     """
     Filter BAM files using Samtools to remove unwanted alignments.
     """
@@ -26,9 +26,9 @@ class AlignmentFilter(BaseStage):
     _dependencies = [samtools]
     
     @property
-    def output(self) -> AlignmentFilterOutput:
+    def output(self) -> BamFilterOutput:
         filtered_bam = f"{self.prefix}.filtered.bam"
-        return AlignmentFilterOutput(
+        return BamFilterOutput(
             bam=filtered_bam,
             bam_index=f"{filtered_bam}.bai"
         )
@@ -93,7 +93,7 @@ class AlignmentFilter(BaseStage):
         return [filter_cmd, index_cmd]
 
 
-class AlignmentFilterByRegion(AlignmentFilter):
+class BamFilterByRegion(BamFilter):
     """
     Filter BAM file to include only alignments in specified regions.
     """
@@ -108,7 +108,7 @@ class AlignmentFilterByRegion(AlignmentFilter):
         return v
 
 
-class AlignmentFilterByQuality(AlignmentFilter):
+class BamFilterByQuality(BamFilter):
     """
     Filter BAM file based on mapping quality and alignment flags.
     """
@@ -117,10 +117,88 @@ class AlignmentFilterByQuality(AlignmentFilter):
     exclude_flags: int = Field(3844, description="SAM flags to exclude (default + supplementary)")
 
 
-class AlignmentFilterProperPairs(AlignmentFilter):
+class BamFilterProperPairs(BamFilter):
     """
     Filter BAM file to include only properly paired reads.
     """
     
     include_flags: int = Field(2, description="Include only properly paired reads")
     exclude_flags: int = Field(1796, description="Exclude unmapped, secondary, qcfail, duplicate")
+
+
+class VcfFilterOutput(BaseModel):
+    vcf: Path
+
+
+class VcfFilter(BaseStage):
+    """
+    Filter VCF files using Samtools to remove unwanted variants.
+    """
+
+    vcf: Path = Field(..., description="Input VCF file to filter")
+    prefix: str = Field(..., description="Output file prefix")
+    reference: Path = Field(..., description="Reference FASTA file")
+    minqual: int = Field(100, description="Minimum QUAL score")
+    mincov: int = Field(10, description="Minimum site depth for calling alleles")
+    mindepth: float = Field(0, description="Minimum proportion for calling alt allele")
+    exclude_insertions: bool = Field(
+        True,
+        description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
+    )
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfFilterOutput:
+        filtered_vcf = f"{self.prefix}.filtered.vcf"
+        return VcfFilterOutput(vcf=filtered_vcf)
+
+    @property
+    def commands(self) -> List:
+        """Constructs the samtools view command for filtering."""
+
+        # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
+        base_filter = (
+            f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} '
+            f'&& (FMT/AO)/(FMT/DP)>={self.mindepth} && N_ALT=1 && ALT!="*"'
+        )
+        if self.exclude_insertions:
+            base_filter += " && strlen(ALT) <= strlen(REF)"
+
+        # Keep only the tags you want; everything else is dropped.
+        keep_vcf_tags = ",".join(
+            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
+            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+        )
+
+        bcftools_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    [
+                        "bcftools",
+                        "norm",
+                        "-f",
+                        str(self.reference),
+                        "-m",
+                        "-both",
+                        str(self.vcf),
+                    ],
+                    description="Normalize and split multiallelic variants",
+                ),
+                self.shell_cmd(
+                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+                    description="Recompute TYPE from REF/ALT",
+                ),
+                self.shell_cmd(
+                    ["bcftools", "view", "--include", base_filter, "-"],
+                    description="Filter variants after normalization and TYPE recomputation",
+                ),
+                self.shell_cmd(
+                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
+                    description="Remove unnecessary VCF annotations",
+                ),
+            ],
+            description="Normalize, recompute TYPE, filter, and annotate variants",
+            output_file=Path(self.output.vcf),
+        )
+        return [bcftools_pipeline]

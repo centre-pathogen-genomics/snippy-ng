@@ -32,7 +32,7 @@ def short(**kwargs):
     from snippy_ng.stages.clean_reads import FastpCleanReads
     from snippy_ng.stages.stats import SeqKitReadStatsBasic
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
-    from snippy_ng.stages.alignment_filtering import AlignmentFilter
+    from snippy_ng.stages.filtering import BamFilter, VcfFilter
     from snippy_ng.stages.calling import FreebayesCaller
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -142,13 +142,19 @@ def short(**kwargs):
         kwargs["bam"] = aligner.output.bam
         stages.append(aligner)
         # Filter alignment
-        align_filter = AlignmentFilter(**kwargs)
+        align_filter = BamFilter(**kwargs)
         kwargs["bam"] = align_filter.output.bam
         stages.append(align_filter)
         # SNP calling
         caller = FreebayesCaller(**kwargs)
         stages.append(caller)
-        kwargs["variants"] = caller.output.filter_vcf
+        # Filter VCF
+        variant_filter = VcfFilter(
+            vcf=caller.output.vcf,
+            **kwargs,
+        )
+        stages.append(variant_filter)
+        kwargs["variants"] = variant_filter.output.vcf
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(**kwargs) 
         stages.append(consequences)
@@ -173,7 +179,7 @@ def short(**kwargs):
 
         # Apply heterozygous and low quality sites masking
         het_mask = HetMask(
-            vcf=caller.output.raw_vcf,  # Use raw VCF for complete site information
+            vcf=caller.output.vcf,  # Use raw VCF for complete site information
             **kwargs
         )
         stages.append(het_mask)
