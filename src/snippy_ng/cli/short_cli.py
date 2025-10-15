@@ -101,27 +101,11 @@ def short(**kwargs):
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
             from snippy_ng.stages import at_run_time
             
-            # Create a closure that captures the setup stage
-            def make_genome_length_getter():
-                _setup = setup if 'setup' in locals() else None
-                _outdir = kwargs["outdir"]
-                
-                def get_genome_length():
-                    import json
-                    # Use the setup stage's metadata file if available
-                    if _setup and hasattr(_setup, 'output'):
-                        meta_path = _setup.output.meta
-                    else:
-                        meta_path = _outdir / "reference" / "ref.json"
-                    with open(meta_path, 'r') as f:
-                        metadata = json.load(f)
-                    return int(metadata['total_length'])
-                
-                return get_genome_length
-            
+            # We need the genome length at run time (once we know the reference)
+            genome_length=at_run_time(genome_length_getter(setup.output.meta))
             downsample_stage = RasusaDownsampleReadsByCoverage(
                 coverage=kwargs["downsample"],
-                genome_length=at_run_time(make_genome_length_getter()),
+                genome_length=genome_length,
                 **kwargs
             )
             # Update reads to use downsampled reads
@@ -235,4 +219,17 @@ def short(**kwargs):
     snippy.goodbye()
 
 
-
+def genome_length_getter(reference_metadata: Path):
+    """
+    Because we don't know the genome length until run time (it depends on the reference provided),
+    we create a closure that captures the setup stage and output directory, and returns a function
+    that reads the genome length from the metadata file at run time.
+    """
+    def wraps():
+        import json
+        # Use the setup stage's metadata file if available
+        with open(reference_metadata, 'r') as f:
+            metadata = json.load(f)
+        return int(metadata['total_length'])
+    
+    return wraps
