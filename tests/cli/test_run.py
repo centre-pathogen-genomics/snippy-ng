@@ -31,7 +31,7 @@ def stub_everything(monkeypatch, tmp_path):
         def welcome(self):                 pass
         def validate_dependencies(self):   self.validated = True
         def set_working_directory(self, *_): pass
-        def run(self, quiet=False):        self.ran = True
+        def run(self, quiet=False, continue_last_run=False):        self.ran = True
         def cleanup(self):                 pass
         def goodbye(self):                 pass
         def error(self, *_):               pass
@@ -40,27 +40,27 @@ def stub_everything(monkeypatch, tmp_path):
     monkeypatch.setattr(_pl, "Pipeline", DummyPipeline)
 
     # ---------- Dummy Stage objects ------------------------------------------
-    def _stage_factory(out_key, out_val):
+    def _stage_factory(output):
         class _Stage:
             def __init__(self, *_, **__):
-                self.output = types.SimpleNamespace(**{out_key: out_val})
+                self.output = types.SimpleNamespace(**{out_key: out_val for out_key, out_val in output.items()})
         return _Stage
 
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",
-        _stage_factory("reference", tmp_path / "ref.fa"),
+        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai"}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.BWAMEMReadsAligner",
-        _stage_factory("bam", tmp_path / "align.bam"),
+        _stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.PreAlignedReads",
-        _stage_factory("bam", tmp_path / "align.bam"),
+        _stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.calling.FreebayesCaller",
-        _stage_factory("vcf", tmp_path / "calls.vcf"),
+        _stage_factory({"vcf": tmp_path / "calls.vcf"}),
     )
 
     # ---------- Always recognise the reference format ------------------------
@@ -158,7 +158,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     if case_name == "bad_reference":
         monkeypatch.setattr("snippy_ng.seq_utils.guess_format", lambda _: None)
 
-    args = ["og"] + extra(paths)
+    args = ["short"] + extra(paths)
     runner = CliRunner()
 
     # --------------- Act ------------------------------------------------------
