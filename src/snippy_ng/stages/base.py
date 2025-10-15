@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import List, Callable, Optional
 import subprocess
 import sys
+import tempfile
 from io import StringIO
 from pathlib import Path
 
@@ -49,7 +50,7 @@ class ShellCommandPipeline(BaseModel):
 class BaseStage(BaseModel):
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
-    tmpdir: Path = Field(description="Temporary directory")
+    tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
 
     _dependencies: List[Dependency] = []
     
