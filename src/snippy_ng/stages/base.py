@@ -171,7 +171,8 @@ class BaseStage(BaseModel):
                     raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"Command failed with exit code {e.returncode}")
-                raise RuntimeError(f"Failed to run command: {e.cmd}")
+                cmd = " ".join(quote(arg) for arg in e.cmd) 
+                raise RuntimeError(f"Failed to run command: {cmd}")
             except SkipStageError as e:
                 logger.warning(f"Skipping stage: {e}")
                 raise e
