@@ -135,6 +135,7 @@ paftools = Dependency(
     "paftools.js",
     min_version="2.30",
     version_arg="version",
+    version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
 )
 
 # Calling
