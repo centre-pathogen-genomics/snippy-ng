@@ -1,8 +1,6 @@
 from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
-from snippy_ng.stages.alignment import AssemblyAligner
-from snippy_ng.stages.calling import PAFCaller
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
@@ -34,6 +32,8 @@ def asm(**kwargs):
     from snippy_ng.cli.utils import error
     from snippy_ng.cli.utils.reference import load_or_prepare_reference
     from pydantic import ValidationError
+    from snippy_ng.stages.alignment import AssemblyAligner
+    from snippy_ng.stages.calling import PAFCaller
 
 
     if not kwargs["force"] and kwargs["outdir"].exists():
