@@ -138,9 +138,9 @@ class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     prefix: str = Field(..., description="Output file prefix")
     reference: Path = Field(..., description="Reference FASTA file")
-    minqual: int = Field(100, description="Minimum QUAL score")
-    mincov: int = Field(10, description="Minimum site depth for calling alleles")
-    mindepth: float = Field(0, description="Minimum proportion for calling alt allele")
+    min_qual: int = Field(100, description="Minimum QUAL score")
+    min_depth: int = Field(1, description="Minimum site depth for calling alleles")
+    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -159,8 +159,8 @@ class VcfFilter(BaseStage):
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
         base_filter = (
-            f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} '
-            f'&& (FMT/AO)/(FMT/DP)>={self.mindepth} && N_ALT=1 && ALT!="*"'
+            f'FMT/GT="1/1" && QUAL>={self.min_qual} && FMT/DP>={self.min_depth} '
+            f'&& (FMT/AO)/(FMT/DP)>={self.min_frac} && N_ALT=1 && ALT!="*"'
         )
         if self.exclude_insertions:
             base_filter += " && strlen(ALT) <= strlen(REF)"
