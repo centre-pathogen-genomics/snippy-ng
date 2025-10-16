@@ -6,9 +6,10 @@ from Bio.Seq import Seq
 
 from snippy_ng.dependencies import biopython
 
-class PrepareReferenceOutput(BaseOutput):
+class ReferenceOutput(BaseOutput):
     reference: Path
     reference_index: Path
+    reference_dict: Path
     gff: Path
     meta: Path
 
@@ -24,10 +25,11 @@ class PrepareReference(BaseStage):
     ]
 
     @property
-    def output(self) -> PrepareReferenceOutput:
-        return PrepareReferenceOutput(
+    def output(self) -> ReferenceOutput:
+        return ReferenceOutput(
             reference=self.reference_dir / f"{self.reference_prefix}.fa",
             reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
+            reference_dict=self.reference_dir / f"{self.reference_prefix}.dict",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
             meta=self.reference_dir / "metadata.json",
             
@@ -54,6 +56,18 @@ class PrepareReference(BaseStage):
                 self.shell_cmd([
                     "samtools", "faidx", str(self.output.reference)
                 ], description=f"Index reference FASTA with samtools faidx: {self.output.reference}"),
+                self.shell_pipeline(
+                    commands=[
+                        self.shell_cmd([
+                            "cut", "-f1,2", str(self.output.reference_index)
+                        ], description="Extract sequence names and lengths from FASTA index"),
+                        self.shell_cmd([
+                            "sort"
+                        ], description="Sort sequence names and lengths"),
+                    ],
+                    output_file=self.output.reference_dict,
+                    description=f"Create reference dictionary: {self.output.reference_dict}"
+                )
             ]
     
     def process_reference(self, reference_path: Path, ref_fmt: str, output_fasta_path: Path, output_gff_path: Path):
@@ -268,13 +282,6 @@ class PrepareReference(BaseStage):
         print(f"Wrote {nfeat} features to {output_gff_path}" if nfeat > 0 else f"No features found in {reference_path}")
 
 
-class LoadReferenceOutput(BaseOutput):
-    reference: Path
-    reference_index: Path
-    gff: Path
-    meta: Path
-
-
 class LoadReference(BaseStage):
     reference_dir: Path = Field(..., description="Path to reference directory")
     reference_prefix: str = Field("ref", description="Reference prefix")
@@ -292,10 +299,11 @@ class LoadReference(BaseStage):
         return v
 
     @property
-    def output(self) -> LoadReferenceOutput:
-        return LoadReferenceOutput(
+    def output(self) -> ReferenceOutput:
+        return ReferenceOutput(
             reference=self.reference_dir / f"{self.reference_prefix}.fa",
             reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
+            reference_dict=self.reference_dir / f"{self.reference_prefix}.dict",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
             meta=self.reference_dir / "metadata.json",
         )
@@ -304,12 +312,11 @@ class LoadReference(BaseStage):
     def commands(self):
         validate_reference_cmd = self.python_cmd(
             func=self.validate_reference,
-            args=(self.output.meta, self.output.reference, self.output.reference_index, self.output.gff),
             description="Validate reference files and metadata"
         )
         return [validate_reference_cmd]
     
-    def validate_reference(self, meta_path: Path, reference_path: Path, reference_index_path: Path, gff_path: Path):
+    def validate_reference(self):
         """
         Validates that reference files exist and metadata is consistent.
         Optionally compares against an expected reference file.
@@ -324,10 +331,11 @@ class LoadReference(BaseStage):
 
         # Check if all required files exist
         required_files = {
-            "metadata": meta_path,
-            "reference FASTA": reference_path,
-            "reference index": reference_index_path,
-            "GFF": gff_path
+            "metadata": self.output.meta,
+            "reference FASTA": self.output.reference,
+            "reference index": self.output.reference_index,
+            "reference dict": self.output.reference_dict,
+            "GFF": self.output.gff
         }
         
         missing_files = []
@@ -340,18 +348,12 @@ class LoadReference(BaseStage):
 
         # Load and validate metadata
         try:
-            with open(meta_path, 'r') as f:
+            with open(self.output.meta, 'r') as f:
                 metadata = json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            raise ValueError(f"Failed to read metadata file {meta_path}: {e}")
+            raise ValueError(f"Failed to read metadata file {self.output.meta}: {e}")
 
         required_metadata_fields = ["reference", "format", "num_sequences", "total_length", "num_features", "prefix", "datetime"]
         missing_fields = [field for field in required_metadata_fields if field not in metadata]
         if missing_fields:
             raise ValueError(f"Missing required metadata fields: {missing_fields}")
-
-        print("✓ Reference validation successful:")
-        print(f"  - Reference: {reference_path} ({metadata['num_sequences']} sequences, {metadata['total_length']} bp)")
-        print(f"  - Index: {reference_index_path}")
-        print(f"  - GFF: {gff_path} ({metadata['num_features']} features)")
-        print(f"  - Metadata: {meta_path}")

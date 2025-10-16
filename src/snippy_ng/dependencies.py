@@ -131,6 +131,12 @@ minimap2 = Dependency(
     version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
     min_version="2.17",
 )
+paftools = Dependency(
+    "paftools.js",
+    min_version="2.30",
+    version_arg="version",
+    version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
+)
 
 # Calling
 freebayes = Dependency(
@@ -167,6 +173,7 @@ rasusa = Dependency(
     version_arg="--version"
 )
 
+# Masking and BED operations
 bedtools = Dependency(
     "bedtools",
     citation="Aaron R. Quinlan, Ira M. Hall, BEDTools: a flexible suite of utilities for comparing genomic features, Bioinformatics, Volume 26, Issue 6, March 2010, Pages 841–842, https://doi.org/10.1093/bioinformatics/btq033",

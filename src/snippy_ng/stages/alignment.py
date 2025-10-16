@@ -166,7 +166,7 @@ class MinimapAligner(Aligner):
         """Calculate RAM per thread in MB."""
         return max(1, self.ram // self.cpus)
 
-    _dependencies = [minimap2, samtools]
+    _dependencies = [minimap2, samtools, samclip]
 
     @property
     def commands(self) -> List:
@@ -183,18 +183,49 @@ class MinimapAligner(Aligner):
             minimap_cmd_parts,
             description=f"Align {len(self.reads)} read files with Minimap2"
         )
-        
-        samtools_sort_cmd = self.shell_cmd([
-            "samtools", "sort", "--threads", str(self.cpus), 
-            "-m", f"{self.ram_per_thread}M"
-        ], description="Sort alignment output")
 
-        # Create pipeline
-        pipeline = self.shell_pipeline(
-            commands=[minimap_cmd, samtools_sort_cmd],
-            description="Minimap2 alignment and sorting pipeline",
-            output_file=Path(self.output.bam)
-        )
+        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
         index_cmd = self.build_index_command()
         
-        return [pipeline, index_cmd]
+        return [alignment_pipeline, index_cmd]
+
+
+
+class AssemblyAlignerOutput(BaseModel):
+    paf: Path
+
+class AssemblyAligner(BaseStage):
+    """
+    Align an assembly to a reference using Minimap2.
+    """
+    reference: Path = Field(..., description="Reference file")
+    assembly: Path = Field(..., description="Input assembly FASTA file")
+    prefix: str = Field(..., description="Output file prefix")
+
+    _dependencies = [minimap2]
+
+    @property
+    def output(self) -> AssemblyAlignerOutput:
+        paf_file = Path(f"{self.prefix}.paf")
+        return AssemblyAlignerOutput(
+            paf=paf_file
+        )
+
+    @property
+    def commands(self) -> List:
+        """Constructs the Minimap2 alignment commands."""
+
+        minimap_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd([
+                    "minimap2", "-x", "asm20", "-t", str(self.cpus), "-c", "--cs",
+                    str(self.reference), str(self.assembly)
+                ], description="Align assembly to reference with Minimap2"),
+                self.shell_cmd([
+                    "sort", "-k6,6", "-k8,8n"
+                ], description="Sort PAF output by reference name and position")
+            ],
+            description="Align assembly to reference and sort",
+            output_file=self.output.paf
+        )
+        return [minimap_pipeline]

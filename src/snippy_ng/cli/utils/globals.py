@@ -74,6 +74,22 @@ GLOBAL_DEFS = [
             "help": "Check dependencies are installed then exit",
         },
     },
+    {
+        "param_decls": ("--continue",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Continue from the last run, skipping completed stages",
+        },
+    },
+    {
+        "param_decls": ("--keep-incomplete",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Keep outputs from incomplete stages if an error occurs",
+        },
+    },
 ]
 
 

@@ -3,6 +3,7 @@
 hyperfine.csv
 out
 og_out
+asm_out
 # pixi environments
 .pixi
 *.egg-info
