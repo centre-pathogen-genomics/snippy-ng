@@ -37,7 +37,7 @@ jobs:
         run: |
           hyperfine -m 100 --warmup 10 --export-csv=hyperfine.csv \
             "snippy-ng --help" \
-            "snippy-ng og --help" \
+            "snippy-ng asm --help" \
             "snippy-ng short --help"
           max=$(awk -F, 'NR>1 {print $2}' hyperfine.csv | sort -n | tail -1)
           max=$(echo "$max * 1000" | bc)            # s → ms
