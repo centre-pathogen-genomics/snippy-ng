@@ -4,6 +4,7 @@ import os
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.og_cli import og
 from snippy_ng.cli.short_cli import short
+from snippy_ng.cli.asm_cli import asm
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -52,3 +53,4 @@ def snippy_ng():
 if os.getenv("SNIPPY_NG_OG_ENABLED", "0") == "1":
     snippy_ng.add_command(og)
 snippy_ng.add_command(short)
+snippy_ng.add_command(asm)
