@@ -188,3 +188,44 @@ class MinimapAligner(Aligner):
         index_cmd = self.build_index_command()
         
         return [alignment_pipeline, index_cmd]
+
+
+
+class AssemblyAlignerOutput(BaseModel):
+    paf: Path
+
+class AssemblyAligner(BaseStage):
+    """
+    Align an assembly to a reference using Minimap2.
+    """
+    reference: Path = Field(..., description="Reference file")
+    assembly: Path = Field(..., description="Input assembly FASTA file")
+    prefix: str = Field(..., description="Output file prefix")
+
+    _dependencies = [minimap2]
+
+    @property
+    def output(self) -> AssemblyAlignerOutput:
+        paf_file = Path(f"{self.prefix}.paf")
+        return AssemblyAlignerOutput(
+            paf=paf_file
+        )
+
+    @property
+    def commands(self) -> List:
+        """Constructs the Minimap2 alignment commands."""
+
+        minimap_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd([
+                    "minimap2", "-x", "asm20", "-t", str(self.cpus), "-c", "--cs",
+                    str(self.reference), str(self.assembly)
+                ], description="Align assembly to reference with Minimap2"),
+                self.shell_cmd([
+                    "sort", "-k6,6", "-k8,8n"
+                ], description="Sort PAF output by reference name and position")
+            ],
+            description="Align assembly to reference and sort",
+            output_file=self.output.paf
+        )
+        return [minimap_pipeline]
