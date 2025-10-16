@@ -116,17 +116,16 @@ class DepthMask(BaseStage):
         ], description=description)
 
 
-class UserMaskOutput(BaseOutput):
-    """Output from the user masking stage"""
+class ApplyMaskOutput(BaseOutput):
     masked_fasta: Path
 
 
-class UserMask(BaseStage):
+class ApplyMask(BaseStage):
     """
-    User masking stage that applies a user-supplied BED mask to a FASTA file.
+    Masking stage that applies a supplied BED mask to a FASTA file.
     """
-    reference: Path = Field(..., description="Reference FASTA file")
-    mask_bed: Path = Field(..., description="User-supplied BED mask file")
+    fasta: Path = Field(..., description="Input FASTA file to be masked")
+    mask_bed: Path = Field(..., description="BED file with regions to mask")
     prefix: str = Field(..., description="Output file prefix")
     mask_char: str = Field("X", description="Character to use for masking")
 
@@ -135,23 +134,36 @@ class UserMask(BaseStage):
     ]
 
     @property
-    def output(self) -> UserMaskOutput:
-        return UserMaskOutput(
-            masked_fasta=Path(f"{self.prefix}.user_masked.fasta")
+    def output(self) -> ApplyMaskOutput:
+        return ApplyMaskOutput(
+            masked_fasta=Path(f"{self.prefix}.masked.fasta")
         )
 
     @property
     def commands(self) -> List:
-        """Apply user-supplied mask to FASTA file"""
+        """Apply mask to FASTA file using temporary copy"""
+        temp_fasta = self.tmpdir / f"temp_{self.fasta.name}"
+        
         return [
+            # Copy input FASTA to temporary location
+            self.shell_cmd([
+                "cp", str(self.fasta), str(temp_fasta)
+            ], description=f"Copy input FASTA to temporary location: {temp_fasta}"),
+            
+            # Apply mask to temporary FASTA
             self.shell_cmd([
                 "bedtools", "maskfasta",
-                "-fi", str(self.reference),
+                "-fi", str(temp_fasta),
                 "-bed", str(self.mask_bed),
                 "-fo", str(self.output.masked_fasta),
                 "-fullHeader",
                 "-mc", self.mask_char
-            ], description="Apply user-supplied mask")
+            ], description="Masking FASTA with provided BED file"),
+            
+            # Clean up temporary file
+            self.shell_cmd([
+                "rm", str(temp_fasta)
+            ], description="Remove temporary FASTA file")
         ]
 
 
