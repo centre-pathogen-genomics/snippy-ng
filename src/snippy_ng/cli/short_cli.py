@@ -18,7 +18,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
-@click.option("--continue", is_flag=True, default=False, help="Continue from the last run, skipping completed stages")
 def short(**kwargs):
     """
     Short read based SNP calling pipeline
