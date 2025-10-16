@@ -156,7 +156,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
         paths["out"].mkdir()
 
     if case_name == "bad_reference":
-        monkeypatch.setattr("snippy_ng.seq_utils.guess_format", lambda _: None)
+        monkeypatch.setattr("snippy_ng.cli.utils.reference.guess_format", lambda _: None)
 
     args = ["short"] + extra(paths)
     runner = CliRunner()
