@@ -3,11 +3,12 @@ import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Run SNP calling pipeline for short reads")
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @snippy_global_options
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
+@click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
@@ -15,20 +16,18 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-@click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 @click.option("--continue", is_flag=True, default=False, help="Continue from the last run, skipping completed stages")
 def short(**kwargs):
     """
-    Short read SNP calling pipeline
+    Short read based SNP calling pipeline
 
     Examples:
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipeline import Pipeline
-    from snippy_ng.stages.setup import LoadReference, PrepareReference
     from snippy_ng.stages.clean_reads import FastpCleanReads
     from snippy_ng.stages.stats import SeqKitReadStatsBasic
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
@@ -38,10 +37,10 @@ def short(**kwargs):
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
     from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
     from snippy_ng.stages.compression import BgzipCompressor
-    from snippy_ng.stages.masks import DepthMask, UserMask, HetMask
+    from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
     from snippy_ng.stages.copy import CopyFasta
-    from snippy_ng.seq_utils import guess_format
     from snippy_ng.cli.utils import error
+    from snippy_ng.cli.utils.reference import load_or_prepare_reference
     from pydantic import ValidationError
 
 
@@ -63,31 +62,18 @@ def short(**kwargs):
     
     
     # Choose stages to include in the pipeline
-    stages = []
     try:
-        if Path(kwargs["reference"]).is_dir():
-            setup = LoadReference(
-                    reference_dir=kwargs["reference"], 
-                    **kwargs,
-                )
-            kwargs["reference"] = setup.output.reference
-            kwargs["features"] = setup.output.gff
-            kwargs["reference_index"] = setup.output.reference_index
-            stages.append(setup)
-        else:
-            reference_format = guess_format(kwargs["reference"])
-            if not reference_format:
-                error(f"Could not determine format of reference file '{kwargs['reference']}'")
-
-            setup = PrepareReference(
-                    input=kwargs["reference"],
-                    ref_fmt=reference_format,
-                    **kwargs,
-                )
-            kwargs["features"]        = setup.output.gff
-            kwargs["reference"]       = setup.output.reference
-            kwargs["reference_index"] = setup.output.reference_index
-            stages.append(setup)
+        stages = []
+        
+        # Setup reference (load existing or prepare new)
+        setup = load_or_prepare_reference(
+            reference_path=kwargs["reference"],
+            reference_prefix=kwargs.get("prefix", "ref"),
+        )
+        kwargs["reference"] = setup.output.reference
+        kwargs["features"] = setup.output.gff
+        kwargs["reference_index"] = setup.output.reference_index
+        stages.append(setup)
         
         # Clean reads (optional)
         if kwargs["clean_reads"] and kwargs["reads"]:
@@ -173,7 +159,7 @@ def short(**kwargs):
         
         # Apply user mask if provided
         if kwargs["mask"]:
-            user_mask = UserMask(
+            user_mask = ApplyMask(
                 mask_bed=Path(kwargs["mask"]),
                 **kwargs
             )
@@ -184,7 +170,7 @@ def short(**kwargs):
         from snippy_ng.stages.copy import CopyFasta
         copy_final = CopyFasta(
             input=kwargs['reference'],
-            output_path=f"{kwargs['prefix']}.afa",
+            output_path=f"{kwargs['prefix']}.pseudo.fna",
             **kwargs,
         )
         stages.append(copy_final)
@@ -209,7 +195,7 @@ def short(**kwargs):
     # Set working directory to output folder
     snippy.set_working_directory(kwargs["outdir"])
     try:
-        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue"])
+        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue"], keep_incomplete=kwargs["keep_incomplete"])
     except MissingOutputError as e:
         snippy.error(e)
         return 1
