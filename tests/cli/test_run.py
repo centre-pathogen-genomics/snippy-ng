@@ -31,7 +31,7 @@ def stub_everything(monkeypatch, tmp_path):
         def welcome(self):                 pass
         def validate_dependencies(self):   self.validated = True
         def set_working_directory(self, *_): pass
-        def run(self, quiet=False, continue_last_run=False):        self.ran = True
+        def run(self, quiet=False, continue_last_run=False, keep_incomplete=False):        self.ran = True
         def cleanup(self):                 pass
         def goodbye(self):                 pass
         def error(self, *_):               pass
