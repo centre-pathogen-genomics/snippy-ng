@@ -1,9 +1,9 @@
 # Concrete Alignment Strategies
 from pathlib import Path
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
-from snippy_ng.dependencies import freebayes, bcftools
+from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools
 
 from pydantic import Field, AfterValidator
 
@@ -30,8 +30,7 @@ class Caller(BaseStage):
 
 
 class FreebayesCallerOutput(BaseOutput):
-    raw_vcf: str
-    filter_vcf: str
+    vcf: str
     regions: str
 
 
@@ -58,28 +57,13 @@ class FreebayesCaller(Caller):
     @property
     def output(self) -> FreebayesCallerOutput:
         return FreebayesCallerOutput(
-            raw_vcf=self.prefix + ".raw.vcf",
-            filter_vcf=self.prefix + ".filt.vcf",
+            vcf=self.prefix + ".raw.vcf",
             regions=str(self.reference) + ".txt",
         )
 
     @property
     def commands(self) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
-
-        # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
-        base_filter = (
-            f'FMT/GT="1/1" && QUAL>={self.minqual} && FMT/DP>={self.mincov} '
-            f'&& (FMT/AO)/(FMT/DP)>={self.mindepth} && N_ALT=1 && ALT!="*"'
-        )
-        if self.exclude_insertions:
-            base_filter += ' && strlen(ALT) <= strlen(REF)'
-
-        # Keep only the tags you want; everything else is dropped.
-        keep_vcf_tags = ",".join(
-            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
-        )
 
         # 1) Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
@@ -97,18 +81,27 @@ class FreebayesCaller(Caller):
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "-p", "2",
-            "-P", "0",
-            "-C", "2",
-            "-F", str(self.minfrac),
-            "--min-coverage", str(self.mincov),
-            "--min-repeat-entropy", "1.0",
-            "-q", "13",
-            "-m", "60",
+            "-p",
+            "2",
+            "-P",
+            "0",
+            "-C",
+            "2",
+            "-F",
+            str(self.minfrac),
+            "--min-coverage",
+            str(self.mincov),
+            "--min-repeat-entropy",
+            "1.0",
+            "-q",
+            "13",
+            "-m",
+            "60",
             "--strict-vcf",
         ]
         if self.fbopt:
             import shlex
+
             freebayes_cmd_parts.extend(shlex.split(self.fbopt))
         freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
 
@@ -119,37 +112,173 @@ class FreebayesCaller(Caller):
         freebayes_pipeline = self.shell_pipeline(
             commands=[freebayes_cmd],
             description="FreeBayes variant calling",
-            output_file=Path(self.output.raw_vcf),
+            output_file=Path(self.output.vcf),
         )
 
-        # 3) bcftools: normalize & split -> recompute TYPE -> filter -> annotate
-        # Important changes:
-        #   - normalize & split before filtering so TYPE/length logic is correct
-        #   - +fill-tags -t TYPE derives TYPE from REF/ALT for reliable ins/del/snp labels
-        bcftools_norm_cmd = self.shell_cmd(
-            ["bcftools", "norm", "-f", str(self.reference), "-m", "-both", str(self.output.raw_vcf)],
-            description="Normalize and split multiallelic variants",
+        return [generate_regions_pipeline, freebayes_pipeline]
+
+
+class PAFCallerOutput(BaseOutput):
+    vcf: Path
+    aln_bed: Path
+    missing_bed: Path
+    annotations_file: Path
+    annotations_file_index: Path
+
+
+class PAFCaller(Caller):
+    """
+    Call variants from PAF alignments using paftools.js.
+    """
+
+    paf: Path = Field(..., description="Input PAF file")
+    ref_dict: Path = Field(..., description="Reference FASTA dictionary file")
+    mapq: Optional[int] = Field(
+        15, description="Minimum mapping quality for variant calling"
+    )
+    alen: Optional[int] = Field(
+        50, description="Minimum alignment length for variant calling"
+    )
+
+    _dependencies = [bedtools, bcftools, paftools]
+
+    @property
+    def output(self) -> PAFCallerOutput:
+        return PAFCallerOutput(
+            vcf=Path(f"{self.prefix}.raw.vcf"),
+            aln_bed=Path(f"{self.prefix}.aln.bed"),
+            missing_bed=Path(f"{self.prefix}.missing.bed"),
+            annotations_file=Path(f"{self.prefix}.annotations.gz"),
+            annotations_file_index=Path(f"{self.prefix}.annotations.gz.tbi"),
         )
 
-        bcftools_filltags_cmd = self.shell_cmd(
-            ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
-            description="Recompute TYPE from REF/ALT",
+    @property
+    def commands(self) -> List:
+        """Constructs the PAF processing and BED generation commands."""
+
+        # 4) Convert PAF to merged aligned reference intervals (BED)
+        # Keep primary or pseudo-primary hits: tp:A:P or tp:A:I
+        paf_to_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    ["grep", "-E", "tp:A:[PI]", str(self.paf)],
+                    description="Filter PAF for primary or pseudo-primary alignments",
+                ),
+                self.shell_cmd(
+                    ["cut", "-f6,8,9"],
+                    description="Extract relevant PAF fields (reference name, start, end)",
+                ),
+                self.shell_cmd(
+                    ["bedtools", "sort", "-i", "-"],
+                    description="Sort BED entries",
+                ),
+                self.shell_cmd(
+                    ["bedtools", "merge", "-i", "-"],
+                    description="Merge overlapping BED intervals",
+                ),
+            ],
+            description="Convert PAF to merged aligned reference intervals (BED)",
+            output_file=self.output.aln_bed,
         )
 
-        bcftools_view_cmd = self.shell_cmd(
-            ["bcftools", "view", "--include", base_filter, "-"],
-            description="Filter variants after normalization and TYPE recomputation",
+        # 5) Compute unaligned (missing) reference regions
+        compute_missing_bed_cmd = self.shell_cmd(
+            [
+                "bedtools",
+                "complement",
+                "-g",
+                str(self.ref_dict),
+                "-i",
+                str(self.output.aln_bed),
+            ],
+            description="Compute unaligned (missing) reference regions",
+        )
+        compute_missing_bed_pipeline = self.shell_pipeline(
+            commands=[compute_missing_bed_cmd],
+            description="Generate missing regions BED file",
+            output_file=self.output.missing_bed,
         )
 
-        bcftools_annotate_cmd = self.shell_cmd(
-            ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
-            description="Remove unnecessary VCF annotations",
+        # variant calling
+        paftools_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    [
+                        "paftools.js",
+                        "call",
+                        "-q",
+                        str(self.mapq),
+                        "-L",
+                        str(self.alen),
+                        "-l",
+                        str(self.alen),
+                        "-s",
+                        self.prefix,
+                        "-f",
+                        str(self.reference),
+                        str(self.paf),
+                    ],
+                    description="Call variants from PAF using paftools.js",
+                ),
+            ],
+            description="Variant calling from PAF",
+            output_file=self.output.vcf.with_suffix(".tmp"),
         )
 
-        bcftools_pipeline = self.shell_pipeline(
-            commands=[bcftools_norm_cmd, bcftools_filltags_cmd, bcftools_view_cmd, bcftools_annotate_cmd],
-            description="Normalize, recompute TYPE, filter, and annotate variants",
-            output_file=Path(self.output.filter_vcf),
+        create_annotation_file_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    [
+                        "bcftools",
+                        "query",
+                        str(paftools_pipeline.output_file),
+                        "-f",
+                        "%CHROM\\t%POS\\t1\\t1\\n",
+                    ],
+                    description="Extract variant positions from VCF",
+                ),
+                self.shell_cmd(
+                    ["bgzip", "-c"],
+                    description="Compress annotation file with bgzip",
+                ),
+            ],
+            description="Compress annotation file with bgzip",
+            output_file=self.output.annotations_file,
+        )
+        index_cmd = self.shell_cmd(
+            [
+                "tabix",
+                "-s1",
+                "-b2",
+                "-e2",
+                str(self.output.annotations_file),
+            ],
+            description="Index annotation file with tabix",
+        )
+        annotations_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    [
+                        "bcftools",
+                        "annotate",
+                        "-H", '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">',
+                        "-H", '##FORMAT=<ID=AO,Number=A,Type=Integer,Description="Alternate allele observation count for each ALT">',
+                        "-c", "CHROM,POS,FMT/DP:=FORMAT/DP,FMT/AO:=FORMAT/AO",
+                        "-a", str(self.output.annotations_file),
+                        str(paftools_pipeline.output_file),
+                    ],
+                    description="Insert FORMAT header lines for DP and AO",
+                ),
+            ],
+            description="Annotate VCF with DP and AO headers",
+            output_file=self.output.vcf,
         )
 
-        return [generate_regions_pipeline, freebayes_pipeline, bcftools_pipeline]
+        return [
+            paf_to_pipeline,
+            compute_missing_bed_pipeline,
+            paftools_pipeline,
+            create_annotation_file_pipeline,
+            index_cmd,
+            annotations_pipeline,
+        ]
