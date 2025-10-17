@@ -28,7 +28,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.pseudo.afa")
+            fasta=Path(f"{self.prefix}.pseudo.raw.fna")
         )
 
     @property
