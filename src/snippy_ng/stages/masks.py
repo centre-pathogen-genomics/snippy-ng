@@ -142,7 +142,7 @@ class ApplyMask(BaseStage):
     @property
     def commands(self) -> List:
         """Apply mask to FASTA file using temporary copy"""
-        temp_fasta = self.tmpdir / f"temp_{self.fasta.name}"
+        temp_fasta = self.fasta.with_suffix(".tmp")
         
         return [
             # Copy input FASTA to temporary location
