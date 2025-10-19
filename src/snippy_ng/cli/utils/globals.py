@@ -59,6 +59,14 @@ GLOBAL_DEFS = [
         },
     },
     {
+        "param_decls": ("--debug",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Print debug output",
+        }, 
+    },
+    {
         "param_decls": ("--skip-check", "-k"),
         "attrs": {
             "is_flag": True,

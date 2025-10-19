@@ -41,7 +41,10 @@ def short(**kwargs):
     from snippy_ng.cli.utils import error
     from snippy_ng.cli.utils.reference import load_or_prepare_reference
     from pydantic import ValidationError
+    import os
 
+    if kwargs.get("debug"):
+        os.environ['SNIPPY_DEBUG'] = "1"
 
     if not kwargs["force"] and kwargs["outdir"].exists():
         error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
