@@ -41,13 +41,7 @@ def short(**kwargs):
     from snippy_ng.cli.utils import error
     from snippy_ng.cli.utils.reference import load_or_prepare_reference
     from pydantic import ValidationError
-
-    if not kwargs["force"] and kwargs["outdir"].exists():
-        error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
-
-    # check if output folder exists
-    if not kwargs["outdir"].exists():
-        kwargs["outdir"].mkdir(parents=True, exist_ok=True)
+ 
 
     # combine R1 and R2 into reads
     kwargs["reads"] = []

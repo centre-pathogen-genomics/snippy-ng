@@ -35,12 +35,6 @@ def asm(**kwargs):
     from snippy_ng.stages.alignment import AssemblyAligner
     from snippy_ng.stages.calling import PAFCaller
 
-    if not kwargs["force"] and kwargs["outdir"].exists():
-        error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
-
-    # check if output folder exists
-    if not kwargs["outdir"].exists():
-        kwargs["outdir"].mkdir(parents=True, exist_ok=True)
 
     # Choose stages to include in the pipeline
     try:
