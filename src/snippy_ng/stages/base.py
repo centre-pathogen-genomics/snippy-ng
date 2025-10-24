@@ -9,7 +9,7 @@ from pathlib import Path
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
-from snippy_ng.exceptions import InvalidCommandTypeError, SkipStageError
+from snippy_ng.exceptions import InvalidCommandTypeError
 
 from pydantic import BaseModel, Field
 from shlex import quote
@@ -173,9 +173,6 @@ class BaseStage(BaseModel):
                 logger.error(f"Command failed with exit code {e.returncode}")
                 cmd = " ".join(quote(arg) for arg in e.cmd) 
                 raise RuntimeError(f"Failed to run command: {cmd}")
-            except SkipStageError as e:
-                logger.warning(f"Skipping stage: {e}")
-                raise e
             except InvalidCommandTypeError as e:
                 raise e
             except Exception as e:

@@ -16,8 +16,5 @@ class MissingInputError(Exception):
 class MissingOutputError(Exception):
     pass
 
-class SkipStageError(Exception):
-    pass
-
 class InvalidCommandTypeError(Exception):
     pass
