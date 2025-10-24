@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import time
 
-from snippy_ng.exceptions import DependencyError, SkipStageError, MissingOutputError
+from snippy_ng.exceptions import DependencyError, MissingOutputError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages.base import BaseStage
@@ -81,28 +81,29 @@ class Pipeline:
             self.hr(f"{stage.name}")
             self.debug(stage)
             try:
-                try:
-                    if continue_last_run and stage.check_outputs():
-                        self.log(f"{stage.name} already completed, skipping...")
-                        continue
-                    stage.run(quiet)
-                except (RuntimeError, KeyboardInterrupt) as e:
-                    # remove outputs if stage fails
-                    if not keep_incomplete:
-                        for name, path in stage.output:
-                            if path and Path(path).exists():
-                                self.warning(f"Removing incomplete output '{name}' ({path}) due to error.")
-                                Path(path).unlink()
-                    raise e
+                if continue_last_run and stage.check_outputs():
+                    self.log(f"{stage.name} already completed, skipping...")
+                    continue
+                start = time.perf_counter()
+                stage.run(quiet)
+                end = time.perf_counter()
+                self.debug(f"Runtime: {(end - start):.2f} seconds")
+            except (RuntimeError, KeyboardInterrupt) as e:
+                # remove outputs if stage fails
+                if keep_incomplete:
+                    raise e 
                 for name, path in stage.output:
-                    if not path:  # Skip empty outputs
-                        continue
-                    if Path(path).exists():
-                        continue
-                    raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
-            except SkipStageError:
-                self.stages.remove(stage)
-                self.warning(f"STAGE {stage.name} SKIPPED!")
+                    if path and Path(path).exists():
+                        self.warning(f"Removing incomplete output '{name}' ({path}) due to error.")
+                        Path(path).unlink()
+                raise e
+            # check all the expected outputs were produced
+            for name, path in stage.output:
+                if not path:  # Skip empty outputs
+                    continue
+                if Path(path).exists():
+                    continue
+                raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
         self.end_time = time.perf_counter()
 
     def cleanup(self):
@@ -162,7 +163,8 @@ class Pipeline:
         self.hr("Snippy-NG completed!", style=" ", color="green")
         self.echo('')
         self.hr()
-        self.echo(f"Total runtime: {self.end_time - self.start_time:.2f} seconds")
+        total_run_time = self.end_time - self.start_time
+        self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
         self.hr("Citations")

@@ -1,4 +1,3 @@
-from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
@@ -43,6 +42,7 @@ def og(**kwargs):
     from snippy_ng.seq_utils import guess_format
 
     from pydantic import ValidationError
+    from pathlib import Path
 
     def error(msg):
         click.echo(f"Error: {msg}", err=True)

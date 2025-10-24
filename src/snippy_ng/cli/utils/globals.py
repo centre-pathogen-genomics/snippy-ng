@@ -1,12 +1,19 @@
 import click
 import tempfile
 from pathlib import Path
+import os
 
 
 class GlobalOption(click.Option):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_global = True
+
+def debug_callback(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    os.environ["SNIPPY_NG_DEBUG"] = "1"
+    return value
 
 GLOBAL_DEFS = [
      {
@@ -64,6 +71,7 @@ GLOBAL_DEFS = [
             "is_flag": True,
             "default": False,
             "help": "Print debug output",
+            "callback": debug_callback, 
         }, 
     },
     {

@@ -34,10 +34,6 @@ def asm(**kwargs):
     from pydantic import ValidationError
     from snippy_ng.stages.alignment import AssemblyAligner
     from snippy_ng.stages.calling import PAFCaller
-    import os
-
-    if kwargs.get("debug"):
-        os.environ['SNIPPY_DEBUG'] = "1"
 
     if not kwargs["force"] and kwargs["outdir"].exists():
         error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
