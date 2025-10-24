@@ -9,8 +9,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--assembly", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Assembly in FASTA format")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--min-depth", default=1, type=click.INT, help="Minimum coverage to call a variant")
-@click.option("--min-qual", default=60, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 def asm(**kwargs):
@@ -63,6 +61,9 @@ def asm(**kwargs):
         # Filter VCF
         variant_filter = VcfFilter(
             vcf=caller.output.vcf,
+            # hard code for asm-based calling
+            min_depth=1,
+            min_qual=60,
             **kwargs,
         )
         stages.append(variant_filter)
