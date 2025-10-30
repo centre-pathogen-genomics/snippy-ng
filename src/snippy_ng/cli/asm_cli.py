@@ -28,7 +28,7 @@ def asm(**kwargs):
     from snippy_ng.stages.masks import ApplyMask, HetMask
     from snippy_ng.stages.copy import CopyFasta
     from snippy_ng.cli.utils import error
-    from snippy_ng.cli.utils.reference import load_or_prepare_reference
+    from snippy_ng.cli.utils.common import load_or_prepare_reference
     from pydantic import ValidationError
     from snippy_ng.stages.alignment import AssemblyAligner
     from snippy_ng.stages.calling import PAFCaller
@@ -150,19 +150,3 @@ def asm(**kwargs):
     
     snippy.cleanup()
     snippy.goodbye()
-
-
-def genome_length_getter(reference_metadata: Path):
-    """
-    Because we don't know the genome length until run time (it depends on the reference provided),
-    we create a closure that captures the setup stage and output directory, and returns a function
-    that reads the genome length from the metadata file at run time.
-    """
-    def wraps():
-        import json
-        # Use the setup stage's metadata file if available
-        with open(reference_metadata, 'r') as f:
-            metadata = json.load(f)
-        return int(metadata['total_length'])
-    
-    return wraps

@@ -39,7 +39,7 @@ def short(**kwargs):
     from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
     from snippy_ng.stages.copy import CopyFasta
     from snippy_ng.cli.utils import error
-    from snippy_ng.cli.utils.reference import load_or_prepare_reference
+    from snippy_ng.cli.utils.common import load_or_prepare_reference
     from pydantic import ValidationError
  
 
@@ -75,9 +75,9 @@ def short(**kwargs):
             if clean_reads_stage.output.cleaned_r2:
                 kwargs["reads"].append(clean_reads_stage.output.cleaned_r2)
             stages.append(clean_reads_stage)
-        if kwargs.get("downsample"):
+        if kwargs.get("downsample") and kwargs["reads"]:
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
-            from snippy_ng.stages import at_run_time
+            from snippy_ng.runtime import at_run_time, genome_length_getter
             
             # We need the genome length at run time (once we know the reference)
             genome_length=at_run_time(genome_length_getter(setup.output.meta))
@@ -199,17 +199,3 @@ def short(**kwargs):
     snippy.goodbye()
 
 
-def genome_length_getter(reference_metadata: Path):
-    """
-    Because we don't know the genome length until run time (it depends on the reference provided),
-    we create a closure that captures the setup stage and output directory, and returns a function
-    that reads the genome length from the metadata file at run time.
-    """
-    def wraps():
-        import json
-        # Use the setup stage's metadata file if available
-        with open(reference_metadata, 'r') as f:
-            metadata = json.load(f)
-        return int(metadata['total_length'])
-    
-    return wraps
