@@ -34,7 +34,7 @@ def og(**kwargs):
 
         $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.pipeline import Pipeline
+    from snippy_ng.snippy import Snippy
     from snippy_ng.stages.setup import PrepareReference
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, PreAlignedReads
     from snippy_ng.stages.calling import FreebayesCaller
@@ -94,7 +94,7 @@ def og(**kwargs):
         error(e)
     
     # Move from CLI land into Pipeline land
-    snippy = Pipeline(stages=stages)
+    snippy = Snippy(stages=stages)
     snippy.welcome()
 
     if not kwargs["skip_check"]:

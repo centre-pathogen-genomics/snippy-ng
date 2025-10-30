@@ -26,7 +26,7 @@ def short(**kwargs):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.pipeline import Pipeline
+    from snippy_ng.snippy import Snippy
     from snippy_ng.stages.clean_reads import FastpCleanReads
     from snippy_ng.stages.stats import SeqKitReadStatsBasic
     from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
@@ -171,7 +171,7 @@ def short(**kwargs):
         error(e)
     
     # Move from CLI land into Pipeline land
-    snippy = Pipeline(stages=stages)
+    snippy = Snippy(stages=stages)
     snippy.welcome()
 
     if not kwargs.get("skip_check", False):

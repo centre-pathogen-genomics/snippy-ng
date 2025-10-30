@@ -9,7 +9,7 @@ from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages.base import BaseStage
 
-class Pipeline:
+class Snippy:
     """
     Main class for creating Snippy-NG Pipelines.
     """

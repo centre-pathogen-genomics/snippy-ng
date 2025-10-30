@@ -19,7 +19,7 @@ def asm(**kwargs):
 
         $ snippy-ng asm --reference ref.fa --assembly assembly.fa --outdir output
     """
-    from snippy_ng.pipeline import Pipeline
+    from snippy_ng.snippy import Snippy
     from snippy_ng.stages.filtering import VcfFilter
     from snippy_ng.exceptions import DependencyError, MissingOutputError
     from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -124,7 +124,7 @@ def asm(**kwargs):
         error(e)
     
     # Move from CLI land into Pipeline land
-    snippy = Pipeline(stages=stages)
+    snippy = Snippy(stages=stages)
     snippy.welcome()
 
     if not kwargs.get("skip_check", False):

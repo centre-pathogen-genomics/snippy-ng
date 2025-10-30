@@ -4,7 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng         # the click *group*
-import snippy_ng.pipeline as _pl           # <-- real module we patch
+import snippy_ng.snippy as _pl           # <-- real module we patch
 
 
 ##############################################################################
@@ -168,7 +168,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     assert result.exit_code == expect_exit, result.output
 
     # Did we create / run a pipeline?
-    last_pipeline = _pl.Pipeline.last        # may be None if creation failed early
+    last_pipeline = _pl.Snippy.last        # may be None if creation failed early
 
     if expect_run:
         assert last_pipeline and last_pipeline.ran is True
