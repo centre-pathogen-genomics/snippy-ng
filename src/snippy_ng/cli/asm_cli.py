@@ -140,7 +140,7 @@ def asm(**kwargs):
     # Set working directory to output folder
     snippy.set_working_directory(kwargs["outdir"])
     try:
-        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue"], keep_incomplete=kwargs["keep_incomplete"])
+        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue_last_run"], keep_incomplete=kwargs["keep_incomplete"])
     except MissingOutputError as e:
         snippy.error(e)
         return 1

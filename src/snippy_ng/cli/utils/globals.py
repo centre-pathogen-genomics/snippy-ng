@@ -86,7 +86,7 @@ GLOBAL_DEFS = [
         }, 
     },
     {
-        "param_decls": ("--skip-check", "-k"),
+        "param_decls": ("--skip-check",),
         "attrs": {
             "is_flag": True,
             "default": False,
@@ -94,7 +94,7 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--check", "-d"),
+        "param_decls": ("--check",),
         "attrs": {
             "is_flag": True,
             "default": False,
@@ -102,7 +102,7 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--continue",),
+        "param_decls": ("--continue-last-run",),
         "attrs": {
             "is_flag": True,
             "default": False,
