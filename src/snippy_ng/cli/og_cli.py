@@ -2,8 +2,7 @@ import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Backwards-compatible SNP calling pipeline")
-@snippy_global_options
+@click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, short_help="Backwards-compatible SNP calling pipeline", deprecated=True)
 @click.option("--reference", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 @click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reads, paired-end R2 (right)")
@@ -12,7 +11,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--peil", default='', type=click.STRING, help="Paired-end interleaved reads")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--targets", default='', type=click.STRING, help="Only call SNPs from this BED file")
-@click.option("--subsample", default=1.0, type=float, help="Subsample FASTQ to this proportion")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--report/--no-report", default=False, help="Produce report with visual alignment per variant")
 @click.option("--cleanup/--no-cleanup", default=False, help="Remove unnecessary files (e.g., BAMs)")
@@ -28,96 +26,72 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--fbopt", default='', type=click.STRING, help="Extra Freebayes options")
 def og(**kwargs):
     """
-    Drop-in replacement for Snippy with feature parity.
+    Drop-in replacement for Snippy that maps command-line arguments to the new Snippy-NG short pipeline.
 
-    Examples:
+    Note that although the interface is the same as Snippy it will produce slightly different results
+    due to differences in the underlying tools and versions used.
+    
+    Examples:\n
+        $ alias snippy='snippy-ng og'\n
+        $ snippy --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
 
-        $ snippy-ng og --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+    SYNOPSIS
+      snippy 4.6.0 - fast bacterial variant calling from NGS reads
+    USAGE
+      snippy [options] --outdir <dir> --ref <ref> --R1 <R1.fq.gz> --R2 <R2.fq.gz>
+      snippy [options] --outdir <dir> --ref <ref> --ctgs <contigs.fa>
+      snippy [options] --outdir <dir> --ref <ref> --bam <reads.bam>
+    GENERAL
+      --help           This help
+      --version        Print version and exit
+      --citation       Print citation for referencing snippy
+      --check          Check dependences are installed then exit (default OFF)
+      --force          Force overwrite of existing output folder (default OFF)
+      --quiet          No screen output (default OFF)
+    RESOURCES
+      --cpus N         Maximum number of CPU cores to use (default '8')
+      --ram N          Try and keep RAM under this many GB (default '8')
+      --tmpdir F       Fast temporary storage eg. local SSD (default '/var/folders/hs/3sl81nqd6mzcbz1sc_td3bv00000gn/T/')
+    INPUT
+      --reference F    Reference genome. Supports FASTA, GenBank, EMBL (not GFF) (default '')
+      --R1 F           Reads, paired-end R1 (left) (default '')
+      --R2 F           Reads, paired-end R2 (right) (default '')
+      --se F           Single-end reads (default '')
+      --ctgs F         Don't have reads use these contigs (default '')
+      --peil F         Reads, paired-end R1/R2 interleaved (default '')
+      --bam F          Use this BAM file instead of aligning reads (default '')
+      --targets F      Only call SNPs from this BED file (default '')
+      --subsample n.n  Subsample FASTQ to this proportion (default '1')
+    OUTPUT
+      --outdir F       Output folder (default '')
+      --prefix F       Prefix for output files (default 'snps')
+      --report         Produce report with visual alignment per variant (default OFF)
+      --cleanup        Remove most files not needed for snippy-core (inc. BAMs!) (default OFF)
+      --rgid F         Use this @RG ID: in the BAM header (default '')
+      --unmapped       Keep unmapped reads in BAM and write FASTQ (default OFF)
+    PARAMETERS
+      --mapqual N      Minimum read mapping quality to consider (default '60')
+      --basequal N     Minimum base quality to consider (default '13')
+      --mincov N       Minimum site depth to for calling alleles (default '10')
+      --minfrac n.n    Minumum proportion for variant evidence (0=AUTO) (default '0')
+      --minqual n.n    Minumum QUALITY in VCF column 6 (default '100')
+      --maxsoft N      Maximum soft clipping to allow (default '10')
+      --bwaopt F       Extra BWA MEM options, eg. -x pacbio (default '')
+      --fbopt F        Extra Freebayes options, eg. --theta 1E-6 --read-snp-limit 2 (default '')
     """
-    from snippy_ng.snippy import Snippy
-    from snippy_ng.stages.setup import PrepareReference
-    from snippy_ng.stages.alignment import BWAMEMReadsAligner, PreAlignedReads
-    from snippy_ng.stages.calling import FreebayesCaller
-    from snippy_ng.exceptions import DependencyError, MissingOutputError
-    from snippy_ng.seq_utils import guess_format
+    from snippy_ng.cli.short_cli import short
 
-    from pydantic import ValidationError
-    from pathlib import Path
-
-    def error(msg):
-        click.echo(f"Error: {msg}", err=True)
-        raise click.Abort()
-
-    if not kwargs["force"] and kwargs["outdir"].exists():
-        error(f"Output folder '{kwargs['outdir']}' already exists! Use --force to overwrite.")
-
-    # check if output folder exists
-    if not kwargs["outdir"].exists():
-        kwargs["outdir"].mkdir(parents=True, exist_ok=True)
-
-    # combine R1 and R2 into reads
-    kwargs["reads"] = []
-    if kwargs["r1"]:
-        kwargs["reads"].append(kwargs["r1"])
-    if kwargs["r2"]:
-        kwargs["reads"].append(kwargs["r2"])
-    if not kwargs["reads"] and not kwargs["bam"]:
-        error("Please provide reads or a BAM file!")
-    
-    
-    # Choose stages to include in the pipeline
-    stages = []
-    try:
-        if Path(kwargs["reference"]).is_dir():
-            # TODO use json file to get reference
-            kwargs["reference"] = (Path(kwargs["reference"]) / "reference" / "ref.fa").resolve()
-        else:
-            reference_format = guess_format(kwargs["reference"])
-            if not reference_format:
-                error(f"Could not determine format of reference file '{kwargs['reference']}'")
-
-            setup = PrepareReference(
-                    input=kwargs["reference"],
-                    ref_fmt=reference_format,
-                    **kwargs,
-                )
-            kwargs["reference"] = setup.output.reference
-            stages.append(setup)
-        if kwargs["bam"]:
-            aligner = PreAlignedReads(**kwargs)
-        else:
-            aligner = BWAMEMReadsAligner(**kwargs)
-        kwargs["bam"] = aligner.output.bam
-        stages.append(aligner)
-        stages.append(FreebayesCaller(**kwargs))
-    except ValidationError as e:
-        error(e)
-    
-    # Move from CLI land into Pipeline land
-    snippy = Snippy(stages=stages)
-    snippy.welcome()
-
-    if not kwargs["skip_check"]:
-        try:
-            snippy.validate_dependencies()
-        except DependencyError as e:
-            snippy.error(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.")
-            return 1
-    
-    if kwargs["check"]:
-        return 0
-
-    # Set working directory to output folder
-    snippy.set_working_directory(kwargs["outdir"])
-    try:
-        snippy.run(quiet=kwargs["quiet"])
-    except MissingOutputError as e:
-        snippy.error(e)
-        return 1
-    except RuntimeError as e:
-        snippy.error(e)
-        return 1
-    
-    snippy.cleanup()
-    snippy.goodbye()
+    short.callback(
+        reference=kwargs["reference"],
+        r1=kwargs["r1"],
+        r2=kwargs["r2"],
+        bam=kwargs["bam"],
+        prefix=kwargs["prefix"],
+        min_depth=kwargs["mincov"],
+        min_qual=kwargs["minqual"],
+        mask=kwargs["targets"],
+        header=None,
+        aligner="bwamem",
+        aligner_opts=kwargs["bwaopt"], 
+    )
 
