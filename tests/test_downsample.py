@@ -260,7 +260,7 @@ class TestRasusaDownsampleReads:
     
     def test_at_run_time_genome_length(self, tmp_path):
         """Test that at_run_time works correctly with genome_length"""
-        from snippy_ng.stages import at_run_time
+        from snippy_ng.runtime import at_run_time
         
         # Create test files
         read1 = tmp_path / "reads1.fastq.gz"
@@ -335,7 +335,7 @@ class TestRasusaDownsampleReadsByCoverage:
     
     def test_at_run_time_coverage_variant(self, tmp_path):
         """Test that at_run_time works with RasusaDownsampleReadsByCoverage"""
-        from snippy_ng.stages import at_run_time
+        from snippy_ng.runtime import at_run_time
         
         read_file = tmp_path / "reads.fastq"
         read_file.touch()
