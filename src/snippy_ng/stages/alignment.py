@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from snippy_ng.stages.base import BaseStage, ShellCommandPipeline
+from snippy_ng.stages.base import BaseStage, ShellCommandPipe
 from snippy_ng.dependencies import samtools, bwa, samclip, minimap2
 from pydantic import Field, field_validator, BaseModel
 
@@ -52,7 +52,7 @@ class Aligner(BaseStage):
             "samclip", "--max", str(self.maxsoft), "--ref", f"{self.reference}.fai"
         ], description="Remove excessive soft-clipped bases")
 
-    def build_alignment_pipeline(self, align_cmd) -> ShellCommandPipeline:
+    def build_alignment_pipeline(self, align_cmd) -> ShellCommandPipe:
         """Constructs the full alignment pipeline command."""
         samclip_cmd = self.build_samclip_command()
         common_cmds = self.common_commands

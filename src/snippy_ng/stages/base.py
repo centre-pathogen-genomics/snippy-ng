@@ -33,7 +33,7 @@ class ShellCommand(BaseModel):
     def __str__(self):
         return " ".join(quote(arg) for arg in self.command)
 
-class ShellCommandPipeline(BaseModel):
+class ShellCommandPipe(BaseModel):
     commands: List[ShellCommand]
     description: str
     output_file: Optional[Path] = None
@@ -67,7 +67,7 @@ class BaseStage(BaseModel):
 
     @property
     @abstractmethod
-    def commands(self) -> List[ShellCommandPipeline | ShellCommand | PythonCommand]:
+    def commands(self) -> List[ShellCommandPipe | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -85,7 +85,7 @@ class BaseStage(BaseModel):
         """Creates a shell command."""
         return ShellCommand(command=command, description=description)
     
-    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipeline:
+    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
         """Creates a shell pipeline."""
         # Validate that all commands are ShellCommand objects
         for i, cmd in enumerate(commands):
@@ -94,7 +94,7 @@ class BaseStage(BaseModel):
                     f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
                     f"Use self.shell_cmd() to create ShellCommand objects."
                 )
-        return ShellCommandPipeline(commands=commands, description=description, output_file=output_file)
+        return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
@@ -119,7 +119,7 @@ class BaseStage(BaseModel):
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
                     subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
-                elif isinstance(cmd, ShellCommandPipeline):
+                elif isinstance(cmd, ShellCommandPipe):
                     processes = []
                     prev_stdout = None
                     output_file = cmd.output_file
