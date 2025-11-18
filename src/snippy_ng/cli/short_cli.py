@@ -78,10 +78,10 @@ def short(**config):
             stages.append(clean_reads_stage)
         if config.get("downsample") and config.get("reads"):
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
-            from snippy_ng.runtime import at_run_time, genome_length_getter
+            from snippy_ng.at_run_time import get_genome_length
             
             # We need the genome length at run time (once we know the reference)
-            genome_length=at_run_time(genome_length_getter(setup.output.meta))
+            genome_length=get_genome_length(setup.output.meta)
             downsample_stage = RasusaDownsampleReadsByCoverage(
                 coverage=config["downsample"],
                 genome_length=genome_length,

@@ -82,7 +82,7 @@ def at_run_time(func):
     return AtRunTime(func)
 
 
-def genome_length_getter(reference_metadata: Path):
+def get_genome_length(reference_metadata: Path):
     """
     Because we don't know the genome length until run time (it depends on the reference provided),
     we create a closure that captures the setup stage and output directory, and returns a function
@@ -95,4 +95,4 @@ def genome_length_getter(reference_metadata: Path):
             metadata = json.load(f)
         return int(metadata['total_length'])
     
-    return wraps
+    return at_run_time(wraps)
