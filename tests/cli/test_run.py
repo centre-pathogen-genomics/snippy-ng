@@ -4,7 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng         # the click *group*
-import snippy_ng.pipeline as _pl           # <-- real module we patch
+import snippy_ng.snippy as _pl           # <-- real module we patch
 
 
 ##############################################################################
@@ -37,7 +37,7 @@ def stub_everything(monkeypatch, tmp_path):
         def error(self, *_):               pass
 
     # patch the real module, not the click group
-    monkeypatch.setattr(_pl, "Pipeline", DummyPipeline)
+    monkeypatch.setattr(_pl, "Snippy", DummyPipeline)
 
     # ---------- Dummy Stage objects ------------------------------------------
     def _stage_factory(output):
@@ -156,7 +156,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
         paths["out"].mkdir()
 
     if case_name == "bad_reference":
-        monkeypatch.setattr("snippy_ng.cli.utils.reference.guess_format", lambda _: None)
+        monkeypatch.setattr("snippy_ng.cli.utils.common.guess_format", lambda _: None)
 
     args = ["short"] + extra(paths)
     runner = CliRunner()
@@ -168,7 +168,7 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     assert result.exit_code == expect_exit, result.output
 
     # Did we create / run a pipeline?
-    last_pipeline = _pl.Pipeline.last        # may be None if creation failed early
+    last_pipeline = _pl.Snippy.last        # may be None if creation failed early
 
     if expect_run:
         assert last_pipeline and last_pipeline.ran is True

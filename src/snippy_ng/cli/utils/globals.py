@@ -1,6 +1,7 @@
 import click
 import tempfile
 from pathlib import Path
+import os
 
 
 class GlobalOption(click.Option):
@@ -8,14 +9,31 @@ class GlobalOption(click.Option):
         super().__init__(*args, **kwargs)
         self.is_global = True
 
+def debug_callback(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    os.environ["SNIPPY_NG_DEBUG"] = "1"
+    return value
+
+def create_outdir_callback(ctx, param, value):
+    if ctx.resilient_parsing:
+        return
+    if value.exists() and not ctx.params.get("force", False):
+        from . import error
+        error(f"Output folder '{value}' already exists! Use --force to overwrite.")
+    if not value.exists():
+        value.mkdir(parents=True, exist_ok=True)
+    return value
+
 GLOBAL_DEFS = [
-     {
+    {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "required": True,
             "default": Path("out"),
             "help": "Where to put everything",
+            "callback": create_outdir_callback,
         },
     },
     {
@@ -59,7 +77,16 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--skip-check", "-k"),
+        "param_decls": ("--debug",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Print debug output",
+            "callback": debug_callback, 
+        }, 
+    },
+    {
+        "param_decls": ("--skip-check",),
         "attrs": {
             "is_flag": True,
             "default": False,
@@ -67,7 +94,7 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--check", "-d"),
+        "param_decls": ("--check",),
         "attrs": {
             "is_flag": True,
             "default": False,
@@ -75,7 +102,7 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--continue",),
+        "param_decls": ("--continue-last-run",),
         "attrs": {
             "is_flag": True,
             "default": False,

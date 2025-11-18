@@ -29,7 +29,7 @@ class Logger():
         self.echo(self._format("WARNING", msg), err=True)
     
     def debug(self, msg):
-        if os.getenv("SNIPPY_DEBUG", "0") == "1":
+        if os.getenv("SNIPPY_NG_DEBUG", "0") == "1":
             self.echo(self._format("DEBUG", msg), err=True)
     
     def error(self, msg):
