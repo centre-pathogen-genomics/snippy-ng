@@ -19,8 +19,7 @@ def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
     if value.exists() and not ctx.params.get("force", False):
-        from . import error
-        error(f"Output folder '{value}' already exists! Use --force to overwrite.")
+        raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
     if not value.exists():
         value.mkdir(parents=True, exist_ok=True)
     return value
