@@ -27,9 +27,8 @@ def short(**config):
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipelines.short import create_short_stages
+    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     import click
-    from snippy_ng.snippy import Snippy
-    from snippy_ng.exceptions import DependencyError, MissingOutputError
     
     # combine R1 and R2 into reads
     config["reads"] = []
@@ -48,35 +47,5 @@ def short(**config):
     stages = create_short_stages(config)
     
     # Run the pipeline
-    # Move from CLI land into Pipeline land
-    snippy = Snippy(stages=stages)
-    snippy.welcome()
-
-    if not config.get("skip_check", False):
-        try:
-            snippy.validate_dependencies()
-        except DependencyError as e:
-            snippy.error(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.")
-            raise click.Abort()
-    
-    if config.get("check", False):
-        return 0
-
-    # Set working directory to output folder
-    snippy.set_working_directory(config["outdir"])
-    try:
-        snippy.run(
-            quiet=config.get("quiet", False),
-            continue_last_run=config.get("continue", False),
-            keep_incomplete=config.get("keep_incomplete", False),
-        )
-    except MissingOutputError as e:
-        snippy.error(e)
-        raise click.Abort()
-    except RuntimeError as e:
-        snippy.error(e)
-        raise click.Abort()
-    
-    snippy.cleanup()
-    snippy.goodbye()
+    return run_snippy_pipeline(config, stages)
     
