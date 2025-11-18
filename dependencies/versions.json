@@ -3,8 +3,8 @@
             "bcbio-gff": "0.7.1",
             "click": "8.3.0",
             "packaging": "25.0",
-            "pydantic": "2.11.10",
-            "biopython": "1.85",
+            "pydantic": "2.12.4",
+            "biopython": "1.86",
             "samtools": "1.20",
             "samclip": "0.4.0",
             "bwa": "0.7.19",
@@ -14,6 +14,7 @@
             "minimap2": "2.30",
             "fastp": "1.0.1",
             "seqkit": "2.10.1",
-            "rasusa": "2.2.2"
+            "rasusa": "2.2.2",
+            "bedtools": "2.31.1"
       }
 }
