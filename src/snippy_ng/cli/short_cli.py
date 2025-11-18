@@ -138,7 +138,7 @@ def short(
             if clean_reads_stage.output.cleaned_r2:
                 config["reads"].append(clean_reads_stage.output.cleaned_r2)
             stages.append(clean_reads_stage)
-        if config.get("downsample") and config["reads"]:
+        if config.get("downsample") and config.get("reads"):
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
             from snippy_ng.runtime import at_run_time, genome_length_getter
             
