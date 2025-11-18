@@ -1,7 +1,3 @@
-import platform
-
-from urllib.parse import quote
-
 import click
 from click.testing import CliRunner
 

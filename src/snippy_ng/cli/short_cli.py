@@ -19,36 +19,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
-def short(
-    *,
-    # Global options (from snippy_global_options decorator)
-    outdir: Path,
-    tmpdir: Path,
-    cpus: int,
-    ram: int,
-    force: bool,
-    quiet: bool,
-    debug: bool,
-    skip_check: bool,
-    check: bool,
-    keep_incomplete: bool,
-    continue_last_run: bool,
-    # Short command specific options
-    reference: Path,
-    r1: Path | None,
-    r2: Path | None,
-    bam: Path | None,
-    clean_reads: bool,
-    downsample: float | None,
-    aligner: str,
-    aligner_opts: str,
-    freebayes_opts: str,
-    mask: Path | None,
-    min_depth: int,
-    min_qual: float,
-    prefix: str,
-    header: str | None,
-):
+def short(**config):
     """
     Short read based SNP calling pipeline
 
@@ -72,42 +43,9 @@ def short(
     from snippy_ng.cli.utils.common import load_or_prepare_reference
     from pydantic import ValidationError
     
-    # Collect all arguments into a dictionary
-    config = {
-        "outdir": outdir,
-        "tmpdir": tmpdir,
-        "cpus": cpus,
-        "ram": ram,
-        "force": force,
-        "quiet": quiet,
-        "debug": debug,
-        "skip_check": skip_check,
-        "check": check,
-        "continue": continue_last_run,
-        "keep_incomplete": keep_incomplete,
-        "reference": reference,
-        "r1": r1,
-        "r2": r2,
-        "bam": bam,
-        "clean_reads": clean_reads,
-        "downsample": downsample,
-        "aligner": aligner,
-        "aligner_opts": aligner_opts,
-        "freebayes_opts": freebayes_opts,
-        "mask": mask,
-        "min_depth": min_depth,
-        "min_qual": min_qual,
-        "prefix": prefix,
-        "header": header,
-    }
-
     # combine R1 and R2 into reads
     config["reads"] = []
     
-
-
-    # combine R1 and R2 into reads
-    config["reads"] = []
     if config.get("r1"):
         config["reads"].append(config["r1"])
     if config.get("r2"):
@@ -253,7 +191,7 @@ def short(
     # Set working directory to output folder
     snippy.set_working_directory(config["outdir"])
     try:
-        snippy.run(quiet=config["quiet"], continue_last_run=config["continue"], keep_incomplete=config["keep_incomplete"])
+        snippy.run(quiet=config["quiet"], continue_last_run=config["continue_last_run"], keep_incomplete=config["keep_incomplete"])
     except MissingOutputError as e:
         snippy.error(e)
         return 1
