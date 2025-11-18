@@ -1,4 +1,3 @@
-from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
@@ -26,7 +25,18 @@ def asm(**config):
     # ensure this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_asm_stages(**config)
+    stages = create_asm_stages(
+        reference=config["reference"],
+        assembly=config["assembly"],
+        prefix=config["prefix"],
+        mask=config["mask"],
+        header=config["header"],
+        aligner_opts=config["aligner_opts"],
+        outdir=config["outdir"],
+        tmpdir=config["tmpdir"],
+        cpus=config["cpus"],
+        ram=config["ram"],
+    )
     
     # Run the pipeline
     return run_snippy_pipeline(config, stages)

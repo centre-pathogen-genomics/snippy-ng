@@ -31,20 +31,37 @@ def short(**config):
     import click
     
     # combine R1 and R2 into reads
-    config["reads"] = []
-    
+    reads = []
     if config.get("r1"):
-        config["reads"].append(config["r1"])
+        reads.append(config["r1"])
     if config.get("r2"):
-        config["reads"].append(config["r2"])
-    if not config["reads"] and not config.get("bam"):
-        click.UsageError("Please provide reads or a BAM file!")
+        reads.append(config["r2"])
+    if not reads and not config.get("bam"):
+        raise click.UsageError("Please provide reads or a BAM file!")
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_short_stages(config)
+    stages = create_short_stages(
+        reference=config["reference"],
+        reads=reads,
+        prefix=config["prefix"],
+        bam=config["bam"],
+        clean_reads=config["clean_reads"],
+        downsample=config["downsample"],
+        aligner=config["aligner"],
+        aligner_opts=config["aligner_opts"],
+        freebayes_opts=config["freebayes_opts"],
+        mask=config["mask"],
+        min_depth=config["min_depth"],
+        min_qual=config["min_qual"],
+        header=config["header"],
+        outdir=config["outdir"],
+        tmpdir=config["tmpdir"],
+        cpus=config["cpus"],
+        ram=config["ram"],
+    )
     
     # Run the pipeline
     return run_snippy_pipeline(config, stages)
