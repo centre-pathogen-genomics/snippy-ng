@@ -11,7 +11,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 @click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
-def asm(**kwargs):
+def asm(**config):
     """
     Assembly based SNP calling pipeline
 
@@ -40,22 +40,22 @@ def asm(**kwargs):
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=kwargs["reference"],
-            reference_prefix=kwargs.get("prefix", "ref")
+            reference_path=config["reference"],
+            reference_prefix=config.get("prefix", "ref")
         )
-        kwargs["reference"] = setup.output.reference
-        kwargs["features"] = setup.output.gff
-        kwargs["reference_index"] = setup.output.reference_index
+        config["reference"] = setup.output.reference
+        config["features"] = setup.output.gff
+        config["reference_index"] = setup.output.reference_index
         stages.append(setup)
         
         # Aligner 
-        aligner = AssemblyAligner(**kwargs)
+        aligner = AssemblyAligner(**config)
         stages.append(aligner)
         # Call variants
         caller = PAFCaller(
             paf=aligner.output.paf,
             ref_dict=setup.output.reference_dict,
-            **kwargs
+            **config
         )
         stages.append(caller)
         # Filter VCF
@@ -64,59 +64,59 @@ def asm(**kwargs):
             # hard code for asm-based calling
             min_depth=1,
             min_qual=60,
-            **kwargs,
+            **config,
         )
         stages.append(variant_filter)
-        kwargs["variants"] = variant_filter.output.vcf
+        config["variants"] = variant_filter.output.vcf
         # Consequences calling
-        consequences = BcftoolsConsequencesCaller(**kwargs) 
+        consequences = BcftoolsConsequencesCaller(**config) 
         stages.append(consequences)
         # Compress VCF
         gzip = BgzipCompressor(
             input=consequences.output.annotated_vcf,
             suffix="gz",
-            **kwargs,
+            **config,
         )
         stages.append(gzip)
         # Pseudo-alignment
-        pseudo = BcftoolsPseudoAlignment(vcf_gz=gzip.output.compressed, **kwargs)
+        pseudo = BcftoolsPseudoAlignment(vcf_gz=gzip.output.compressed, **config)
         stages.append(pseudo)
-        # we should use kwargs['fasta'] from now on
-        kwargs['reference'] = pseudo.output.fasta
+        # we should use config['fasta'] from now on
+        config['reference'] = pseudo.output.fasta
         
         # Apply depth masking
         missing_mask = ApplyMask(
-            fasta=kwargs['reference'],
+            fasta=config['reference'],
             mask_bed=caller.output.missing_bed,
             mask_char="-",
-            **kwargs
+            **config
         )
         stages.append(missing_mask)
-        kwargs['reference'] = missing_mask.output.masked_fasta 
+        config['reference'] = missing_mask.output.masked_fasta 
 
         # Apply heterozygous and low quality sites masking
         het_mask = HetMask(
             vcf=caller.output.vcf,  # Use raw VCF for complete site information
-            **kwargs
+            **config
         )
         stages.append(het_mask)
-        kwargs['reference'] = het_mask.output.masked_fasta
+        config['reference'] = het_mask.output.masked_fasta
         
         # Apply user mask if provided
-        if kwargs["mask"]:
+        if config["mask"]:
             user_mask = ApplyMask(
-                mask_bed=Path(kwargs["mask"]),
-                **kwargs
+                mask_bed=Path(config["mask"]),
+                **config
             )
             stages.append(user_mask)
-            kwargs['reference'] = user_mask.output.masked_fasta
+            config['reference'] = user_mask.output.masked_fasta
 
         # Copy final masked consensus to standard output location
         from snippy_ng.stages.copy import CopyFasta
         copy_final = CopyFasta(
-            input=kwargs['reference'],
-            output_path=f"{kwargs['prefix']}.pseudo.fna",
-            **kwargs,
+            input=config['reference'],
+            output_path=f"{config['prefix']}.pseudo.fna",
+            **config,
         )
         stages.append(copy_final)
             
@@ -127,20 +127,20 @@ def asm(**kwargs):
     snippy = Snippy(stages=stages)
     snippy.welcome()
 
-    if not kwargs.get("skip_check", False):
+    if not config.get("skip_check", False):
         try:
             snippy.validate_dependencies()
         except DependencyError as e:
             snippy.error(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.")
             return 1
     
-    if kwargs["check"]:
+    if config["check"]:
         return 0
 
     # Set working directory to output folder
-    snippy.set_working_directory(kwargs["outdir"])
+    snippy.set_working_directory(config["outdir"])
     try:
-        snippy.run(quiet=kwargs["quiet"], continue_last_run=kwargs["continue_last_run"], keep_incomplete=kwargs["keep_incomplete"])
+        snippy.run(quiet=config["quiet"], continue_last_run=config["continue_last_run"], keep_incomplete=config["keep_incomplete"])
     except MissingOutputError as e:
         snippy.error(e)
         return 1
