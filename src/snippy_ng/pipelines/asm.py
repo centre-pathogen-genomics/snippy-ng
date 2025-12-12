@@ -16,14 +16,13 @@ def create_asm_pipeline_stages(
     assembly: str,
     prefix: str = "snps",
     mask: Optional[str] = None,
-    header: Optional[str] = None,
-    outdir: Path = Path("out"),
+    aligner_opts: str = '',
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'outdir': outdir, 'tmpdir': tmpdir}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -48,6 +47,7 @@ def create_asm_pipeline_stages(
         paf=aligner.output.paf,
         ref_dict=setup.output.reference_dict,
         reference=reference_file,
+        reference_index=reference_index,
         **globals
     )
     stages.append(caller)
@@ -85,8 +85,6 @@ def create_asm_pipeline_stages(
     pseudo = BcftoolsPseudoAlignment(
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
-        reference_index=reference_index,
-        header=header,
         **globals
     )
     stages.append(pseudo)
@@ -108,7 +106,6 @@ def create_asm_pipeline_stages(
     het_mask = HetMask(
         vcf=caller.output.vcf,  # Use raw VCF for complete site information
         fasta=current_fasta,
-        reference=reference_file,
         **globals
     )
     stages.append(het_mask)

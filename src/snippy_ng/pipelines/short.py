@@ -26,14 +26,12 @@ def create_short_pipeline_stages(
     mask: Optional[str] = None,
     min_depth: int = 10,
     min_qual: float = 100,
-    header: Optional[str] = None,
-    outdir: Path = Path("out"),
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'outdir': outdir, 'tmpdir': tmpdir}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -99,7 +97,6 @@ def create_short_pipeline_stages(
         aligner_stage = MinimapAligner(
             reads=current_reads,
             reference=reference_file,
-            reference_index=reference_index,
             aligner_opts=minimap_opts,
             **globals
         )
@@ -118,7 +115,6 @@ def create_short_pipeline_stages(
     # Filter alignment
     align_filter = BamFilter(
         bam=current_bam,
-        reference=reference_file,
         **globals
     )
     current_bam = align_filter.output.bam
@@ -166,8 +162,6 @@ def create_short_pipeline_stages(
     pseudo = BcftoolsPseudoAlignment(
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
-        reference_index=reference_index,
-        header=header,
         **globals
     )
     stages.append(pseudo)
@@ -179,7 +173,6 @@ def create_short_pipeline_stages(
     depth_mask = DepthMask(
         bam=current_bam,
         fasta=current_fasta,
-        reference=reference_file,
         min_depth=min_depth,
         **globals
     )
@@ -190,7 +183,6 @@ def create_short_pipeline_stages(
     het_mask = HetMask(
         vcf=caller.output.vcf,  # Use raw VCF for complete site information
         fasta=current_fasta,
-        reference=reference_file,
         min_qual=min_qual,
         **globals
     )
