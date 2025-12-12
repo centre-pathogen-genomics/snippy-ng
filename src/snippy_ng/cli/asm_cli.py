@@ -18,14 +18,14 @@ def asm(**config):
 
         $ snippy-ng asm --reference ref.fa --assembly assembly.fa --outdir output
     """
-    from snippy_ng.pipelines.asm import create_asm_stages
+    from snippy_ng.pipelines.asm import create_asm_pipeline_stages
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     
     # Choose stages to include in the pipeline
     # ensure this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_asm_stages(
+    stages = create_asm_pipeline_stages(
         reference=config["reference"],
         assembly=config["assembly"],
         prefix=config["prefix"],

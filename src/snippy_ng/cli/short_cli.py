@@ -26,7 +26,7 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.pipelines.short import create_short_stages
+    from snippy_ng.pipelines.short import create_short_pipeline_stages
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     import click
     
@@ -43,7 +43,7 @@ def short(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_short_stages(
+    stages = create_short_pipeline_stages(
         reference=config["reference"],
         reads=reads,
         prefix=config["prefix"],

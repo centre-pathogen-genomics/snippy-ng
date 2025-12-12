@@ -6,12 +6,12 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
 from snippy_ng.stages.masks import ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
-from snippy_ng.cli.utils.common import load_or_prepare_reference
+from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner
 from snippy_ng.stages.calling import PAFCaller
 
 
-def create_asm_stages(
+def create_asm_pipeline_stages(
     reference: str,
     assembly: str,
     prefix: str = "snps",
