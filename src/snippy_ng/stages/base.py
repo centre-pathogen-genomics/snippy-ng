@@ -11,7 +11,7 @@ from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
@@ -48,9 +48,11 @@ class ShellCommandPipe(BaseModel):
         return iter(self.commands)
 
 class BaseStage(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
     tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
+    prefix: str = Field("snps", description="Prefix for output files")
 
     _dependencies: List[Dependency] = []
     
