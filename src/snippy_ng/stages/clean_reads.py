@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, Optional
 from snippy_ng.stages.base import BaseStage, ShellCommand
-from snippy_ng.dependencies import fastp
+from snippy_ng.dependencies import fastp, seqkit
 from pydantic import Field, field_validator, BaseModel
 
 
@@ -21,7 +21,6 @@ class FastpCleanReads(BaseStage):
     """
     
     reads: List[str] = Field(..., description="List of input read files (1 or 2 files)")
-    prefix: str = Field(..., description="Output file prefix")
     min_length: int = Field(15, description="Minimum read length after trimming")
     quality_cutoff: int = Field(20, description="Quality cutoff for base trimming")
     unqualified_percent_limit: int = Field(20, description="Percentage of unqualified bases allowed")
@@ -144,3 +143,48 @@ class FastpCleanReadsConservative(FastpCleanReads):
     unqualified_percent_limit: int = Field(30, description="Higher percentage of unqualified bases")
     n_base_limit: int = Field(10, description="Higher number of N bases allowed")
     dedup: bool = Field(False, description="Disable deduplication")
+
+
+class SeqkitCleanReadsOutput(BaseModel):
+    cleaned_reads: str
+
+class SeqkitCleanLongReads(BaseStage):
+    """
+    Clean long reads using seqkit.
+    
+    This stage removes reads with low average quality scores
+    and trims reads based on quality.
+    """
+    
+    reads: str = Field(..., description="Long read file (FASTQ format)")
+    min_length: int = Field(1000, description="Minimum read length after trimming")
+    min_qscore: int = Field(10, description="Minimum average quality score for reads")
+
+    _dependencies = [seqkit]
+    
+    @property
+    def output(self) -> SeqkitCleanReadsOutput:
+        cleaned_reads = f"{self.prefix}.cleaned.fastq.gz"
+        return SeqkitCleanReadsOutput(
+            cleaned_reads=cleaned_reads
+        )
+    
+    @property
+    def commands(self) -> List[ShellCommand]:
+        """Constructs the seqkit command for long read cleaning."""
+        cmd_parts = [
+            "seqkit", "seq",
+            "-m", str(self.min_length),
+            "-Q", str(self.min_qscore),
+            "-o", str(self.output.cleaned_reads),
+            str(self.reads)
+        ]
+        
+        if self.cpus > 1:
+            cmd_parts.extend(["-j", str(self.cpus)])
+        
+        return [self.shell_cmd(
+            command=cmd_parts,
+            description="Clean long reads using seqkit"
+        )]
+    
