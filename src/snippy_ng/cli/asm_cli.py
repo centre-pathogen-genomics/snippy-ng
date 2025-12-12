@@ -9,7 +9,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
-@click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 def asm(**config):
     """
     Assembly based SNP calling pipeline
@@ -30,9 +29,7 @@ def asm(**config):
         assembly=config["assembly"],
         prefix=config["prefix"],
         mask=config["mask"],
-        header=config["header"],
         aligner_opts=config["aligner_opts"],
-        outdir=config["outdir"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],

@@ -17,7 +17,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
-@click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 def short(**config):
     """
     Short read based SNP calling pipeline
@@ -57,7 +56,6 @@ def short(**config):
         min_depth=config["min_depth"],
         min_qual=config["min_qual"],
         header=config["header"],
-        outdir=config["outdir"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
