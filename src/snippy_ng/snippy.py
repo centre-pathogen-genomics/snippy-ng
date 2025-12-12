@@ -129,7 +129,7 @@ class Snippy:
 
         self.log("Stages:")
         for i, stage in enumerate(self.stages, 1):
-            self.log(f"  {i}. {stage.name}")
+            self.log(f" {i:3}. {stage.name}")
 
 
     def goodbye(self):
