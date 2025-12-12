@@ -25,8 +25,7 @@ class DepthMask(BaseStage):
     3. Applies masks sequentially to the reference FASTA
     """
     bam: Path = Field(..., description="Input BAM file")
-    reference: Path = Field(..., description="Reference FASTA file")
-    prefix: str = Field(..., description="Output file prefix")
+    fasta: Path = Field(..., description="Input FASTA file to be masked")
     min_depth: int = Field(0, description="Minimum depth threshold (0 = skip min depth masking)")
 
     _dependencies = [
@@ -45,14 +44,15 @@ class DepthMask(BaseStage):
     def commands(self) -> List:
         """Generate all depth masking commands in sequence"""
         commands = []
-        
-        # Generate min-depth mask if requested
-        min_depth_cmd = self._generate_depth_mask_commands(
-            filter_condition=f"<{self.min_depth}",
-            output_bed=self.output.min_depth_bed,
-            description=f"Generate min-depth mask (depth < {self.min_depth})"
-        )
-        commands.extend(min_depth_cmd)
+
+        if self.min_depth > 0: 
+            # Generate min-depth mask if requested
+            min_depth_cmd = self._generate_depth_mask_commands(
+                filter_condition=f"<{self.min_depth}",
+                output_bed=self.output.min_depth_bed,
+                description=f"Generate min-depth mask (depth < {self.min_depth})"
+            )
+            commands.extend(min_depth_cmd)
         
         # Generate zero-depth mask (always)
         zero_depth_cmd = self._generate_depth_mask_commands(
@@ -63,18 +63,19 @@ class DepthMask(BaseStage):
         commands.extend(zero_depth_cmd)
         
         # Apply masks sequentially
-        current_fasta = self.reference
+        current_fasta = self.fasta
         
-        # Apply min-depth mask first (with 'N')
-        min_depth_masked = Path(f"{self.prefix}.mindepth_masked.fasta")
-        commands.append(self._apply_mask_command(
-            input_fasta=current_fasta,
-            mask_bed=self.output.min_depth_bed,
-            output_fasta=min_depth_masked,
-            mask_char="N",
-            description=f"Apply min-depth mask (< {self.min_depth})"
-        ))
-        current_fasta = min_depth_masked
+        if self.min_depth > 0:
+            # Apply min-depth mask first (with 'N')
+            min_depth_masked = Path(f"{self.prefix}.mindepth_masked.fasta")
+            commands.append(self._apply_mask_command(
+                input_fasta=current_fasta,
+                mask_bed=self.output.min_depth_bed,
+                output_fasta=min_depth_masked,
+                mask_char="N",
+                description=f"Apply min-depth mask (< {self.min_depth})"
+            ))
+            current_fasta = min_depth_masked
         
         # Apply zero-depth mask (with '-')
         commands.append(self._apply_mask_command(
@@ -182,7 +183,7 @@ class HetMask(BaseStage):
     - GT="het" (any heterozygous genotype like 0/1, 1/2, etc.)
     - QUAL < min_qual threshold
     """
-    reference: Path = Field(..., description="Reference FASTA file")
+    fasta: Path = Field(..., description="Input FASTA file to be masked")
     vcf: Path = Field(..., description="Input VCF file (raw VCF recommended)")
     prefix: str = Field(..., description="Output file prefix")
     min_qual: float = Field(20.0, description="Minimum QUAL threshold for sites (default: 20.0)")
@@ -233,7 +234,7 @@ class HetMask(BaseStage):
         """Apply het sites mask to FASTA file"""
         return self.shell_cmd([
             "bedtools", "maskfasta",
-            "-fi", str(self.reference),
+            "-fi", str(self.fasta),
             "-bed", str(self.output.het_sites_bed),
             "-fo", str(self.output.masked_fasta),
             "-fullHeader",
