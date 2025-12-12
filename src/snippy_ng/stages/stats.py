@@ -50,7 +50,6 @@ class SeqKitReadStats(BaseStage):
     """
     
     reads: List[str] = Field(..., description="List of input read files (FASTQ or FASTA)")
-    prefix: str = Field(..., description="Output file prefix")
     all_stats: bool = Field(True, description="Output all statistics including quartiles and N50")
     tabular: bool = Field(True, description="Output in machine-friendly tabular format")
     basename_only: bool = Field(False, description="Only output basename of files")

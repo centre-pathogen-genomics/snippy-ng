@@ -127,7 +127,6 @@ class ApplyMask(BaseStage):
     """
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     mask_bed: Path = Field(..., description="BED file with regions to mask")
-    prefix: str = Field(..., description="Output file prefix")
     mask_char: str = Field("X", description="Character to use for masking")
 
     _dependencies = [
@@ -185,7 +184,6 @@ class HetMask(BaseStage):
     """
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     vcf: Path = Field(..., description="Input VCF file (raw VCF recommended)")
-    prefix: str = Field(..., description="Output file prefix")
     min_qual: float = Field(20.0, description="Minimum QUAL threshold for sites (default: 20.0)")
     mask_char: str = Field("n", description="Character to use for masking (default: 'n')")
 

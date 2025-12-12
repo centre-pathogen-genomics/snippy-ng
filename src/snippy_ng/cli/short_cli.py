@@ -55,7 +55,6 @@ def short(**config):
         mask=config["mask"],
         min_depth=config["min_depth"],
         min_qual=config["min_qual"],
-        header=config["header"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],

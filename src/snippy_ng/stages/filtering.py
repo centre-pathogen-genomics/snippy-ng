@@ -16,7 +16,6 @@ class BamFilter(BaseStage):
     """
     
     bam: Path = Field(..., description="Input BAM file to filter")
-    prefix: str = Field(..., description="Output file prefix")
     min_mapq: int = Field(20, description="Minimum mapping quality")
     exclude_flags: int = Field(1796, description="SAM flags to exclude (default: unmapped, secondary, qcfail, duplicate)")
     include_flags: Optional[int] = Field(None, description="SAM flags to include")
@@ -136,7 +135,6 @@ class VcfFilter(BaseStage):
     """
 
     vcf: Path = Field(..., description="Input VCF file to filter")
-    prefix: str = Field(..., description="Output file prefix")
     reference: Path = Field(..., description="Reference FASTA file")
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
@@ -218,7 +216,6 @@ class VcfFilterLong(BaseStage):
     """
     
     vcf: Path = Field(..., description="Input VCF file to filter")
-    prefix: str = Field(..., description="Output file prefix")
     reference: Path = Field(..., description="Reference FASTA file")
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
     

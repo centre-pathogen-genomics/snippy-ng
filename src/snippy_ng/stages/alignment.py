@@ -10,7 +10,6 @@ class AlignerOutput(BaseModel):
 
 class Aligner(BaseStage):
     reference: Path = Field(..., description="Reference file")
-    prefix: str = Field(..., description="Output file prefix")
     maxsoft: int = Field(10, description="Maximum soft clipping to allow")
     aligner_opts: str = Field("", description="Additional options for the aligner")
 
@@ -200,7 +199,6 @@ class AssemblyAligner(BaseStage):
     """
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
-    prefix: str = Field(..., description="Output file prefix")
 
     _dependencies = [minimap2]
 
