@@ -103,7 +103,7 @@ class BaseStage(BaseModel):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
             logger.info(cmd.description)
-            logger.info(f"❯ {cmd}") 
+            logger.info(f" ❯ {cmd}") 
             stdout = sys.stderr
             stderr = sys.stderr
             if quiet:
