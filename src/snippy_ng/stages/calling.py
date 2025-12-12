@@ -118,6 +118,60 @@ class FreebayesCaller(Caller):
         return [generate_regions_pipeline, freebayes_pipeline]
 
 
+class FreebayesCallerLong(FreebayesCaller):
+    """
+    Call variants using Freebayes for long-read data.
+    """
+
+    @property
+    def commands(self) -> List:
+        """Constructs the Freebayes variant calling and postprocessing commands."""
+
+        # 1) Regions for parallel FreeBayes
+        generate_regions_cmd = self.shell_cmd(
+            ["fasta_generate_regions.py", str(self.reference_index), "202106"],
+            description="Generate genomic regions for parallel variant calling",
+        )
+        generate_regions_pipeline = self.shell_pipeline(
+            commands=[generate_regions_cmd],
+            description="Generate regions file for parallel processing",
+            output_file=Path(self.output.regions),
+        )
+
+        # 2) FreeBayes parallel call
+        freebayes_cmd_parts = [
+            "freebayes-parallel",
+            str(self.output.regions),
+            str(self.cpus),
+            "--haplotype-length",
+            "-1",
+            "-m", 
+            "10",
+            "-q", 
+            "10",
+            "-p",
+            "2",
+            "--min-coverage",
+            str(self.mincov),
+        ]
+        if self.fbopt:
+            import shlex
+
+            freebayes_cmd_parts.extend(shlex.split(self.fbopt))
+        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
+
+        freebayes_cmd = self.shell_cmd(
+            freebayes_cmd_parts,
+            description="Call variants with FreeBayes in parallel",
+        )
+        freebayes_pipeline = self.shell_pipeline(
+            commands=[freebayes_cmd],
+            description="FreeBayes variant calling",
+            output_file=Path(self.output.vcf),
+        )
+
+        return [generate_regions_pipeline, freebayes_pipeline]
+
 class PAFCallerOutput(BaseOutput):
     vcf: Path
     aln_bed: Path
