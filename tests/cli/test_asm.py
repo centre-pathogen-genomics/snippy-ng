@@ -49,19 +49,15 @@ def stub_everything(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",
-        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai"}),
+        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai", "reference_dict": tmp_path / "ref.dict"}),
     )
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.BWAMEMReadsAligner",
-        _stage_factory({"bam": tmp_path / "align.bam"}),
+        "snippy_ng.stages.alignment.AssemblyAligner",
+        _stage_factory({"paf": tmp_path / "align.paf"}),
     )
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.PreAlignedReads",
-        _stage_factory({"bam": tmp_path / "align.bam"}),
-    )
-    monkeypatch.setattr(
-        "snippy_ng.stages.calling.FreebayesCaller",
-        _stage_factory({"vcf": tmp_path / "calls.vcf"}),
+        "snippy_ng.stages.calling.PAFCaller",
+        _stage_factory({"vcf": tmp_path / "calls.vcf", "missing_bed": tmp_path / "missing.bed"}),
     )
 
     # ---------- Always recognise the reference format ------------------------
@@ -76,22 +72,10 @@ def stub_everything(monkeypatch, tmp_path):
     "case_name, extra, expect_exit, expect_run",
     [
         (
-            "reads_ok",
+            "assembly_ok",
             lambda p: [
                 "--reference", p["ref"],
-                "--R1",        p["r1"],
-                "--R2",        p["r2"],
-                "--outdir",    p["out"],
-                "--skip-check",
-            ],
-            0,
-            True,
-        ),
-        (
-            "bam_ok",
-            lambda p: [
-                "--reference", p["ref"],
-                "--bam",       p["bam"],
+                "--assembly",  p["asm"],
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -102,8 +86,7 @@ def stub_everything(monkeypatch, tmp_path):
             "check_only",
             lambda p: [
                 "--reference", p["ref"],
-                "--R1",        p["r1"],
-                "--R2",        p["r2"],
+                "--assembly",  p["asm"],
                 "--outdir",    p["out"],
                 "--check",
                 "--skip-check",
@@ -115,8 +98,7 @@ def stub_everything(monkeypatch, tmp_path):
             "outdir_exists",
             lambda p: [
                 "--reference", p["ref"],
-                "--R1",        p["r1"],
-                "--R2",        p["r2"],
+                "--assembly",  p["asm"],
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -127,8 +109,7 @@ def stub_everything(monkeypatch, tmp_path):
             "bad_reference",
             lambda p: [
                 "--reference", p["ref"],
-                "--R1",        p["r1"],
-                "--R2",        p["r2"],
+                "--assembly",  p["asm"],
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -137,29 +118,27 @@ def stub_everything(monkeypatch, tmp_path):
         ),
     ],
 )
-def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_run):
+def test_asm_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_run):
     """
-    Parameterised test for the `run` command.
+    Parameterised test for the `asm` command.
     """
 
     # --------------- Arrange --------------------------------------------------
     paths = {
         "ref": tmp_path / "ref.fa",
-        "r1":  tmp_path / "reads_1.fq",
-        "r2":  tmp_path / "reads_2.fq",
-        "bam": tmp_path / "reads.bam",
+        "asm": tmp_path / "assembly.fa",
         "out": tmp_path / "output",
     }
-    for f in ["ref", "r1", "r2", "bam"]:
+    for f in ["ref", "asm"]:
         paths[f].write_text(">dummy\nA")
 
     if case_name == "outdir_exists":
         paths["out"].mkdir()
 
     if case_name == "bad_reference":
-        monkeypatch.setattr("snippy_ng.cli.utils.common.guess_format", lambda _: None)
+        monkeypatch.setattr("snippy_ng.pipelines.common.guess_format", lambda _: None)
 
-    args = ["short"] + extra(paths)
+    args = ["asm"] + extra(paths)
     runner = CliRunner()
 
     # --------------- Act ------------------------------------------------------
@@ -169,9 +148,8 @@ def test_run_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     assert result.exit_code == expect_exit, result.output
 
     # Did we create / run a pipeline?
-    last_pipeline = _pl.Snippy.last        # may be None if creation failed earlyA
-    print(_pl.Snippy)
-    print ("LAST PIPELINE:", last_pipeline)
+    last_pipeline = _pl.Snippy.last        # may be None if creation failed early
+
     if expect_run:
         assert last_pipeline and last_pipeline.ran is True
     else:
