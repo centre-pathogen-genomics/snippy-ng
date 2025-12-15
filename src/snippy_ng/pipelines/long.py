@@ -123,6 +123,7 @@ def create_long_pipeline_stages(
             reference=reference_file,
             reference_index=reference_index,
             clair3_model=clair3_model,
+            fast_mode=clair3_fast_mode,
             **globals
         )
         stages.append(caller)
