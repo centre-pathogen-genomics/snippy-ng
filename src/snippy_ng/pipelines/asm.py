@@ -16,7 +16,6 @@ def create_asm_pipeline_stages(
     assembly: str,
     prefix: str = "snps",
     mask: Optional[str] = None,
-    aligner_opts: str = '',
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
