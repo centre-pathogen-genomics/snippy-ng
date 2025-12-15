@@ -4,7 +4,7 @@ from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
-from snippy_ng.stages.calling import FreebayesCallerLong
+from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
@@ -20,6 +20,7 @@ def create_long_pipeline_stages(
     prefix: str = "snps",
     downsample: Optional[float] = None,
     fbopt: str = "",
+    clair3_model: Optional[Path] = None,
     min_read_len: int = 1000,
     min_read_qual: float = 10,
     min_qual: float = 100,
@@ -64,7 +65,7 @@ def create_long_pipeline_stages(
         stages.append(downsample_stage)
     
     # Clean reads
-    if current_reads:
+    if current_reads and current_reads:
         clean_reads_stage = SeqkitCleanLongReads(
             reads=current_reads[0],
             min_length=min_read_len,
@@ -115,15 +116,25 @@ def create_long_pipeline_stages(
     stages.append(align_filter)
     
     # SNP calling
-    caller = FreebayesCallerLong(
-        bam=current_bam,
-        reference=reference_file,
-        reference_index=reference_index,
-        fbopt=fbopt,
-        mincov=2,
-        **globals
-    )
-    stages.append(caller)
+    if clair3_model:
+        caller = Clair3Caller(
+            bam=current_bam,
+            reference=reference_file,
+            reference_index=reference_index,
+            clair3_model=clair3_model,
+            **globals
+        )
+        stages.append(caller)
+    else:
+        caller = FreebayesCallerLong(
+            bam=current_bam,
+            reference=reference_file,
+            reference_index=reference_index,
+            fbopt=fbopt,
+            mincov=2,
+            **globals
+        )
+        stages.append(caller)
     
     # Filter VCF
     variant_filter = VcfFilterLong(

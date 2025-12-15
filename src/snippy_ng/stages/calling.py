@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Annotated, Optional
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
-from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools
+from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3
 
 from pydantic import Field, AfterValidator
 
@@ -336,3 +336,78 @@ class PAFCaller(Caller):
             index_cmd,
             annotations_pipeline,
         ]
+
+class Clair3CallerOutput(BaseOutput):
+    vcf: Path
+
+
+class Clair3Caller(Caller):
+    """
+    Call variants using Clair3.
+
+    run_clair3.sh --model_path="/opt/models/r1041_e82_400bps_sup_v430_bacteria_finetuned" --bam_fn=$(pwd)/out/snps.bam --ref_fn $(pwd)/out/reference/snps.fa --threads 6 --output=$(pwd)/clair-out --platform=ont --include_all_ctgs --include_all_ctgs \
+    --haploid_precise \
+    --no_phasing_for_fa \
+    --enable_long_indel \
+    --fast_mode
+    """
+    bam: Path = Field(..., description="Input BAM file")
+    clair3_model: Path = Field(..., description="Absolute path to Clair3 model")
+    platform: str = Field("ont", description="Sequencing platform (e.g., ont, hifi)")
+    fast_mode: bool = Field(True, description="Enable fast mode for Clair3")
+
+    _dependencies = [clair3]
+
+    @property
+    def output(self) -> Clair3CallerOutput:
+        return Clair3CallerOutput(
+            vcf=Path(f"{self.prefix}.raw.vcf"),
+        )
+
+    @property
+    def commands(self) -> List:
+        """Constructs the Clair3 variant calling commands."""
+
+        clair3_cmd = self.shell_cmd(
+            [
+                "run_clair3.sh",
+                f"--model_path={self.clair3_model.resolve()}",
+                f"--bam_fn={str(self.bam.resolve())}",
+                f"--ref_fn={str(self.reference.resolve())}",
+                f"--threads={str(self.cpus)}",
+                f"--output={Path(self.prefix + '_clair3_out').resolve()}",
+                f"--platform={self.platform}",
+                "--include_all_ctgs",
+                "--haploid_precise",
+                "--no_phasing_for_fa",
+                "--enable_long_indel",
+            ],
+            description="Call variants with Clair3",
+        )
+        if self.fast_mode:
+            clair3_cmd.command.append("--fast_mode")
+        unzip_cmd = self.shell_cmd(
+            [
+                "gunzip",
+                f"{self.prefix}_clair3_out/merge_output.vcf.gz",
+            ],
+            description="Unzip Clair3 VCF output",
+        )
+        move_vcf_cmd = self.shell_cmd(
+            [
+                "mv",
+                f"{self.prefix}_clair3_out/merge_output.vcf",
+                str(self.output.vcf),
+            ],
+            description="Move Clair3 VCF to final output location",
+        )
+        cleanup_cmd = self.shell_cmd(
+            [
+                "rm",
+                "-rf",
+                f"{self.prefix}_clair3_out",
+            ],
+            description="Clean up Clair3 output directory",
+        )
+
+        return [clair3_cmd, unzip_cmd, move_vcf_cmd, cleanup_cmd] 

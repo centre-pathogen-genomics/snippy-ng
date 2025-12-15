@@ -7,6 +7,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 @click.option("--reads", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
+@click.option("--clair3-model", default=None, type=click.Path(resolve_path=True), help="Path to Clair3 model file. If not provided, freebayes will be used for variant calling.")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
@@ -39,6 +40,7 @@ def long(**config):
         reads=config["reads"],
         prefix=config["prefix"],
         bam=config["bam"],
+        clair3_model=config.get("clair3_model"),
         downsample=config["downsample"],
         min_read_len=config.get("min_read_len"),
         min_read_qual=config.get("min_read_qual"),
