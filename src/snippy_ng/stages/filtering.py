@@ -221,7 +221,6 @@ class VcfFilterLong(BaseStage):
     
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
-    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
     _dependencies = [bcftools]
@@ -287,7 +286,7 @@ class VcfFilterLong(BaseStage):
                 description="Remove duplicates after normalization"
             ),
             self.shell_cmd(
-                ["bcftools", "view", "--include", f'QUAL>={self.min_qual} && FMT/DP>={self.min_depth} && (FMT/AO)/(FMT/DP)>={self.min_frac}'],
+                ["bcftools", "view", "--include", f'QUAL>={self.min_qual} && FMT/DP>={self.min_depth}'],
                 description="Filter variants based on QUAL, depth, and allele fraction"
             ),
             self.shell_cmd(
