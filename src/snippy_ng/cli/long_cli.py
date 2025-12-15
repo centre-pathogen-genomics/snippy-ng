@@ -16,7 +16,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
 def long(**config):
     """
     Long read based SNP calling pipeline

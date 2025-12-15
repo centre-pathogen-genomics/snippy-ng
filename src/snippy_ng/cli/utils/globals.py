@@ -29,7 +29,6 @@ GLOBAL_DEFS = [
         "param_decls": ("--outdir", "-o"),
         "attrs": {
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
-            "required": True,
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,
@@ -41,6 +40,14 @@ GLOBAL_DEFS = [
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "default": tempfile.gettempdir(),
             "help": "Temporary directory for fast storage",
+        },
+    },
+    {
+        "param_decls": ("--prefix", "-p"),
+        "attrs": {
+            "type": click.STRING,
+            "default": "snps",
+            "help": "Prefix for output files",
         },
     },
     {
