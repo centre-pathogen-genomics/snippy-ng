@@ -21,6 +21,7 @@ def create_long_pipeline_stages(
     downsample: Optional[float] = None,
     fbopt: str = "",
     clair3_model: Optional[Path] = None,
+    clair3_fast_mode: bool = False,
     min_read_len: int = 1000,
     min_read_qual: float = 10,
     min_qual: float = 100,

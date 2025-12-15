@@ -344,12 +344,6 @@ class Clair3CallerOutput(BaseOutput):
 class Clair3Caller(Caller):
     """
     Call variants using Clair3.
-
-    run_clair3.sh --model_path="/opt/models/r1041_e82_400bps_sup_v430_bacteria_finetuned" --bam_fn=$(pwd)/out/snps.bam --ref_fn $(pwd)/out/reference/snps.fa --threads 6 --output=$(pwd)/clair-out --platform=ont --include_all_ctgs --include_all_ctgs \
-    --haploid_precise \
-    --no_phasing_for_fa \
-    --enable_long_indel \
-    --fast_mode
     """
     bam: Path = Field(..., description="Input BAM file")
     clair3_model: Path = Field(..., description="Absolute path to Clair3 model")
