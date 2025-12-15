@@ -56,7 +56,6 @@ class RasusaDownsampleReads(BaseStage):
     """
     
     reads: List[str] = Field(..., description="List of input read files (FASTQ format)")
-    prefix: str = Field(..., description="Output file prefix for downsampled reads")
     genome_length: Optional[Any] = Field(None, description="Genome length in base pairs (required for coverage-based downsampling) - can be int or at_run_time() callable")
     coverage: Optional[float] = Field(None, description="Target coverage depth for downsampling")
     num_reads: Optional[int] = Field(None, description="Target number of reads for downsampling")

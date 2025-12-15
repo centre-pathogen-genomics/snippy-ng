@@ -11,7 +11,7 @@ from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
@@ -33,7 +33,7 @@ class ShellCommand(BaseModel):
     def __str__(self):
         return " ".join(quote(arg) for arg in self.command)
 
-class ShellCommandPipeline(BaseModel):
+class ShellCommandPipe(BaseModel):
     commands: List[ShellCommand]
     description: str
     output_file: Optional[Path] = None
@@ -48,9 +48,11 @@ class ShellCommandPipeline(BaseModel):
         return iter(self.commands)
 
 class BaseStage(BaseModel):
+    model_config = ConfigDict(extra='forbid')
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
     tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
+    prefix: str = Field("snps", description="Prefix for output files")
 
     _dependencies: List[Dependency] = []
     
@@ -67,7 +69,7 @@ class BaseStage(BaseModel):
 
     @property
     @abstractmethod
-    def commands(self) -> List[ShellCommandPipeline | ShellCommand | PythonCommand]:
+    def commands(self) -> List[ShellCommandPipe | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -85,7 +87,7 @@ class BaseStage(BaseModel):
         """Creates a shell command."""
         return ShellCommand(command=command, description=description)
     
-    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipeline:
+    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
         """Creates a shell pipeline."""
         # Validate that all commands are ShellCommand objects
         for i, cmd in enumerate(commands):
@@ -94,14 +96,14 @@ class BaseStage(BaseModel):
                     f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
                     f"Use self.shell_cmd() to create ShellCommand objects."
                 )
-        return ShellCommandPipeline(commands=commands, description=description, output_file=output_file)
+        return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
             logger.info(cmd.description)
-            logger.info(f"❯ {cmd}") 
+            logger.info(f" ❯ {cmd}") 
             stdout = sys.stderr
             stderr = sys.stderr
             if quiet:
@@ -119,7 +121,7 @@ class BaseStage(BaseModel):
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
                     subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
-                elif isinstance(cmd, ShellCommandPipeline):
+                elif isinstance(cmd, ShellCommandPipe):
                     processes = []
                     prev_stdout = None
                     output_file = cmd.output_file

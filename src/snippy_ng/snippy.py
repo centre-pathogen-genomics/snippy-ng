@@ -75,6 +75,8 @@ class Snippy:
         os.chdir(directory)
 
     def run(self, quiet=False, continue_last_run=False, keep_incomplete=False):
+        if not self.stages:
+            raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
         self.start_time = time.perf_counter()
         for stage in self.stages:
@@ -127,7 +129,7 @@ class Snippy:
 
         self.log("Stages:")
         for i, stage in enumerate(self.stages, 1):
-            self.log(f"  {i}. {stage.name}")
+            self.log(f" {i:3}. {stage.name}")
 
 
     def goodbye(self):

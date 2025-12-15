@@ -19,8 +19,7 @@ def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
     if value.exists() and not ctx.params.get("force", False):
-        from . import error
-        error(f"Output folder '{value}' already exists! Use --force to overwrite.")
+        raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
     if not value.exists():
         value.mkdir(parents=True, exist_ok=True)
     return value
@@ -30,7 +29,6 @@ GLOBAL_DEFS = [
         "param_decls": ("--outdir", "-o"),
         "attrs": {
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
-            "required": True,
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,
@@ -42,6 +40,14 @@ GLOBAL_DEFS = [
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
             "default": tempfile.gettempdir(),
             "help": "Temporary directory for fast storage",
+        },
+    },
+    {
+        "param_decls": ("--prefix", "-p"),
+        "attrs": {
+            "type": click.STRING,
+            "default": "snps",
+            "help": "Prefix for output files",
         },
     },
     {

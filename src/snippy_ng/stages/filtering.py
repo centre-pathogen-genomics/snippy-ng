@@ -16,7 +16,6 @@ class BamFilter(BaseStage):
     """
     
     bam: Path = Field(..., description="Input BAM file to filter")
-    prefix: str = Field(..., description="Output file prefix")
     min_mapq: int = Field(20, description="Minimum mapping quality")
     exclude_flags: int = Field(1796, description="SAM flags to exclude (default: unmapped, secondary, qcfail, duplicate)")
     include_flags: Optional[int] = Field(None, description="SAM flags to include")
@@ -136,7 +135,6 @@ class VcfFilter(BaseStage):
     """
 
     vcf: Path = Field(..., description="Input VCF file to filter")
-    prefix: str = Field(..., description="Output file prefix")
     reference: Path = Field(..., description="Reference FASTA file")
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
@@ -202,3 +200,125 @@ class VcfFilter(BaseStage):
             output_file=Path(self.output.vcf),
         )
         return [bcftools_pipeline]
+
+
+class VcfFilterLong(BaseStage):
+    """
+    Filter VCF files for long-read variant calling using bcftools to remove unwanted variants.
+    
+    This pipeline handles long-read specific filtering including:
+    - Reheadering with all reference contigs
+    - Making heterozygous calls homozygous for the allele with most depth
+    - Filtering out non-alt alleles and missing alleles
+    - Normalizing and left-aligning indels
+    - Removing long indels and duplicates
+    - Converting to haploid genotypes
+    """
+    
+    vcf: Path = Field(..., description="Input VCF file to filter")
+    reference: Path = Field(..., description="Reference FASTA file")
+    reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
+    
+    min_qual: int = Field(100, description="Minimum QUAL score")
+    min_depth: int = Field(1, description="Minimum site depth for calling alleles")
+    max_indel: int = Field(10000, description="Maximum indel length to keep")
+    
+    _dependencies = [bcftools]
+    
+    @property
+    def output(self) -> VcfFilterOutput:
+        filtered_vcf = f"{self.prefix}.filtered.vcf"
+        return VcfFilterOutput(vcf=filtered_vcf)
+    
+    
+    @property
+    def commands(self) -> List:
+        """Constructs the bcftools pipeline for long-read variant filtering."""
+        
+        # Create temp files for contigs and header
+        contigs_file = f"{self.prefix}.contigs.txt"
+        header_file = f"{self.prefix}.header.txt"
+        
+        # Step 1: Generate contig lines from faidx
+        create_contigs = self.shell_cmd(
+            ["awk", '{print "##contig=<ID="$1",length="$2">"}', str(self.reference_index)],
+            description="Generate contig lines from reference index",
+        )
+        create_contigs_pipeline = self.shell_pipeline(
+            commands=[create_contigs],
+            description="Create contig definitions",
+            output_file=Path(contigs_file)
+        )
+        
+        # Step 2: Create new header with all contigs
+        # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
+        create_header_cmd = f'bcftools view -h {self.vcf} | grep -v "^##contig=" | sed -e "3r {contigs_file}" > {header_file}'
+        create_header = self.shell_cmd(
+            ["bash", "-c", create_header_cmd],
+            description="Create VCF header with all contigs"
+        )
+        
+        # Step 3: Build the main filtering pipeline
+        pipeline_commands = [
+            self.shell_cmd(
+                ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
+                description="Replace VCF header with new header containing all contigs"
+            ),
+        ]
+        
+        
+        # Continue with the filtering pipeline
+        pipeline_commands.extend([
+            self.shell_cmd(
+                ["bcftools", "view", "-i", 'GT="alt"'],
+                description="Remove non-alt alleles"
+            ),
+            self.shell_cmd(
+                ["bcftools", "view", "-e", 'ALT="."'],
+                description="Remove sites with no alt allele (NanoCaller bug fix)"
+            ),
+            self.shell_cmd(
+                ["bcftools", "norm", "-f", str(self.reference), "-a", "-c", "e", "-m", "-"],
+                description="Normalize and left-align indels"
+            ),
+            self.shell_cmd(
+                ["bcftools", "norm", "-aD"],
+                description="Remove duplicates after normalization"
+            ),
+            self.shell_cmd(
+                ["bcftools", "view", "--include", f'QUAL>={self.min_qual} && FMT/DP>={self.min_depth}'],
+                description="Filter variants based on QUAL, depth, and allele fraction"
+            ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
+                description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles"
+            ),
+            self.shell_cmd(
+                ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
+                description="Make genotypes haploid (e.g., 1/1 -> 1)"
+            ),
+            self.shell_cmd(
+                ["bcftools", "sort"],
+                description="Sort VCF"
+            ),
+            self.shell_cmd(
+                ["bcftools", "view", "-i", 'GT="A"'],
+                description="Remove non-alt alleles and output final VCF"
+            ),
+        ])
+        
+        main_pipeline = self.shell_pipeline(
+            commands=pipeline_commands,
+            description="Long-read variant filtering pipeline",
+            output_file=Path(self.output.vcf)
+        )
+        
+        # Step 4: Cleanup temp files
+        cleanup_cmd = self.shell_cmd(
+            ["rm", "-f", contigs_file, header_file],
+            description="Remove temporary files"
+        )
+        
+        return [create_contigs_pipeline, create_header, main_pipeline, cleanup_cmd]
+
+    

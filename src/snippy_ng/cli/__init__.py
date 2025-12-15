@@ -3,6 +3,7 @@ import click
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.short_cli import short
 from snippy_ng.cli.asm_cli import asm
+from snippy_ng.cli.long_cli import long
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -50,3 +51,4 @@ def snippy_ng():
 ########################
 snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
+snippy_ng.add_command(long)

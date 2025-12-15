@@ -1,4 +1,3 @@
-from pathlib import Path
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
 
@@ -17,8 +16,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_option
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-@click.option("--prefix", default='snps', type=click.STRING, help="Prefix for output files")
-@click.option("--header", default=None, type=click.STRING, help="Header for the output FASTA file (if not provided, reference headers are kept)")
 def short(**config):
     """
     Short read based SNP calling pipeline
@@ -27,179 +24,41 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.snippy import Snippy
-    from snippy_ng.stages.clean_reads import FastpCleanReads
-    from snippy_ng.stages.stats import SeqKitReadStatsBasic
-    from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
-    from snippy_ng.stages.filtering import BamFilter, VcfFilter
-    from snippy_ng.stages.calling import FreebayesCaller
-    from snippy_ng.exceptions import DependencyError, MissingOutputError
-    from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
-    from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-    from snippy_ng.stages.compression import BgzipCompressor
-    from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
-    from snippy_ng.stages.copy import CopyFasta
-    from snippy_ng.cli.utils import error
-    from snippy_ng.cli.utils.common import load_or_prepare_reference
-    from pydantic import ValidationError
+    from snippy_ng.pipelines.short import create_short_pipeline_stages
+    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    import click
     
     # combine R1 and R2 into reads
-    config["reads"] = []
-    
+    reads = []
     if config.get("r1"):
-        config["reads"].append(config["r1"])
+        reads.append(config["r1"])
     if config.get("r2"):
-        config["reads"].append(config["r2"])
-    if not config["reads"] and not config.get("bam"):
-        error("Please provide reads or a BAM file!")
-    
+        reads.append(config["r2"])
+    if not reads and not config.get("bam"):
+        raise click.UsageError("Please provide reads or a BAM file!")
     
     # Choose stages to include in the pipeline
-    try:
-        stages = []
-        
-        # Setup reference (load existing or prepare new)
-        setup = load_or_prepare_reference(
-            reference_path=config["reference"],
-            reference_prefix=config.get("prefix", "ref"),
-        )
-        config["reference"] = setup.output.reference
-        config["features"] = setup.output.gff
-        config["reference_index"] = setup.output.reference_index
-        stages.append(setup)
-        
-        # Clean reads (optional)
-        if config["clean_reads"] and config["reads"]:
-            clean_reads_stage = FastpCleanReads(**config)
-            # Update reads to use cleaned reads
-            config["reads"] = [clean_reads_stage.output.cleaned_r1]
-            if clean_reads_stage.output.cleaned_r2:
-                config["reads"].append(clean_reads_stage.output.cleaned_r2)
-            stages.append(clean_reads_stage)
-        if config.get("downsample") and config.get("reads"):
-            from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
-            from snippy_ng.at_run_time import get_genome_length
-            
-            # We need the genome length at run time (once we know the reference)
-            genome_length=get_genome_length(setup.output.meta)
-            downsample_stage = RasusaDownsampleReadsByCoverage(
-                coverage=config["downsample"],
-                genome_length=genome_length,
-                **config
-            )
-            # Update reads to use downsampled reads
-            config["reads"] = [downsample_stage.output.downsampled_r1]
-            if downsample_stage.output.downsampled_r2:
-                config["reads"].append(downsample_stage.output.downsampled_r2)
-            stages.append(downsample_stage)
-        
-        # Aligner
-        if config["bam"]:
-            aligner = PreAlignedReads(**config)
-        elif config["aligner"] == "bwamem":
-            aligner = BWAMEMReadsAligner(**config)
-        else:
-            config["aligner_opts"] = "-x sr " + config.get("aligner_opts", "")
-            aligner = MinimapAligner(**config)
-        if not config["bam"]:
-            # SeqKit read statistics
-            stages.append(SeqKitReadStatsBasic(**config))
-        config["bam"] = aligner.output.bam
-        stages.append(aligner)
-        # Filter alignment
-        align_filter = BamFilter(**config)
-        config["bam"] = align_filter.output.bam
-        stages.append(align_filter)
-        # SNP calling
-        caller = FreebayesCaller(
-            fbopt=config["freebayes_opts"],
-            **config
-        )
-        stages.append(caller)
-        # Filter VCF
-        variant_filter = VcfFilter(
-            vcf=caller.output.vcf,
-            **config,
-        )
-        stages.append(variant_filter)
-        config["variants"] = variant_filter.output.vcf
-        # Consequences calling
-        consequences = BcftoolsConsequencesCaller(**config) 
-        stages.append(consequences)
-        # Compress VCF
-        gzip = BgzipCompressor(
-            input=consequences.output.annotated_vcf,
-            suffix="gz",
-            **config,
-        )
-        stages.append(gzip)
-        # Pseudo-alignment
-        pseudo = BcftoolsPseudoAlignment(vcf_gz=gzip.output.compressed, **config)
-        stages.append(pseudo)
-        config['reference'] = pseudo.output.fasta
-        
-        # Apply depth masking
-        depth_mask = DepthMask(
-            **config
-        )
-        stages.append(depth_mask)
-        config['reference'] = depth_mask.output.masked_fasta
-
-        # Apply heterozygous and low quality sites masking
-        het_mask = HetMask(
-            vcf=caller.output.vcf,  # Use raw VCF for complete site information
-            **config
-        )
-        stages.append(het_mask)
-        config['reference'] = het_mask.output.masked_fasta
-        
-        # Apply user mask if provided
-        if config["mask"]:
-            user_mask = ApplyMask(
-                mask_bed=Path(config["mask"]),
-                **config
-            )
-            stages.append(user_mask)
-            config['reference'] = user_mask.output.masked_fasta
-
-        # Copy final masked consensus to standard output location
-        from snippy_ng.stages.copy import CopyFasta
-        copy_final = CopyFasta(
-            input=config['reference'],
-            output_path=f"{config['prefix']}.pseudo.fna",
-            **config,
-        )
-        stages.append(copy_final)
-            
-    except ValidationError as e:
-        error(e)
+    # this will raise ValidationError if config is invalid
+    # we let this happen as we want to catch all config errors
+    # before starting the pipeline
+    stages = create_short_pipeline_stages(
+        reference=config["reference"],
+        reads=reads,
+        prefix=config["prefix"],
+        bam=config["bam"],
+        clean_reads=config["clean_reads"],
+        downsample=config["downsample"],
+        aligner=config["aligner"],
+        aligner_opts=config["aligner_opts"],
+        freebayes_opts=config["freebayes_opts"],
+        mask=config["mask"],
+        min_depth=config["min_depth"],
+        min_qual=config["min_qual"],
+        tmpdir=config["tmpdir"],
+        cpus=config["cpus"],
+        ram=config["ram"],
+    )
     
-    # Move from CLI land into Pipeline land
-    snippy = Snippy(stages=stages)
-    snippy.welcome()
-
-    if not config.get("skip_check", False):
-        try:
-            snippy.validate_dependencies()
-        except DependencyError as e:
-            snippy.error(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.")
-            return 1
+    # Run the pipeline
+    return run_snippy_pipeline(config, stages)
     
-    if config["check"]:
-        return 0
-
-    # Set working directory to output folder
-    snippy.set_working_directory(config["outdir"])
-    try:
-        snippy.run(quiet=config["quiet"], continue_last_run=config["continue_last_run"], keep_incomplete=config["keep_incomplete"])
-    except MissingOutputError as e:
-        snippy.error(e)
-        return 1
-    except RuntimeError as e:
-        snippy.error(e)
-        return 1
-    
-    snippy.cleanup()
-    snippy.goodbye()
-
-

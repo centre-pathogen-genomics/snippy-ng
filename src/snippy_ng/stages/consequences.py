@@ -12,7 +12,6 @@ class Caller(BaseStage):
     reference: Path = Field(..., description="Reference file",)
     variants: Path = Field(..., description="Input VCF file",)
     features: Path = Field(..., description="Input features file")
-    prefix: str = Field(..., description="Output file prefix")
 
 class BcftoolsConsequencesCallerOutput(BaseOutput):
     annotated_vcf: Path

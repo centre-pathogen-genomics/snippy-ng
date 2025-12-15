@@ -1,6 +1,6 @@
 # Concrete Alignment Strategies
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
@@ -10,7 +10,6 @@ from pydantic import Field
 
 class PseudoAlignment(BaseStage):
     reference: Path = Field(..., description="Reference file")
-    prefix: str = Field(..., description="Output file prefix")
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
     fasta: Path
