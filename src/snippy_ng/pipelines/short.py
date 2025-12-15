@@ -46,18 +46,6 @@ def create_short_pipeline_stages(
     # Track current reads through potential cleaning and downsampling
     current_reads = reads.copy() if reads else []
     
-    # Clean reads (optional)
-    if clean_reads and current_reads:
-        clean_reads_stage = FastpCleanReads(
-            reads=current_reads,
-            **globals
-        )
-        # Update reads to use cleaned reads
-        current_reads = [clean_reads_stage.output.cleaned_r1]
-        if clean_reads_stage.output.cleaned_r2:
-            current_reads.append(clean_reads_stage.output.cleaned_r2)
-        stages.append(clean_reads_stage)
-    
     if downsample and current_reads:
         from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
         from snippy_ng.at_run_time import get_genome_length
@@ -76,6 +64,18 @@ def create_short_pipeline_stages(
             current_reads.append(downsample_stage.output.downsampled_r2)
         stages.append(downsample_stage)
     
+    # Clean reads (optional)
+    if clean_reads and current_reads:
+        clean_reads_stage = FastpCleanReads(
+            reads=current_reads,
+            **globals
+        )
+        # Update reads to use cleaned reads
+        current_reads = [clean_reads_stage.output.cleaned_r1]
+        if clean_reads_stage.output.cleaned_r2:
+            current_reads.append(clean_reads_stage.output.cleaned_r2)
+        stages.append(clean_reads_stage)
+
     # Aligner
     if bam:
         aligner_stage = PreAlignedReads(
