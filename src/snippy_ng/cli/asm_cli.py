@@ -27,7 +27,6 @@ def asm(**config):
         assembly=config["assembly"],
         prefix=config["prefix"],
         mask=config["mask"],
-        aligner_opts=config["aligner_opts"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
