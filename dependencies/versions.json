@@ -9,7 +9,7 @@
             "samclip": "0.4.0",
             "bwa": "0.7.19",
             "freebayes": "1.3.10",
-            "bcftools": "1.22",
+            "bcftools": "1.23",
             "vt": "2015.11.10",
             "minimap2": "2.30",
             "fastp": "1.0.1",
