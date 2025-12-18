@@ -59,4 +59,4 @@ class CopyFasta(CopyFile):
             ["cp", str(self.input), str(self.output_path)],
             description=f"Copy {self.input} to {self.output_path}",
         )
-        return cmd
+        return [cmd]
