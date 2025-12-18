@@ -72,6 +72,7 @@ GLOBAL_DEFS = [
             "is_flag": True,
             "default": False,
             "help": "Overwrite existing output directory",
+            "is_eager": True,
         },
     },
     {
