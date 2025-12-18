@@ -265,7 +265,12 @@ class VcfFilterLong(BaseStage):
                 description="Replace VCF header with new header containing all contigs"
             ),
         ]
-        
+
+        # Keep only the tags you want; everything else is dropped.
+        keep_vcf_tags = ",".join(
+            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
+            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+        ) 
         
         # Continue with the filtering pipeline
         pipeline_commands.extend([
@@ -296,6 +301,14 @@ class VcfFilterLong(BaseStage):
             self.shell_cmd(
                 ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
                 description="Make genotypes haploid (e.g., 1/1 -> 1)"
+            ),
+            self.shell_cmd(
+                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+                    description="Recompute TYPE from REF/ALT",
+            ),
+            self.shell_cmd(
+                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
+                    description="Remove unnecessary VCF annotations",
             ),
             self.shell_cmd(
                 ["bcftools", "sort"],
