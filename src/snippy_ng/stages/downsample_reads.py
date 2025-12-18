@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List, Optional, Any
 from snippy_ng.stages.base import BaseStage
 from snippy_ng.dependencies import rasusa
