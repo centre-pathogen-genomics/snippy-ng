@@ -41,7 +41,7 @@ git clone git@github.com:centre-pathogen-genomics/snippy-ng.git && cd snippy-ng
 # install pixi if not already installed
 curl -fsSL https://pixi.sh/install.sh | bash
 # install hatch if not already installed
-pixi global add hatch
+pixi global install hatch
 ```
 
 Activate the pixi environment and launch a hatch shell. THis will install all dependencies and set up the development environment.
