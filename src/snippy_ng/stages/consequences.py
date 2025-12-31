@@ -35,13 +35,14 @@ class BcftoolsConsequencesCaller(Caller):
     def commands(self) -> List:
         """Constructs the bcftools csq command."""
         # check if features file exists and is not empty
-        features_found = True
-        with open(self.features, 'r') as f:
-            for line in f:
-                if line.strip() and not line.startswith('#'):
-                    break
-            else:
-                features_found = False
+        features_found = False
+        # First check if file is empty
+        if self.features.stat().st_size > 0:
+            with open(self.features, 'r') as f:
+                for line in f:
+                    if line.strip() and not line.startswith('#'):
+                        features_found = True
+                        break
         
         if not features_found:
             cmd = self.shell_cmd([

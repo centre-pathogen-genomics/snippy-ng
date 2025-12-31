@@ -106,14 +106,18 @@ class PrepareReference(BaseStage):
             # Write GFF3 header
             gff_out.write("##gff-version 3\n")
             
+            # Create translation table once for all sequences
+            # Valid bases: A, G, T, C, N
+            # Ambiguous codes to replace: R, Y, S, W, K, M, B, D, H, V
+            translation_table = str.maketrans('RYSWKMBDHV', 'NNNNNNNNNN')
+            
             for seq_record in seq_records:
                 # Check for duplicate sequences
                 if seq_record.id in ref_seq_dict:
                     raise ValueError(f"Duplicate sequence {seq_record.id} in {reference_path}")
 
-                # Clean sequence: uppercase and replace non-standard bases with 'N'
-                dna = Seq(str(seq_record.seq).upper().replace("U", "T"))
-                dna = Seq("".join([base if base in "AGTCN" else "N" for base in dna]))
+                # Clean sequence: uppercase, replace U with T, and replace IUPAC ambiguity codes with N
+                dna = Seq(str(seq_record.seq).upper().replace("U", "T").translate(translation_table))
                 seq_record.seq = dna
                 ref_seq_dict[seq_record.id] = dna
 
