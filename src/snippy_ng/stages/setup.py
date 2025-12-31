@@ -116,10 +116,8 @@ class PrepareReference(BaseStage):
                 if seq_record.id in ref_seq_dict:
                     raise ValueError(f"Duplicate sequence {seq_record.id} in {reference_path}")
 
-                # Clean sequence: uppercase and replace non-standard bases with 'N'
-                dna = Seq(str(seq_record.seq).upper().replace("U", "T"))
-                # Use str.translate for efficient character replacement of IUPAC ambiguity codes
-                dna = Seq(str(dna).translate(translation_table))
+                # Clean sequence: uppercase, replace U with T, and replace IUPAC ambiguity codes with N
+                dna = Seq(str(seq_record.seq).upper().replace("U", "T").translate(translation_table))
                 seq_record.seq = dna
                 ref_seq_dict[seq_record.id] = dna
 
