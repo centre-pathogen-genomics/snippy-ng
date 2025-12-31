@@ -113,7 +113,11 @@ class PrepareReference(BaseStage):
 
                 # Clean sequence: uppercase and replace non-standard bases with 'N'
                 dna = Seq(str(seq_record.seq).upper().replace("U", "T"))
-                dna = Seq("".join([base if base in "AGTCN" else "N" for base in dna]))
+                # Use str.translate for efficient character replacement of IUPAC ambiguity codes
+                # Valid bases: A, G, T, C, N
+                # Ambiguous codes to replace: R, Y, S, W, K, M, B, D, H, V
+                translation_table = str.maketrans('RYSWKMBDHV', 'NNNNNNNNNN')
+                dna = Seq(str(dna).translate(translation_table))
                 seq_record.seq = dna
                 ref_seq_dict[seq_record.id] = dna
 

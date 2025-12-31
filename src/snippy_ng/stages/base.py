@@ -161,14 +161,13 @@ class BaseStage(BaseModel):
                         for p in processes:
                             p.wait()
                         
-                        # Check for failures
-                        failed_processes = [p for p in processes if p.returncode != 0]
-                        if failed_processes:
-                            failed_process = failed_processes[0]  # Report first failure
-                            raise subprocess.CalledProcessError(
-                                returncode=failed_process.returncode, 
-                                cmd=failed_process.args
-                            )
+                        # Check for failures - stop at first failure
+                        for p in processes:
+                            if p.returncode != 0:
+                                raise subprocess.CalledProcessError(
+                                    returncode=p.returncode, 
+                                    cmd=p.args
+                                )
                 else:
                     raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
             except subprocess.CalledProcessError as e:
