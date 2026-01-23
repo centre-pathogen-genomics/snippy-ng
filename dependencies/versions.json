@@ -2,7 +2,7 @@
       "conda": {
             "bcbio-gff": "0.7.1",
             "click": "8.3.1",
-            "packaging": "25.0",
+            "packaging": "26.0",
             "pydantic": "2.12.5",
             "biopython": "1.86",
             "samtools": "1.20",
