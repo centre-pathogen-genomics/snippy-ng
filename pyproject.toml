@@ -134,6 +134,3 @@ fastp = { version = ">=0.20.0,<2", channel = "bioconda" }
 seqkit = { version = ">=2.10.0,<3", channel = "bioconda" }
 rasusa = { version = ">=2.1.1,<3", channel = "bioconda"}
 bedtools = {version = ">=2.31.1,<3", channel = "bioconda"}
-
-[tool.pixi.target.linux-64.dependencies]
-clair3 = { version = "*", channel = "bioconda" }
