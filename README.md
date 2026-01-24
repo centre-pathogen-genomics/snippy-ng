@@ -55,6 +55,12 @@ hatch shell
 snippy-ng --help
 ```
 
+## Examples 
+
+```bash
+snippy-ng asm --ref tests/data/wildtype.fasta --asm tests/data/wildtype.contigs.fa
+```
+
 ## License
 
 `snippy-ng` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
