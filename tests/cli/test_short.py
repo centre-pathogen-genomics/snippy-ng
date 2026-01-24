@@ -4,7 +4,8 @@ import pytest
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng         # the click *group*
-import snippy_ng.cli.utils.pipeline_runner as _pl           # <-- real module we patch
+import snippy_ng.cli.utils.pipeline_runner as _pl
+from snippy_ng.metadata import Metadata           # <-- real module we patch
 
 
 
@@ -49,7 +50,7 @@ def stub_everything(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",
-        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai", "reference_dict": tmp_path / "ref.dict"}),
+        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai", "reference_dict": tmp_path / "ref.dict", "metadata": Metadata(tmp_path / "metadata.json")}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.BWAMEMReadsAligner",

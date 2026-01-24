@@ -99,6 +99,7 @@ class Snippy:
                         self.warning(f"Removing incomplete output '{name}' ({path}) due to error.")
                         Path(path).unlink()
                 raise e
+            # After running each stage,
             # check all the expected outputs were produced
             for name, path in stage.output:
                 if not path:  # Skip empty outputs

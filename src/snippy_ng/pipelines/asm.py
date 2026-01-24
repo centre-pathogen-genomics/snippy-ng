@@ -21,7 +21,7 @@ def create_asm_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -31,6 +31,7 @@ def create_asm_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
+    globals['metadata'] = setup.output.metadata
     stages.append(setup)
     
     # Aligner 

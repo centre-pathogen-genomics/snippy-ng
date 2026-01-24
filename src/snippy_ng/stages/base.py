@@ -10,12 +10,14 @@ from pathlib import Path
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError
+from snippy_ng.metadata import Metadata
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
 class BaseOutput(BaseModel):
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
     pass
 
 class PythonCommand(BaseModel):
@@ -48,7 +50,8 @@ class ShellCommandPipe(BaseModel):
         return iter(self.commands)
 
 class BaseStage(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
+    metadata: Optional[Metadata] = Field(None, description="Metadata for the run")
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
     tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
