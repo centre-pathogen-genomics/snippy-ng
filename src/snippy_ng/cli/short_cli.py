@@ -60,5 +60,13 @@ def short(**config):
     )
     
     # Run the pipeline
-    return run_snippy_pipeline(config, stages)
+    return run_snippy_pipeline(
+        stages,
+        skip_check=config['skip_check'],
+        check=config['check'],
+        outdir=config['outdir'],
+        quiet=config['quiet'],
+        continue_last_run=config['continue_last_run'],
+        keep_incomplete=config['keep_incomplete'],
+    )
     
