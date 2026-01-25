@@ -6,10 +6,10 @@ import json
 class Metadata:
     """Class to hold metadata information for a Snippy-ng run."""
 
-    def __init__(self, path: Optional[Path] = None, **meta_data_overrides):
+    def __init__(self, path: Optional[Path] = None, **metadata_overrides):
         """Initialize Metadata with optional path to metadata file."""
         self.path = path
-        self._static_data = meta_data_overrides
+        self._static_data = metadata_overrides
 
     @property
     def reference(self) -> str:
