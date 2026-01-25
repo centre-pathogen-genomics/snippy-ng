@@ -16,6 +16,7 @@ from packaging.version import parse, InvalidVersion, Version
 @dataclass
 class Dependency:
     name: str
+    command: Optional[str] = None
     citation: Optional[str] = None
     version_pattern: str = r"(\d+\.\d+\.\d+)"  # Regex pattern to extract version
     version_arg: Optional[str] = "--version"
@@ -25,9 +26,10 @@ class Dependency:
     less_then: Optional[str] = None
 
     def check(self):
-        if not which(self.name):
+        command = self.command or self.name
+        if not which(command):
             raise MissingDependencyError(
-                f"Could not find dependency {self.name}! Please install it."
+                f"Could not find dependency {command}! Please install it."
             )
         version = self.get_version_from_cli()
         return self._base_validator(version)
@@ -47,7 +49,8 @@ class Dependency:
         return f'{self.name} {",".join(requirements)}'
     
     def get_version_from_cli(self):
-        cmd = [self.name]
+        command = self.command or self.name
+        cmd = [command]
         if self.version_arg:
             cmd.append(self.version_arg)
 
@@ -59,7 +62,7 @@ class Dependency:
         match = re.search(self.version_pattern, result)
         if not match:
             raise InvalidDependencyVersionError(
-                f"Could not extract version from '{result}' for {self.name}."
+                f"Could not extract version from '{result}' for {command}."
             )
 
         return match.group(0)
@@ -150,7 +153,8 @@ bcftools = Dependency(
     version_pattern=r"(\d+\.\d+)",
 )
 clair3 = Dependency(
-    "run_clair3.sh",
+    "clair3",
+    command="run_clair3.sh",
     citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797–803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
