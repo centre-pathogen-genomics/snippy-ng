@@ -1,4 +1,3 @@
-from snippy_ng.metadata import Metadata
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from pydantic import Field, field_validator
 from pathlib import Path
@@ -12,7 +11,7 @@ class ReferenceOutput(BaseOutput):
     reference_index: Path
     reference_dict: Path
     gff: Path
-    metadata: Metadata
+    metadata: Path 
 
 
 class PrepareReference(BaseStage):
@@ -32,7 +31,7 @@ class PrepareReference(BaseStage):
             reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
             reference_dict=self.reference_dir / f"{self.reference_prefix}.dict",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
-            metadata=Metadata(self.reference_dir / "metadata.json"),
+            metadata=self.reference_dir / "metadata.json",
             
         )
 
@@ -275,7 +274,7 @@ class PrepareReference(BaseStage):
             "prefix": self.reference_prefix,
             "datetime": __import__("datetime").datetime.now().isoformat(),
         }
-        with open(self.output.meta, "w") as json_out:
+        with open(self.output.metadata, "w") as json_out:
             import json
             json.dump(metadata, json_out, indent=4)
 
@@ -306,7 +305,7 @@ class LoadReference(BaseStage):
             reference_index=self.reference_dir / f"{self.reference_prefix}.fa.fai",
             reference_dict=self.reference_dir / f"{self.reference_prefix}.dict",
             gff=self.reference_dir / f"{self.reference_prefix}.gff",
-            metadata=Metadata(self.reference_dir / "metadata.json"),
+            metadata=self.reference_dir / "metadata.json",
         )
 
     @property

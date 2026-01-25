@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from snippy_ng.metadata import Metadata
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
@@ -42,7 +43,7 @@ def create_long_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['metadata'] = setup.output.metadata
+    globals['metadata'] = Metadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling

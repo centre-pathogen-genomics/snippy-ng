@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional, List
+from snippy_ng.metadata import Metadata
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
@@ -41,8 +42,7 @@ def create_short_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    print(setup.output)
-    globals['metadata'] = setup.output.metadata
+    globals['metadata'] = Metadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling

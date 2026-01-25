@@ -17,7 +17,7 @@ from shlex import quote
 
 
 class BaseOutput(BaseModel):
-    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra='forbid')
     pass
 
 class PythonCommand(BaseModel):
