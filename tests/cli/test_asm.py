@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng         # the click *group*
 import snippy_ng.cli.utils.pipeline_runner as _pl
-from snippy_ng.metadata import Metadata           # <-- real module we patch
+from snippy_ng.metadata import ReferenceMetadata           # <-- real module we patch
 
 
 

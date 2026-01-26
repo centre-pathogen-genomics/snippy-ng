@@ -5,7 +5,7 @@ Test module for Rasusa read downsampling stages
 import pytest
 from pydantic import ValidationError
 
-from snippy_ng.metadata import Metadata
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.downsample_reads import (
     RasusaDownsampleReads,
     RasusaDownsampleReadsByCoverage,
@@ -25,7 +25,7 @@ class TestRasusaDownsampleReads:
         read2.touch()
         
         stage = RasusaDownsampleReads(
-            metadata=Metadata(total_length=197394),
+            metadata=ReferenceMetadata(total_length=197394),
             reads=[str(read1), str(read2)],
             prefix="downsampled",
             coverage=50.0,
@@ -60,7 +60,7 @@ class TestRasusaDownsampleReads:
         """Test initialization with empty reads list should fail"""
         with pytest.raises(ValidationError) as excinfo:
             RasusaDownsampleReads(
-                metadata=Metadata(total_length=197394),
+                metadata=ReferenceMetadata(total_length=197394),
                 reads=[],
                 prefix="downsampled",
                 coverage=50.0,
@@ -91,7 +91,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                metadata=Metadata(total_length=197394),
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 num_reads=1000000,
                 tmpdir=tmp_path
@@ -120,7 +120,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                metadata=Metadata(total_length=197394),
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 output_format="invalid",
                 tmpdir=tmp_path
@@ -136,7 +136,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                metadata=Metadata(total_length=197394),
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 compression_level=10,  # Invalid: > 9
                 tmpdir=tmp_path
@@ -153,7 +153,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="downsampled",
-            metadata=Metadata(total_length=197394),
+            metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             tmpdir=tmp_path
         )
@@ -189,7 +189,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="ds",
-            metadata=Metadata(total_length=197394),
+            metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             seed=42,
             tmpdir=tmp_path
@@ -217,7 +217,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="ds",
-            metadata=Metadata(total_length=197394),
+            metadata=ReferenceMetadata(total_length=197394),
             num_reads=1000000,
             output_format="fasta",
             tmpdir=tmp_path
@@ -241,7 +241,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="custom",
-            metadata=Metadata(total_length=150000),
+            metadata=ReferenceMetadata(total_length=150000),
             coverage=75.0,
             seed=123,
             compression_level=9,
@@ -269,7 +269,7 @@ class TestRasusaDownsampleReadsByCoverage:
         stage = RasusaDownsampleReadsByCoverage(
             reads=[str(read_file)],
             prefix="cov_ds",
-            metadata=Metadata(total_length=150000),
+            metadata=ReferenceMetadata(total_length=150000),
             coverage=30.0,
             tmpdir=tmp_path
         )
@@ -287,7 +287,7 @@ class TestRasusaDownsampleReadsByCoverage:
             RasusaDownsampleReadsByCoverage(
                 reads=[str(read_file)],
                 prefix="cov_ds",
-                metadata=Metadata(total_length=150000),
+                metadata=ReferenceMetadata(total_length=150000),
                 coverage=30.0,
                 num_reads=1000000,  # Should fail
                 tmpdir=tmp_path
