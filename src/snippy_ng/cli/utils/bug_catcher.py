@@ -51,7 +51,7 @@ class BugCatchingGroup(click.Group):
                 full_tb = "<unable to capture traceback>"
 
             logger.echo(err=True)
-            logger.horizontal_rule("Bug report template (copy/paste the sections below into GitHub)", color='red')
+            logger.horizontal_rule("Bug report template (copy/paste the section below into GitHub)", color='red')
 
             logger.echo("\n**Describe the bug**", err=True)
             logger.echo("> A clear and concise description of what the bug is.\n", err=True)
@@ -78,7 +78,7 @@ class BugCatchingGroup(click.Group):
             logger.echo(full_tb.rstrip("\n"), err=True)
             logger.echo("```\n", err=True)
 
-            logger.horizontal_rule()
+            logger.horizontal_rule("Copy/paste the section above into GitHub", color='red')
             logger.echo(
                 "\nOh no! You broke Snippy-NG... Congrats! Please use the following URL to report this bug:",
                 err=True,
