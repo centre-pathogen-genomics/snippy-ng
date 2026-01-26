@@ -5,6 +5,7 @@ from snippy_ng.cli.short_cli import short
 from snippy_ng.cli.asm_cli import asm
 from snippy_ng.cli.long_cli import long
 from snippy_ng.cli.ref_cli import ref
+from snippy_ng.cli.aln_cli import aln
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -54,3 +55,4 @@ snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
 snippy_ng.add_command(long)
 snippy_ng.add_command(ref)
+snippy_ng.add_command(aln)
