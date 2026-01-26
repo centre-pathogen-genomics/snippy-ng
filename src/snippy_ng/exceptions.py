@@ -18,3 +18,7 @@ class MissingOutputError(Exception):
 
 class InvalidCommandTypeError(Exception):
     pass
+
+class StageExecutionError(Exception):
+    pass
+

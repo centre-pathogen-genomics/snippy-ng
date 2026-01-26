@@ -2,7 +2,7 @@
 Shared pipeline execution logic for Snippy CLI commands.
 """
 from snippy_ng.snippy import Snippy
-from snippy_ng.exceptions import DependencyError, MissingOutputError
+from snippy_ng.exceptions import DependencyError, MissingOutputError, StageExecutionError
 
 
 def run_snippy_pipeline(
@@ -52,7 +52,7 @@ def run_snippy_pipeline(
     except MissingOutputError as e:
         snippy.error(e)
         return 1
-    except RuntimeError as e:
+    except StageExecutionError as e:
         snippy.error(e)
         return 1
     

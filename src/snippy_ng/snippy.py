@@ -90,10 +90,12 @@ class Snippy:
                 stage.run(quiet)
                 end = time.perf_counter()
                 self.debug(f"Runtime: {(end - start):.2f} seconds")
-            except (RuntimeError, KeyboardInterrupt) as e:
+            except (Exception, KeyboardInterrupt) as e:
                 # remove outputs if stage fails
                 if keep_incomplete:
                     raise e 
+                if stage.output._immutable:
+                    raise e
                 output_removed = False
                 for name, path in stage.output:
                     if path and Path(path).exists():
