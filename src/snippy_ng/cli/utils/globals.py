@@ -151,33 +151,36 @@ GLOBAL_DEFS = [
 ]
 
 
-def snippy_global_options(f):
+def add_snippy_global_options(exclude: list = None):
     """
     Decorator that prepends each GLOBAL_DEFS entry as
     @click.option(..., cls=GlobalOption, **attrs).
     """
+    if exclude is None:
+        exclude = []
+    def wraps(f):
+        # Click stores params after decoration, so inspect __click_params__ first
+        existing = {
+            param.name
+            for param in getattr(f, "__click_params__", [])
+            if isinstance(param, click.Option)
+        }
 
-    # Click stores params after decoration, so inspect __click_params__ first
-    existing = {
-        param.name
-        for param in getattr(f, "__click_params__", [])
-        if isinstance(param, click.Option)
-    }
+        for entry in reversed(GLOBAL_DEFS):
+            param_decls = entry["param_decls"]
+            attrs = entry["attrs"]
 
-    for entry in reversed(GLOBAL_DEFS):
-        param_decls = entry["param_decls"]
-        attrs = entry["attrs"]
+            # Click derives the internal name like this:
+            option = click.Option(param_decls)
+            option_name = option.name
 
-        # Click derives the internal name like this:
-        option = click.Option(param_decls)
-        option_name = option.name
+            if option_name in existing or option_name in exclude:
+                continue
 
-        if option_name in existing:
-            continue
+            f = click.option(*param_decls, cls=GlobalOption, **attrs)(f)
 
-        f = click.option(*param_decls, cls=GlobalOption, **attrs)(f)
-
-    return f
+        return f
+    return wraps
 
 
 class CommandWithGlobals(click.Command):
@@ -185,6 +188,9 @@ class CommandWithGlobals(click.Command):
         global_opts = []
         other_opts = []
         for param in self.params:
+            # Only Options belong in format_options()
+            if not isinstance(param, click.Option):
+                continue
             if getattr(param, 'is_global', False):
                 global_opts.append(param)
             else:
