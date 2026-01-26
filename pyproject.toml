@@ -126,7 +126,6 @@ biopython = { version = "*", channel = "conda-forge" }
 # external dependencies
 samtools = { version = "<1.21", channel = "bioconda" }
 samclip = { version = ">=0.4.0", channel = "bioconda" }
-bwa = { version = ">=0.7.19,<0.8", channel = "bioconda" }
 freebayes = { version = ">=1.3.2", channel = "bioconda" }
 bcftools = { version = ">=1.21,<2", channel = "bioconda" }
 minimap2 = { version = ">=2.30,<3", channel = "bioconda" }
