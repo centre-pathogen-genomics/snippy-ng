@@ -39,14 +39,30 @@ def load_or_prepare_reference(reference_path) -> PrepareReference | LoadReferenc
             metadata=Path(reference_path)
         )
     else:
-        reference_format = guess_format(reference_path)
-        if not reference_format:
-            error(f"Could not determine format of reference file '{reference_path}'")
+        setup = prepare_reference(reference_path, Path("reference"))
+    
+    return setup
 
-        setup = PrepareReference(
-            input=reference_path,
-            ref_fmt=reference_format,
-        )
+
+def prepare_reference(reference_path, output_directory) -> PrepareReference:
+    """
+    Prepare a new reference from a FASTA/GenBank file.
+    
+    Args:
+        reference_path: Path to reference file.
+    Returns:
+        An instance of PrepareReference stage.
+    reference_format = guess_format(reference_path)
+    """
+    reference_format = guess_format(reference_path)
+    if not reference_format:
+        error(f"Could not determine format of reference file '{reference_path}'")
+
+    setup = PrepareReference(
+        input=reference_path,
+        ref_fmt=reference_format,
+        directory=output_directory,
+    )
     
     return setup
 
