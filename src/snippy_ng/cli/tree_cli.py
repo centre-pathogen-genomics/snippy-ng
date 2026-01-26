@@ -5,7 +5,7 @@ from pathlib import Path
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
-@click.argument("aln", required=True, type=click.Path(exists=True, resolve_path=True, readable=True))
+@click.argument("alignment", required=True, type=click.Path(exists=True, resolve_path=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction")
 @click.option("--bootstrap", type=click.INT, default=1000, help="Number of bootstrap replicates to perform")
 @click.option("--fconst", type=click.STRING, default=None, help="Constant sites counts (string or path to file)")
@@ -25,7 +25,7 @@ def tree(**config):
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     stages = create_tree_pipeline_stages(
-        aln=config["aln"],
+        aln=config["alignment"],
         model=config["model"],
         bootstrap=config["bootstrap"],
         fconst=config["fconst"],
