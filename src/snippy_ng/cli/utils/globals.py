@@ -24,6 +24,13 @@ def create_outdir_callback(ctx, param, value):
         value.mkdir(parents=True, exist_ok=True)
     return value
 
+def not_implemented_callback(ctx, param, value):
+    if ctx.resilient_parsing:
+        return
+    if value:
+        raise NotImplementedError(f"The option '{param.name}' is not yet implemented.")
+    return value
+
 GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
@@ -48,6 +55,14 @@ GLOBAL_DEFS = [
             "type": click.STRING,
             "default": "snps",
             "help": "Prefix for output files",
+        },
+    },
+    {
+        "param_decls": ("--name", "-n"),
+        "attrs": {
+            "type": click.STRING,
+            "help": "Name of the sample  [default: derived from reference]",
+            "callback": not_implemented_callback
         },
     },
     {
@@ -124,6 +139,15 @@ GLOBAL_DEFS = [
             "help": "Keep outputs from incomplete stages if an error occurs",
         },
     },
+    {
+        "param_decls": ("--no-cleanup",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Do not delete temporary files after run",
+            "callback": not_implemented_callback
+        },
+    }
 ]
 
 
@@ -132,11 +156,27 @@ def snippy_global_options(f):
     Decorator that prepends each GLOBAL_DEFS entry as
     @click.option(..., cls=GlobalOption, **attrs).
     """
+
+    # Click stores params after decoration, so inspect __click_params__ first
+    existing = {
+        param.name
+        for param in getattr(f, "__click_params__", [])
+        if isinstance(param, click.Option)
+    }
+
     for entry in reversed(GLOBAL_DEFS):
         param_decls = entry["param_decls"]
         attrs = entry["attrs"]
-        option_decorator = click.option(*param_decls, cls=GlobalOption, **attrs)
-        f = option_decorator(f)
+
+        # Click derives the internal name like this:
+        option = click.Option(param_decls)
+        option_name = option.name
+
+        if option_name in existing:
+            continue
+
+        f = click.option(*param_decls, cls=GlobalOption, **attrs)(f)
+
     return f
 
 
