@@ -55,6 +55,9 @@ def run_snippy_pipeline(
     except StageExecutionError as e:
         snippy.error(e)
         return 1
+    except RuntimeError as e:
+        snippy.error(e)
+        return 1
     
     snippy.cleanup()
     snippy.goodbye()

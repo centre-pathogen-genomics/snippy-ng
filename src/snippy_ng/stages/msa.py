@@ -135,6 +135,7 @@ class CombineFastaFile(BaseStage):
 
 class SoftCoreFilterOutput(BaseOutput):
     aln: Path
+    constant_sites: Path
 
 
 class SoftCoreFilter(BaseStage):
@@ -152,11 +153,28 @@ class SoftCoreFilter(BaseStage):
 
     @property
     def output(self) -> SoftCoreFilterOutput:
-        return SoftCoreFilterOutput(aln=Path(f"{self.prefix}.aln"))
+        return SoftCoreFilterOutput(
+            aln=Path(f"{self.prefix}.aln"),
+            constant_sites=Path(f"{self.prefix}.aln.sites")
+        )
 
     @property
     def commands(self):
         return [
+            self.shell_pipeline(
+                [
+                    self.shell_cmd(
+                        [
+                            "coresnpfilter",
+                            "-C",
+                            str(self.aln),
+                        ],
+                        description="Extract constant sites from MSA",
+                    )
+                ],
+                output_file=self.output.constant_sites,
+                description="Write constant sites file",
+            ), 
             self.shell_pipeline(
                 [
                     self.shell_cmd(
