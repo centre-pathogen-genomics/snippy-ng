@@ -190,3 +190,20 @@ bedtools = Dependency(
     min_version="2.29.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
+
+# Core alignment
+core_snp_filter = Dependency(
+    'core-snp-filter',
+    command='coresnpfilter',
+    citation="Taouk ML, Featherstone LA, Taiaroa G, Seemann T, Ingle DJ, Stinear TP, Wick RR. Exploring SNP filtering strategies: the influence of strict vs soft core. Microbial Genomics. 2025. doi:10.1099/mgen.0.001346.",
+    min_version="0.2.0",
+    version_pattern=r"v(\d+\.\d+\.\d+)",
+)
+
+# Phylogenetic tree building
+iqtree = Dependency(
+    "iqtree",
+    citation="Bui Quang Minh, Heiko A. Schmidt, Olga Chernomor, Dominik Schrempf, Michael D. Woodhams, Arndt von Haeseler, Robert Lanfear, IQ-TREE 2: New Models and Efficient Methods for Phylogenetic Inference in the Genomic Era, Molecular Biology and Evolution, Volume 37, Issue 5, May 2020, Pages 1530–1534, https://doi.org/10.1093/molbev/msaa015",
+    min_version="2.0.0",
+    version_pattern=r"(\d+\.\d+\.\d+)",
+)
