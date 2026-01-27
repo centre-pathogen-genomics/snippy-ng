@@ -41,6 +41,7 @@ def long(**config):
         prefix=config["prefix"],
         bam=config["bam"],
         clair3_model=config.get("clair3_model"),
+        clair3_fast_mode=config["clair3_fast_mode"],
         downsample=config["downsample"],
         min_read_len=config.get("min_read_len"),
         min_read_qual=config.get("min_read_qual"),
@@ -50,6 +51,7 @@ def long(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
+        freebayes_opts="",
     )
     
     # Run the pipeline
