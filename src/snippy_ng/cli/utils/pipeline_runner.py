@@ -1,6 +1,7 @@
 """
 Shared pipeline execution logic for Snippy CLI commands.
 """
+from pathlib import Path
 from snippy_ng.snippy import Snippy
 from snippy_ng.exceptions import DependencyError, MissingOutputError, StageExecutionError
 
@@ -9,7 +10,7 @@ def run_snippy_pipeline(
     stages: list,
     skip_check: bool = False,
     check: bool = False,
-    outdir: str = None,
+    outdir: Path = None,
     quiet: bool = False,
     continue_last_run: bool = False,
     keep_incomplete: bool = False
@@ -53,9 +54,6 @@ def run_snippy_pipeline(
         snippy.error(e)
         return 1
     except StageExecutionError as e:
-        snippy.error(e)
-        return 1
-    except RuntimeError as e:
         snippy.error(e)
         return 1
     
