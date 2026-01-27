@@ -10,7 +10,7 @@ def run_snippy_pipeline(
     stages: list,
     skip_check: bool = False,
     check: bool = False,
-    outdir: Path = None,
+    outdir: Path = Path("."),
     quiet: bool = False,
     continue_last_run: bool = False,
     keep_incomplete: bool = False

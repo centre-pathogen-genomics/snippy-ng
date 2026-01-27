@@ -9,7 +9,7 @@ from pathlib import Path
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
-from snippy_ng.exceptions import InvalidCommandTypeError
+from snippy_ng.exceptions import InvalidCommandTypeError, StageExecutionError
 from snippy_ng.metadata import ReferenceMetadata
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -177,7 +177,7 @@ class BaseStage(BaseModel):
             except subprocess.CalledProcessError as e:
                 logger.error(f"Command failed with exit code {e.returncode}")
                 cmd = " ".join(quote(arg) for arg in e.cmd) 
-                raise RuntimeError(f"Failed to run command: {cmd}")
+                raise StageExecutionError(f"Failed to run command: {cmd}")
             except InvalidCommandTypeError as e:
                 raise e
 
