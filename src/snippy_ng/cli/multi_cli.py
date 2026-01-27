@@ -22,6 +22,13 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 )
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
 def multi(**config):
+    """
+    Multi-sample SNP calling pipeline
+
+    Example usage:
+
+        snippy-ng multi --config samples.yaml --ref reference.fasta
+    """
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import prepare_reference
     import yaml
