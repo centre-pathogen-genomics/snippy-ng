@@ -44,7 +44,7 @@ curl -fsSL https://pixi.sh/install.sh | bash
 pixi global add hatch
 ```
 
-Activate the pixi environment and launch a hatch shell. THis will install all dependencies and set up the development environment.
+Activate the pixi environment and launch a hatch shell. This will install all dependencies and set up the development environment.
 
 ```console
 pixi shell
@@ -59,6 +59,15 @@ snippy-ng --help
 
 ```bash
 snippy-ng asm --ref tests/data/wildtype.fasta --asm tests/data/wildtype.contigs.fa
+```
+
+```bash
+snippy-ng multi \
+  --config tests/data/samples.yaml \
+  --ref tests/data/wildtype.fasta \
+  -o multi \
+  --cpus 6 \
+  --cpus-per-sample 2
 ```
 
 ## License
