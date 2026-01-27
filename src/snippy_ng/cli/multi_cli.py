@@ -1,10 +1,7 @@
-
 from pathlib import Path
 from typing import Dict, Any, Tuple
 import click
-import yaml
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
+
 
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -27,6 +24,9 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 def multi(**config):
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import prepare_reference
+    import yaml
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor, as_completed
     
     # Load YAML
     with open(config["config"], "r") as f:
