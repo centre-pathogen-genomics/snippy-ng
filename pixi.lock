@@ -17,11 +17,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.6-hb03c661_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ca-certificates-2025.1.31-hbcca054_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/click-8.1.8-pyh707e725_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/core-snp-filter-0.2.0-h3ab6199_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/fastahack-2016.07.2-h4ac6f70_6.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/fastp-1.0.1-heae3180_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/freebayes-1.3.9-hbefcdb2_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gsl-2.7-he838d99_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/htslib-1.21-h566b1c6_1.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-64/iqtree-3.0.1-h503566f_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/isa-l-2.31.1-hb9d3cd8_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/k8-1.2-he8db53b_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/kernel-headers_linux-64-3.10.0-he073ed8_18.conda
@@ -96,11 +98,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/c-ares-1.34.4-h86ecc28_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ca-certificates-2025.1.31-hcefe29a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/click-8.1.8-pyh707e725_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/core-snp-filter-0.2.0-hab7b2bf_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/fastahack-1.0.0-h163da20_3.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/fastp-1.0.1-h7dc49d2_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/freebayes-1.3.9-h1c6109c_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/gsl-2.7-h294027d_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/htslib-1.21-h7068f72_1.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/iqtree-3.0.1-h80f0ee0_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/isa-l-2.31.1-h86ecc28_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/k8-1.2-h1e84f2d_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/keyutils-1.6.1-h4e544f5_0.tar.bz2
@@ -172,11 +176,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/c-ares-1.34.4-hf13058a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/ca-certificates-2025.1.31-h8857fd0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/click-8.1.8-pyh707e725_0.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-64/core-snp-filter-0.2.0-hefd1791_2.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/fastahack-1.0.0-h5fa12a8_3.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/fastp-1.0.1-h9ea9c2a_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/freebayes-1.3.9-hd217303_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/htslib-1.21-h9f635df_1.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-64/iqtree-3.0.1-h6ed3961_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/isa-l-2.31.1-h6e16a3a_1.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/k8-1.2-h2ec61ea_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/krb5-1.21.3-h37d8d59_0.conda
@@ -243,6 +249,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.5-h5505292_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2025.8.3-hbd8a1cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/click-8.3.0-pyh707e725_0.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/core-snp-filter-0.2.0-h9399bea_2.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/curl-8.14.1-h73640d1_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/fastahack-1.0.0-h4675bf2_3.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/fastp-1.0.1-hee05c9d_0.tar.bz2
@@ -250,6 +257,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gsl-2.7-h6e638da_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/htslib-1.21-hfcd771d_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/icu-75.1-hfee45f7_0.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/iqtree-3.0.1-h39b84e0_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/isa-l-2.31.1-h5505292_1.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/k8-1.2-hda5e58c_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/krb5-1.21.3-h237132a_0.conda
@@ -514,6 +522,7 @@ packages:
   - libzlib >=1.3.1,<2.0a0
   - perl
   license: GPL3
+  purls: []
   size: 197933
   timestamp: 1742671656111
 - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bwa-0.7.19-h0cbc5ad_0.tar.bz2
@@ -524,6 +533,7 @@ packages:
   - libzlib >=1.3.1,<2.0a0
   - perl
   license: GPL3
+  purls: []
   size: 224465
   timestamp: 1742671623196
 - conda: https://conda.anaconda.org/bioconda/osx-64/bwa-0.7.19-h7f84b70_0.tar.bz2
@@ -533,6 +543,7 @@ packages:
   - libzlib >=1.3.1,<2.0a0
   - perl
   license: GPL3
+  purls: []
   size: 223800
   timestamp: 1742672277584
 - conda: https://conda.anaconda.org/bioconda/osx-arm64/bwa-0.7.19-hba9b596_1.tar.bz2
@@ -543,6 +554,7 @@ packages:
   - perl
   license: GPL-3.0-or-later
   license_family: GPL3
+  purls: []
   size: 222696
   timestamp: 1747108594670
 - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-h4bc722e_7.conda
@@ -681,6 +693,56 @@ packages:
   - pkg:pypi/click?source=compressed-mapping
   size: 91622
   timestamp: 1758270534287
+- conda: https://conda.anaconda.org/bioconda/linux-64/core-snp-filter-0.2.0-h3ab6199_2.tar.bz2
+  sha256: e7cdeface48fc1c5592f5df595e416cffe0f6f52e84d301af0dbe221877dbd4a
+  md5: 9e8ee1ee8c0cec2f49d31dc15197a52d
+  depends:
+  - libgcc >=13
+  - libstdcxx >=13
+  constrains:
+  - __glibc >=2.17
+  license: GPLv3
+  license_family: GPL
+  purls: []
+  size: 510020
+  timestamp: 1733931443589
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/core-snp-filter-0.2.0-hab7b2bf_2.tar.bz2
+  sha256: ed7d5155921dd2c032a602cd94a9396863965a114819d66b6662e138b5f51b3b
+  md5: 29945faf75a7c27f2e16cad862fe2f3d
+  depends:
+  - libgcc >=13
+  - libstdcxx >=13
+  constrains:
+  - __glibc >=2.17
+  license: GPLv3
+  license_family: GPL
+  purls: []
+  size: 509851
+  timestamp: 1734016020127
+- conda: https://conda.anaconda.org/bioconda/osx-64/core-snp-filter-0.2.0-hefd1791_2.tar.bz2
+  sha256: ea3472111926662ac33776171779eeb7477d7ee90d2d16fedb4038ba2a80523e
+  md5: b7d4e2c2e2128aec3d429890809d9ea0
+  depends:
+  - libcxx >=18
+  constrains:
+  - __osx >=10.13
+  license: GPLv3
+  license_family: GPL
+  purls: []
+  size: 478828
+  timestamp: 1733990400768
+- conda: https://conda.anaconda.org/bioconda/osx-arm64/core-snp-filter-0.2.0-h9399bea_2.tar.bz2
+  sha256: 04c7c728772a8368c52ec10e7a14c0421ff350b5d92bab0bc7c58771b94c1143
+  md5: c0b4e8b811d4ba003b456b0c5e424b9d
+  depends:
+  - libcxx >=18
+  constrains:
+  - __osx >=11.0
+  license: GPLv3
+  license_family: GPL
+  purls: []
+  size: 491887
+  timestamp: 1733866713843
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/curl-8.14.1-h73640d1_0.conda
   sha256: fe0e505dc62632bb25bbe43ee03dc9837ca09d9bb48ac87a4e03ecbc1801e3cf
   md5: b61b498cc3913fe6e649c7e1107b6bc1
@@ -971,6 +1033,54 @@ packages:
   purls: []
   size: 11857802
   timestamp: 1720853997952
+- conda: https://conda.anaconda.org/bioconda/linux-64/iqtree-3.0.1-h503566f_0.tar.bz2
+  sha256: e0dcb9e8678bd5a50c2c966d1916f9b38fc29ee5e98ce3207e0f50c2145d6dba
+  md5: fd4dfb10aac70986b4b51d73c45b4312
+  depends:
+  - _openmp_mutex >=4.5
+  - libgcc >=13
+  - libgomp
+  - libstdcxx >=13
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  size: 4400455
+  timestamp: 1752022486560
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/iqtree-3.0.1-h80f0ee0_0.tar.bz2
+  sha256: 5bdf99c851d5f1df6b58d5b291948b16a12d9d14aedaf664cf2e0cd82cfde22f
+  md5: 2198de60df8039d0bcf33a28bfdbbd2b
+  depends:
+  - _openmp_mutex >=4.5
+  - libgcc >=13
+  - libgomp
+  - libstdcxx >=13
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  size: 3745241
+  timestamp: 1752022205337
+- conda: https://conda.anaconda.org/bioconda/osx-64/iqtree-3.0.1-h6ed3961_0.tar.bz2
+  sha256: 3609c1e3def4c2cfc6c8292a58880875555b142a469e8a1b52b74d668d082229
+  md5: b6602cffee4a06e4f7884bdb80012dd6
+  depends:
+  - libcxx >=18
+  - llvm-openmp >=18.1.8
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  size: 4405648
+  timestamp: 1752023714503
+- conda: https://conda.anaconda.org/bioconda/osx-arm64/iqtree-3.0.1-h39b84e0_0.tar.bz2
+  sha256: cfaf108973d2f49be8d0f936088cc37fa89c3920f653ff876fe785e7e56f2d64
+  md5: b5484352ccf4bdc783fd11e4d2275596
+  depends:
+  - libcxx >=18
+  - llvm-openmp >=18.1.8
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  size: 3334734
+  timestamp: 1752022032977
 - conda: https://conda.anaconda.org/conda-forge/linux-64/isa-l-2.31.1-hb9d3cd8_1.conda
   sha256: 75b15f01a6b286630c4a98be0d05e286275a5ef3868e23e6d9644e51b73650e1
   md5: 00f364ec0a7e975ec9d2fc720b19c129
