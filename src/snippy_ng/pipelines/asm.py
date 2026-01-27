@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.filtering import VcfFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -21,16 +22,16 @@ def create_asm_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
-        reference_path=reference,
-        reference_prefix=prefix
+        reference_path=reference
     )
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
+    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Aligner 

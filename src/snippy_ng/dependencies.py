@@ -16,6 +16,7 @@ from packaging.version import parse, InvalidVersion, Version
 @dataclass
 class Dependency:
     name: str
+    command: Optional[str] = None
     citation: Optional[str] = None
     version_pattern: str = r"(\d+\.\d+\.\d+)"  # Regex pattern to extract version
     version_arg: Optional[str] = "--version"
@@ -25,9 +26,10 @@ class Dependency:
     less_then: Optional[str] = None
 
     def check(self):
-        if not which(self.name):
+        command = self.command or self.name
+        if not which(command):
             raise MissingDependencyError(
-                f"Could not find dependency {self.name}! Please install it."
+                f"Could not find dependency {command}! Please install it."
             )
         version = self.get_version_from_cli()
         return self._base_validator(version)
@@ -47,7 +49,8 @@ class Dependency:
         return f'{self.name} {",".join(requirements)}'
     
     def get_version_from_cli(self):
-        cmd = [self.name]
+        command = self.command or self.name
+        cmd = [command]
         if self.version_arg:
             cmd.append(self.version_arg)
 
@@ -59,7 +62,7 @@ class Dependency:
         match = re.search(self.version_pattern, result)
         if not match:
             raise InvalidDependencyVersionError(
-                f"Could not extract version from '{result}' for {self.name}."
+                f"Could not extract version from '{result}' for {command}."
             )
 
         return match.group(0)
@@ -150,7 +153,8 @@ bcftools = Dependency(
     version_pattern=r"(\d+\.\d+)",
 )
 clair3 = Dependency(
-    "run_clair3.sh",
+    "clair3",
+    command="run_clair3.sh",
     citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797–803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
@@ -184,5 +188,22 @@ bedtools = Dependency(
     "bedtools",
     citation="Aaron R. Quinlan, Ira M. Hall, BEDTools: a flexible suite of utilities for comparing genomic features, Bioinformatics, Volume 26, Issue 6, March 2010, Pages 841–842, https://doi.org/10.1093/bioinformatics/btq033",
     min_version="2.29.0",
+    version_pattern=r"(\d+\.\d+\.\d+)",
+)
+
+# Core alignment
+core_snp_filter = Dependency(
+    'core-snp-filter',
+    command='coresnpfilter',
+    citation="Taouk ML, Featherstone LA, Taiaroa G, Seemann T, Ingle DJ, Stinear TP, Wick RR. Exploring SNP filtering strategies: the influence of strict vs soft core. Microbial Genomics. 2025. doi:10.1099/mgen.0.001346.",
+    min_version="0.2.0",
+    version_pattern=r"v(\d+\.\d+\.\d+)",
+)
+
+# Phylogenetic tree building
+iqtree = Dependency(
+    "iqtree",
+    citation="Bui Quang Minh, Heiko A. Schmidt, Olga Chernomor, Dominik Schrempf, Michael D. Woodhams, Arndt von Haeseler, Robert Lanfear, IQ-TREE 2: New Models and Efficient Methods for Phylogenetic Inference in the Genomic Era, Molecular Biology and Evolution, Volume 37, Issue 5, May 2020, Pages 1530–1534, https://doi.org/10.1093/molbev/msaa015",
+    min_version="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )

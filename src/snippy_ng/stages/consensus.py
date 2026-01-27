@@ -19,6 +19,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     Call pseudo-alignment using Bcftools consensus.
     """
     vcf_gz: Path = Field(..., description="Input VCF.gz file")
+    no_insertions: bool = Field(True, description="Do not apply insertions to the consensus sequence")
 
     _dependencies = [
         bcftools
@@ -35,6 +36,10 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         """Constructs the bcftools consensus command."""
 
         bcf_csq_args = ["bcftools", "consensus"]
+
+        if self.no_insertions:
+            # Ensure that only indels where ALT is shorter than REF are applied i.e. no insertions
+            bcf_csq_args.extend(["-i", "strlen(ALT)<=strlen(REF)"])
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),

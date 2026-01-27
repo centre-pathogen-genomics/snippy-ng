@@ -90,15 +90,22 @@ class Snippy:
                 stage.run(quiet)
                 end = time.perf_counter()
                 self.debug(f"Runtime: {(end - start):.2f} seconds")
-            except (RuntimeError, KeyboardInterrupt) as e:
+            except (Exception, KeyboardInterrupt) as e:
                 # remove outputs if stage fails
                 if keep_incomplete:
                     raise e 
+                if stage.output._immutable:
+                    raise e
+                output_removed = False
                 for name, path in stage.output:
                     if path and Path(path).exists():
-                        self.warning(f"Removing incomplete output '{name}' ({path}) due to error.")
+                        output_removed = True
+                        self.warning(f"Removing incomplete output '{name}' ({path}).")
                         Path(path).unlink()
+                if output_removed:
+                    self.warning("Use `--keep-incomplete` to retain incomplete outputs on error.")
                 raise e
+            # After running each stage,
             # check all the expected outputs were produced
             for name, path in stage.output:
                 if not path:  # Skip empty outputs

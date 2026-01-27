@@ -1,10 +1,10 @@
 import click
-from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@snippy_global_options
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
+@add_snippy_global_options()
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
 @click.option("--reads", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clair3-model", default=None, type=click.Path(resolve_path=True), help="Path to Clair3 model file. If not provided, freebayes will be used for variant calling.")
@@ -41,6 +41,7 @@ def long(**config):
         prefix=config["prefix"],
         bam=config["bam"],
         clair3_model=config.get("clair3_model"),
+        clair3_fast_mode=config["clair3_fast_mode"],
         downsample=config["downsample"],
         min_read_len=config.get("min_read_len"),
         min_read_qual=config.get("min_read_qual"),
@@ -50,8 +51,17 @@ def long(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
+        freebayes_opts="",
     )
     
     # Run the pipeline
-    return run_snippy_pipeline(config, stages)
+    return run_snippy_pipeline(
+        stages,
+        skip_check=config['skip_check'],
+        check=config['check'],
+        outdir=config['outdir'],
+        quiet=config['quiet'],
+        continue_last_run=config['continue_last_run'],
+        keep_incomplete=config['keep_incomplete'],
+    )
     

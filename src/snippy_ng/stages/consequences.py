@@ -8,18 +8,16 @@ from snippy_ng.dependencies import bcftools
 from pydantic import Field
 
 
-class Caller(BaseStage):
-    reference: Path = Field(..., description="Reference file",)
-    variants: Path = Field(..., description="Input VCF file",)
-    features: Path = Field(..., description="Input features file")
-
 class BcftoolsConsequencesCallerOutput(BaseOutput):
     annotated_vcf: Path
 
-class BcftoolsConsequencesCaller(Caller):
+class BcftoolsConsequencesCaller(BaseStage):
     """
     Call consequences using Bcftools csq.
     """
+    reference: Path = Field(..., description="Reference file",)
+    variants: Path = Field(..., description="Input VCF file",)
+    features: Path = Field(..., description="Input features file")
 
     _dependencies = [
         bcftools

@@ -9,14 +9,16 @@ from pathlib import Path
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
-from snippy_ng.exceptions import InvalidCommandTypeError
+from snippy_ng.exceptions import InvalidCommandTypeError, StageExecutionError
+from snippy_ng.metadata import ReferenceMetadata
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
 class BaseOutput(BaseModel):
-    pass
+    model_config = ConfigDict(extra='forbid')
+    _immutable: bool = False
 
 class PythonCommand(BaseModel):
     func: Callable
@@ -48,7 +50,8 @@ class ShellCommandPipe(BaseModel):
         return iter(self.commands)
 
 class BaseStage(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
+    metadata: Optional[ReferenceMetadata] = Field(None, description="Metadata for the run")
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
     tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
@@ -174,12 +177,9 @@ class BaseStage(BaseModel):
             except subprocess.CalledProcessError as e:
                 logger.error(f"Command failed with exit code {e.returncode}")
                 cmd = " ".join(quote(arg) for arg in e.cmd) 
-                raise RuntimeError(f"Failed to run command: {cmd}")
+                raise StageExecutionError(f"Failed to run command: {cmd}")
             except InvalidCommandTypeError as e:
                 raise e
-            except Exception as e:
-                logger.error(f"Function call failed: {e}")
-                raise RuntimeError(f"Failed to run function: {cmd}")
 
     def check_outputs(self) -> bool:
         """Check if all expected output files exist."""

@@ -1,11 +1,10 @@
-from pathlib import Path
-from typing import List, Optional, Any
-from snippy_ng.stages.base import BaseStage
+from typing import List, Optional
+from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import rasusa
-from pydantic import Field, field_validator, model_validator, BaseModel
+from pydantic import Field, field_validator, model_validator
 
 
-class RasusaDownsampleReadsOutput(BaseModel):
+class RasusaDownsampleReadsOutput(BaseOutput):
     """Output model for RasusaDownsampleReads stage.
     
     Attributes:
@@ -27,7 +26,6 @@ class RasusaDownsampleReads(BaseStage):
     Args:
         reads: List of input read files (FASTQ format, can be gzipped).
         prefix: Output file prefix for downsampled reads.
-        genome_length: Genome length in base pairs (required for coverage-based downsampling).
         coverage: Target coverage depth for downsampling (mutually exclusive with num_reads).
         num_reads: Target number of reads for downsampling (mutually exclusive with coverage).
         seed: Random seed for reproducible downsampling.
@@ -45,9 +43,8 @@ class RasusaDownsampleReads(BaseStage):
         >>> stage = RasusaDownsampleReads(
         ...     reads=["sample_R1.fastq.gz", "sample_R2.fastq.gz"],
         ...     prefix="downsampled",
-        ...     genome_length=197394,
         ...     coverage=50,
-        ...     tmpdir=Path("/tmp")
+        ...     tmpdir=Path("/tmp"),
         ... )
         >>> print(stage.output.downsampled_r1)
         'downsampled.downsampled.R1.fastq.gz'
@@ -56,7 +53,6 @@ class RasusaDownsampleReads(BaseStage):
     """
     
     reads: List[str] = Field(..., description="List of input read files (FASTQ format)")
-    genome_length: Optional[Any] = Field(None, description="Genome length in base pairs (required for coverage-based downsampling) - can be int or at_run_time() callable")
     coverage: Optional[float] = Field(None, description="Target coverage depth for downsampling")
     num_reads: Optional[int] = Field(None, description="Target number of reads for downsampling")
     seed: Optional[int] = Field(None, description="Random seed for reproducible downsampling")
@@ -99,14 +95,10 @@ class RasusaDownsampleReads(BaseStage):
         if self.coverage is None and self.num_reads is None:
             raise ValueError("Must specify either coverage or num_reads")
         
-        # Also validate genome_length is provided when coverage is used
-        # For AtRunTime objects, we can't check the value without triggering evaluation,
-        # so we'll validate this later during command building
+        # Ensure metadata is provided if coverage-based downsampling is used
         if self.coverage is not None:
-            # Check if we have a genome_length value or AtRunTime object
-            if self.genome_length is None:
-                raise ValueError("genome_length is required when using coverage-based downsampling")
-            # If it's an AtRunTime object, skip validation here (will be validated at runtime)
+            if self.metadata is None:
+                raise ValueError("Metadata is required when using coverage-based downsampling to obtain genome length")
         
         return self
     
@@ -185,7 +177,7 @@ class RasusaDownsampleReads(BaseStage):
         # Coverage or number of reads
         if self.coverage is not None:
             cmd_parts.extend(["--coverage", str(self.coverage)])
-            cmd_parts.extend(["--genome-size", str(self.genome_length)])
+            cmd_parts.extend(["--genome-size", str(self.metadata.total_length)])
         elif self.num_reads is not None:
             cmd_parts.extend(["--num", str(self.num_reads)])
         
@@ -239,7 +231,7 @@ class RasusaDownsampleReadsByCoverage(RasusaDownsampleReads):
     
     Args:
         coverage: Target coverage depth (required, no default).
-        genome_length: Genome length in base pairs (required for coverage calculation).
+        metadata: Metadata object containing genome length information (required).
         
     Note:
         Inherits all other parameters from RasusaDownsampleReads.
@@ -249,14 +241,13 @@ class RasusaDownsampleReadsByCoverage(RasusaDownsampleReads):
         >>> stage = RasusaDownsampleReadsByCoverage(
         ...     reads=["sample_R1.fastq.gz", "sample_R2.fastq.gz"],
         ...     prefix="cov50x",
-        ...     genome_length=197394,
         ...     coverage=50.0,
+        ...     metadata=Metadata(total_length=5000000),
         ...     tmpdir=Path("/tmp")
         ... )
     """
     
     coverage: float = Field(..., description="Target coverage depth for downsampling")
-    genome_length: Any = Field(..., description="Genome length in base pairs (required for coverage calculation) - can be int or at_run_time() callable")
     num_reads: Optional[int] = Field(None, description="Disabled in coverage-based variant")
     
     @field_validator("num_reads")

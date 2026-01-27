@@ -4,6 +4,10 @@ from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.cli.short_cli import short
 from snippy_ng.cli.asm_cli import asm
 from snippy_ng.cli.long_cli import long
+from snippy_ng.cli.ref_cli import ref
+from snippy_ng.cli.aln_cli import aln
+from snippy_ng.cli.tree_cli import tree
+from snippy_ng.cli.multi_cli import multi
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -52,3 +56,7 @@ def snippy_ng():
 snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
 snippy_ng.add_command(long)
+snippy_ng.add_command(ref)
+snippy_ng.add_command(aln)
+snippy_ng.add_command(tree)
+snippy_ng.add_command(multi)

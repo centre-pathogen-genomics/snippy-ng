@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import samtools, bcftools
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator
 
 
-class BamFilterOutput(BaseModel):
+class BamFilterOutput(BaseOutput):
     bam: Path
     bam_index: Path
 
@@ -125,7 +125,7 @@ class BamFilterProperPairs(BamFilter):
     exclude_flags: int = Field(1796, description="Exclude unmapped, secondary, qcfail, duplicate")
 
 
-class VcfFilterOutput(BaseModel):
+class VcfFilterOutput(BaseOutput):
     vcf: Path
 
 
@@ -265,7 +265,12 @@ class VcfFilterLong(BaseStage):
                 description="Replace VCF header with new header containing all contigs"
             ),
         ]
-        
+
+        # Keep only the tags you want; everything else is dropped.
+        keep_vcf_tags = ",".join(
+            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
+            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+        ) 
         
         # Continue with the filtering pipeline
         pipeline_commands.extend([
@@ -296,6 +301,14 @@ class VcfFilterLong(BaseStage):
             self.shell_cmd(
                 ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
                 description="Make genotypes haploid (e.g., 1/1 -> 1)"
+            ),
+            self.shell_cmd(
+                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+                    description="Recompute TYPE from REF/ALT",
+            ),
+            self.shell_cmd(
+                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
+                    description="Remove unnecessary VCF annotations",
             ),
             self.shell_cmd(
                 ["bcftools", "sort"],

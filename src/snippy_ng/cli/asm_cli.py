@@ -1,11 +1,11 @@
 import click
-from snippy_ng.cli.utils.globals import CommandWithGlobals, snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@snippy_global_options
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
-@click.option("--assembly", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Assembly in FASTA format")
+@add_snippy_global_options()
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--assembly", "--asm", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Assembly in FASTA format")
 @click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 def asm(**config):
     """
@@ -33,4 +33,13 @@ def asm(**config):
     )
     
     # Run the pipeline
-    return run_snippy_pipeline(config, stages)
+    return run_snippy_pipeline(
+        stages,
+        skip_check=config['skip_check'],
+        check=config['check'],
+        outdir=config['outdir'],
+        quiet=config['quiet'],
+        continue_last_run=config['continue_last_run'],
+        keep_incomplete=config['keep_incomplete'],
+    )
+

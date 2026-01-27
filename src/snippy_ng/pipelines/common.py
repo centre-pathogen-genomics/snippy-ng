@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
-from snippy_ng.stages.setup import LoadReference, PrepareReference
+from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
 from snippy_ng.stages.filtering import VcfFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -13,39 +13,56 @@ from snippy_ng.seq_utils import guess_format
 from snippy_ng.cli.utils import error
 
 
-def load_or_prepare_reference(reference_path, reference_prefix="ref") -> PrepareReference | LoadReference:
+def load_or_prepare_reference(reference_path) -> PrepareReference | LoadReferenceFromMetadataFile:
     """
     Load an existing reference directory or prepare a new reference from a FASTA/GenBank file.
     
     Args:
-        reference_path: Path to reference file or directory
-        reference_prefix: Prefix for output reference files
+        reference_path: Path to reference file, directory, or metadata.json file.
         
     Returns:
-        An instance of LoadReference or PrepareReference stage.
+        An instance of LoadReferenceFromMetadataFile or PrepareReference stage.
         
     Raises:
         SystemExit: If reference format cannot be determined
     """
     if Path(reference_path).is_dir():
-        setup = LoadReference(
-            reference_dir=reference_path,
-            reference_prefix=reference_prefix,
+        # check for metadata.json in directory
+        metadata = Path(reference_path) / "metadata.json"
+        if not metadata.exists():
+            error(f"No metadata.json found in reference directory '{reference_path}'. Ensure you are providing a valid reference directory.")
+        setup = LoadReferenceFromMetadataFile(
+            metadata=metadata
+        )
+    elif Path(reference_path).suffix.lower() == ".json":
+        setup = LoadReferenceFromMetadataFile(
+            metadata=Path(reference_path)
         )
     else:
-        reference_format = guess_format(reference_path)
-        if not reference_format:
-            error(f"Could not determine format of reference file '{reference_path}'")
+        setup = prepare_reference(reference_path, Path("reference"))
+    
+    return setup
 
-        # Determine reference directory - use outdir/reference if outdir provided, otherwise just "reference"
-        reference_dir = Path("reference")
 
-        setup = PrepareReference(
-            input=reference_path,
-            ref_fmt=reference_format,
-            reference_prefix=reference_prefix,
-            reference_dir=reference_dir,
-        )
+def prepare_reference(reference_path, output_directory) -> PrepareReference:
+    """
+    Prepare a new reference from a FASTA/GenBank file.
+    
+    Args:
+        reference_path: Path to reference file.
+    Returns:
+        An instance of PrepareReference stage.
+    reference_format = guess_format(reference_path)
+    """
+    reference_format = guess_format(reference_path)
+    if not reference_format:
+        error(f"Could not determine format of reference file '{reference_path}'")
+
+    setup = PrepareReference(
+        input=reference_path,
+        ref_fmt=reference_format,
+        directory=output_directory,
+    )
     
     return setup
 

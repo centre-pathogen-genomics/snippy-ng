@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
@@ -19,7 +20,7 @@ def create_long_pipeline_stages(
     bam: Optional[Path] = None,
     prefix: str = "snps",
     downsample: Optional[float] = None,
-    fbopt: str = "",
+    freebayes_opts: str = "",
     clair3_model: Optional[Path] = None,
     clair3_fast_mode: bool = False,
     min_read_len: int = 1000,
@@ -32,16 +33,16 @@ def create_long_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
         reference_path=reference,
-        reference_prefix=prefix,
     )
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
+    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling
@@ -49,13 +50,10 @@ def create_long_pipeline_stages(
     
     if downsample and current_reads:
         from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
-        from snippy_ng.at_run_time import get_genome_length
         
         # We need the genome length at run time (once we know the reference)
-        genome_length = get_genome_length(setup.output.meta)
         downsample_stage = RasusaDownsampleReadsByCoverage(
             coverage=downsample,
-            genome_length=genome_length,
             reads=current_reads,
             **globals
         )
@@ -132,7 +130,7 @@ def create_long_pipeline_stages(
             bam=current_bam,
             reference=reference_file,
             reference_index=reference_index,
-            fbopt=fbopt,
+            fbopt=freebayes_opts,
             mincov=2,
             **globals
         )

@@ -5,6 +5,7 @@ Test module for Rasusa read downsampling stages
 import pytest
 from pydantic import ValidationError
 
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.downsample_reads import (
     RasusaDownsampleReads,
     RasusaDownsampleReadsByCoverage,
@@ -24,9 +25,9 @@ class TestRasusaDownsampleReads:
         read2.touch()
         
         stage = RasusaDownsampleReads(
+            metadata=ReferenceMetadata(total_length=197394),
             reads=[str(read1), str(read2)],
             prefix="downsampled",
-            genome_length=197394,
             coverage=50.0,
             tmpdir=tmp_path,
             cpus=4
@@ -36,7 +37,7 @@ class TestRasusaDownsampleReads:
         assert stage.prefix == "downsampled"
         assert stage.coverage == 50.0
         assert stage.num_reads is None
-        assert stage.genome_length == 197394
+        assert stage.metadata.total_length == 197394
         assert stage.output_format == "fastq"
         assert stage.compression_level == 6
     
@@ -54,22 +55,21 @@ class TestRasusaDownsampleReads:
         
         assert stage.num_reads == 1000000
         assert stage.coverage is None
-        assert stage.genome_length is None
     
     def test_init_empty_reads_list(self, tmp_path):
         """Test initialization with empty reads list should fail"""
         with pytest.raises(ValidationError) as excinfo:
             RasusaDownsampleReads(
+                metadata=ReferenceMetadata(total_length=197394),
                 reads=[],
                 prefix="downsampled",
-                genome_length=197394,
                 coverage=50.0,
                 tmpdir=tmp_path
             )
         assert "At least one read file must be provided" in str(excinfo.value)
     
-    def test_coverage_without_genome_length_fails(self, tmp_path):
-        """Test initialization with coverage but no genome length should fail"""
+    def test_coverage_without_metadata_fails(self, tmp_path):
+        """Test initialization with coverage but no metadata should fail"""
         read_file = tmp_path / "reads.fastq"
         read_file.touch()
         
@@ -80,7 +80,7 @@ class TestRasusaDownsampleReads:
                 coverage=50.0,
                 tmpdir=tmp_path
             )
-        assert "genome_length is required when using coverage-based downsampling" in str(excinfo.value)
+        assert "is required when using coverage-based downsampling" in str(excinfo.value)
     
     def test_both_coverage_and_num_reads_fails(self, tmp_path):
         """Test initialization with both coverage and num_reads should fail"""
@@ -91,7 +91,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                genome_length=197394,
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 num_reads=1000000,
                 tmpdir=tmp_path
@@ -120,7 +120,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                genome_length=197394,
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 output_format="invalid",
                 tmpdir=tmp_path
@@ -136,7 +136,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                genome_length=197394,
+                metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 compression_level=10,  # Invalid: > 9
                 tmpdir=tmp_path
@@ -153,7 +153,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="downsampled",
-            genome_length=197394,
+            metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             tmpdir=tmp_path
         )
@@ -189,7 +189,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="ds",
-            genome_length=197394,
+            metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             seed=42,
             tmpdir=tmp_path
@@ -217,7 +217,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="ds",
-            genome_length=197394,  # Still need genome_length for the class
+            metadata=ReferenceMetadata(total_length=197394),
             num_reads=1000000,
             output_format="fasta",
             tmpdir=tmp_path
@@ -241,7 +241,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="custom",
-            genome_length=150000,
+            metadata=ReferenceMetadata(total_length=150000),
             coverage=75.0,
             seed=123,
             compression_level=9,
@@ -258,45 +258,6 @@ class TestRasusaDownsampleReads:
         assert "--compress-level 9" in cmd
         assert "--verbose" in cmd
     
-    def test_at_run_time_genome_length(self, tmp_path):
-        """Test that at_run_time works correctly with genome_length"""
-        from snippy_ng.at_run_time import at_run_time
-        
-        # Create test files
-        read1 = tmp_path / "reads1.fastq.gz"
-        read2 = tmp_path / "reads2.fastq.gz"
-        read1.touch()
-        read2.touch()
-        
-        # Track function calls
-        call_count = 0
-        def get_genome_length():
-            nonlocal call_count
-            call_count += 1
-            return 197394
-        
-        # Create stage with at_run_time genome_length
-        stage = RasusaDownsampleReads(
-            reads=[str(read1), str(read2)],
-            prefix="test",
-            genome_length=at_run_time(get_genome_length),
-            coverage=50.0,
-            tmpdir=tmp_path
-        )
-        
-        # Function should not be called during initialization
-        assert call_count == 0
-        
-        # Function should be called when building command
-        command = str(stage.build_rasusa_command())
-        assert call_count == 1
-        assert "--genome-size 197394" in command
-        
-        # Function should not be called again (cached)
-        command2 = str(stage.build_rasusa_command())
-        assert call_count == 1
-        assert command == command2
-
 class TestRasusaDownsampleReadsByCoverage:
     """Test RasusaDownsampleReadsByCoverage stage"""
     
@@ -308,13 +269,13 @@ class TestRasusaDownsampleReadsByCoverage:
         stage = RasusaDownsampleReadsByCoverage(
             reads=[str(read_file)],
             prefix="cov_ds",
-            genome_length=150000,
+            metadata=ReferenceMetadata(total_length=150000),
             coverage=30.0,
             tmpdir=tmp_path
         )
         
         assert stage.coverage == 30.0
-        assert stage.genome_length == 150000
+        assert stage.metadata.total_length == 150000
         assert stage.num_reads is None
     
     def test_num_reads_disabled(self, tmp_path):
@@ -326,44 +287,13 @@ class TestRasusaDownsampleReadsByCoverage:
             RasusaDownsampleReadsByCoverage(
                 reads=[str(read_file)],
                 prefix="cov_ds",
-                genome_length=150000,
+                metadata=ReferenceMetadata(total_length=150000),
                 coverage=30.0,
                 num_reads=1000000,  # Should fail
                 tmpdir=tmp_path
             )
         assert "Cannot specify num_reads in coverage-based downsampling" in str(excinfo.value)
     
-    def test_at_run_time_coverage_variant(self, tmp_path):
-        """Test that at_run_time works with RasusaDownsampleReadsByCoverage"""
-        from snippy_ng.at_run_time import at_run_time
-        
-        read_file = tmp_path / "reads.fastq"
-        read_file.touch()
-        
-        # Track function calls
-        call_count = 0
-        def get_genome_length():
-            nonlocal call_count
-            call_count += 1
-            return 150000
-        
-        stage = RasusaDownsampleReadsByCoverage(
-            reads=[str(read_file)],
-            prefix="cov_ds",
-            genome_length=at_run_time(get_genome_length),
-            coverage=30.0,
-            tmpdir=tmp_path
-        )
-        
-        # Function should not be called during initialization
-        assert call_count == 0
-        
-        # Function should be called when building command
-        command = str(stage.build_rasusa_command())
-        assert call_count == 1
-        assert "--genome-size 150000" in command
-        assert "--coverage 30.0" in command
-
 class TestRasusaDownsampleReadsByCount:
     """Test RasusaDownsampleReadsByCount stage"""
     
@@ -381,7 +311,7 @@ class TestRasusaDownsampleReadsByCount:
         
         assert stage.num_reads == 500000
         assert stage.coverage is None
-        assert stage.genome_length is None
+        assert stage.metadata is None
     
     def test_coverage_disabled(self, tmp_path):
         """Test that coverage is disabled in count variant"""

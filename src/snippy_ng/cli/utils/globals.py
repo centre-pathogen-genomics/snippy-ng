@@ -24,11 +24,18 @@ def create_outdir_callback(ctx, param, value):
         value.mkdir(parents=True, exist_ok=True)
     return value
 
+def not_implemented_callback(ctx, param, value):
+    if ctx.resilient_parsing:
+        return
+    if value:
+        raise NotImplementedError(f"The option '{param.name}' is not yet implemented.")
+    return value
+
 GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path, resolve_path=True),
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,
@@ -48,6 +55,14 @@ GLOBAL_DEFS = [
             "type": click.STRING,
             "default": "snps",
             "help": "Prefix for output files",
+        },
+    },
+    {
+        "param_decls": ("--name", "-n"),
+        "attrs": {
+            "type": click.STRING,
+            "help": "Name of the sample  [default: derived from reference]",
+            "callback": not_implemented_callback
         },
     },
     {
@@ -72,6 +87,7 @@ GLOBAL_DEFS = [
             "is_flag": True,
             "default": False,
             "help": "Overwrite existing output directory",
+            "is_eager": True,
         },
     },
     {
@@ -123,20 +139,48 @@ GLOBAL_DEFS = [
             "help": "Keep outputs from incomplete stages if an error occurs",
         },
     },
+    {
+        "param_decls": ("--no-cleanup",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Do not delete temporary files after run",
+            "callback": not_implemented_callback
+        },
+    }
 ]
 
 
-def snippy_global_options(f):
+def add_snippy_global_options(exclude: list = None):
     """
     Decorator that prepends each GLOBAL_DEFS entry as
     @click.option(..., cls=GlobalOption, **attrs).
     """
-    for entry in reversed(GLOBAL_DEFS):
-        param_decls = entry["param_decls"]
-        attrs = entry["attrs"]
-        option_decorator = click.option(*param_decls, cls=GlobalOption, **attrs)
-        f = option_decorator(f)
-    return f
+    if exclude is None:
+        exclude = []
+    def wraps(f):
+        # Click stores params after decoration, so inspect __click_params__ first
+        existing = {
+            param.name
+            for param in getattr(f, "__click_params__", [])
+            if isinstance(param, click.Option)
+        }
+
+        for entry in reversed(GLOBAL_DEFS):
+            param_decls = entry["param_decls"]
+            attrs = entry["attrs"]
+
+            # Click derives the internal name like this:
+            option = click.Option(param_decls)
+            option_name = option.name
+
+            if option_name in existing or option_name in exclude:
+                continue
+
+            f = click.option(*param_decls, cls=GlobalOption, **attrs)(f)
+
+        return f
+    return wraps
 
 
 class CommandWithGlobals(click.Command):
@@ -144,6 +188,9 @@ class CommandWithGlobals(click.Command):
         global_opts = []
         other_opts = []
         for param in self.params:
+            # Only Options belong in format_options()
+            if not isinstance(param, click.Option):
+                continue
             if getattr(param, 'is_global', False):
                 global_opts.append(param)
             else:
