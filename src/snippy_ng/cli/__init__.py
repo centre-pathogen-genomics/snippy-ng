@@ -56,7 +56,7 @@ def snippy_ng():
 snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
 snippy_ng.add_command(long)
+snippy_ng.add_command(multi)
 snippy_ng.add_command(ref)
 snippy_ng.add_command(aln)
 snippy_ng.add_command(tree)
-snippy_ng.add_command(multi)
