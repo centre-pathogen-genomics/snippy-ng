@@ -1,10 +1,10 @@
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import rasusa
-from pydantic import Field, field_validator, model_validator, BaseModel
+from pydantic import Field, field_validator, model_validator
 
 
-class RasusaDownsampleReadsOutput(BaseModel):
+class RasusaDownsampleReadsOutput(BaseOutput):
     """Output model for RasusaDownsampleReads stage.
     
     Attributes:

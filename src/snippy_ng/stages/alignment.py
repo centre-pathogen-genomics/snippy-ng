@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import List
-from snippy_ng.stages.base import BaseStage, ShellCommandPipe
+from snippy_ng.stages.base import BaseStage, ShellCommandPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, samclip, minimap2
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator
 
 
-class AlignerOutput(BaseModel):
+class AlignerOutput(BaseOutput):
     bam: Path
 
 class Aligner(BaseStage):
@@ -190,7 +190,7 @@ class MinimapAligner(Aligner):
 
 
 
-class AssemblyAlignerOutput(BaseModel):
+class AssemblyAlignerOutput(BaseOutput):
     paf: Path
 
 class AssemblyAligner(BaseStage):

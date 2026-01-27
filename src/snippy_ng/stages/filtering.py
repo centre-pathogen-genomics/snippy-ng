@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import samtools, bcftools
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator
 
 
-class BamFilterOutput(BaseModel):
+class BamFilterOutput(BaseOutput):
     bam: Path
     bam_index: Path
 
@@ -125,7 +125,7 @@ class BamFilterProperPairs(BamFilter):
     exclude_flags: int = Field(1796, description="Exclude unmapped, secondary, qcfail, duplicate")
 
 
-class VcfFilterOutput(BaseModel):
+class VcfFilterOutput(BaseOutput):
     vcf: Path
 
 

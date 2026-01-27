@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage, ShellCommand
+from snippy_ng.stages.base import BaseStage, BaseOutput, ShellCommand
 from snippy_ng.dependencies import fastp, seqkit
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator
 
 
-class FastpCleanReadsOutput(BaseModel):
+class FastpCleanReadsOutput(BaseOutput):
     cleaned_r1: str
     cleaned_r2: Optional[str] = None
     html_report: str
@@ -145,7 +145,7 @@ class FastpCleanReadsConservative(FastpCleanReads):
     dedup: bool = Field(False, description="Disable deduplication")
 
 
-class SeqkitCleanReadsOutput(BaseModel):
+class SeqkitCleanReadsOutput(BaseOutput):
     cleaned_reads: str
 
 class SeqkitCleanLongReads(BaseStage):

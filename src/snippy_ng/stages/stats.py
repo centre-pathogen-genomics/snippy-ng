@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import List
-from snippy_ng.stages.base import BaseStage, ShellCommand
+from snippy_ng.stages.base import BaseStage, ShellCommand, BaseOutput
 from snippy_ng.dependencies import seqkit
-from pydantic import Field, field_validator, BaseModel
+from pydantic import Field, field_validator
 
 
-class SeqKitReadStatsOutput(BaseModel):
+class SeqKitReadStatsOutput(BaseOutput):
     """Output model for SeqKitReadStats stages.
     
     Attributes:
