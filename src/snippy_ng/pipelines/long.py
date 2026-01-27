@@ -20,7 +20,7 @@ def create_long_pipeline_stages(
     bam: Optional[Path] = None,
     prefix: str = "snps",
     downsample: Optional[float] = None,
-    fbopt: str = "",
+    freebayes_opts: str = "",
     clair3_model: Optional[Path] = None,
     clair3_fast_mode: bool = False,
     min_read_len: int = 1000,
@@ -130,7 +130,7 @@ def create_long_pipeline_stages(
             bam=current_bam,
             reference=reference_file,
             reference_index=reference_index,
-            fbopt=fbopt,
+            fbopt=freebayes_opts,
             mincov=2,
             **globals
         )
