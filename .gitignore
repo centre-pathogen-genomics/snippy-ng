@@ -8,6 +8,7 @@ asm_out
 .pixi
 *.egg-info
 output
+multi
 env
 activate.sh
 environment.sh
