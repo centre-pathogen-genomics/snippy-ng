@@ -12,7 +12,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/bcftools-1.21-h3a4d415_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/bedtools-2.31.1-h13024bc_3.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/biopython-1.86-py310h7c4b9e2_0.conda
-      - conda: https://conda.anaconda.org/bioconda/linux-64/bwa-0.7.19-h577a1d6_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-h4bc722e_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.6-hb03c661_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ca-certificates-2025.1.31-hbcca054_0.conda
@@ -93,7 +92,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bcftools-1.21-h9618498_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bedtools-2.31.1-h63bafd0_3.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/biopython-1.85-py312hb2c0f52_1.conda
-      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/bwa-0.7.19-h0cbc5ad_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/bzip2-1.0.8-h68df207_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/c-ares-1.34.4-h86ecc28_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ca-certificates-2025.1.31-hcefe29a_0.conda
@@ -171,7 +169,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-64/bcftools-1.21-h0a67c2f_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/bedtools-2.31.1-hbb299f0_3.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/biopython-1.85-py312h01d7ebd_1.conda
-      - conda: https://conda.anaconda.org/bioconda/osx-64/bwa-0.7.19-h7f84b70_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/bzip2-1.0.8-hfdf4475_7.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/c-ares-1.34.4-hf13058a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/ca-certificates-2025.1.31-h8857fd0_0.conda
@@ -244,7 +241,6 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/bcftools-1.21-h48e1df0_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/bedtools-2.31.1-he85ad4a_3.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/biopython-1.85-py313hcdf3177_2.conda
-      - conda: https://conda.anaconda.org/bioconda/osx-arm64/bwa-0.7.19-hba9b596_1.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/bzip2-1.0.8-hd037594_8.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.5-h5505292_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2025.8.3-hbd8a1cb_0.conda
@@ -514,49 +510,6 @@ packages:
   - pkg:pypi/biopython?source=hash-mapping
   size: 3454106
   timestamp: 1756542104176
-- conda: https://conda.anaconda.org/bioconda/linux-64/bwa-0.7.19-h577a1d6_0.tar.bz2
-  sha256: 14a3d76d60a24a160a0a698de5007de49dd35fed97b88fdab17cf5b908304f45
-  md5: 394bc2dfbffe7ca5405a503f9e5ae812
-  depends:
-  - libgcc >=13
-  - libzlib >=1.3.1,<2.0a0
-  - perl
-  license: GPL3
-  purls: []
-  size: 197933
-  timestamp: 1742671656111
-- conda: https://conda.anaconda.org/bioconda/linux-aarch64/bwa-0.7.19-h0cbc5ad_0.tar.bz2
-  sha256: a732c537858f7fdec1530d15ad84c159222d1754a62b38a3f5d6dc1c787610ee
-  md5: e5b884c5f9288b3b58c2968538fe270a
-  depends:
-  - libgcc >=13
-  - libzlib >=1.3.1,<2.0a0
-  - perl
-  license: GPL3
-  purls: []
-  size: 224465
-  timestamp: 1742671623196
-- conda: https://conda.anaconda.org/bioconda/osx-64/bwa-0.7.19-h7f84b70_0.tar.bz2
-  sha256: cbb3f3f4d9c0d4dd202646a74662d977e2ad4c7b607bc8c0d9f683e9fc5dad85
-  md5: 18fd87948e016b7bda2b8b6ba7c1e7d4
-  depends:
-  - libzlib >=1.3.1,<2.0a0
-  - perl
-  license: GPL3
-  purls: []
-  size: 223800
-  timestamp: 1742672277584
-- conda: https://conda.anaconda.org/bioconda/osx-arm64/bwa-0.7.19-hba9b596_1.tar.bz2
-  sha256: ea595b5fd2403c754e54795ba240487db2f434e4465f2b25fd46185f0a9f68cc
-  md5: c2848ab95948fc490363b9d540caf4dc
-  depends:
-  - libzlib >=1.3.1,<2.0a0
-  - perl
-  license: GPL-3.0-or-later
-  license_family: GPL3
-  purls: []
-  size: 222696
-  timestamp: 1747108594670
 - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-h4bc722e_7.conda
   sha256: 5ced96500d945fb286c9c838e54fa759aa04a7129c59800f0846b4335cee770d
   md5: 62ee74e96c5ebb0af99386de58cf9553
