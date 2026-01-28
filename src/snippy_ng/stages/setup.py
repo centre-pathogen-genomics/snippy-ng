@@ -385,9 +385,9 @@ class LoadReferenceFromMetadataFile(BaseStage):
 
     @property
     def output(self) -> ReferenceOutputImmutable:
-        metadata = ReferenceMetadata(self.metadata)
+        ref_metadata = ReferenceMetadata(self.metadata)
         # assume reference files are in the same directory as metadata
-        reference_prefix = self.metadata.parent / metadata.prefix
+        reference_prefix = self.metadata.parent / ref_metadata.prefix
         return ReferenceOutputImmutable(
             reference=f"{reference_prefix}.fa",
             reference_index=f"{reference_prefix}.fa.fai",
