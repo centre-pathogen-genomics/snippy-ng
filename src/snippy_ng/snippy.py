@@ -115,7 +115,10 @@ class Snippy:
                 raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
         self.end_time = time.perf_counter()
 
-    def cleanup(self):
+    def cleanup(self, directory: Path = None):
+        # reset working directory
+        if directory:
+            os.chdir(directory)
         # Clean up unnecessary files
         pass
     
