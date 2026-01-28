@@ -43,6 +43,7 @@ def run_snippy_pipeline(
         return 0
 
     # Set working directory to output folder
+    current_dir = Path.cwd()
     snippy.set_working_directory(outdir)
     try:
         snippy.run(
@@ -57,7 +58,7 @@ def run_snippy_pipeline(
         snippy.error(e)
         return 1
     
-    snippy.cleanup()
+    snippy.cleanup(current_dir)
     snippy.goodbye()
     
     return 0
