@@ -13,13 +13,13 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     required=True,
     type=click.Path(exists=True, resolve_path=True, readable=True),
 )
-@click.option("--cpus-per-sample", type=click.INT, default=1, show_default=True)
 @click.option(
     "--reference",
     "--ref",
     required=True,
     type=click.Path(exists=True, resolve_path=True, readable=True),
 )
+@click.option("--cpus-per-sample", type=click.INT, show_default=True, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
 def multi(**config):
     """
@@ -30,7 +30,7 @@ def multi(**config):
         snippy-ng multi --config samples.yaml --ref reference.fasta
     """
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
-    from snippy_ng.pipelines.common import prepare_reference
+    from snippy_ng.pipelines.common import load_or_prepare_reference
     import yaml
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -43,17 +43,15 @@ def multi(**config):
             raise click.UsageError(f"Error parsing configuration file: {e}")
         
     # create reusable reference
-    reference_outdir = config["outdir"] / "reference"
+    ref_stage = load_or_prepare_reference(
+        reference_path=config["reference"],
+        output_directory=Path(config["outdir"]) / 'reference',
+    )
     code = run_snippy_pipeline(
-        stages=[
-            prepare_reference(
-                reference_path=config["reference"],
-                output_directory=reference_outdir
-            )
-        ],
+        stages=[ref_stage],
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=Path("."),
+        outdir=config["outdir"],
         quiet=config["quiet"],
         continue_last_run=config["continue_last_run"],
         keep_incomplete=config["keep_incomplete"],
@@ -62,7 +60,7 @@ def multi(**config):
         raise click.ClickException("Reference preparation failed, aborting multi-sample run.")
 
     total_cpus = int(config["cpus"])
-    cpus_per_sample = int(config["cpus_per_sample"])
+    cpus_per_sample = min(int(config["cpus_per_sample"]), total_cpus) if config["cpus_per_sample"] else total_cpus
     max_parallel = max(1, total_cpus // cpus_per_sample)
 
 
@@ -70,7 +68,7 @@ def multi(**config):
     global_config = dict(config)
     global_config["cpus_per_sample"] = cpus_per_sample
     global_config['outdir'] = str(Path(config.get('outdir')).resolve())
-    global_config['reference'] = str(reference_outdir.resolve())
+    global_config['reference'] = ref_stage.output.reference
 
     jobs = [
         (sample_name, sample_cfg, global_config)
