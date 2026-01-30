@@ -25,7 +25,7 @@ class TestRasusaDownsampleReads:
         read2.touch()
         
         stage = RasusaDownsampleReads(
-            metadata=ReferenceMetadata(total_length=197394),
+            ref_metadata=ReferenceMetadata(total_length=197394),
             reads=[str(read1), str(read2)],
             prefix="downsampled",
             coverage=50.0,
@@ -37,7 +37,7 @@ class TestRasusaDownsampleReads:
         assert stage.prefix == "downsampled"
         assert stage.coverage == 50.0
         assert stage.num_reads is None
-        assert stage.metadata.total_length == 197394
+        assert stage.ref_metadata.total_length == 197394
         assert stage.output_format == "fastq"
         assert stage.compression_level == 6
     
@@ -91,7 +91,7 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                metadata=ReferenceMetadata(total_length=197394),
+                ref_metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 num_reads=1000000,
                 tmpdir=tmp_path
@@ -153,7 +153,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="downsampled",
-            metadata=ReferenceMetadata(total_length=197394),
+            ref_metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             tmpdir=tmp_path
         )
@@ -189,7 +189,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read1), str(read2)],
             prefix="ds",
-            metadata=ReferenceMetadata(total_length=197394),
+            ref_metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             seed=42,
             tmpdir=tmp_path
@@ -217,7 +217,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="ds",
-            metadata=ReferenceMetadata(total_length=197394),
+            ref_metadata=ReferenceMetadata(total_length=197394),
             num_reads=1000000,
             output_format="fasta",
             tmpdir=tmp_path
@@ -241,7 +241,7 @@ class TestRasusaDownsampleReads:
         stage = RasusaDownsampleReads(
             reads=[str(read_file)],
             prefix="custom",
-            metadata=ReferenceMetadata(total_length=150000),
+            ref_metadata=ReferenceMetadata(total_length=150000),
             coverage=75.0,
             seed=123,
             compression_level=9,
@@ -269,13 +269,13 @@ class TestRasusaDownsampleReadsByCoverage:
         stage = RasusaDownsampleReadsByCoverage(
             reads=[str(read_file)],
             prefix="cov_ds",
-            metadata=ReferenceMetadata(total_length=150000),
+            ref_metadata=ReferenceMetadata(total_length=150000),
             coverage=30.0,
             tmpdir=tmp_path
         )
         
         assert stage.coverage == 30.0
-        assert stage.metadata.total_length == 150000
+        assert stage.ref_metadata.total_length == 150000
         assert stage.num_reads is None
     
     def test_num_reads_disabled(self, tmp_path):
@@ -311,7 +311,7 @@ class TestRasusaDownsampleReadsByCount:
         
         assert stage.num_reads == 500000
         assert stage.coverage is None
-        assert stage.metadata is None
+        assert stage.ref_metadata is None
     
     def test_coverage_disabled(self, tmp_path):
         """Test that coverage is disabled in count variant"""
