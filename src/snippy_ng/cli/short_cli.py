@@ -66,7 +66,7 @@ def short(**config):
         check=config['check'],
         outdir=config['outdir'],
         quiet=config['quiet'],
-        continue_last_run=config['continue_last_run'],
+        create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],
     )
     

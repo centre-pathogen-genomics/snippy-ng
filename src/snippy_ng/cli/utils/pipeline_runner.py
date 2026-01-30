@@ -12,7 +12,7 @@ def run_snippy_pipeline(
     check: bool = False,
     outdir: Path = Path("."),
     quiet: bool = False,
-    continue_last_run: bool = False,
+    create_missing: bool = False,
     keep_incomplete: bool = False
 ) -> int:
     """
@@ -24,7 +24,7 @@ def run_snippy_pipeline(
         check: If True, only check dependencies and exit
         outdir: Output directory for pipeline results
         quiet: If True, suppress output
-        continue_last_run: If True, continue from last run
+        create_missing: If True, continue from last run by creating missing outputs
         keep_incomplete: If True, keep incomplete results
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -48,7 +48,7 @@ def run_snippy_pipeline(
     try:
         snippy.run(
             quiet=quiet,
-            continue_last_run=continue_last_run,
+            create_missing=create_missing,
             keep_incomplete=keep_incomplete
         )
     except MissingOutputError as e:

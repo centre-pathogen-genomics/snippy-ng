@@ -74,7 +74,7 @@ class Snippy:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def run(self, quiet=False, continue_last_run=False, keep_incomplete=False):
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
@@ -83,7 +83,7 @@ class Snippy:
             self.hr(f"{stage.name}")
             self.debug(stage)
             try:
-                if continue_last_run and stage.check_outputs():
+                if create_missing and stage.check_outputs():
                     self.log(f"{stage.name} already completed, skipping...")
                     continue
                 start = time.perf_counter()

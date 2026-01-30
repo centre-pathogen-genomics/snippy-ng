@@ -53,7 +53,7 @@ def multi(**config):
         check=config["check"],
         outdir=config["outdir"],
         quiet=config["quiet"],
-        continue_last_run=config["continue_last_run"],
+        create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )
     if code != 0:
@@ -113,7 +113,7 @@ def multi(**config):
         check=config['check'],
         outdir=outdir,
         quiet=config['quiet'],
-        continue_last_run=config['continue_last_run'],
+        create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],
     )
 
@@ -187,7 +187,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         check=config["check"],
         outdir=outdir,
         quiet=config["quiet"],
-        continue_last_run=config["continue_last_run"],
+        create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )
 

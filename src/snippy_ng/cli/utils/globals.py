@@ -124,11 +124,11 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--continue-last-run",),
+        "param_decls": ("--create-missing",),
         "attrs": {
             "is_flag": True,
             "default": False,
-            "help": "Continue from the last run, skipping completed stages",
+            "help": "Continue from last run by creating missing outputs",
         },
     },
     {
