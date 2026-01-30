@@ -20,6 +20,7 @@ def create_long_pipeline_stages(
     bam: Optional[Path] = None,
     prefix: str = "snps",
     downsample: Optional[float] = None,
+    minimap_preset: str = "map-ont",
     freebayes_opts: str = "",
     clair3_model: Optional[Path] = None,
     clair3_fast_mode: bool = False,
@@ -94,7 +95,7 @@ def create_long_pipeline_stages(
         )
     else:
         # Minimap2
-        minimap_opts = "-L --cs --MD -x map-ont"
+        minimap_opts = f"-L --cs --MD -x {minimap_preset}"
         aligner_stage = MinimapAligner(
             reads=current_reads,
             reference=reference_file,

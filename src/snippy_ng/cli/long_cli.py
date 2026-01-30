@@ -7,6 +7,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
 @click.option("--reads", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
+@click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--clair3-model", default=None, type=click.Path(resolve_path=True), help="Path to Clair3 model file. If not provided, freebayes will be used for variant calling.")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
@@ -40,6 +41,7 @@ def long(**config):
         reads=config["reads"],
         prefix=config["prefix"],
         bam=config["bam"],
+        minimap_preset=config["minimap_preset"],
         clair3_model=config.get("clair3_model"),
         clair3_fast_mode=config["clair3_fast_mode"],
         downsample=config["downsample"],
