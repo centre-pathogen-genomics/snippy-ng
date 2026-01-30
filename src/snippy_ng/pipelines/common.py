@@ -131,6 +131,7 @@ def filter_annotate_and_generate_consensus(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=globals.get('ref_metadata'),
         vcf_gz=gzip.output.compressed,
         reference=reference,
         reference_index=reference_index,

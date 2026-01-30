@@ -1,4 +1,5 @@
 from typing import List, Optional
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import rasusa
 from pydantic import Field, field_validator, model_validator
@@ -51,7 +52,7 @@ class RasusaDownsampleReads(BaseStage):
         >>> print(stage.output.downsampled_r2)  
         'downsampled.downsampled.R2.fastq.gz'
     """
-    
+    ref_metadata: Optional[ReferenceMetadata] = Field(None, description="Metadata for the run")
     reads: List[str] = Field(..., description="List of input read files (FASTQ format)")
     coverage: Optional[float] = Field(None, description="Target coverage depth for downsampling")
     num_reads: Optional[int] = Field(None, description="Target number of reads for downsampling")

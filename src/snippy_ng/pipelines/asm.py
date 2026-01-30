@@ -22,7 +22,7 @@ def create_asm_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'ref_metadata': None}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -31,7 +31,7 @@ def create_asm_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['ref_metadata'] = ReferenceMetadata(setup.output.metadata)
+    ref_metadata = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Aligner 
@@ -83,6 +83,7 @@ def create_asm_pipeline_stages(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=ref_metadata,
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
         **globals

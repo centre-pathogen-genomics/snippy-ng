@@ -51,7 +51,6 @@ class ShellCommandPipe(BaseModel):
 
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
-    ref_metadata: Optional[ReferenceMetadata] = Field(None, description="Metadata for the run reference")
     cpus: int = Field(1, description="Number of CPU cores to use")
     ram: Optional[int] = Field(4, description="RAM in GB to use")
     tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
