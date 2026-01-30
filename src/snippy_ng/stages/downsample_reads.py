@@ -97,7 +97,7 @@ class RasusaDownsampleReads(BaseStage):
         
         # Ensure metadata is provided if coverage-based downsampling is used
         if self.coverage is not None:
-            if self.metadata is None:
+            if self.ref_metadata is None:
                 raise ValueError("Metadata is required when using coverage-based downsampling to obtain genome length")
         
         return self
@@ -177,7 +177,7 @@ class RasusaDownsampleReads(BaseStage):
         # Coverage or number of reads
         if self.coverage is not None:
             cmd_parts.extend(["--coverage", str(self.coverage)])
-            cmd_parts.extend(["--genome-size", str(self.metadata.total_length)])
+            cmd_parts.extend(["--genome-size", str(self.ref_metadata.total_length)])
         elif self.num_reads is not None:
             cmd_parts.extend(["--num", str(self.num_reads)])
         

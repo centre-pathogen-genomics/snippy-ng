@@ -68,7 +68,7 @@ def multi(**config):
     global_config = dict(config)
     global_config["cpus_per_sample"] = cpus_per_sample
     global_config['outdir'] = str(Path(config.get('outdir')).resolve())
-    global_config['reference'] = ref_stage.output.reference
+    global_config['reference'] = ref_stage.output.reference.parent
 
     jobs = [
         (sample_name, sample_cfg, global_config)

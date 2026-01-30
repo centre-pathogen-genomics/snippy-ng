@@ -33,7 +33,7 @@ def create_long_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'ref_metadata': None}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -42,7 +42,7 @@ def create_long_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
+    globals['ref_metadata'] = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling
