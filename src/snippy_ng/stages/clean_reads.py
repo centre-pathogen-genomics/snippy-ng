@@ -173,7 +173,7 @@ class SeqkitCleanLongReads(BaseStage):
     def commands(self) -> List[ShellCommand]:
         """Constructs the seqkit command for long read cleaning."""
         cmd_parts = [
-            "seqkit", "seq",
+            "seqkit", "seq", "--remove-gaps",
             "-m", str(self.min_length),
             "-Q", str(self.min_qscore),
             "-o", str(self.output.cleaned_reads),
