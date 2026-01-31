@@ -51,22 +51,21 @@ class Snippy:
         checked = set()
         self.hr("CheckDependencies")
         for stage in self.stages:
-            self.log(f"Checking dependencies for {stage.name}...")
+            self.debug(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
                 if dependency.name in checked:
-                    self.log(f"Skipping {dependency.name}, already checked.")
+                    self.debug(f"Skipping {dependency.name}, already checked.")
                     continue
                 checked.add(dependency.name)
                 try:
                     version = dependency.check()
-                    self.log(f"Found {dependency.name} v{version}")
+                    self.log(f"{dependency.name} v{version}")
                 except DependencyError as e:
                     # Capture general dependency error
                     self.error(f"{e}")
                     invalid.append(dependency)
         if invalid:
             raise DependencyError(f"{', '.join([d.format_version_requirements() for d in invalid])}")
-        self.log("Dependencies look good!")
         
     def set_working_directory(self, directory):
         # Set the working directory
@@ -133,13 +132,12 @@ class Snippy:
 
     def welcome(self):
         self.hr()
-        self.hr("Running Snippy-NG", style=" ", color="green")
+        self.hr(f"Running Snippy-NG v{__version__}", style=" ", color="green")
         self.hr()
-        self.log(f"Version: {__version__}")
 
         self.log("Stages:")
         for i, stage in enumerate(self.stages, 1):
-            self.log(f" {i:3}. {stage.name}")
+            self.log(f"{i:3}. {stage.name}")
 
 
     def goodbye(self):
