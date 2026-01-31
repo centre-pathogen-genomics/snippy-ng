@@ -152,12 +152,12 @@ class SeqkitCleanLongReads(BaseStage):
     """
     Clean long reads using seqkit.
     
-    This stage removes reads with low average quality scores
-    and trims reads based on quality.
+    This stage removes reads with low average quality scores or short lengths
+    from long read FASTQ files using the seqkit toolkit.
     """
     
     reads: str = Field(..., description="Long read file (FASTQ format)")
-    min_length: int = Field(1000, description="Minimum read length after trimming")
+    min_length: int = Field(1000, description="Minimum read length")
     min_qscore: int = Field(10, description="Minimum average quality score for reads")
 
     _dependencies = [seqkit]
