@@ -10,7 +10,6 @@ from pathlib import Path
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError, StageExecutionError
-from snippy_ng.metadata import ReferenceMetadata
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
