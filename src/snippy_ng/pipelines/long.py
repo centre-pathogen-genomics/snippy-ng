@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
+from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
@@ -220,6 +221,14 @@ def create_long_pipeline_stages(
         **globals
     )
     stages.append(copy_final)
+
+    # Print VCF histogram to terminal
+    vcf_histogram = PrintVcfHistogram(
+        vcf_path=variants_file,
+        height=4,
+        **globals
+    )
+    stages.append(vcf_histogram)
 
     return stages
     

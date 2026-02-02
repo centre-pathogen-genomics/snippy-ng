@@ -10,6 +10,7 @@ from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner
 from snippy_ng.stages.calling import PAFCaller
+from snippy_ng.stages.reporting import PrintVcfHistogram
 
 
 def create_asm_pipeline_stages(
@@ -129,5 +130,13 @@ def create_asm_pipeline_stages(
         **globals
     )
     stages.append(copy_final)
+
+    # Print VCF histogram to terminal
+    vcf_histogram = PrintVcfHistogram(
+        vcf_path=variants_file,
+        height=4,
+        **globals
+    )
+    stages.append(vcf_histogram)
     
     return stages
