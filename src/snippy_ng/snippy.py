@@ -149,7 +149,7 @@ class Snippy:
             f"The Snippy manual is at {GITHUB_URL}/blob/master/README.md",
             "Questionable SNP? Try the --report option to see the alignments.",
             "Did you know? Snippy is a combination of SNP, Skippy, and snappy.",
-            "Set phasers to align… your SNPs.",
+            "Set phasers to align… your reads.",
             "To boldly SNP where no one has SNPped before.",
             "Resistance to accurate SNP calling is futile.",
             "Wishing you a genome that's logically consistent…",
@@ -168,10 +168,6 @@ class Snippy:
             "Snippy: The only logical choice for variant detection.",
             "SNPs detected, Captain! Ready for the next mission.",
         ]
-        self.hr()
-        self.echo('')
-        self.hr("Snippy-NG completed!", style=" ", color="green")
-        self.echo('')
         self.hr()
         total_run_time = self.end_time - self.start_time
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
