@@ -7,6 +7,10 @@ class BugCatchingGroup(click.Group):
     plus a pre-filled bug report template.
     """
 
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        # Return commands in the order they were registered
+        return list(self.commands)
+
     def main(self, *args, **kwargs):
         try:
             # Pass standalone_mode=False so that Click will not swallow exceptions,

@@ -51,22 +51,21 @@ class Snippy:
         checked = set()
         self.hr("CheckDependencies")
         for stage in self.stages:
-            self.log(f"Checking dependencies for {stage.name}...")
+            self.debug(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
                 if dependency.name in checked:
-                    self.log(f"Skipping {dependency.name}, already checked.")
+                    self.debug(f"Skipping {dependency.name}, already checked.")
                     continue
                 checked.add(dependency.name)
                 try:
                     version = dependency.check()
-                    self.log(f"Found {dependency.name} v{version}")
+                    self.log(f"{dependency.name} v{version}")
                 except DependencyError as e:
                     # Capture general dependency error
                     self.error(f"{e}")
                     invalid.append(dependency)
         if invalid:
             raise DependencyError(f"{', '.join([d.format_version_requirements() for d in invalid])}")
-        self.log("Dependencies look good!")
         
     def set_working_directory(self, directory):
         # Set the working directory
@@ -74,7 +73,7 @@ class Snippy:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def run(self, quiet=False, continue_last_run=False, keep_incomplete=False):
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
@@ -83,7 +82,7 @@ class Snippy:
             self.hr(f"{stage.name}")
             self.debug(stage)
             try:
-                if continue_last_run and stage.check_outputs():
+                if create_missing and stage.check_outputs():
                     self.log(f"{stage.name} already completed, skipping...")
                     continue
                 start = time.perf_counter()
@@ -115,7 +114,10 @@ class Snippy:
                 raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
         self.end_time = time.perf_counter()
 
-    def cleanup(self):
+    def cleanup(self, directory: Path = None):
+        # reset working directory
+        if directory:
+            os.chdir(directory)
         # Clean up unnecessary files
         pass
     
@@ -130,13 +132,12 @@ class Snippy:
 
     def welcome(self):
         self.hr()
-        self.hr("Running Snippy-NG", style=" ", color="green")
+        self.hr(f"Running Snippy-NG v{__version__}", style=" ", color="green")
         self.hr()
-        self.log(f"Version: {__version__}")
 
         self.log("Stages:")
         for i, stage in enumerate(self.stages, 1):
-            self.log(f" {i:3}. {stage.name}")
+            self.log(f"{i:3}. {stage.name}")
 
 
     def goodbye(self):
@@ -148,7 +149,7 @@ class Snippy:
             f"The Snippy manual is at {GITHUB_URL}/blob/master/README.md",
             "Questionable SNP? Try the --report option to see the alignments.",
             "Did you know? Snippy is a combination of SNP, Skippy, and snappy.",
-            "Set phasers to align… your SNPs.",
+            "Set phasers to align… your reads.",
             "To boldly SNP where no one has SNPped before.",
             "Resistance to accurate SNP calling is futile.",
             "Wishing you a genome that's logically consistent…",
@@ -168,10 +169,6 @@ class Snippy:
             "SNPs detected, Captain! Ready for the next mission.",
         ]
         self.hr()
-        self.echo('')
-        self.hr("Snippy-NG completed!", style=" ", color="green")
-        self.echo('')
-        self.hr()
         total_run_time = self.end_time - self.start_time
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
@@ -180,4 +177,4 @@ class Snippy:
         self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
         self.hr()
         # Print a random goodbye message
-        self.hr(f"{random.choice(messages)}", style=" ", color=None)
+        self.hr(f"{random.choice(messages)}", style=" ", color='green')

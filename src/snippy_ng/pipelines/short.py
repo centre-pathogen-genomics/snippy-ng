@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional, List
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.clean_reads import FastpCleanReads
+from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilter
@@ -32,7 +33,7 @@ def create_short_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -41,7 +42,7 @@ def create_short_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
+    ref_metadata = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling
@@ -52,6 +53,7 @@ def create_short_pipeline_stages(
         
         # We need the genome length at run time (once we know the reference)
         downsample_stage = RasusaDownsampleReadsByCoverage(
+            ref_metadata=ref_metadata,
             coverage=downsample,
             reads=current_reads,
             **globals
@@ -158,6 +160,7 @@ def create_short_pipeline_stages(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=ref_metadata,
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
         **globals
@@ -204,6 +207,14 @@ def create_short_pipeline_stages(
         **globals
     )
     stages.append(copy_final)
+
+    # Print VCF histogram to terminal
+    vcf_histogram = PrintVcfHistogram(
+        vcf_path=variants_file,
+        height=4,
+        **globals
+    )
+    stages.append(vcf_histogram)
 
     return stages
     

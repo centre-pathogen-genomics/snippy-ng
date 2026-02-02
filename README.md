@@ -62,6 +62,14 @@ snippy-ng asm --ref tests/data/wildtype.fasta --asm tests/data/wildtype.contigs.
 ```
 
 ```bash
+snippy-ng short --ref tests/data/wildtype.fasta --R1 tests/data/mutant_R1.fastq --R2 tests/data/mutant_R2.fastq
+```
+
+```bash
+snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v430_bacteria_finetuned" --clair3-fast-mode --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
+```
+
+```bash
 snippy-ng multi \
   --config tests/data/samples.yaml \
   --ref tests/data/wildtype.fasta \

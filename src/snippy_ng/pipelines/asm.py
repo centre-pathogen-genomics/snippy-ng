@@ -10,6 +10,7 @@ from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner
 from snippy_ng.stages.calling import PAFCaller
+from snippy_ng.stages.reporting import PrintVcfHistogram
 
 
 def create_asm_pipeline_stages(
@@ -22,7 +23,7 @@ def create_asm_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -31,7 +32,7 @@ def create_asm_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
+    ref_metadata = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Aligner 
@@ -83,6 +84,7 @@ def create_asm_pipeline_stages(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=ref_metadata,
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
         **globals
@@ -128,5 +130,13 @@ def create_asm_pipeline_stages(
         **globals
     )
     stages.append(copy_final)
+
+    # Print VCF histogram to terminal
+    vcf_histogram = PrintVcfHistogram(
+        vcf_path=variants_file,
+        height=4,
+        **globals
+    )
+    stages.append(vcf_histogram)
     
     return stages

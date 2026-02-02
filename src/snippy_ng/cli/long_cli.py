@@ -7,7 +7,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
 @click.option("--reads", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
-@click.option("--clair3-model", default=None, type=click.Path(resolve_path=True), help="Path to Clair3 model file. If not provided, freebayes will be used for variant calling.")
+@click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
+@click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
+@click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
+@click.option("--clair3-model", default=None, type=click.Path(resolve_path=True), help="Absolute path to Clair3 model file.")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
@@ -30,6 +33,9 @@ def long(**config):
     
     if not config.get("reads") and not config.get("bam"):
         raise click.UsageError("Please provide reads or a BAM file!")
+
+    if config.get("caller") == "clair3" and not config.get("clair3_model"):
+        raise click.UsageError("Please provide a Clair3 model file (--clair3-model) when using Clair3 as the variant caller!")
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
@@ -40,6 +46,9 @@ def long(**config):
         reads=config["reads"],
         prefix=config["prefix"],
         bam=config["bam"],
+        minimap_preset=config["minimap_preset"],
+        caller=config["caller"],
+        caller_opts=config["caller_opts"],
         clair3_model=config.get("clair3_model"),
         clair3_fast_mode=config["clair3_fast_mode"],
         downsample=config["downsample"],
@@ -51,7 +60,6 @@ def long(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-        freebayes_opts="",
     )
     
     # Run the pipeline
@@ -61,7 +69,7 @@ def long(**config):
         check=config['check'],
         outdir=config['outdir'],
         quiet=config['quiet'],
-        continue_last_run=config['continue_last_run'],
+        create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],
     )
     

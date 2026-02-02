@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
+from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
 from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
@@ -20,7 +21,9 @@ def create_long_pipeline_stages(
     bam: Optional[Path] = None,
     prefix: str = "snps",
     downsample: Optional[float] = None,
-    freebayes_opts: str = "",
+    minimap_preset: str = "map-ont",
+    caller: str = "clair3",
+    caller_opts: str = "",
     clair3_model: Optional[Path] = None,
     clair3_fast_mode: bool = False,
     min_read_len: int = 1000,
@@ -33,7 +36,7 @@ def create_long_pipeline_stages(
     ram: int = 8,
 ) -> list:
     stages = []
-    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir, 'metadata': None}
+    globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
     # Setup reference (load existing or prepare new)
     setup = load_or_prepare_reference(
@@ -42,7 +45,7 @@ def create_long_pipeline_stages(
     reference_file = setup.output.reference
     features_file = setup.output.gff
     reference_index = setup.output.reference_index
-    globals['metadata'] = ReferenceMetadata(setup.output.metadata)
+    ref_metadata = ReferenceMetadata(setup.output.metadata)
     stages.append(setup)
     
     # Track current reads through potential cleaning and downsampling
@@ -53,6 +56,7 @@ def create_long_pipeline_stages(
         
         # We need the genome length at run time (once we know the reference)
         downsample_stage = RasusaDownsampleReadsByCoverage(
+            ref_metadata=ref_metadata,
             coverage=downsample,
             reads=current_reads,
             **globals
@@ -93,7 +97,7 @@ def create_long_pipeline_stages(
         )
     else:
         # Minimap2
-        minimap_opts = "-L --cs --MD -x map-ont"
+        minimap_opts = f"-L --cs --MD -x {minimap_preset}"
         aligner_stage = MinimapAligner(
             reads=current_reads,
             reference=reference_file,
@@ -115,13 +119,19 @@ def create_long_pipeline_stages(
     stages.append(align_filter)
     
     # SNP calling
-    if clair3_model:
+    if caller == "clair3":
+        assert clair3_model is not None, "Clair3 model must be provided when using Clair3 caller."
+        assert Path(clair3_model).is_absolute(), f"Clair3 model path '{clair3_model}' must be an absolute path."
+        platform = 'ont'
+        if 'hifi' in str(clair3_model).lower():
+            platform = 'hifi'
         caller = Clair3Caller(
             bam=current_bam,
             reference=reference_file,
             reference_index=reference_index,
             clair3_model=clair3_model,
             fast_mode=clair3_fast_mode,
+            platform=platform,
             **globals
         )
         stages.append(caller)
@@ -130,7 +140,7 @@ def create_long_pipeline_stages(
             bam=current_bam,
             reference=reference_file,
             reference_index=reference_index,
-            fbopt=freebayes_opts,
+            fbopt=caller_opts,
             mincov=2,
             **globals
         )
@@ -167,6 +177,7 @@ def create_long_pipeline_stages(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=ref_metadata,
         vcf_gz=gzip.output.compressed,
         reference=reference_file,
         **globals
@@ -213,6 +224,14 @@ def create_long_pipeline_stages(
         **globals
     )
     stages.append(copy_final)
+
+    # Print VCF histogram to terminal
+    vcf_histogram = PrintVcfHistogram(
+        vcf_path=variants_file,
+        height=4,
+        **globals
+    )
+    stages.append(vcf_histogram)
 
     return stages
     

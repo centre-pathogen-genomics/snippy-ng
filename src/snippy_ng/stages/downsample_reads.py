@@ -1,4 +1,5 @@
 from typing import List, Optional
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import rasusa
 from pydantic import Field, field_validator, model_validator
@@ -51,7 +52,7 @@ class RasusaDownsampleReads(BaseStage):
         >>> print(stage.output.downsampled_r2)  
         'downsampled.downsampled.R2.fastq.gz'
     """
-    
+    ref_metadata: Optional[ReferenceMetadata] = Field(None, description="Metadata for the run")
     reads: List[str] = Field(..., description="List of input read files (FASTQ format)")
     coverage: Optional[float] = Field(None, description="Target coverage depth for downsampling")
     num_reads: Optional[int] = Field(None, description="Target number of reads for downsampling")
@@ -97,7 +98,7 @@ class RasusaDownsampleReads(BaseStage):
         
         # Ensure metadata is provided if coverage-based downsampling is used
         if self.coverage is not None:
-            if self.metadata is None:
+            if self.ref_metadata is None:
                 raise ValueError("Metadata is required when using coverage-based downsampling to obtain genome length")
         
         return self
@@ -177,7 +178,7 @@ class RasusaDownsampleReads(BaseStage):
         # Coverage or number of reads
         if self.coverage is not None:
             cmd_parts.extend(["--coverage", str(self.coverage)])
-            cmd_parts.extend(["--genome-size", str(self.metadata.total_length)])
+            cmd_parts.extend(["--genome-size", str(self.ref_metadata.total_length)])
         elif self.num_reads is not None:
             cmd_parts.extend(["--num", str(self.num_reads)])
         

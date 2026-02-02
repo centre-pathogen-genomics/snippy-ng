@@ -29,6 +29,6 @@ def ref(**config):
         check=config["check"],
         outdir=Path("."),
         quiet=config["quiet"],
-        continue_last_run=config["continue_last_run"],
+        create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )

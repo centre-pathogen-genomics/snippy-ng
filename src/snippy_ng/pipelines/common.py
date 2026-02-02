@@ -13,7 +13,10 @@ from snippy_ng.seq_utils import guess_format
 from snippy_ng.cli.utils import error
 
 
-def load_or_prepare_reference(reference_path) -> PrepareReference | LoadReferenceFromMetadataFile:
+def load_or_prepare_reference(
+        reference_path,
+        output_directory: Path = Path("reference"),
+        ) -> PrepareReference | LoadReferenceFromMetadataFile:
     """
     Load an existing reference directory or prepare a new reference from a FASTA/GenBank file.
     
@@ -39,7 +42,7 @@ def load_or_prepare_reference(reference_path) -> PrepareReference | LoadReferenc
             metadata=Path(reference_path)
         )
     else:
-        setup = prepare_reference(reference_path, Path("reference"))
+        setup = prepare_reference(reference_path, output_directory)
     
     return setup
 
@@ -128,6 +131,7 @@ def filter_annotate_and_generate_consensus(
     
     # Pseudo-alignment
     pseudo = BcftoolsPseudoAlignment(
+        ref_metadata=globals.get('ref_metadata'),
         vcf_gz=gzip.output.compressed,
         reference=reference,
         reference_index=reference_index,

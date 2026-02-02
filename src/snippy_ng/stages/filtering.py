@@ -139,10 +139,6 @@ class VcfFilter(BaseStage):
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
     min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
-    exclude_insertions: bool = Field(
-        True,
-        description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
-    )
 
     _dependencies = [bcftools]
 
@@ -160,8 +156,6 @@ class VcfFilter(BaseStage):
             f'FMT/GT="1/1" && QUAL>={self.min_qual} && FMT/DP>={self.min_depth} '
             f'&& (FMT/AO)/(FMT/DP)>={self.min_frac} && N_ALT=1 && ALT!="*"'
         )
-        if self.exclude_insertions:
-            base_filter += " && strlen(ALT) <= strlen(REF)"
 
         # Keep only the tags you want; everything else is dropped.
         keep_vcf_tags = ",".join(
@@ -172,6 +166,10 @@ class VcfFilter(BaseStage):
         bcftools_pipeline = self.shell_pipeline(
             commands=[
                 self.shell_cmd(
+                    ["cat", str(self.vcf)],
+                    description="Read input VCF file",
+                ),
+                self.shell_cmd(
                     [
                         "bcftools",
                         "norm",
@@ -179,16 +177,16 @@ class VcfFilter(BaseStage):
                         str(self.reference),
                         "-m",
                         "-both",
-                        str(self.vcf),
+                        "-Ob",
                     ],
                     description="Normalize and split multiallelic variants",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+                    ["bcftools", "+fill-tags", "-Ob", "-", "--", "-t", "TYPE"],
                     description="Recompute TYPE from REF/ALT",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "view", "--include", base_filter, "-"],
+                    ["bcftools", "view", "-Ob", "--include", base_filter, "-"],
                     description="Filter variants after normalization and TYPE recomputation",
                 ),
                 self.shell_cmd(
@@ -277,10 +275,6 @@ class VcfFilterLong(BaseStage):
             self.shell_cmd(
                 ["bcftools", "view", "-i", 'GT="alt"'],
                 description="Remove non-alt alleles"
-            ),
-            self.shell_cmd(
-                ["bcftools", "view", "-e", 'ALT="."'],
-                description="Remove sites with no alt allele (NanoCaller bug fix)"
             ),
             self.shell_cmd(
                 ["bcftools", "norm", "-f", str(self.reference), "-a", "-c", "e", "-m", "-"],

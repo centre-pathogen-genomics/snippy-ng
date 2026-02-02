@@ -5,7 +5,6 @@ from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng         # the click *group*
 import snippy_ng.cli.utils.pipeline_runner as _pl
-from snippy_ng.metadata import ReferenceMetadata           # <-- real module we patch
 
 
 
@@ -33,8 +32,8 @@ def stub_everything(monkeypatch, tmp_path):
         def welcome(self):                 pass
         def validate_dependencies(self):   self.validated = True
         def set_working_directory(self, *_): pass
-        def run(self, quiet=False, continue_last_run=False, keep_incomplete=False):        self.ran = True
-        def cleanup(self):                 pass
+        def run(self, quiet=False, create_missing=False, keep_incomplete=False):        self.ran = True
+        def cleanup(self, dir):                 pass
         def goodbye(self):                 pass
         def error(self, *_):               pass
 
@@ -90,6 +89,7 @@ def stub_everything(monkeypatch, tmp_path):
                 "--reference", p["ref"],
                 "--reads",     p["reads"],
                 "--outdir",    p["out"],
+                "--clair3-model", p["model"],
                 "--skip-check",
             ],
             0,
@@ -101,6 +101,7 @@ def stub_everything(monkeypatch, tmp_path):
                 "--reference", p["ref"],
                 "--bam",       p["bam"],
                 "--outdir",    p["out"],
+                "--clair3-model", p["model"],
                 "--skip-check",
             ],
             0,
@@ -112,6 +113,7 @@ def stub_everything(monkeypatch, tmp_path):
                 "--reference", p["ref"],
                 "--reads",     p["reads"],
                 "--outdir",    p["out"],
+                "--clair3-model", p["model"],
                 "--check",
                 "--skip-check",
             ],
@@ -124,6 +126,7 @@ def stub_everything(monkeypatch, tmp_path):
                 "--reference", p["ref"],
                 "--reads",     p["reads"],
                 "--outdir",    p["out"],
+                "--clair3-model", p["model"],
                 "--skip-check",
             ],
             2,
@@ -135,11 +138,37 @@ def stub_everything(monkeypatch, tmp_path):
                 "--reference", p["ref"],
                 "--reads",     p["reads"],
                 "--outdir",    p["out"],
+                "--clair3-model", p["model"],
                 "--skip-check",
             ],
             1,
             False,
         ),
+        (
+            "change_no_model",
+            lambda p: [
+                "--reference", p["ref"],
+                "--reads",     p["reads"],
+                "--outdir",    p["out"],
+                "--caller",    "clair3",
+                "--skip-check",
+            ],
+            2,
+            False,
+        ),
+        (
+            "freebayes_caller",
+            lambda p: [
+                "--reference", p["ref"],
+                "--reads",     p["reads"],
+                "--outdir",    p["out"],
+                "--caller",    "freebayes",
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+
     ],
 )
 def test_long_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_run):
@@ -153,6 +182,7 @@ def test_long_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_r
         "reads": tmp_path / "long_reads.fq",
         "bam": tmp_path / "reads.bam",
         "out": tmp_path / "output",
+        "model": tmp_path / "clair3_model",
     }
     for f in ["ref", "reads", "bam"]:
         paths[f].write_text(">dummy\nA")

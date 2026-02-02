@@ -8,8 +8,12 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+from snippy_ng.exceptions import StageExecutionError, MissingInputError
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import biopython, core_snp_filter
+
+class MSAValidationError(StageExecutionError):
+    pass
 
 
 class CombineFastaFileOutput(BaseOutput):
@@ -48,7 +52,7 @@ class CombineFastaFile(BaseStage):
     def _find_pseudo_fasta(self, snippy_dir: Path) -> Path:
         pseudo_fna_files = sorted(snippy_dir.glob("*.pseudo.fna"))
         if not pseudo_fna_files:
-            raise FileNotFoundError(f"No *.pseudo.fna file found in {snippy_dir}")
+            raise MissingInputError(f"No *.pseudo.fna file found in {snippy_dir}")
         return pseudo_fna_files[0]
 
     def build_concatenated_alignment(
@@ -65,7 +69,7 @@ class CombineFastaFile(BaseStage):
         contig_order = [rec.id for rec in ref_records]
 
         if not contig_order:
-            raise ValueError(f"No contigs found in reference FASTA: {reference}")
+            raise MSAValidationError(f"No contigs found in reference FASTA: {reference}")
 
         contig_set = set(contig_order)
 
@@ -91,7 +95,7 @@ class CombineFastaFile(BaseStage):
             # Validate contigs
             missing = [c for c in contig_order if c not in sample_map]
             if missing:
-                raise ValueError(
+                raise MSAValidationError(
                     f"{sample}: missing contigs in {fasta_path}: "
                     + ", ".join(missing[:10])
                     + (" ..." if len(missing) > 10 else "")
@@ -99,7 +103,7 @@ class CombineFastaFile(BaseStage):
 
             extra = [cid for cid in sample_map.keys() if cid not in contig_set]
             if extra:
-                raise ValueError(
+                raise MSAValidationError(
                     f"{sample}: extra contigs not in reference in {fasta_path}: "
                     + ", ".join(extra[:10])
                     + (" ..." if len(extra) > 10 else "")
@@ -115,7 +119,7 @@ class CombineFastaFile(BaseStage):
             if expected_length is None:
                 expected_length = L
             elif L != expected_length:
-                raise ValueError(
+                raise MSAValidationError(
                     f"Alignment length mismatch: {sample} has {L}, expected {expected_length}"
                 )
 
