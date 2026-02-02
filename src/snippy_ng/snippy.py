@@ -177,4 +177,4 @@ class Snippy:
         self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
         self.hr()
         # Print a random goodbye message
-        self.hr(f"{random.choice(messages)}", style=" ", color=None)
+        self.hr(f"{random.choice(messages)}", style=" ", color='green')

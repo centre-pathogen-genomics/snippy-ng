@@ -22,7 +22,8 @@ def create_long_pipeline_stages(
     prefix: str = "snps",
     downsample: Optional[float] = None,
     minimap_preset: str = "map-ont",
-    freebayes_opts: str = "",
+    caller: str = "clair3",
+    caller_opts: str = "",
     clair3_model: Optional[Path] = None,
     clair3_fast_mode: bool = False,
     min_read_len: int = 1000,
@@ -118,7 +119,9 @@ def create_long_pipeline_stages(
     stages.append(align_filter)
     
     # SNP calling
-    if clair3_model:
+    if caller == "clair3":
+        assert clair3_model is not None, "Clair3 model must be provided when using Clair3 caller."
+        assert Path(clair3_model).is_absolute(), f"Clair3 model path '{clair3_model}' must be an absolute path."
         platform = 'ont'
         if 'hifi' in str(clair3_model).lower():
             platform = 'hifi'
@@ -137,7 +140,7 @@ def create_long_pipeline_stages(
             bam=current_bam,
             reference=reference_file,
             reference_index=reference_index,
-            fbopt=freebayes_opts,
+            fbopt=caller_opts,
             mincov=2,
             **globals
         )
