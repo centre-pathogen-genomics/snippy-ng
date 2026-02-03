@@ -335,7 +335,7 @@ class PrintVcfHistogram(BaseStage):
                 raise ValueError("contig_order must be 'header' or 'alpha'")
 
             try:
-                term_cols = os.get_terminal_size().columns
+                term_cols = max(os.get_terminal_size().columns, 40)
             except OSError:
                 term_cols = 80
 
