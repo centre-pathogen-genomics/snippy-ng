@@ -20,6 +20,12 @@ def tree(**config):
     from snippy_ng.pipelines.tree import create_tree_pipeline_stages
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
 
+    #if fconst is a path read the content
+    fconst = config.get("fconst")
+    if fconst and Path(fconst).is_file():
+        with open(fconst, 'r') as f:
+            fconst = f.read().strip()
+
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
@@ -28,7 +34,7 @@ def tree(**config):
         aln=config["alignment"],
         model=config["model"],
         bootstrap=config["bootstrap"],
-        fconst=config["fconst"],
+        fconst=fconst,
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
