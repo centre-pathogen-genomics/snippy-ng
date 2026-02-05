@@ -4,6 +4,7 @@ from typing import List, Annotated, Optional
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3
+from snippy_ng.logging import logger
 
 from pydantic import Field, AfterValidator
 
@@ -28,9 +29,21 @@ class Caller(BaseStage):
         ..., description="Output file prefix"
     )
 
+    def test_check_if_vcf_has_variants(self):
+        """Test that the output VCF file is not empty."""
+        vcf_path = self.output.vcf
+        with open(vcf_path, "r") as f:
+            for line in f:
+                if not line.startswith("#"):
+                    return  # Found a non-header line, VCF is not empty
+        # give warning instead of error as some callers may produce empty VCFs if no variants are found
+        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
 
-class FreebayesCallerOutput(BaseOutput):
-    vcf: str
+class BaseCallerOutput(BaseOutput):
+    vcf: Path
+
+class FreebayesCallerOutput(BaseCallerOutput):
+    vcf: Path
     regions: str
 
 
@@ -43,10 +56,8 @@ class FreebayesCaller(Caller):
     fbopt: str = Field("", description="Additional Freebayes options")
     mincov: int = Field(10, description="Minimum site depth for calling alleles")
     minfrac: float = Field(
-        0.05, description="Minimum proportion for variant evidence (0=AUTO)"
+        0.05, description="Require at least this fraction of observations supporting an alternate allele within a single individual in the in order to evaluate the position"
     )
-    mindepth: float = Field(0, description="Minimum proportion for calling alt allele")
-    minqual: float = Field(100.0, description="Minimum quality in VCF column 6")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -81,22 +92,13 @@ class FreebayesCaller(Caller):
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "-p",
-            "2",
-            "-P",
-            "0",
-            "-C",
-            "2",
-            "-F",
-            str(self.minfrac),
-            "--min-coverage",
-            str(self.mincov),
-            "--min-repeat-entropy",
-            "1.0",
-            "-q",
-            "13",
-            "-m",
-            "60",
+            "--ploidy", "2",
+            "--min-alternate-count", "2",
+            "--min-alternate-fraction", str(self.minfrac),
+            "--min-coverage", str(self.mincov),
+            "--min-repeat-entropy", "1.0",
+            "--min-base-quality", "13",
+            "--min-mapping-quality", "60",
             "--strict-vcf",
         ]
         if self.fbopt:
@@ -143,16 +145,13 @@ class FreebayesCallerLong(FreebayesCaller):
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "--haplotype-length",
-            "-1",
-            "-m", 
-            "10",
-            "-q", 
-            "10",
-            "-p",
-            "2",
-            "--min-coverage",
-            str(self.mincov),
+            "--haplotype-length", "-1",
+            "--min-mapping-quality", "10",
+            "--min-base-quality", "10",
+            "--ploidy", "2",
+            "--min-coverage", str(self.mincov),
+            "--min-alternate-fraction", str(self.minfrac),
+
         ]
         if self.fbopt:
             import shlex
@@ -172,7 +171,7 @@ class FreebayesCallerLong(FreebayesCaller):
 
         return [generate_regions_pipeline, freebayes_pipeline]
 
-class PAFCallerOutput(BaseOutput):
+class PAFCallerOutput(BaseCallerOutput):
     vcf: Path
     aln_bed: Path
     missing_bed: Path
@@ -337,7 +336,7 @@ class PAFCaller(Caller):
             annotations_pipeline,
         ]
 
-class Clair3CallerOutput(BaseOutput):
+class Clair3CallerOutput(BaseCallerOutput):
     vcf: Path
 
 

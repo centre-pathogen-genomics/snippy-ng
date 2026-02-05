@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.stages.base import PythonCommand
+from snippy_ng.logging import logger
 from pydantic import Field
 
 
@@ -357,7 +358,9 @@ class PrintVcfHistogram(BaseStage):
                         separators_after.append(acc - 1)
                 if separators_after and separators_after[-1] == len(counts) - 1:
                     separators_after.pop()
-
+            if not sum(counts):
+                logger.warning(f"No variants found in VCF {vcf_path}, skipping histogram.")
+                return
             print_vertical_histogram(counts, height=height, separators_after=separators_after)
             print_contig_labels(contigs, cols_per_contig)
 

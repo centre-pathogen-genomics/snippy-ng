@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import samtools, bcftools
+from snippy_ng.logging import logger
 from pydantic import Field, field_validator
 
 
@@ -128,17 +129,11 @@ class BamFilterProperPairs(BamFilter):
 class VcfFilterOutput(BaseOutput):
     vcf: Path
 
-
 class VcfFilter(BaseStage):
-    """
-    Filter VCF files using Samtools to remove unwanted variants.
-    """
-
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
-    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
 
     _dependencies = [bcftools]
 
@@ -146,6 +141,22 @@ class VcfFilter(BaseStage):
     def output(self) -> VcfFilterOutput:
         filtered_vcf = f"{self.prefix}.filtered.vcf"
         return VcfFilterOutput(vcf=filtered_vcf)
+    
+    def test_check_if_vcf_has_variants(self):
+        """Test that the output VCF file is not empty."""
+        vcf_path = self.output.vcf
+        with open(vcf_path, "r") as f:
+            for line in f:
+                if not line.startswith("#"):
+                    return  # Found a non-header line, VCF is not empty
+        # give warning instead of error as some callers may produce empty VCFs if no variants are found
+        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
+
+class VcfFilterShort(VcfFilter):
+    """
+    Filter VCF files using Samtools to remove unwanted variants.
+    """
+    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
 
     @property
     def commands(self) -> List:
@@ -200,7 +211,7 @@ class VcfFilter(BaseStage):
         return [bcftools_pipeline]
 
 
-class VcfFilterLong(BaseStage):
+class VcfFilterLong(VcfFilter):
     """
     Filter VCF files for long-read variant calling using bcftools to remove unwanted variants.
     
@@ -212,22 +223,8 @@ class VcfFilterLong(BaseStage):
     - Removing long indels and duplicates
     - Converting to haploid genotypes
     """
-    
-    vcf: Path = Field(..., description="Input VCF file to filter")
-    reference: Path = Field(..., description="Reference FASTA file")
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
-    
-    min_qual: int = Field(100, description="Minimum QUAL score")
-    min_depth: int = Field(1, description="Minimum site depth for calling alleles")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
-    
-    _dependencies = [bcftools]
-    
-    @property
-    def output(self) -> VcfFilterOutput:
-        filtered_vcf = f"{self.prefix}.filtered.vcf"
-        return VcfFilterOutput(vcf=filtered_vcf)
-    
     
     @property
     def commands(self) -> List:

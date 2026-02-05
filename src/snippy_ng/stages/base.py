@@ -1,6 +1,6 @@
 from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
-from typing import List, Callable, Optional
+from typing import ClassVar, Iterable, List, Callable, Optional
 import subprocess
 import sys
 import tempfile
@@ -9,7 +9,7 @@ from pathlib import Path
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
-from snippy_ng.exceptions import InvalidCommandTypeError, StageExecutionError
+from snippy_ng.exceptions import InvalidCommandTypeError, MissingOutputError, StageExecutionError, StageTestFailure
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
@@ -48,6 +48,7 @@ class ShellCommandPipe(BaseModel):
     def __iter__(self):
         return iter(self.commands)
 
+TestFn = Callable[["BaseStage"], None]
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
     cpus: int = Field(1, description="Number of CPU cores to use")
@@ -56,7 +57,8 @@ class BaseStage(BaseModel):
     prefix: str = Field("snps", description="Prefix for output files")
 
     _dependencies: List[Dependency] = []
-    
+    _tests: ClassVar[List[TestFn]] = []
+
     @property
     def name(self) -> str:
         """Returns the name of the stage."""
@@ -179,14 +181,49 @@ class BaseStage(BaseModel):
             except InvalidCommandTypeError as e:
                 raise e
 
-    def check_outputs(self) -> bool:
-        """Check if all expected output files exist."""
-        for _, path in self.output:
+    def _discover_test_methods(self) -> Iterable[Callable[[], None]]:
+        """
+        Finds bound instance methods named test_*.
+        """
+        discovered = []
+        for name in sorted(dir(self)):
+            if not name.startswith("test_"):
+                continue
+            attr = getattr(self, name, None)
+            if not callable(attr):
+                continue
+
+            discovered.append(attr) 
+        return discovered 
+
+    def run_tests(self) -> None:
+        """
+        Runs all test methods defined on the stage. Test methods should be instance methods that take no arguments and are named with a "test_" prefix.
+        """
+        discovered_tests = self._discover_test_methods()
+        if not discovered_tests:
+            logger.debug(f"No tests found for {self.name}")
+            return
+        logger.debug("Running tests...")
+        for t in discovered_tests:
+            logger.debug(f"{t.__name__}...")
+            try:
+                t()
+            except Exception as e:
+                name = getattr(t, "__name__", repr(t))
+                raise StageTestFailure(f"Test '{name}' failed: {e}") from e
+
+    def error_if_outputs_missing(self):
+        """Raises an error if any expected output files are missing."""
+        missing = []
+        for name, path in self.output:
             if not path:
                 continue
             if not Path(path).exists():
-                return False
-        return True
+                missing.append((name, path))
+        if missing:
+            missing_str = ", ".join(f"{name} ({path})" for name, path in missing)
+            raise MissingOutputError(f"Expected output files are missing: {missing_str}")
 
     @contextmanager
     def redirect_stdout_to_err(self):

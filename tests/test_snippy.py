@@ -163,7 +163,7 @@ def test_snippy_run_missing_output(tmp_path):
     stage = MockStage()
     snippy = Snippy(stages=[stage])
     
-    with pytest.raises(MissingOutputError, match="Expected output 'test_file'"):
+    with pytest.raises(MissingOutputError, match="snps.test"):
         snippy.run()
 
 

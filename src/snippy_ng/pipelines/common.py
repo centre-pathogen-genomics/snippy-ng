@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
-from snippy_ng.stages.filtering import VcfFilter
+from snippy_ng.stages.filtering import VcfFilterShort
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
@@ -102,7 +102,7 @@ def filter_annotate_and_generate_consensus(
         Path to the generated pseudo-alignment FASTA file
     """
     # Filter VCF
-    variant_filter = VcfFilter(
+    variant_filter = VcfFilterShort(
         vcf=vcf,
         reference=reference,
         min_depth=min_depth,

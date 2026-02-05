@@ -5,7 +5,7 @@ from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
-from snippy_ng.stages.filtering import BamFilter, VcfFilter
+from snippy_ng.stages.filtering import BamFilter, VcfFilterShort
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -126,12 +126,13 @@ def create_short_pipeline_stages(
         reference=reference_file,
         reference_index=reference_index,
         fbopt=freebayes_opts,
+        mincov=min_depth,
         **globals
     )
     stages.append(caller)
     
     # Filter VCF
-    variant_filter = VcfFilter(
+    variant_filter = VcfFilterShort(
         vcf=caller.output.vcf,
         reference=reference_file,
         min_depth=min_depth,

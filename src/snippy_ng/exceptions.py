@@ -22,3 +22,5 @@ class InvalidCommandTypeError(Exception):
 class StageExecutionError(Exception):
     pass
 
+class StageTestFailure(StageExecutionError):
+    pass
