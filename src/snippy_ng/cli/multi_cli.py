@@ -19,7 +19,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     required=True,
     type=click.Path(exists=True, resolve_path=True, readable=True),
 )
-@click.option("--cpus-per-sample", type=click.INT, show_default=True, help="Number of CPUs to allocate per sample")
+@click.option("--cpus-per-sample", type=click.INT, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
 def multi(**config):
     """
