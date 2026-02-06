@@ -94,6 +94,11 @@ class Snippy:
                 stage.run(quiet)
                 end = time.perf_counter()
                 self.debug(f"Runtime: {(end - start):.2f} seconds")
+                # After running each stage,
+                # check all expected outputs were produced
+                stage.error_if_outputs_missing()
+                # run any tests defined for the stage
+                stage.run_tests()
             except (Exception, KeyboardInterrupt) as e:
                 # remove outputs if stage fails
                 if keep_incomplete:
@@ -109,11 +114,7 @@ class Snippy:
                 if output_removed:
                     self.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
-            # After running each stage,
-            # check all expected outputs were produced
-            stage.error_if_outputs_missing()
-            # run any tests defined for the stage
-            stage.run_tests()
+          
         self.end_time = time.perf_counter()
 
     def cleanup(self, directory: Path = None):
