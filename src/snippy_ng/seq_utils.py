@@ -201,6 +201,8 @@ def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
     entry = {
         "type": "long",
         "reads": str(paths[0]),
+        "caller": "clair3",
+        "clair3_model": "",
     }
     return entry
 
