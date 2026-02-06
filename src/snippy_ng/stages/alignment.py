@@ -227,3 +227,11 @@ class AssemblyAligner(BaseStage):
             output_file=self.output.paf
         )
         return [minimap_pipeline]
+
+    def test_paf_output(self):
+        """Test that the PAF output file was created and is not empty."""
+        paf_path = self.output.paf
+        if not paf_path.exists():
+            raise FileNotFoundError(f"Expected PAF output file {paf_path} was not created")
+        if paf_path.stat().st_size == 0:
+            raise ValueError(f"PAF output file {paf_path} is empty, expected alignment results. Did you use the correct reference?")
