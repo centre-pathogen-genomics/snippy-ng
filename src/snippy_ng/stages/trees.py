@@ -14,8 +14,6 @@ class IQTreeBuildTreeOutput(BaseOutput):
     mldist: Path
     splits: Path
     tree: Path
-    phylip: Path
-
 
 
 class IQTreeBuildTree(BaseStage):
@@ -43,7 +41,6 @@ class IQTreeBuildTree(BaseStage):
             mldist=prefix.with_suffix(".mldist"),
             splits=prefix.with_suffix(".splits.nex"),
             tree=prefix.with_suffix(".treefile"),
-            phylip=prefix.with_suffix(".uniqueseq.phy"),
         )
 
     @property
