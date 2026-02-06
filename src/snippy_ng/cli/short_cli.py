@@ -25,7 +25,7 @@ def short(**config):
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
     from snippy_ng.pipelines.short import create_short_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     import click
     
     # combine R1 and R2 into reads

@@ -16,7 +16,7 @@ def ref(**config):
         $ snippy-ng ref --reference ref.fa --outdir output
     """
     from snippy_ng.pipelines.common import prepare_reference
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
 
     run_snippy_pipeline(
         stages=[

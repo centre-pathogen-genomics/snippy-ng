@@ -29,7 +29,7 @@ def multi(**config):
 
         snippy-ng multi samples.csv --ref reference.fasta
     """
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import load_or_prepare_reference
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -122,7 +122,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.asm import create_asm_pipeline_stages
     from snippy_ng.pipelines.long import create_long_pipeline_stages
     from snippy_ng.pipelines.short import create_short_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     import click
     
     sample_type = sample_cfg.get("type")

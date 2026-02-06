@@ -28,7 +28,7 @@ def long(**config):
         $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
     """
     from snippy_ng.pipelines.long import create_long_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     import click
     
     if not config.get("reads") and not config.get("bam"):

@@ -18,7 +18,7 @@ def tree(**config):
         snippy-ng tree core.full.aln
     """
     from snippy_ng.pipelines.tree import create_tree_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
 
     #if fconst is a path read the content
     fconst = config.get("fconst")

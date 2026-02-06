@@ -13,7 +13,7 @@ def aln(**config):
     Create alignment from multiple snippy runs
     """
     from snippy_ng.pipelines.aln import create_aln_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
 
     if not config.get("snippy_dirs"):
         raise click.UsageError("Please provide at least one snippy directory!")
