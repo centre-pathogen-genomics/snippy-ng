@@ -104,7 +104,7 @@ class PythonDependency(Dependency):
             version = version(self.name)
         except PackageNotFoundError:
             raise MissingDependencyError(
-                f"Could not find dependency {self.name}! Please install it."
+                f"Could not find {self.name}! Please install it."
             )
         return self._base_validator(version)
 
