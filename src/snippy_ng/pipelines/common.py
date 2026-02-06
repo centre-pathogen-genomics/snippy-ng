@@ -9,7 +9,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
 from snippy_ng.stages.masks import ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
-from snippy_ng.seq_utils import guess_format
+from snippy_ng.seq_utils import guess_reference_format
 from snippy_ng.cli.utils import error
 
 
@@ -57,7 +57,7 @@ def prepare_reference(reference_path, output_directory) -> PrepareReference:
         An instance of PrepareReference stage.
     reference_format = guess_format(reference_path)
     """
-    reference_format = guess_format(reference_path)
+    reference_format = guess_reference_format(reference_path)
     if not reference_format:
         error(f"Could not determine format of reference file '{reference_path}'")
 

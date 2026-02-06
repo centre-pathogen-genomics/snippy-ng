@@ -73,7 +73,7 @@ def stub_everything(monkeypatch, tmp_path):
     )
 
     # ---------- Always recognise the reference format ------------------------
-    monkeypatch.setattr("snippy_ng.seq_utils.guess_format", lambda _: "fasta")
+    monkeypatch.setattr("snippy_ng.seq_utils.guess_reference_format", lambda _: "fasta")
 
 
 ##############################################################################
@@ -191,7 +191,7 @@ def test_long_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_r
         paths["out"].mkdir()
 
     if case_name == "bad_reference":
-        monkeypatch.setattr("snippy_ng.pipelines.common.guess_format", lambda _: None)
+        monkeypatch.setattr("snippy_ng.pipelines.common.guess_reference_format", lambda _: None)
 
     args = ["long"] + extra(paths)
     runner = CliRunner()

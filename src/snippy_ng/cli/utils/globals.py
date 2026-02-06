@@ -58,14 +58,6 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--name", "-n"),
-        "attrs": {
-            "type": click.STRING,
-            "help": "Name of the sample  [default: derived from reference]",
-            "callback": not_implemented_callback
-        },
-    },
-    {
         "param_decls": ("--cpus", "-c"),
         "attrs": {
             "type": int,
