@@ -29,7 +29,7 @@ class Dependency:
         command = self.command or self.name
         if not which(command):
             raise MissingDependencyError(
-                f"Could not find dependency {command}! Please install it."
+                f"Could not find {command}! Please ensure it is installed and in your PATH."
             )
         version = self.get_version_from_cli()
         return self._base_validator(version)
