@@ -58,11 +58,11 @@ snippy-ng --help
 ## Examples 
 
 ```bash
-snippy-ng asm --ref tests/data/wildtype.fasta --asm tests/data/wildtype.contigs.fa
+snippy-ng asm --ref tests/data/wildtype.gbk --asm tests/data/wildtype.contigs.fa
 ```
 
 ```bash
-snippy-ng short --ref tests/data/wildtype.fasta --R1 tests/data/mutant_R1.fastq --R2 tests/data/mutant_R2.fastq
+snippy-ng short --ref tests/data/wildtype.gbk --R1 tests/data/mutant_R1.fastq --R2 tests/data/mutant_R2.fastq
 ```
 
 ```bash
@@ -70,12 +70,11 @@ snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v430_bacteria_fi
 ```
 
 ```bash
-snippy-ng multi \
-  --config tests/data/samples.yaml \
-  --ref tests/data/wildtype.fasta \
+snippy-ng gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > tests/data/samples.csv 
+snippy-ng multi tests/data/samples.csv \
+  --ref tests/data/wildtype.gbk \
   -o multi \
-  --cpus 6 \
-  --cpus-per-sample 2
+  --cpus 6
 ```
 
 ## License
