@@ -11,14 +11,142 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True}, hidden=True)
 @add_snippy_global_options()
-@click.argument("directory", required=False, type=click.Path(exists=True, resolve_path=True, readable=True))
-def yolo(directory: Optional[Path]):
+@click.argument("directory", required=False, type=click.Path(exists=True, resolve_path=True, readable=True, path_type=Path))
+def yolo(directory: Optional[Path], **config):
     """
     Pipeline that automates everything.
     
     Not recommended for general use unless you've got no idea what you're doing.
+
+    Example usage:
+
+        snippy-ng yolo
     """
+    import os
     from snippy_ng.logging import logger
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.common import load_or_prepare_reference
+    from snippy_ng.pipelines.multi import run_multi_pipeline
+    from snippy_ng.seq_utils import gather_samples_config
+    
     logger.warning("You are running the YOLO pipeline. This pipeline is not recommended for general use unless you have no idea what you're doing. Please consider using one of the other pipelines with more specific parameters for better results and more control over the analysis.")
+
+    # find reference and reads in the directory
+    # look for file called reference or ref with fasta, fa, fna, gbk, genbank extension
+    directory = directory or Path.cwd() 
+    reference = None
+    for ext in ["fasta", "fa", "fna", "gbk", "genbank"]:
+        for name in ["reference", "ref"]:
+            candidates = list(directory.rglob(f"{name}.{ext}"))
+            if candidates:
+                reference = candidates[0].resolve()
+                logger.info(f"Found reference file: {reference}")
+                break
+        if reference:
+            break
+    if not reference:
+        logger.error("No reference file found! Please ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk")
+        return 1
+
+    # find all samples in the directory and create config
+    try:
+        samples = gather_samples_config(
+            inputs=[directory],
+            max_depth=4,
+            aggressive_ids=False,
+            exclude_name_regex=None,
+            exclude_files=[str(reference)],
+        )
+    except Exception as e:
+        logger.error(e)
+        return 1
+    logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}") 
+    # use freebayes for long read samples in YOLO mode
+    # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
+    fb_samples = {}
+    for name, sample in samples.items():
+        if sample['type'] == 'long':
+            sample['caller'] = 'freebayes'
+        fb_samples[name] = sample
+    cfg = {
+        "reference": str(reference),
+        "samples": fb_samples,
+    }
+    # create reusable reference
+    ref_stage = load_or_prepare_reference(
+        reference_path=cfg["reference"],
+        output_directory=Path(config["outdir"]) / 'reference',
+    )
+    code = run_snippy_pipeline(
+        stages=[ref_stage],
+        skip_check=config["skip_check"],
+        check=config["check"],
+        outdir=config["outdir"],
+        quiet=config["quiet"],
+        create_missing=config["create_missing"],
+        keep_incomplete=config["keep_incomplete"],
+    )
+    if code != 0:
+        raise click.ClickException("Reference preparation failed, aborting multi-sample run.")
+
+    snippy_reference_dir = ref_stage.output.reference.parent
+
+    config["cpus"] = min(os.cpu_count(), config["cpus"]) if os.cpu_count() else config["cpus"]
+    config["cpus_per_sample"] = max(1, config["cpus"] // len(samples))
+    code = run_multi_pipeline(
+        snippy_reference_dir=snippy_reference_dir,
+        samples=cfg["samples"],
+        config=config,
+    )
+    if code != 0:
+        raise click.ClickException("Multi-sample pipeline failed.")
     
+    # core alignment
+    from snippy_ng.pipelines.aln import create_aln_pipeline_stages
+    snippy_dirs = [str((Path(config["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]]
+    stages = create_aln_pipeline_stages(
+        snippy_dirs=snippy_dirs,
+        reference=snippy_reference_dir,
+        core=0.95,
+        tmpdir=config["tmpdir"],
+        cpus=config["cpus"],
+        ram=config["ram"],
+    )
+    outdir = Path(config['outdir']) / 'core'
+    outdir.mkdir(parents=True, exist_ok=True)
+    code = run_snippy_pipeline(
+        stages,
+        skip_check=config['skip_check'],
+        check=config['check'],
+        outdir=outdir,
+        quiet=config['quiet'],
+        create_missing=config['create_missing'],
+        keep_incomplete=config['keep_incomplete'],
+    )
+    if code != 0:
+        raise click.ClickException("Core alignment failed.")
     
+    if len(samples) < 3:
+        logger.warning("Less than 3 samples found, skipping tree construction.")
+        return 0
+    # tree
+    from snippy_ng.pipelines.tree import create_tree_pipeline_stages
+    stages = create_tree_pipeline_stages(
+        aln=str(outdir / 'core.aln'),
+        fconst=(outdir / 'core.aln.sites').read_text().strip(),
+    )
+    outdir = Path(config['outdir']) / 'tree'
+    outdir.mkdir(parents=True, exist_ok=True)
+    code = run_snippy_pipeline(
+        stages,
+        skip_check=config['skip_check'],
+        check=config['check'],
+        outdir=outdir,
+        quiet=config['quiet'],
+        create_missing=config['create_missing'],
+        keep_incomplete=config['keep_incomplete'],
+    )
+    if code != 0:
+        raise click.ClickException("Tree construction failed.")
+
+ 
