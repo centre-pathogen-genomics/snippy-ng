@@ -8,15 +8,15 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @add_snippy_global_options()
-@click.option(
-    "--config",
+@click.argument(
+    "config",
     required=True,
     type=click.Path(exists=True, resolve_path=True, readable=True),
 )
 @click.option(
     "--reference",
     "--ref",
-    required=True,
+    required=False,
     type=click.Path(exists=True, resolve_path=True, readable=True),
 )
 @click.option("--cpus-per-sample", type=click.INT, help="Number of CPUs to allocate per sample")
@@ -27,21 +27,14 @@ def multi(**config):
 
     Example usage:
 
-        snippy-ng multi --config samples.yaml --ref reference.fasta
+        snippy-ng multi samples.csv --ref reference.fasta
     """
     from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import load_or_prepare_reference
-    import yaml
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor, as_completed
-    
-    # Load YAML
-    with open(config["config"], "r") as f:
-        try:
-            cfg = yaml.safe_load(f) or {}
-        except yaml.YAMLError as e:
-            raise click.UsageError(f"Error parsing configuration file: {e}")
-        
+
+    cfg = _load_multi_config(config)
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=config["reference"],
@@ -90,9 +83,12 @@ def multi(**config):
                 click.echo(f"FAILED: {sample}: {e}", err=True)
 
     if failures:
-        raise click.ClickException(
-            "Some samples failed:\n" + "\n".join(f"- {s}: {msg}" for s, msg in failures)
+        from snippy_ng.logging import logger
+        logger.horizontal_rule(style="-")
+        logger.error(
+            "Some samples failed (check logs for details):\n" + "\n".join(f"- {s}: {msg}" for s, msg in failures)
         )
+        return 1
     
     # core alignment
     from snippy_ng.pipelines.aln import create_aln_pipeline_stages
@@ -195,3 +191,44 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         raise RuntimeError(f"Sample '{sample_name}' failed with exit code {code}")
 
     return sample_name
+
+
+def _load_multi_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    config_path = config["config"]
+    is_tsv = config_path.endswith(".tsv")
+    is_csv = config_path.endswith(".csv")
+    is_json = config_path.endswith(".json")
+
+    if is_csv or is_tsv:
+        if not config.get("reference"):
+            raise click.UsageError("Reference must be provided for CSV/TSV config files")
+        import csv
+
+        with open(config_path, newline="") as f:
+            reader = csv.DictReader(f, delimiter="\t" if is_tsv else ",")
+            cfg = {"samples": {}}
+            for row in reader:
+                sample = row.get("sample")
+                if not sample:
+                    raise click.UsageError("CSV/TSV config is missing required 'sample' column")
+                if sample in cfg["samples"]:
+                    raise click.UsageError(f"Duplicate sample name '{sample}' found in config file")
+                row.pop("sample", None)
+                cfg["samples"][sample] = {k: v for k, v in row.items() if v}
+    elif is_json:
+        import json
+
+        with open(config_path) as f:
+            cfg = json.load(f)
+        if not config.get("reference") and "reference" not in cfg:
+            raise click.UsageError("Reference must be provided in config file or as a command-line option")
+        if "reference" in cfg and not config.get("reference"):
+            config["reference"] = cfg["reference"]
+    else:
+        raise click.UsageError("Unsupported config file format. Use CSV, TSV, or JSON.")
+
+    for name, row in cfg.get("samples", {}).items():
+        if "type" not in row:
+            raise click.UsageError(f"Sample '{name}' is missing required 'type' field")
+
+    return cfg
