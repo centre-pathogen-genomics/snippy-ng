@@ -30,9 +30,13 @@ class PythonCommand(BaseModel):
 class ShellCommand(BaseModel):
     command: List[str]
     description: str
+    output_file: Optional[Path] = None
 
     def __str__(self):
-        return " ".join(quote(arg) for arg in self.command)
+        output_file = ''
+        if self.output_file:
+            output_file = f" > {self.output_file}"
+        return f"{' '.join(quote(arg) for arg in self.command)}{output_file}"
 
 class ShellCommandPipe(BaseModel):
     commands: List[ShellCommand]
@@ -86,9 +90,12 @@ class BaseStage(BaseModel):
             description = f"{func.__name__} with arguments {', '.join(args)}"
         return PythonCommand(func=func, args=args, description=description)
     
-    def shell_cmd(self, command: List[str], description: str) -> ShellCommand:
+    def shell_cmd(self, command: List[str], description: str, output_file: Optional[Path] = None) -> ShellCommand:
         """Creates a shell command."""
-        return ShellCommand(command=command, description=description)
+        assert isinstance(command, list), f"Command must be a list of strings, got {command}"
+        assert all(isinstance(arg, str) for arg in command), f"All command arguments must be strings, got {command}"
+        assert isinstance(description, str), f"Description must be a string, got {description}"
+        return ShellCommand(command=command, description=description, output_file=output_file)
     
     def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
         """Creates a shell pipeline."""
@@ -99,12 +106,26 @@ class BaseStage(BaseModel):
                     f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
                     f"Use self.shell_cmd() to create ShellCommand objects."
                 )
+        if not commands:
+            raise InvalidCommandTypeError("Pipeline must contain at least one ShellCommand.")
+        for i, cmd in enumerate(commands[:-1]):
+            if cmd.output_file:
+                raise InvalidCommandTypeError(
+                    f"Pipeline command at index {i} cannot set output_file. "
+                    "Only the final command may set output_file."
+                )
+        if output_file and commands[-1].output_file:
+            raise InvalidCommandTypeError(
+                "Pipeline output_file conflicts with final command output_file. "
+                "Set output_file on the pipeline or the final command, not both."
+            )
         return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
+            assert isinstance(cmd, (ShellCommand, PythonCommand, ShellCommandPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
             logger.info(cmd.description)
             logger.info(f" ❯ {cmd}") 
             stdout = sys.stderr
@@ -123,16 +144,19 @@ class BaseStage(BaseModel):
                         with self.redirect_stdout_to_err():
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
-                    subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
+                    if cmd.output_file:
+                        with open(cmd.output_file, 'w') as out:
+                            subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
+                    else:
+                        subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
                 elif isinstance(cmd, ShellCommandPipe):
                     processes = []
                     prev_stdout = None
-                    output_file = cmd.output_file
+                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
                     
                     if not cmd.commands:
                         raise ValueError("No commands to run in the pipeline")
-                    
-                    with (open(output_file, 'w') if output_file else nullcontext(stdout)) as final_stdout:
+                    with (open(last_output_file, 'w') if last_output_file else nullcontext(stdout)) as final_stdout:
                         for i, pipeline_part in enumerate(cmd.commands):
                             # Determine stdout for this process
                             if i == len(cmd.commands) - 1:
