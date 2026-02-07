@@ -45,18 +45,13 @@ class CopyFasta(CopyFile):
     def commands(self):
         if self.header:
             cmd = self.shell_cmd(
-                ["seqkit", "replace", "-p", ".*", "-r", self.header, str(self.input)],
-                description=f"Copy and rename FASTA {self.input} to {self.output_path}",
-            )
-            return [
-                self.shell_pipeline(
-                    [cmd],
+                    ["seqkit", "replace", "-p", ".*", "-r", self.header, str(self.input)],
+                    description=f"Copy and rename FASTA {self.input} to {self.output_path}",
                     output_file=self.output.copied_file,
-                    description="Copy FASTA file to output location",
                 )
-            ]
-        cmd = self.shell_cmd(
-            ["cp", str(self.input), str(self.output_path)],
-            description=f"Copy {self.input} to {self.output_path}",
-        )
+        else:
+            cmd = self.shell_cmd(
+                ["cp", str(self.input), str(self.output_path)],
+                description=f"Copy {self.input} to {self.output_path}",
+            )
         return [cmd]

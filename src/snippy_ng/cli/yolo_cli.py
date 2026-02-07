@@ -60,7 +60,7 @@ def yolo(directory: Optional[Path], **config):
     except Exception as e:
         logger.error(e)
         return 1
-    logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}") 
+    logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}")
     # use freebayes for long read samples in YOLO mode
     # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
     fb_samples = {}

@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages.base import BaseStage, BaseOutput, ShellCommand
 from snippy_ng.dependencies import samtools, bcftools
 from snippy_ng.logging import logger
 from pydantic import Field, field_validator
@@ -33,7 +33,7 @@ class BamFilter(BaseStage):
             bam_index=f"{filtered_bam}.bai"
         )
     
-    def build_filter_command(self):
+    def build_filter_command(self) -> ShellCommand:
         """Constructs the samtools view command for filtering."""
         cmd_parts = ["samtools", "view", "-b"]
         
@@ -70,14 +70,11 @@ class BamFilter(BaseStage):
         
         filter_cmd = self.shell_cmd(
             command=cmd_parts,
-            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}"
-        )
-        
-        return self.shell_pipeline(
-            commands=[filter_cmd],
-            description="Filter BAM alignments",
+            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}", 
             output_file=Path(self.output.bam)
         )
+        
+        return filter_cmd
     
     def build_index_command(self):
         """Returns the samtools index command."""
@@ -234,33 +231,42 @@ class VcfFilterLong(VcfFilter):
         contigs_file = f"{self.prefix}.contigs.txt"
         header_file = f"{self.prefix}.header.txt"
         
-        # Step 1: Generate contig lines from faidx
-        create_contigs = self.shell_cmd(
+        # Generate contig lines from faidx
+        create_contigs_cmd = self.shell_cmd(
             ["awk", '{print "##contig=<ID="$1",length="$2">"}', str(self.reference_index)],
             description="Generate contig lines from reference index",
-        )
-        create_contigs_pipeline = self.shell_pipeline(
-            commands=[create_contigs],
-            description="Create contig definitions",
             output_file=Path(contigs_file)
         )
         
-        # Step 2: Create new header with all contigs
+        # Create new header with all contigs
         # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
-        create_header_cmd = f'bcftools view -h {self.vcf} | grep -v "^##contig=" | sed -e "3r {contigs_file}" > {header_file}'
-        create_header = self.shell_cmd(
-            ["bash", "-c", create_header_cmd],
-            description="Create VCF header with all contigs"
+        create_header_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    ["bcftools", "view", "-h", str(self.vcf)],
+                    description="Extract VCF header"
+                ),
+                self.shell_cmd(
+                    ["grep", "-v", "^##contig="],
+                    description="Drop existing contig headers"
+                ),
+                self.shell_cmd(
+                    ["sed", "-e", f"3r {contigs_file}"],
+                    description="Insert all reference contigs into header"
+                ),
+            ],
+            description="Create VCF header with all contigs",
+            output_file=Path(header_file),
         )
         
-        # Step 3: Build the main filtering pipeline
+        # Build the main filtering pipeline
         pipeline_commands = [
             self.shell_cmd(
                 ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
                 description="Replace VCF header with new header containing all contigs"
             ),
         ]
-
+        
         # Keep only the tags you want; everything else is dropped.
         keep_vcf_tags = ",".join(
             [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
@@ -323,6 +329,6 @@ class VcfFilterLong(VcfFilter):
             description="Remove temporary files"
         )
         
-        return [create_contigs_pipeline, create_header, main_pipeline, cleanup_cmd]
+        return [create_contigs_cmd, create_header_pipeline, main_pipeline, cleanup_cmd]
 
     

@@ -110,14 +110,9 @@ class FreebayesCaller(Caller):
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
             description="Call variants with FreeBayes in parallel",
-        )
-        freebayes_pipeline = self.shell_pipeline(
-            commands=[freebayes_cmd],
-            description="FreeBayes variant calling",
             output_file=Path(self.output.vcf),
         )
-
-        return [generate_regions_pipeline, freebayes_pipeline]
+        return [generate_regions_pipeline, freebayes_cmd]
 
 
 class FreebayesCallerLong(FreebayesCaller):
@@ -129,18 +124,13 @@ class FreebayesCallerLong(FreebayesCaller):
     def commands(self) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
-        # 1) Regions for parallel FreeBayes
+        # Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
             ["fasta_generate_regions.py", str(self.reference_index), "202106"],
             description="Generate genomic regions for parallel variant calling",
-        )
-        generate_regions_pipeline = self.shell_pipeline(
-            commands=[generate_regions_cmd],
-            description="Generate regions file for parallel processing",
             output_file=Path(self.output.regions),
         )
-
-        # 2) FreeBayes parallel call
+        # FreeBayes parallel call
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
@@ -162,14 +152,10 @@ class FreebayesCallerLong(FreebayesCaller):
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
             description="Call variants with FreeBayes in parallel",
-        )
-        freebayes_pipeline = self.shell_pipeline(
-            commands=[freebayes_cmd],
-            description="FreeBayes variant calling",
             output_file=Path(self.output.vcf),
         )
-
-        return [generate_regions_pipeline, freebayes_pipeline]
+        
+        return [generate_regions_cmd, freebayes_cmd]
 
 class PAFCallerOutput(BaseCallerOutput):
     vcf: Path
@@ -245,17 +231,11 @@ class PAFCaller(Caller):
                 str(self.output.aln_bed),
             ],
             description="Compute unaligned (missing) reference regions",
-        )
-        compute_missing_bed_pipeline = self.shell_pipeline(
-            commands=[compute_missing_bed_cmd],
-            description="Generate missing regions BED file",
             output_file=self.output.missing_bed,
         )
 
         # variant calling
-        paftools_pipeline = self.shell_pipeline(
-            commands=[
-                self.shell_cmd(
+        paftools_cmd = self.shell_cmd(
                     [
                         "paftools.js",
                         "call",
@@ -272,11 +252,8 @@ class PAFCaller(Caller):
                         str(self.paf),
                     ],
                     description="Call variants from PAF using paftools.js",
-                ),
-            ],
-            description="Variant calling from PAF",
-            output_file=self.output.vcf.with_suffix(".tmp"),
-        )
+                    output_file=self.output.vcf.with_suffix(".tmp"),
+                )
 
         create_annotation_file_pipeline = self.shell_pipeline(
             commands=[
@@ -284,7 +261,7 @@ class PAFCaller(Caller):
                     [
                         "bcftools",
                         "query",
-                        str(paftools_pipeline.output_file),
+                        str(paftools_cmd.output_file),
                         "-f",
                         "%CHROM\\t%POS\\t1\\t1\\n",
                     ],
@@ -308,9 +285,7 @@ class PAFCaller(Caller):
             ],
             description="Index annotation file with tabix",
         )
-        annotations_pipeline = self.shell_pipeline(
-            commands=[
-                self.shell_cmd(
+        annotations_cmd = self.shell_cmd(
                     [
                         "bcftools",
                         "annotate",
@@ -318,22 +293,19 @@ class PAFCaller(Caller):
                         "-H", '##FORMAT=<ID=AO,Number=A,Type=Integer,Description="Alternate allele observation count for each ALT">',
                         "-c", "CHROM,POS,FMT/DP:=FORMAT/DP,FMT/AO:=FORMAT/AO",
                         "-a", str(self.output.annotations_file),
-                        str(paftools_pipeline.output_file),
+                        str(paftools_cmd.output_file),
                     ],
                     description="Insert FORMAT header lines for DP and AO",
-                ),
-            ],
-            description="Annotate VCF with DP and AO headers",
-            output_file=self.output.vcf,
-        )
+                    output_file=self.output.vcf,
+                )
 
         return [
             paf_to_pipeline,
-            compute_missing_bed_pipeline,
-            paftools_pipeline,
+            compute_missing_bed_cmd,
+            paftools_cmd,
             create_annotation_file_pipeline,
             index_cmd,
-            annotations_pipeline,
+            annotations_cmd,
         ]
 
 class Clair3CallerOutput(BaseCallerOutput):

@@ -2,6 +2,7 @@ import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Tuple
+from snippy_ng.exceptions import PipelineExecutionError, SnippyError
 from snippy_ng.logging import logger
 
 def run_multi_pipeline(
@@ -36,7 +37,7 @@ def run_multi_pipeline(
             sample = futures[fut]
             try:
                 fut.result()
-            except Exception as e:
+            except SnippyError as e:
                 failures.append((sample, str(e)))
                 logger.error(f"FAILED: {sample}: {e}")
 
@@ -122,7 +123,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     )
 
     if code != 0:
-        raise RuntimeError(f"Sample '{sample_name}' failed with exit code {code}")
+            raise PipelineExecutionError(f"Sample '{sample_name}' failed with exit code {code}")
 
     return sample_name
 
