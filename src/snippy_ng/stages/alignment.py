@@ -8,7 +8,6 @@ from pydantic import Field, field_validator
 class AlignerOutput(BaseOutput):
     bam: Path = Field(..., description="Output BAM file")
     bai: Path = Field(..., description="Index file for the BAM file")
-    stats: Path = Field(..., description="Flagstat output file for the BAM file")
 
 
 class Aligner(BaseStage):
@@ -21,7 +20,7 @@ class Aligner(BaseStage):
         return AlignerOutput(
             bam=self.prefix + ".bam",
             bai=self.prefix + ".bam.bai",
-            stats=self.prefix + ".bam.flagstat.txt",
+
         )
 
     @property
@@ -105,31 +104,7 @@ class Aligner(BaseStage):
             description=f"Index BAM file {self.output.bam}",
         )
 
-    def build_flagstat_command(self):
-        """Returns the samtools flagstat command."""
-        return self.shell_cmd(
-            ["samtools", "flagstat", str(self.output.bam)],
-            description=f"Generate alignment statistics for {self.output.bam}",
-            output_file=Path(self.output.stats),
-        )
-
-    def test_mapped_reads_not_zero(self):
-        """Test that the BAM file contains mapped reads."""
-        flagstat_path = self.output.stats
-        if not flagstat_path.exists():
-            raise FileNotFoundError(
-                f"Expected flagstat output file {flagstat_path} was not created"
-            )
-
-        with open(flagstat_path) as f:
-            for line in f:
-                if "mapped (" in line:
-                    mapped_reads = int(line.split()[0])
-                    if mapped_reads == 0:
-                        raise ValueError(
-                            "No reads were mapped in BAM file. Did you use the correct reference?"
-                        )
-                    break
+  
 
 
 class BWAMEMReadsAligner(Aligner):
@@ -174,9 +149,7 @@ class BWAMEMReadsAligner(Aligner):
 
         alignment_pipeline = self.build_alignment_pipeline(bwa_cmd)
         index_cmd = self.build_index_command()
-        stats_cmd = self.build_flagstat_command()
-
-        return [bwa_index_cmd, alignment_pipeline, index_cmd, stats_cmd]
+        return [bwa_index_cmd, alignment_pipeline, index_cmd]
 
 
 class PreAlignedReads(Aligner):
@@ -205,9 +178,7 @@ class PreAlignedReads(Aligner):
 
         alignment_pipeline = self.build_alignment_pipeline(view_cmd)
         index_cmd = self.build_index_command()
-        stats_cmd = self.build_flagstat_command()
-
-        return [alignment_pipeline, index_cmd, stats_cmd]
+        return [alignment_pipeline, index_cmd]
 
 
 class MinimapAligner(Aligner):
@@ -252,9 +223,7 @@ class MinimapAligner(Aligner):
 
         alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
         index_cmd = self.build_index_command()
-        stats_cmd = self.build_flagstat_command()
-
-        return [alignment_pipeline, index_cmd, stats_cmd]
+        return [alignment_pipeline, index_cmd]
 
 
 class AssemblyAlignerOutput(BaseOutput):

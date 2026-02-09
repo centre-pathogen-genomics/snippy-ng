@@ -8,7 +8,8 @@ from pydantic import Field, field_validator
 
 class BamFilterOutput(BaseOutput):
     bam: Path
-    bam_index: Path
+    bai: Path = Field(..., description="Index file for the BAM file")
+    stats: Path = Field(..., description="Flagstat output file for the BAM file")
 
 
 class BamFilter(BaseStage):
@@ -30,7 +31,8 @@ class BamFilter(BaseStage):
         filtered_bam = f"{self.prefix}.filtered.bam"
         return BamFilterOutput(
             bam=filtered_bam,
-            bam_index=f"{filtered_bam}.bai"
+            bai=f"{filtered_bam}.bai",
+            stats=f"{filtered_bam}.flagstat.txt"
         )
     
     def build_filter_command(self) -> ShellCommand:
@@ -82,12 +84,39 @@ class BamFilter(BaseStage):
             "samtools", "index", str(self.output.bam)
         ], description=f"Index filtered BAM file: {self.output.bam}")
     
+    def build_flagstat_command(self):
+        """Returns the samtools flagstat command."""
+        return self.shell_cmd(
+            ["samtools", "flagstat", str(self.output.bam)],
+            description=f"Generate alignment statistics for {self.output.bam}",
+            output_file=Path(self.output.stats),
+        )
+
+    def test_mapped_reads_not_zero(self):
+        """Test that the BAM file contains mapped reads."""
+        flagstat_path = self.output.stats
+        if not flagstat_path.exists():
+            raise FileNotFoundError(
+                f"Expected flagstat output file {flagstat_path} was not created"
+            )
+
+        with open(flagstat_path) as f:
+            for line in f:
+                if "mapped (" in line:
+                    mapped_reads = int(line.split()[0])
+                    if mapped_reads == 0:
+                        raise ValueError(
+                            "No reads were mapped in BAM file. Did you use the correct reference?"
+                        )
+                    break
+
     @property
     def commands(self) -> List:
         """Constructs the filtering commands."""
         filter_cmd = self.build_filter_command()
         index_cmd = self.build_index_command()
-        return [filter_cmd, index_cmd]
+        stats_cmd = self.build_flagstat_command()
+        return [filter_cmd, index_cmd, stats_cmd]
 
 
 class BamFilterByRegion(BamFilter):
