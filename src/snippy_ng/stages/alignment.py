@@ -6,7 +6,10 @@ from pydantic import Field, field_validator
 
 
 class AlignerOutput(BaseOutput):
-    bam: Path
+    bam: Path = Field(..., description="Output BAM file")
+    bai: Path = Field(..., description="Index file for the BAM file")
+    stats: Path = Field(..., description="Flagstat output file for the BAM file")
+
 
 class Aligner(BaseStage):
     reference: Path = Field(..., description="Reference file")
@@ -15,61 +18,118 @@ class Aligner(BaseStage):
 
     @property
     def output(self) -> AlignerOutput:
-        return AlignerOutput(bam=self.prefix + ".bam")
+        return AlignerOutput(
+            bam=self.prefix + ".bam",
+            bai=self.prefix + ".bam.bai",
+            stats=self.prefix + ".bam.flagstat.txt",
+        )
 
     @property
     def common_commands(self) -> List:
         """Common commands for sorting, fixing mates, and marking duplicates."""
         sort_cpus = max(1, int(self.cpus / 2))
         sort_ram = f"{1000 * self.ram // sort_cpus}M"
-        sort_threads = str(sort_cpus - 1)
+        sort_threads = str(max(1, sort_cpus - 1))
         sort_temp = str(self.tmpdir)
-        
-        sort_name_cmd = self.shell_cmd([
-            "samtools", "sort", "-n", "-l", "0", "-T", sort_temp, 
-            "--threads", sort_threads, "-m", sort_ram
-        ], description="Sort BAM by read name")
-        
-        fixmate_cmd = self.shell_cmd([
-            "samtools", "fixmate", "-m", "--threads", sort_threads, "-", "-"
-        ], description="Fix mate pair information")
-        
-        sort_coord_cmd = self.shell_cmd([
-            "samtools", "sort", "-l", "0", "-T", sort_temp,
-            "--threads", sort_threads, "-m", sort_ram
-        ], description="Sort BAM by coordinates")
-        
-        markdup_cmd = self.shell_cmd([
-            "samtools", "markdup", "--threads", sort_threads, "-r", "-s", "-", "-"
-        ], description="Mark and remove duplicates")
-        
+
+        sort_name_cmd = self.shell_cmd(
+            [
+                "samtools",
+                "sort",
+                "-n",
+                "-l",
+                "0",
+                "-T",
+                sort_temp,
+                "--threads",
+                sort_threads,
+                "-m",
+                sort_ram,
+            ],
+            description="Sort BAM by read name",
+        )
+
+        fixmate_cmd = self.shell_cmd(
+            ["samtools", "fixmate", "-m", "--threads", sort_threads, "-", "-"],
+            description="Fix mate pair information",
+        )
+
+        sort_coord_cmd = self.shell_cmd(
+            [
+                "samtools",
+                "sort",
+                "-l",
+                "0",
+                "-T",
+                sort_temp,
+                "--threads",
+                sort_threads,
+                "-m",
+                sort_ram,
+            ],
+            description="Sort BAM by coordinates",
+        )
+
+        markdup_cmd = self.shell_cmd(
+            ["samtools", "markdup", "--threads", sort_threads, "-r", "-s", "-", "-"],
+            description="Mark and remove duplicates",
+        )
+
         return [sort_name_cmd, fixmate_cmd, sort_coord_cmd, markdup_cmd]
 
     def build_samclip_command(self):
         """Constructs the samclip command to remove soft-clipped bases."""
-        return self.shell_cmd([
-            "samclip", "--max", str(self.maxsoft), "--ref", f"{self.reference}.fai"
-        ], description="Remove excessive soft-clipped bases")
+        return self.shell_cmd(
+            ["samclip", "--max", str(self.maxsoft), "--ref", f"{self.reference}.fai"],
+            description="Remove excessive soft-clipped bases",
+        )
 
     def build_alignment_pipeline(self, align_cmd) -> ShellCommandPipe:
         """Constructs the full alignment pipeline command."""
         samclip_cmd = self.build_samclip_command()
         common_cmds = self.common_commands
-        
+
         # Create pipeline: align_cmd | samclip | sort_name | fixmate | sort_coord | markdup
         pipeline_commands = [align_cmd, samclip_cmd] + common_cmds
-        
+
         return self.shell_pipeline(
             commands=pipeline_commands,
             description="Alignment pipeline: align -> samclip -> sort by name -> fixmate -> sort by coord -> markdup",
-            output_file=Path(self.output.bam)
+            output_file=Path(self.output.bam),
         )
 
     def build_index_command(self):
         """Returns the samtools index command."""
-        return self.shell_cmd([
-            "samtools", "index", str(self.output.bam)
-        ], description=f"Index BAM file {self.output.bam}")
+        return self.shell_cmd(
+            ["samtools", "index", str(self.output.bam)],
+            description=f"Index BAM file {self.output.bam}",
+        )
+
+    def build_flagstat_command(self):
+        """Returns the samtools flagstat command."""
+        return self.shell_cmd(
+            ["samtools", "flagstat", str(self.output.bam)],
+            description=f"Generate alignment statistics for {self.output.bam}",
+            output_file=Path(self.output.stats),
+        )
+
+    def test_mapped_reads_not_zero(self):
+        """Test that the BAM file contains mapped reads."""
+        flagstat_path = self.output.stats
+        if not flagstat_path.exists():
+            raise FileNotFoundError(
+                f"Expected flagstat output file {flagstat_path} was not created"
+            )
+
+        with open(flagstat_path) as f:
+            for line in f:
+                if "mapped (" in line:
+                    mapped_reads = int(line.split()[0])
+                    if mapped_reads == 0:
+                        raise ValueError(
+                            "No reads were mapped in BAM file. Did you use the correct reference?"
+                        )
+                    break
 
 
 class BWAMEMReadsAligner(Aligner):
@@ -92,28 +152,31 @@ class BWAMEMReadsAligner(Aligner):
 
     @property
     def commands(self) -> List:
-        """Constructs the BWA alignment commands."""  
-        bwa_index_cmd = self.shell_cmd([
-            "bwa", "index", str(self.reference)
-        ], description=f"Index reference with BWA: {self.reference}")
-        
+        """Constructs the BWA alignment commands."""
+        bwa_index_cmd = self.shell_cmd(
+            ["bwa", "index", str(self.reference)],
+            description=f"Index reference with BWA: {self.reference}",
+        )
+
         # Build BWA mem command
         bwa_cmd_parts = ["bwa", "mem"]
         if self.aligner_opts:
             import shlex
+
             bwa_cmd_parts.extend(shlex.split(self.aligner_opts))
         bwa_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
         bwa_cmd_parts.extend([str(r) for r in self.reads])
-        
+
         bwa_cmd = self.shell_cmd(
             bwa_cmd_parts,
-            description=f"Align {len(self.reads)} read files with BWA-MEM"
+            description=f"Align {len(self.reads)} read files with BWA-MEM",
         )
 
         alignment_pipeline = self.build_alignment_pipeline(bwa_cmd)
         index_cmd = self.build_index_command()
-        
-        return [bwa_index_cmd, alignment_pipeline, index_cmd]
+        stats_cmd = self.build_flagstat_command()
+
+        return [bwa_index_cmd, alignment_pipeline, index_cmd, stats_cmd]
 
 
 class PreAlignedReads(Aligner):
@@ -135,15 +198,18 @@ class PreAlignedReads(Aligner):
     @property
     def commands(self) -> List:
         """Constructs the commands to extract reads from a BAM file."""
-        view_cmd = self.shell_cmd([
-            "samtools", "view", "-h", "-O", "SAM", str(self.bam)
-        ], description=f"Extract reads from BAM file: {self.bam}")
+        view_cmd = self.shell_cmd(
+            ["samtools", "view", "-h", "-O", "SAM", str(self.bam)],
+            description=f"Extract reads from BAM file: {self.bam}",
+        )
 
         alignment_pipeline = self.build_alignment_pipeline(view_cmd)
         index_cmd = self.build_index_command()
-        
-        return [alignment_pipeline, index_cmd]
-    
+        stats_cmd = self.build_flagstat_command()
+
+        return [alignment_pipeline, index_cmd, stats_cmd]
+
+
 class MinimapAligner(Aligner):
     """
     Align reads to a reference using Minimap2.
@@ -159,7 +225,7 @@ class MinimapAligner(Aligner):
         if not v:
             raise ValueError("Reads list must not be empty")
         return v
-    
+
     @property
     def ram_per_thread(self) -> int:
         """Calculate RAM per thread in MB."""
@@ -174,29 +240,32 @@ class MinimapAligner(Aligner):
         minimap_cmd_parts = ["minimap2", "-a"]
         if self.aligner_opts:
             import shlex
+
             minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
         minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
-        
+
         minimap_cmd = self.shell_cmd(
             minimap_cmd_parts,
-            description=f"Align {len(self.reads)} read files with Minimap2"
+            description=f"Align {len(self.reads)} read files with Minimap2",
         )
 
         alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
         index_cmd = self.build_index_command()
-        
-        return [alignment_pipeline, index_cmd]
+        stats_cmd = self.build_flagstat_command()
 
+        return [alignment_pipeline, index_cmd, stats_cmd]
 
 
 class AssemblyAlignerOutput(BaseOutput):
     paf: Path
 
+
 class AssemblyAligner(BaseStage):
     """
     Align an assembly to a reference using Minimap2.
     """
+
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
 
@@ -205,9 +274,7 @@ class AssemblyAligner(BaseStage):
     @property
     def output(self) -> AssemblyAlignerOutput:
         paf_file = Path(f"{self.prefix}.paf")
-        return AssemblyAlignerOutput(
-            paf=paf_file
-        )
+        return AssemblyAlignerOutput(paf=paf_file)
 
     @property
     def commands(self) -> List:
@@ -215,16 +282,27 @@ class AssemblyAligner(BaseStage):
 
         minimap_pipeline = self.shell_pipeline(
             commands=[
-                self.shell_cmd([
-                    "minimap2", "-x", "asm20", "-t", str(self.cpus), "-c", "--cs",
-                    str(self.reference), str(self.assembly)
-                ], description="Align assembly to reference with Minimap2"),
-                self.shell_cmd([
-                    "sort", "-k6,6", "-k8,8n"
-                ], description="Sort PAF output by reference name and position")
+                self.shell_cmd(
+                    [
+                        "minimap2",
+                        "-x",
+                        "asm20",
+                        "-t",
+                        str(self.cpus),
+                        "-c",
+                        "--cs",
+                        str(self.reference),
+                        str(self.assembly),
+                    ],
+                    description="Align assembly to reference with Minimap2",
+                ),
+                self.shell_cmd(
+                    ["sort", "-k6,6", "-k8,8n"],
+                    description="Sort PAF output by reference name and position",
+                ),
             ],
             description="Align assembly to reference and sort",
-            output_file=self.output.paf
+            output_file=self.output.paf,
         )
         return [minimap_pipeline]
 
@@ -232,6 +310,10 @@ class AssemblyAligner(BaseStage):
         """Test that the PAF output file was created and is not empty."""
         paf_path = self.output.paf
         if not paf_path.exists():
-            raise FileNotFoundError(f"Expected PAF output file {paf_path} was not created")
+            raise FileNotFoundError(
+                f"Expected PAF output file {paf_path} was not created"
+            )
         if paf_path.stat().st_size == 0:
-            raise ValueError(f"PAF output file {paf_path} is empty, expected alignment results. Did you use the correct reference?")
+            raise ValueError(
+                f"PAF output file {paf_path} is empty, expected alignment results. Did you use the correct reference?"
+            )
