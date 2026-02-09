@@ -235,7 +235,7 @@ class BaseStage(BaseModel):
                 t()
             except Exception as e:
                 name = getattr(t, "__name__", repr(t))
-                raise StageTestFailure(f"Test '{name}' failed: {e}") from e
+                raise StageTestFailure(f"{name.upper()}: {e}") from e
 
     def error_if_outputs_missing(self):
         """Raises an error if any expected output files are missing."""
