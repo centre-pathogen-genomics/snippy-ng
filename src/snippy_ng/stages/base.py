@@ -6,6 +6,7 @@ import sys
 import tempfile
 from io import StringIO
 from pathlib import Path
+import signal
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
@@ -150,52 +151,62 @@ class BaseStage(BaseModel):
                     else:
                         subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
                 elif isinstance(cmd, ShellCommandPipe):
-                    processes = []
-                    prev_stdout = None
-                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
-                    
                     if not cmd.commands:
                         raise ValueError("No commands to run in the pipeline")
-                    with (open(last_output_file, 'w') if last_output_file else nullcontext(stdout)) as final_stdout:
-                        for i, pipeline_part in enumerate(cmd.commands):
-                            # Determine stdout for this process
-                            if i == len(cmd.commands) - 1:
-                                # Last process - output to final destination
-                                process_stdout = final_stdout
-                            else:
-                                # Intermediate process - output to pipe
-                                process_stdout = subprocess.PIPE
-                            
-                            p = subprocess.Popen(
-                                pipeline_part.command, 
-                                stdin=prev_stdout, 
-                                stdout=process_stdout, 
-                                stderr=stderr,
-                                text=True
-                            )
-                            
-                            # Close the previous stdout pipe (we're done with it)
-                            if prev_stdout is not None:
-                                prev_stdout.close()
-                            
-                            # Set up for next iteration
-                            if i < len(cmd.commands) - 1:
-                                prev_stdout = p.stdout
-                            
-                            processes.append(p)
-                        
-                        # Wait for all processes to complete
+
+                    processes: List[subprocess.Popen] = []
+                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
+
+                    try:
+                        with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
+                            prev_proc: Optional[subprocess.Popen] = None
+                            for i, pipeline_part in enumerate(cmd.commands):
+                                is_last = i == len(cmd.commands) - 1
+                                process_stdout = final_stdout if is_last else subprocess.PIPE
+                                process_stdin = None if prev_proc is None else prev_proc.stdout
+
+                                p = subprocess.Popen(
+                                    pipeline_part.command,
+                                    stdin=process_stdin,
+                                    stdout=process_stdout,
+                                    stderr=stderr,
+                                    text=False, # pipes should be in binary mode
+                                )
+                                processes.append(p)
+
+                                # Allow upstream processes to receive SIGPIPE if downstream exits.
+                                if prev_proc is not None and prev_proc.stdout is not None:
+                                    prev_proc.stdout.close()
+
+                                prev_proc = p
+
+                            # Wait for all processes to complete
+                            for p in processes:
+                                p.wait()
+
+                            failures = [p for p in processes if p.returncode not in (0, None)]
+                            if failures:
+                                sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
+                                non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
+                                primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
+                                raise subprocess.CalledProcessError(
+                                    returncode=primary.returncode,
+                                    cmd=primary.args,
+                                )
+                    except Exception:
+                        # Ensure we don't leave a half-running pipeline behind.
                         for p in processes:
-                            p.wait()
-                        
-                        # Check for failures
-                        failed_processes = [p for p in processes if p.returncode != 0]
-                        if failed_processes:
-                            failed_process = failed_processes[0]  # Report first failure
-                            raise subprocess.CalledProcessError(
-                                returncode=failed_process.returncode, 
-                                cmd=failed_process.args
-                            )
+                            try:
+                                if p.poll() is None:
+                                    p.terminate()
+                            except Exception:
+                                pass
+                        for p in processes:
+                            try:
+                                p.wait(timeout=2)
+                            except Exception:
+                                pass
+                        raise
                 else:
                     raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
             except subprocess.CalledProcessError as e:
