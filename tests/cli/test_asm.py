@@ -1,68 +1,17 @@
-import types
-
 import pytest
 from click.testing import CliRunner
 
-from snippy_ng.cli import snippy_ng         # the click *group*
+from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines.pipeline_runner as _pl
-from snippy_ng.metadata import ReferenceMetadata           # <-- real module we patch
 
-
-
-##############################################################################
-#                           1.  DUMMY IMPLEMENTATIONS                         #
-##############################################################################
 
 @pytest.fixture(autouse=True)
-def stub_everything(monkeypatch, tmp_path):
+def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, stub_asm_stages):
     """
-    Replace the heavy pipeline and stage classes with tiny stand‑ins.
-    The fixture runs automatically for every test.
+    Combine all required stubs for assembly CLI tests.
+    This fixture runs automatically for every test.
     """
-
-    # ---------- Dummy Pipeline ------------------------------------------------
-    class DummyPipeline:
-        """Light-weight stand-in that records what happened."""
-        last = None                        # will hold most‑recent instance
-
-        def __init__(self, *_, **__):
-            self.validated = False
-            self.ran       = False
-            DummyPipeline.last = self      # remember myself
-
-        def welcome(self):                 pass
-        def validate_dependencies(self):   self.validated = True
-        def set_working_directory(self, *_): pass
-        def run(self, quiet=False, create_missing=False, keep_incomplete=False):        self.ran = True
-        def cleanup(self, dir):                 pass
-        def goodbye(self):                 pass
-        def error(self, *_):               pass
-
-    # patch the real module, not the click group
-    monkeypatch.setattr(_pl, "Snippy", DummyPipeline)
-
-    # ---------- Dummy Stage objects ------------------------------------------
-    def _stage_factory(output):
-        class _Stage:
-            def __init__(self, *_, **__):
-                self.output = types.SimpleNamespace(**{out_key: out_val for out_key, out_val in output.items()})
-        return _Stage
-
-    monkeypatch.setattr(
-        "snippy_ng.stages.setup.PrepareReference",
-        _stage_factory({"reference": tmp_path / "ref.fa", "gff": tmp_path / "ref.gff", "reference_index": tmp_path / "ref.fa.fai", "reference_dict": tmp_path / "ref.dict", "metadata": tmp_path / "metadata.json"}),
-    )
-    monkeypatch.setattr(
-        "snippy_ng.stages.alignment.AssemblyAligner",
-        _stage_factory({"paf": tmp_path / "align.paf"}),
-    )
-    monkeypatch.setattr(
-        "snippy_ng.stages.calling.PAFCaller",
-        _stage_factory({"vcf": tmp_path / "calls.vcf", "missing_bed": tmp_path / "missing.bed"}),
-    )
-
-    # ---------- Always recognise the reference format ------------------------
-    monkeypatch.setattr("snippy_ng.seq_utils.guess_reference_format", lambda _: "fasta")
+    pass
 
 
 ##############################################################################
