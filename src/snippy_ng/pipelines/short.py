@@ -24,7 +24,7 @@ def create_short_pipeline_stages(
     downsample: Optional[float] = None,
     aligner: str = "minimap2",
     aligner_opts: str = "",
-    freebayes_opts: str = "",
+    caller_opts: str = "",
     mask: Optional[str] = None,
     min_depth: int = 10,
     min_qual: float = 100,
@@ -119,7 +119,7 @@ def create_short_pipeline_stages(
         bam=aligned_reads,
         reference=reference_file,
         reference_index=reference_index,
-        fbopt=freebayes_opts,
+        fbopt=caller_opts,
         mincov=min_depth,
         **globals
     )

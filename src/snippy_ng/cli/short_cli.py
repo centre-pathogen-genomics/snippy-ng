@@ -10,10 +10,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
+@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
-@click.option("--freebayes-opts", default='', type=click.STRING, help="Extra options for Freebayes")
-@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 def short(**config):
@@ -50,7 +50,7 @@ def short(**config):
         downsample=config["downsample"],
         aligner=config["aligner"],
         aligner_opts=config["aligner_opts"],
-        freebayes_opts=config["freebayes_opts"],
+        caller_opts=config["caller_opts"],
         mask=config["mask"],
         min_depth=config["min_depth"],
         min_qual=config["min_qual"],
