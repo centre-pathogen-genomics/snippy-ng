@@ -79,19 +79,16 @@ def create_long_pipeline_stages(
         current_reads = [clean_reads_stage.output.cleaned_reads]
         stages.append(clean_reads_stage)
 
-    # SeqKit read statistics
-    if not bam:
-        
+    # Aligner
+    if bam:
+        aligned_reads = Path(bam).resolve()
+    else:
+        # SeqKit read statistics
         stats_stage = SeqKitReadStatsBasic(
             reads=current_reads,
             **globals
         )
         stages.append(stats_stage)
-
-    # Aligner
-    if bam:
-        aligned_reads = bam.resolve()
-    else:
         # Minimap2
         minimap_opts = f"-L --cs --MD -x {minimap_preset}"
         aligner_stage = MinimapAligner(

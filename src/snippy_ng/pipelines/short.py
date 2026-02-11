@@ -19,7 +19,7 @@ def create_short_pipeline_stages(
     reference: str,
     reads: List[str],
     prefix: str = "snps",
-    bam: Optional[str] = None,
+    bam: Optional[Path] = None,
     clean_reads: bool = False,
     downsample: Optional[float] = None,
     aligner: str = "minimap2",
@@ -76,7 +76,9 @@ def create_short_pipeline_stages(
             current_reads.append(clean_reads_stage.output.cleaned_r2)
         stages.append(clean_reads_stage)
 
-    if not bam:
+    if bam:
+        aligned_reads = Path(bam).resolve()  
+    else:
         # SeqKit read statistics
         stats_stage = SeqKitReadStatsBasic(
             reads=current_reads,
@@ -104,8 +106,6 @@ def create_short_pipeline_stages(
         
         aligned_reads = aligner_stage.output.cram
         stages.append(aligner_stage)
-    else:
-        aligned_reads = bam.resolve()    
     
     # Filter alignment
     align_filter = SamtoolsFilter(
