@@ -3,8 +3,8 @@ from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
-from snippy_ng.stages.alignment import MinimapAligner, PreAlignedReads
-from snippy_ng.stages.filtering import BamFilter, VcfFilterLong
+from snippy_ng.stages.alignment import MinimapAligner
+from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterLong
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -90,11 +90,7 @@ def create_long_pipeline_stages(
 
     # Aligner
     if bam:
-        aligner_stage = PreAlignedReads(
-            bam=Path(bam),
-            reference=reference_file,
-            **globals
-        )
+        aligned_reads = bam.resolve()
     else:
         # Minimap2
         minimap_opts = f"-L --cs --MD -x {minimap_preset}"
@@ -104,18 +100,15 @@ def create_long_pipeline_stages(
             aligner_opts=minimap_opts,
             **globals
         )
-    
-
-    
-    current_bam = aligner_stage.output.bam
-    stages.append(aligner_stage)
+        aligned_reads = aligner_stage.output.cram
+        stages.append(aligner_stage)
     
     # Filter alignment
-    align_filter = BamFilter(
-        bam=current_bam,
+    align_filter = SamtoolsFilter(
+        bam=aligned_reads,
         **globals
     )
-    current_bam = align_filter.output.bam
+    aligned_reads = align_filter.output.cram
     stages.append(align_filter)
     
     # SNP calling
@@ -125,8 +118,8 @@ def create_long_pipeline_stages(
         platform = 'ont'
         if 'hifi' in str(clair3_model).lower():
             platform = 'hifi'
-        caller = Clair3Caller(
-            bam=current_bam,
+        caller_stage = Clair3Caller(
+            bam=aligned_reads,
             reference=reference_file,
             reference_index=reference_index,
             clair3_model=clair3_model,
@@ -134,21 +127,20 @@ def create_long_pipeline_stages(
             platform=platform,
             **globals
         )
-        stages.append(caller)
     else:
-        caller = FreebayesCallerLong(
-            bam=current_bam,
+        caller_stage = FreebayesCallerLong(
+            bam=aligned_reads,
             reference=reference_file,
             reference_index=reference_index,
             fbopt=caller_opts,
             mincov=2,
             **globals
         )
-        stages.append(caller)
+    stages.append(caller_stage)
     
     # Filter VCF
     variant_filter = VcfFilterLong(
-        vcf=caller.output.vcf,
+        vcf=caller_stage.output.vcf,
         reference=reference_file,
         reference_index=reference_index,
         min_qual=min_qual,
@@ -189,7 +181,7 @@ def create_long_pipeline_stages(
     
     # Apply depth masking
     depth_mask = DepthMask(
-        bam=current_bam,
+        bam=aligned_reads,
         fasta=current_fasta,
         min_depth=min_depth,
         **globals
@@ -199,7 +191,7 @@ def create_long_pipeline_stages(
 
     # Apply heterozygous and low quality sites masking
     het_mask = HetMask(
-        vcf=caller.output.vcf,  # Use raw VCF for complete site information
+        vcf=caller_stage.output.vcf,  # Use raw VCF for complete site information
         fasta=current_fasta,
         min_qual=min_qual,
         **globals
