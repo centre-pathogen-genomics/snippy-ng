@@ -1,9 +1,10 @@
 import click
-from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
+@click.option("--outdir", "-o", default=Path("core"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.argument("alignment", required=True, type=click.Path(exists=True, resolve_path=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction")
@@ -18,7 +19,13 @@ def tree(**config):
         snippy-ng tree core.full.aln
     """
     from snippy_ng.pipelines.tree import create_tree_pipeline_stages
-    from snippy_ng.cli.utils.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+
+    #if fconst is a path read the content
+    fconst = config.get("fconst")
+    if fconst and Path(fconst).is_file():
+        with open(fconst, 'r') as f:
+            fconst = f.read().strip()
 
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
@@ -28,7 +35,7 @@ def tree(**config):
         aln=config["alignment"],
         model=config["model"],
         bootstrap=config["bootstrap"],
-        fconst=config["fconst"],
+        fconst=fconst,
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
@@ -39,7 +46,7 @@ def tree(**config):
         stages,
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=Path('.'),
+        outdir=config['outdir'],
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],

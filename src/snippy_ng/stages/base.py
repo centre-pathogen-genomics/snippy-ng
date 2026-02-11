@@ -1,15 +1,16 @@
 from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
-from typing import List, Callable, Optional
+from typing import ClassVar, Iterable, List, Callable, Optional
 import subprocess
 import sys
 import tempfile
 from io import StringIO
 from pathlib import Path
+import signal
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
-from snippy_ng.exceptions import InvalidCommandTypeError, StageExecutionError
+from snippy_ng.exceptions import InvalidCommandTypeError, MissingOutputError, StageExecutionError, StageTestFailure
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
@@ -30,9 +31,13 @@ class PythonCommand(BaseModel):
 class ShellCommand(BaseModel):
     command: List[str]
     description: str
+    output_file: Optional[Path] = None
 
     def __str__(self):
-        return " ".join(quote(arg) for arg in self.command)
+        output_file = ''
+        if self.output_file:
+            output_file = f" > {self.output_file}"
+        return f"{' '.join(quote(arg) for arg in self.command)}{output_file}"
 
 class ShellCommandPipe(BaseModel):
     commands: List[ShellCommand]
@@ -48,6 +53,7 @@ class ShellCommandPipe(BaseModel):
     def __iter__(self):
         return iter(self.commands)
 
+TestFn = Callable[["BaseStage"], None]
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
     cpus: int = Field(1, description="Number of CPU cores to use")
@@ -56,7 +62,8 @@ class BaseStage(BaseModel):
     prefix: str = Field("snps", description="Prefix for output files")
 
     _dependencies: List[Dependency] = []
-    
+    _tests: ClassVar[List[TestFn]] = []
+
     @property
     def name(self) -> str:
         """Returns the name of the stage."""
@@ -84,9 +91,12 @@ class BaseStage(BaseModel):
             description = f"{func.__name__} with arguments {', '.join(args)}"
         return PythonCommand(func=func, args=args, description=description)
     
-    def shell_cmd(self, command: List[str], description: str) -> ShellCommand:
+    def shell_cmd(self, command: List[str], description: str, output_file: Optional[Path] = None) -> ShellCommand:
         """Creates a shell command."""
-        return ShellCommand(command=command, description=description)
+        assert isinstance(command, list), f"Command must be a list of strings, got {command}"
+        assert all(isinstance(arg, str) for arg in command), f"All command arguments must be strings, got {command}"
+        assert isinstance(description, str), f"Description must be a string, got {description}"
+        return ShellCommand(command=command, description=description, output_file=output_file)
     
     def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
         """Creates a shell pipeline."""
@@ -97,12 +107,26 @@ class BaseStage(BaseModel):
                     f"Pipeline command at index {i} must be a ShellCommand, got {type(cmd).__name__}. "
                     f"Use self.shell_cmd() to create ShellCommand objects."
                 )
+        if not commands:
+            raise InvalidCommandTypeError("Pipeline must contain at least one ShellCommand.")
+        for i, cmd in enumerate(commands[:-1]):
+            if cmd.output_file:
+                raise InvalidCommandTypeError(
+                    f"Pipeline command at index {i} cannot set output_file. "
+                    "Only the final command may set output_file."
+                )
+        if output_file and commands[-1].output_file:
+            raise InvalidCommandTypeError(
+                "Pipeline output_file conflicts with final command output_file. "
+                "Set output_file on the pipeline or the final command, not both."
+            )
         return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
 
 
     def run(self, quiet=False):
         """Runs the commands in the shell or calls the function."""
         for cmd in self.commands:
+            assert isinstance(cmd, (ShellCommand, PythonCommand, ShellCommandPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
             logger.info(cmd.description)
             logger.info(f" ❯ {cmd}") 
             stdout = sys.stderr
@@ -121,55 +145,68 @@ class BaseStage(BaseModel):
                         with self.redirect_stdout_to_err():
                             cmd.func(*cmd.args)
                 elif isinstance(cmd, ShellCommand):
-                    subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
+                    if cmd.output_file:
+                        with open(cmd.output_file, 'w') as out:
+                            subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
+                    else:
+                        subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
                 elif isinstance(cmd, ShellCommandPipe):
-                    processes = []
-                    prev_stdout = None
-                    output_file = cmd.output_file
-                    
                     if not cmd.commands:
                         raise ValueError("No commands to run in the pipeline")
-                    
-                    with (open(output_file, 'w') if output_file else nullcontext(stdout)) as final_stdout:
-                        for i, pipeline_part in enumerate(cmd.commands):
-                            # Determine stdout for this process
-                            if i == len(cmd.commands) - 1:
-                                # Last process - output to final destination
-                                process_stdout = final_stdout
-                            else:
-                                # Intermediate process - output to pipe
-                                process_stdout = subprocess.PIPE
-                            
-                            p = subprocess.Popen(
-                                pipeline_part.command, 
-                                stdin=prev_stdout, 
-                                stdout=process_stdout, 
-                                stderr=stderr,
-                                text=True
-                            )
-                            
-                            # Close the previous stdout pipe (we're done with it)
-                            if prev_stdout is not None:
-                                prev_stdout.close()
-                            
-                            # Set up for next iteration
-                            if i < len(cmd.commands) - 1:
-                                prev_stdout = p.stdout
-                            
-                            processes.append(p)
-                        
-                        # Wait for all processes to complete
+
+                    processes: List[subprocess.Popen] = []
+                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
+
+                    try:
+                        with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
+                            prev_proc: Optional[subprocess.Popen] = None
+                            for i, pipeline_part in enumerate(cmd.commands):
+                                is_last = i == len(cmd.commands) - 1
+                                process_stdout = final_stdout if is_last else subprocess.PIPE
+                                process_stdin = None if prev_proc is None else prev_proc.stdout
+
+                                p = subprocess.Popen(
+                                    pipeline_part.command,
+                                    stdin=process_stdin,
+                                    stdout=process_stdout,
+                                    stderr=stderr,
+                                    text=False, # pipes should be in binary mode
+                                )
+                                processes.append(p)
+
+                                # Allow upstream processes to receive SIGPIPE if downstream exits.
+                                if prev_proc is not None and prev_proc.stdout is not None:
+                                    prev_proc.stdout.close()
+
+                                prev_proc = p
+
+                            # Wait for all processes to complete
+                            for p in processes:
+                                p.wait()
+
+                            failures = [p for p in processes if p.returncode not in (0, None)]
+                            if failures:
+                                sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
+                                non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
+                                primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
+                                raise subprocess.CalledProcessError(
+                                    returncode=primary.returncode,
+                                    cmd=primary.args,
+                                )
+                    except Exception:
+                        # Ensure we don't leave a half-running pipeline behind.
                         for p in processes:
-                            p.wait()
-                        
-                        # Check for failures
-                        failed_processes = [p for p in processes if p.returncode != 0]
-                        if failed_processes:
-                            failed_process = failed_processes[0]  # Report first failure
-                            raise subprocess.CalledProcessError(
-                                returncode=failed_process.returncode, 
-                                cmd=failed_process.args
-                            )
+                            try:
+                                if p.poll() is None:
+                                    p.terminate()
+                            except Exception:
+                                pass
+                        for p in processes:
+                            try:
+                                p.wait(timeout=2)
+                            except Exception:
+                                pass
+                        raise
                 else:
                     raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
             except subprocess.CalledProcessError as e:
@@ -179,14 +216,49 @@ class BaseStage(BaseModel):
             except InvalidCommandTypeError as e:
                 raise e
 
-    def check_outputs(self) -> bool:
-        """Check if all expected output files exist."""
-        for _, path in self.output:
+    def _discover_test_methods(self) -> Iterable[Callable[[], None]]:
+        """
+        Finds bound instance methods named test_*.
+        """
+        discovered = []
+        for name in sorted(dir(self)):
+            if not name.startswith("test_"):
+                continue
+            attr = getattr(self, name, None)
+            if not callable(attr):
+                continue
+
+            discovered.append(attr) 
+        return discovered 
+
+    def run_tests(self) -> None:
+        """
+        Runs all test methods defined on the stage. Test methods should be instance methods that take no arguments and are named with a "test_" prefix.
+        """
+        discovered_tests = self._discover_test_methods()
+        if not discovered_tests:
+            logger.debug(f"No tests found for {self.name}")
+            return
+        logger.debug("Running tests...")
+        for t in discovered_tests:
+            logger.debug(f"{t.__name__}...")
+            try:
+                t()
+            except Exception as e:
+                name = getattr(t, "__name__", repr(t))
+                raise StageTestFailure(f"{name.upper()}: {e}") from e
+
+    def error_if_outputs_missing(self):
+        """Raises an error if any expected output files are missing."""
+        missing = []
+        for name, path in self.output:
             if not path:
                 continue
             if not Path(path).exists():
-                return False
-        return True
+                missing.append((name, path))
+        if missing:
+            missing_str = ", ".join(f"{name} ({path})" for name, path in missing)
+            raise MissingOutputError(f"Expected output files are missing: {missing_str}")
 
     @contextmanager
     def redirect_stdout_to_err(self):

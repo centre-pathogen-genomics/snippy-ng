@@ -12,6 +12,7 @@ from snippy_ng.exceptions import StageExecutionError, MissingInputError
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import biopython, core_snp_filter
 
+
 class MSAValidationError(StageExecutionError):
     pass
 
@@ -44,7 +45,7 @@ class CombineFastaFile(BaseStage):
         return [
             self.python_cmd(
                 func=self.build_concatenated_alignment,
-                args=(self.snippy_dirs, self.reference, self.output.aln, self.prefix),
+                args=(self.snippy_dirs, self.reference, self.output.aln),
                 description="Combine FASTAs into a concatenated MSA",
             )
         ]
@@ -60,29 +61,34 @@ class CombineFastaFile(BaseStage):
         snippy_dirs: list[Path],
         reference: Path,
         msa_out: Path,
-        prefix: str,
     ) -> None:
-        # -------------------------
-        # 1) Read contig order once
-        # -------------------------
+        # Read contig order once
         ref_records = list(SeqIO.parse(str(reference), "fasta"))
         contig_order = [rec.id for rec in ref_records]
 
         if not contig_order:
-            raise MSAValidationError(f"No contigs found in reference FASTA: {reference}")
+            raise MSAValidationError(
+                f"No contigs found in reference FASTA: {reference}"
+            )
 
         contig_set = set(contig_order)
 
-        # -------------------------
-        # 2) Prepare output MSA file
-        # -------------------------
+        # Prepare output MSA file
         msa_out.unlink(missing_ok=True)
 
-        expected_length = None  # enforce alignment consistency
+        # Add reference as first record in MSA
+        ref_str = "".join(str(rec.seq) for rec in ref_records)
+        expected_length = len(ref_str)
+        ref_record = SeqRecord(
+            Seq(ref_str),
+            id="reference",
+            name="reference",
+            description="",
+        )
+        with msa_out.open("w") as msa_handle:
+            SeqIO.write([ref_record], msa_handle, "fasta-2line")
 
-        # -------------------------
-        # 3) Process one sample at a time
-        # -------------------------
+        # Process one sample at a time
         for snippy_dir in snippy_dirs:
             sample = snippy_dir.name
             fasta_path = self._find_pseudo_fasta(snippy_dir)
@@ -109,16 +115,12 @@ class CombineFastaFile(BaseStage):
                     + (" ..." if len(extra) > 10 else "")
                 )
 
-            # -------------------------
-            # 4) Concatenate contigs in order
-            # -------------------------
+            # Concatenate contigs in order
             super_seq_str = "".join(str(sample_map[c].seq) for c in contig_order)
 
             # Validate alignment length consistency
             L = len(super_seq_str)
-            if expected_length is None:
-                expected_length = L
-            elif L != expected_length:
+            if L != expected_length:
                 raise MSAValidationError(
                     f"Alignment length mismatch: {sample} has {L}, expected {expected_length}"
                 )
@@ -130,9 +132,7 @@ class CombineFastaFile(BaseStage):
                 description="",
             )
 
-            # -------------------------
-            # 6) Append to final MSA (streaming)
-            # -------------------------
+            # Append to final MSA
             with msa_out.open("a") as msa_handle:
                 SeqIO.write([super_record], msa_handle, "fasta-2line")
 
@@ -159,40 +159,30 @@ class SoftCoreFilter(BaseStage):
     def output(self) -> SoftCoreFilterOutput:
         return SoftCoreFilterOutput(
             aln=Path(f"{self.prefix}.aln"),
-            constant_sites=Path(f"{self.prefix}.aln.sites")
+            constant_sites=Path(f"{self.prefix}.aln.sites"),
         )
 
     @property
     def commands(self):
         return [
-            self.shell_pipeline(
+            self.shell_cmd(
                 [
-                    self.shell_cmd(
-                        [
-                            "coresnpfilter",
-                            "-C",
-                            str(self.aln),
-                        ],
-                        description="Extract constant sites from MSA",
-                    )
+                    "coresnpfilter",
+                    "-C",
+                    str(self.aln),
                 ],
+                description="Extract constant sites from MSA",
                 output_file=self.output.constant_sites,
-                description="Write constant sites file",
-            ), 
-            self.shell_pipeline(
+            ),
+            self.shell_cmd(
                 [
-                    self.shell_cmd(
-                        [
-                            "coresnpfilter",
-                            "--core",
-                            str(self.core_threshold),
-                            "--exclude_invariant",
-                            str(self.aln),
-                        ],
-                        description="Filter MSA to soft core positions",
-                    )
+                    "coresnpfilter",
+                    "--core",
+                    str(self.core_threshold),
+                    "--exclude_invariant",
+                    str(self.aln),
                 ],
+                description="Filter MSA to soft core positions",
                 output_file=self.output.aln,
-                description="Write filtered core alignment",
-            )
+            ),
         ]

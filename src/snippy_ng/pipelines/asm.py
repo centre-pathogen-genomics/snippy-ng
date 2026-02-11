@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages.filtering import VcfFilter
+from snippy_ng.stages.filtering import VcfFilterShort
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
@@ -54,7 +54,7 @@ def create_asm_pipeline_stages(
     stages.append(caller)
     
     # Filter VCF
-    variant_filter = VcfFilter(
+    variant_filter = VcfFilterShort(
         vcf=caller.output.vcf,
         reference=reference_file,
         # hard code for asm-based calling
@@ -134,7 +134,6 @@ def create_asm_pipeline_stages(
     # Print VCF histogram to terminal
     vcf_histogram = PrintVcfHistogram(
         vcf_path=variants_file,
-        height=4,
         **globals
     )
     stages.append(vcf_histogram)

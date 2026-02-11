@@ -3,13 +3,13 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
-from snippy_ng.stages.filtering import VcfFilter
+from snippy_ng.stages.filtering import VcfFilterShort
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
 from snippy_ng.stages.masks import ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
-from snippy_ng.seq_utils import guess_format
+from snippy_ng.seq_utils import guess_reference_format
 from snippy_ng.cli.utils import error
 
 
@@ -57,7 +57,7 @@ def prepare_reference(reference_path, output_directory) -> PrepareReference:
         An instance of PrepareReference stage.
     reference_format = guess_format(reference_path)
     """
-    reference_format = guess_format(reference_path)
+    reference_format = guess_reference_format(reference_path)
     if not reference_format:
         error(f"Could not determine format of reference file '{reference_path}'")
 
@@ -102,7 +102,7 @@ def filter_annotate_and_generate_consensus(
         Path to the generated pseudo-alignment FASTA file
     """
     # Filter VCF
-    variant_filter = VcfFilter(
+    variant_filter = VcfFilterShort(
         vcf=vcf,
         reference=reference,
         min_depth=min_depth,

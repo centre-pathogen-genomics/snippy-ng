@@ -121,7 +121,8 @@ class SeqKitReadStats(BaseStage):
         """
         shell_cmd = self.shell_cmd(
             command=["seqkit", "stats"],
-            description=f"Generate read statistics for {len(self.reads)} files using seqkit stats"
+            description=f"Generate read statistics for {len(self.reads)} files using seqkit stats",
+            output_file=Path(self.output.stats_tsv)
         )
         
         # Threading
@@ -158,11 +159,7 @@ class SeqKitReadStats(BaseStage):
         shell_cmd.command.extend(self.reads)
         
         # Create shell command with output file
-        return self.shell_pipeline(
-            commands=[shell_cmd],
-            description=f"Generate read statistics for {len(self.reads)} files using seqkit stats",
-            output_file=Path(self.output.stats_tsv)
-        )
+        return shell_cmd
     
     @property
     def commands(self) -> List[ShellCommand]:
@@ -260,7 +257,8 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         """
         shell_cmd = self.shell_cmd(
             command=["seqkit", "stats"],
-            description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats"
+            description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats",
+            output_file=Path(self.output.stats_tsv)
         ) 
         
         # Threading
@@ -301,10 +299,4 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         # Input files
         shell_cmd.command.extend(self.reads)
         
-        # Create shell command with output file
-        n_stats_desc = f" with N-statistics {self.additional_n_stats}" if self.additional_n_stats else ""
-        return self.shell_pipeline(
-            commands=[shell_cmd],
-            description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats{n_stats_desc}",
-            output_file=Path(self.output.stats_tsv)
-        )
+        return shell_cmd

@@ -54,7 +54,7 @@ def test_dependency_check_missing(mock_which):
     mock_which.return_value = None
     dep = Dependency("missing_tool")
     
-    with pytest.raises(MissingDependencyError, match="Could not find dependency missing_tool"):
+    with pytest.raises(MissingDependencyError, match="Could not find missing_tool"):
         dep.check()
 
 
@@ -171,7 +171,7 @@ def test_python_dependency_not_found(mock_version):
     mock_version.side_effect = PackageNotFoundError()
     
     dep = PythonDependency("missing_package")
-    with pytest.raises(MissingDependencyError, match="Could not find dependency missing_package"):
+    with pytest.raises(MissingDependencyError, match="Could not find missing_package"):
         dep.check()
 
 

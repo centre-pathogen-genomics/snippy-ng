@@ -58,14 +58,6 @@ GLOBAL_DEFS = [
         },
     },
     {
-        "param_decls": ("--name", "-n"),
-        "attrs": {
-            "type": click.STRING,
-            "help": "Name of the sample  [default: derived from reference]",
-            "callback": not_implemented_callback
-        },
-    },
-    {
         "param_decls": ("--cpus", "-c"),
         "attrs": {
             "type": int,
@@ -197,6 +189,8 @@ class CommandWithGlobals(click.Command):
                 other_opts.append(param)
 
         if global_opts:
+            order = {opts['param_decls'][0]: i for i, opts in enumerate(GLOBAL_DEFS)}
+            global_opts.sort(key=lambda p: order.get(p.opts[0], float('inf')))
             with formatter.section('Globals'):
                 rows = [p.get_help_record(ctx) for p in global_opts if p.get_help_record(ctx)]
                 formatter.write_dl(rows)

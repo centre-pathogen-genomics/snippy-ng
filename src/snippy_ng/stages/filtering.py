@@ -1,16 +1,17 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages.base import BaseStage, BaseOutput, ShellCommand
 from snippy_ng.dependencies import samtools, bcftools
+from snippy_ng.logging import logger
 from pydantic import Field, field_validator
 
 
-class BamFilterOutput(BaseOutput):
-    bam: Path
-    bam_index: Path
+class SamtoolsFilterOutput(BaseOutput):
+    cram: Path
+    stats: Path = Field(..., description="Flagstat output file for the CRAM file")
 
 
-class BamFilter(BaseStage):
+class SamtoolsFilter(BaseStage):
     """
     Filter BAM files using Samtools to remove unwanted alignments.
     """
@@ -25,16 +26,23 @@ class BamFilter(BaseStage):
     _dependencies = [samtools]
     
     @property
-    def output(self) -> BamFilterOutput:
-        filtered_bam = f"{self.prefix}.filtered.bam"
-        return BamFilterOutput(
-            bam=filtered_bam,
-            bam_index=f"{filtered_bam}.bai"
+    def output(self) -> SamtoolsFilterOutput:
+        filtered_bam = f"{self.prefix}.filtered.cram"
+        return SamtoolsFilterOutput(
+            cram=filtered_bam,
+            stats=f"{filtered_bam}.flagstat.txt"
         )
     
-    def build_filter_command(self):
+    def build_filter_command(self) -> ShellCommand:
         """Constructs the samtools view command for filtering."""
-        cmd_parts = ["samtools", "view", "-b"]
+        cmd_parts = [
+            "samtools",
+            "view",
+            "-O",
+            "cram,embed_ref=2",
+            "-o",
+            str(self.output.cram),
+        ]
         
         # Add threading
         if self.cpus > 1:
@@ -69,30 +77,53 @@ class BamFilter(BaseStage):
         
         filter_cmd = self.shell_cmd(
             command=cmd_parts,
-            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}"
+            description=f"Filter CRAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}",
         )
         
-        return self.shell_pipeline(
-            commands=[filter_cmd],
-            description="Filter BAM alignments",
-            output_file=Path(self.output.bam)
-        )
+        return filter_cmd
     
     def build_index_command(self):
         """Returns the samtools index command."""
         return self.shell_cmd([
-            "samtools", "index", str(self.output.bam)
-        ], description=f"Index filtered BAM file: {self.output.bam}")
+            "samtools", "index", str(self.output.cram)
+        ], description=f"Index filtered CRAM file: {self.output.cram}")
     
+    def build_flagstat_command(self):
+        """Returns the samtools flagstat command."""
+        return self.shell_cmd(
+            ["samtools", "flagstat", str(self.output.cram)],
+            description=f"Generate alignment statistics for {self.output.cram}",
+            output_file=Path(self.output.stats),
+        )
+
+    def test_mapped_reads_not_zero(self):
+        """Test that the BAM file contains mapped reads."""
+        flagstat_path = self.output.stats
+        if not flagstat_path.exists():
+            raise FileNotFoundError(
+                f"Expected flagstat output file {flagstat_path} was not created"
+            )
+
+        with open(flagstat_path) as f:
+            for line in f:
+                if "mapped (" in line:
+                    mapped_reads = int(line.split()[0])
+                    if mapped_reads == 0:
+                        raise ValueError(
+                            "No reads were mapped in BAM file after filtering. Did you use the correct reference?"
+                        )
+                    break
+
     @property
     def commands(self) -> List:
         """Constructs the filtering commands."""
         filter_cmd = self.build_filter_command()
         index_cmd = self.build_index_command()
-        return [filter_cmd, index_cmd]
+        stats_cmd = self.build_flagstat_command()
+        return [filter_cmd, index_cmd, stats_cmd]
 
 
-class BamFilterByRegion(BamFilter):
+class SamtoolsFilterByRegion(SamtoolsFilter):
     """
     Filter BAM file to include only alignments in specified regions.
     """
@@ -107,7 +138,7 @@ class BamFilterByRegion(BamFilter):
         return v
 
 
-class BamFilterByQuality(BamFilter):
+class SamtoolsFilterByQuality(SamtoolsFilter):
     """
     Filter BAM file based on mapping quality and alignment flags.
     """
@@ -116,7 +147,7 @@ class BamFilterByQuality(BamFilter):
     exclude_flags: int = Field(3844, description="SAM flags to exclude (default + supplementary)")
 
 
-class BamFilterProperPairs(BamFilter):
+class SamtoolsFilterProperPairs(SamtoolsFilter):
     """
     Filter BAM file to include only properly paired reads.
     """
@@ -128,17 +159,11 @@ class BamFilterProperPairs(BamFilter):
 class VcfFilterOutput(BaseOutput):
     vcf: Path
 
-
 class VcfFilter(BaseStage):
-    """
-    Filter VCF files using Samtools to remove unwanted variants.
-    """
-
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
     min_qual: int = Field(100, description="Minimum QUAL score")
     min_depth: int = Field(1, description="Minimum site depth for calling alleles")
-    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
 
     _dependencies = [bcftools]
 
@@ -146,6 +171,22 @@ class VcfFilter(BaseStage):
     def output(self) -> VcfFilterOutput:
         filtered_vcf = f"{self.prefix}.filtered.vcf"
         return VcfFilterOutput(vcf=filtered_vcf)
+    
+    def test_check_if_vcf_has_variants(self):
+        """Test that the output VCF file is not empty."""
+        vcf_path = self.output.vcf
+        with open(vcf_path, "r") as f:
+            for line in f:
+                if not line.startswith("#"):
+                    return  # Found a non-header line, VCF is not empty
+        # give warning instead of error as some callers may produce empty VCFs if no variants are found
+        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
+
+class VcfFilterShort(VcfFilter):
+    """
+    Filter VCF files using Samtools to remove unwanted variants.
+    """
+    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
 
     @property
     def commands(self) -> List:
@@ -200,7 +241,7 @@ class VcfFilter(BaseStage):
         return [bcftools_pipeline]
 
 
-class VcfFilterLong(BaseStage):
+class VcfFilterLong(VcfFilter):
     """
     Filter VCF files for long-read variant calling using bcftools to remove unwanted variants.
     
@@ -212,22 +253,8 @@ class VcfFilterLong(BaseStage):
     - Removing long indels and duplicates
     - Converting to haploid genotypes
     """
-    
-    vcf: Path = Field(..., description="Input VCF file to filter")
-    reference: Path = Field(..., description="Reference FASTA file")
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
-    
-    min_qual: int = Field(100, description="Minimum QUAL score")
-    min_depth: int = Field(1, description="Minimum site depth for calling alleles")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
-    
-    _dependencies = [bcftools]
-    
-    @property
-    def output(self) -> VcfFilterOutput:
-        filtered_vcf = f"{self.prefix}.filtered.vcf"
-        return VcfFilterOutput(vcf=filtered_vcf)
-    
     
     @property
     def commands(self) -> List:
@@ -237,33 +264,42 @@ class VcfFilterLong(BaseStage):
         contigs_file = f"{self.prefix}.contigs.txt"
         header_file = f"{self.prefix}.header.txt"
         
-        # Step 1: Generate contig lines from faidx
-        create_contigs = self.shell_cmd(
+        # Generate contig lines from faidx
+        create_contigs_cmd = self.shell_cmd(
             ["awk", '{print "##contig=<ID="$1",length="$2">"}', str(self.reference_index)],
             description="Generate contig lines from reference index",
-        )
-        create_contigs_pipeline = self.shell_pipeline(
-            commands=[create_contigs],
-            description="Create contig definitions",
             output_file=Path(contigs_file)
         )
         
-        # Step 2: Create new header with all contigs
+        # Create new header with all contigs
         # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
-        create_header_cmd = f'bcftools view -h {self.vcf} | grep -v "^##contig=" | sed -e "3r {contigs_file}" > {header_file}'
-        create_header = self.shell_cmd(
-            ["bash", "-c", create_header_cmd],
-            description="Create VCF header with all contigs"
+        create_header_pipeline = self.shell_pipeline(
+            commands=[
+                self.shell_cmd(
+                    ["bcftools", "view", "-h", str(self.vcf)],
+                    description="Extract VCF header"
+                ),
+                self.shell_cmd(
+                    ["grep", "-v", "^##contig="],
+                    description="Drop existing contig headers"
+                ),
+                self.shell_cmd(
+                    ["sed", "-e", f"3r {contigs_file}"],
+                    description="Insert all reference contigs into header"
+                ),
+            ],
+            description="Create VCF header with all contigs",
+            output_file=Path(header_file),
         )
         
-        # Step 3: Build the main filtering pipeline
+        # Build the main filtering pipeline
         pipeline_commands = [
             self.shell_cmd(
                 ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
                 description="Replace VCF header with new header containing all contigs"
             ),
         ]
-
+        
         # Keep only the tags you want; everything else is dropped.
         keep_vcf_tags = ",".join(
             [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
@@ -326,6 +362,6 @@ class VcfFilterLong(BaseStage):
             description="Remove temporary files"
         )
         
-        return [create_contigs_pipeline, create_header, main_pipeline, cleanup_cmd]
+        return [create_contigs_cmd, create_header_pipeline, main_pipeline, cleanup_cmd]
 
     

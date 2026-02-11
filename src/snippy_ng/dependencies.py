@@ -29,7 +29,7 @@ class Dependency:
         command = self.command or self.name
         if not which(command):
             raise MissingDependencyError(
-                f"Could not find dependency {command}! Please install it."
+                f"Could not find {command}! Please ensure it is installed and in your PATH."
             )
         version = self.get_version_from_cli()
         return self._base_validator(version)
@@ -104,7 +104,7 @@ class PythonDependency(Dependency):
             version = version(self.name)
         except PackageNotFoundError:
             raise MissingDependencyError(
-                f"Could not find dependency {self.name}! Please install it."
+                f"Could not find {self.name}! Please install it."
             )
         return self._base_validator(version)
 
@@ -118,10 +118,9 @@ biopython = PythonDependency(
 samtools = Dependency(
     "samtools",
     citation="Petr Danecek, James K Bonfield, Jennifer Liddle, John Marshall, Valeriu Ohan, Martin O Pollard, Andrew Whitwham, Thomas Keane, Shane A McCarthy, Robert M Davies, Heng Li, Twelve years of SAMtools and BCFtools, GigaScience, Volume 10, Issue 2, February 2021, giab008, https://doi.org/10.1093/gigascience/giab008",
-    less_then="1.21",
+    min_version="1.21",
     version_pattern=r"(\d+\.\d+)",
 )
-samclip = Dependency("samclip", citation="", min_version="0.4.0")
 bwa = Dependency(
     "bwa",
     citation="Heng Li, Richard Durbin, Fast and accurate short read alignment with Burrows-Wheeler transform, Bioinformatics, Volume 25, Issue 14, July 2009, Pages 1754-1760, https://doi.org/10.1093/bioinformatics/btp324",

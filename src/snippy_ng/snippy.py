@@ -81,14 +81,24 @@ class Snippy:
         for stage in self.stages:
             self.hr(f"{stage.name}")
             self.debug(stage)
-            try:
-                if create_missing and stage.check_outputs():
+
+            if create_missing:
+                try:
+                    stage.error_if_outputs_missing()
                     self.log(f"{stage.name} already completed, skipping...")
                     continue
+                except MissingOutputError:
+                    pass
+            try:
                 start = time.perf_counter()
                 stage.run(quiet)
                 end = time.perf_counter()
                 self.debug(f"Runtime: {(end - start):.2f} seconds")
+                # After running each stage,
+                # check all expected outputs were produced
+                stage.error_if_outputs_missing()
+                # run any tests defined for the stage
+                stage.run_tests()
             except (Exception, KeyboardInterrupt) as e:
                 # remove outputs if stage fails
                 if keep_incomplete:
@@ -102,16 +112,9 @@ class Snippy:
                         self.warning(f"Removing incomplete output '{name}' ({path}).")
                         Path(path).unlink()
                 if output_removed:
-                    self.warning("Use `--keep-incomplete` to retain incomplete outputs on error.")
+                    self.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
-            # After running each stage,
-            # check all the expected outputs were produced
-            for name, path in stage.output:
-                if not path:  # Skip empty outputs
-                    continue
-                if Path(path).exists():
-                    continue
-                raise MissingOutputError(f"Expected output '{name}' ({path}) not found after running '{stage.name}'")
+          
         self.end_time = time.perf_counter()
 
     def cleanup(self, directory: Path = None):

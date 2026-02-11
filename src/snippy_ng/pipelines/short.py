@@ -4,8 +4,8 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
-from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner, PreAlignedReads
-from snippy_ng.stages.filtering import BamFilter, VcfFilter
+from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -19,7 +19,7 @@ def create_short_pipeline_stages(
     reference: str,
     reads: List[str],
     prefix: str = "snps",
-    bam: Optional[str] = None,
+    bam: Optional[Path] = None,
     clean_reads: bool = False,
     downsample: Optional[float] = None,
     aligner: str = "minimap2",
@@ -76,62 +76,57 @@ def create_short_pipeline_stages(
             current_reads.append(clean_reads_stage.output.cleaned_r2)
         stages.append(clean_reads_stage)
 
-    # Aligner
     if bam:
-        aligner_stage = PreAlignedReads(
-            bam=Path(bam),
-            reference=reference_file,
-            **globals
-        )
-    elif aligner == "bwamem":
-        aligner_stage = BWAMEMReadsAligner(
-            reads=current_reads,
-            reference=reference_file,
-            reference_index=reference_index,
-            aligner_opts=aligner_opts,
-            **globals
-        )
+        aligned_reads = Path(bam).resolve()  
     else:
-        # Minimap2
-        minimap_opts = "-x sr " + aligner_opts
-        aligner_stage = MinimapAligner(
-            reads=current_reads,
-            reference=reference_file,
-            aligner_opts=minimap_opts,
-            **globals
-        )
-    
-    if not bam:
         # SeqKit read statistics
         stats_stage = SeqKitReadStatsBasic(
             reads=current_reads,
             **globals
         )
         stages.append(stats_stage)
-    
-    current_bam = aligner_stage.output.bam
-    stages.append(aligner_stage)
+        # Aligner
+        if aligner == "bwamem":
+            aligner_stage = BWAMEMShortReadAligner(
+                reads=current_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                aligner_opts=aligner_opts,
+                **globals
+            )
+        else:
+            # Minimap2
+            aligner_stage = Minimap2ShortReadAligner(
+                reads=current_reads,
+                reference=reference_file,
+                aligner_opts=aligner_opts,
+                **globals
+            )
+        
+        aligned_reads = aligner_stage.output.cram
+        stages.append(aligner_stage)
     
     # Filter alignment
-    align_filter = BamFilter(
-        bam=current_bam,
+    align_filter = SamtoolsFilter(
+        bam=aligned_reads,
         **globals
     )
-    current_bam = align_filter.output.bam
+    aligned_reads = align_filter.output.cram
     stages.append(align_filter)
     
     # SNP calling
     caller = FreebayesCaller(
-        bam=current_bam,
+        bam=aligned_reads,
         reference=reference_file,
         reference_index=reference_index,
         fbopt=freebayes_opts,
+        mincov=min_depth,
         **globals
     )
     stages.append(caller)
     
     # Filter VCF
-    variant_filter = VcfFilter(
+    variant_filter = VcfFilterShort(
         vcf=caller.output.vcf,
         reference=reference_file,
         min_depth=min_depth,
@@ -172,7 +167,7 @@ def create_short_pipeline_stages(
     
     # Apply depth masking
     depth_mask = DepthMask(
-        bam=current_bam,
+        bam=aligned_reads,
         fasta=current_fasta,
         min_depth=min_depth,
         **globals
@@ -211,7 +206,6 @@ def create_short_pipeline_stages(
     # Print VCF histogram to terminal
     vcf_histogram = PrintVcfHistogram(
         vcf_path=variants_file,
-        height=4,
         **globals
     )
     stages.append(vcf_histogram)

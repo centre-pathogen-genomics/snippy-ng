@@ -4,6 +4,7 @@ from typing import List, Annotated, Optional
 
 from snippy_ng.stages.base import BaseStage, BaseOutput
 from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3
+from snippy_ng.logging import logger
 
 from pydantic import Field, AfterValidator
 
@@ -28,9 +29,21 @@ class Caller(BaseStage):
         ..., description="Output file prefix"
     )
 
+    def test_check_if_vcf_has_variants(self):
+        """Test that the output VCF file is not empty."""
+        vcf_path = self.output.vcf
+        with open(vcf_path, "r") as f:
+            for line in f:
+                if not line.startswith("#"):
+                    return  # Found a non-header line, VCF is not empty
+        # give warning instead of error as some callers may produce empty VCFs if no variants are found
+        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
 
-class FreebayesCallerOutput(BaseOutput):
-    vcf: str
+class BaseCallerOutput(BaseOutput):
+    vcf: Path
+
+class FreebayesCallerOutput(BaseCallerOutput):
+    vcf: Path
     regions: str
 
 
@@ -43,10 +56,8 @@ class FreebayesCaller(Caller):
     fbopt: str = Field("", description="Additional Freebayes options")
     mincov: int = Field(10, description="Minimum site depth for calling alleles")
     minfrac: float = Field(
-        0.05, description="Minimum proportion for variant evidence (0=AUTO)"
+        0.05, description="Require at least this fraction of observations supporting an alternate allele within a single individual in the in order to evaluate the position"
     )
-    mindepth: float = Field(0, description="Minimum proportion for calling alt allele")
-    minqual: float = Field(100.0, description="Minimum quality in VCF column 6")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -81,22 +92,13 @@ class FreebayesCaller(Caller):
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "-p",
-            "2",
-            "-P",
-            "0",
-            "-C",
-            "2",
-            "-F",
-            str(self.minfrac),
-            "--min-coverage",
-            str(self.mincov),
-            "--min-repeat-entropy",
-            "1.0",
-            "-q",
-            "13",
-            "-m",
-            "60",
+            "--ploidy", "2",
+            "--min-alternate-count", "2",
+            "--min-alternate-fraction", str(self.minfrac),
+            "--min-coverage", str(self.mincov),
+            "--min-repeat-entropy", "1.0",
+            "--min-base-quality", "13",
+            "--min-mapping-quality", "60",
             "--strict-vcf",
         ]
         if self.fbopt:
@@ -108,14 +110,9 @@ class FreebayesCaller(Caller):
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
             description="Call variants with FreeBayes in parallel",
-        )
-        freebayes_pipeline = self.shell_pipeline(
-            commands=[freebayes_cmd],
-            description="FreeBayes variant calling",
             output_file=Path(self.output.vcf),
         )
-
-        return [generate_regions_pipeline, freebayes_pipeline]
+        return [generate_regions_pipeline, freebayes_cmd]
 
 
 class FreebayesCallerLong(FreebayesCaller):
@@ -127,32 +124,24 @@ class FreebayesCallerLong(FreebayesCaller):
     def commands(self) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
-        # 1) Regions for parallel FreeBayes
+        # Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
             ["fasta_generate_regions.py", str(self.reference_index), "202106"],
             description="Generate genomic regions for parallel variant calling",
-        )
-        generate_regions_pipeline = self.shell_pipeline(
-            commands=[generate_regions_cmd],
-            description="Generate regions file for parallel processing",
             output_file=Path(self.output.regions),
         )
-
-        # 2) FreeBayes parallel call
+        # FreeBayes parallel call
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
             str(self.cpus),
-            "--haplotype-length",
-            "-1",
-            "-m", 
-            "10",
-            "-q", 
-            "10",
-            "-p",
-            "2",
-            "--min-coverage",
-            str(self.mincov),
+            "--haplotype-length", "-1",
+            "--min-mapping-quality", "10",
+            "--min-base-quality", "10",
+            "--ploidy", "2",
+            "--min-coverage", str(self.mincov),
+            "--min-alternate-fraction", str(self.minfrac),
+
         ]
         if self.fbopt:
             import shlex
@@ -163,16 +152,12 @@ class FreebayesCallerLong(FreebayesCaller):
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
             description="Call variants with FreeBayes in parallel",
-        )
-        freebayes_pipeline = self.shell_pipeline(
-            commands=[freebayes_cmd],
-            description="FreeBayes variant calling",
             output_file=Path(self.output.vcf),
         )
+        
+        return [generate_regions_cmd, freebayes_cmd]
 
-        return [generate_regions_pipeline, freebayes_pipeline]
-
-class PAFCallerOutput(BaseOutput):
+class PAFCallerOutput(BaseCallerOutput):
     vcf: Path
     aln_bed: Path
     missing_bed: Path
@@ -246,17 +231,11 @@ class PAFCaller(Caller):
                 str(self.output.aln_bed),
             ],
             description="Compute unaligned (missing) reference regions",
-        )
-        compute_missing_bed_pipeline = self.shell_pipeline(
-            commands=[compute_missing_bed_cmd],
-            description="Generate missing regions BED file",
             output_file=self.output.missing_bed,
         )
 
         # variant calling
-        paftools_pipeline = self.shell_pipeline(
-            commands=[
-                self.shell_cmd(
+        paftools_cmd = self.shell_cmd(
                     [
                         "paftools.js",
                         "call",
@@ -273,11 +252,8 @@ class PAFCaller(Caller):
                         str(self.paf),
                     ],
                     description="Call variants from PAF using paftools.js",
-                ),
-            ],
-            description="Variant calling from PAF",
-            output_file=self.output.vcf.with_suffix(".tmp"),
-        )
+                    output_file=self.output.vcf.with_suffix(".tmp"),
+                )
 
         create_annotation_file_pipeline = self.shell_pipeline(
             commands=[
@@ -285,7 +261,7 @@ class PAFCaller(Caller):
                     [
                         "bcftools",
                         "query",
-                        str(paftools_pipeline.output_file),
+                        str(paftools_cmd.output_file),
                         "-f",
                         "%CHROM\\t%POS\\t1\\t1\\n",
                     ],
@@ -309,9 +285,7 @@ class PAFCaller(Caller):
             ],
             description="Index annotation file with tabix",
         )
-        annotations_pipeline = self.shell_pipeline(
-            commands=[
-                self.shell_cmd(
+        annotations_cmd = self.shell_cmd(
                     [
                         "bcftools",
                         "annotate",
@@ -319,25 +293,22 @@ class PAFCaller(Caller):
                         "-H", '##FORMAT=<ID=AO,Number=A,Type=Integer,Description="Alternate allele observation count for each ALT">',
                         "-c", "CHROM,POS,FMT/DP:=FORMAT/DP,FMT/AO:=FORMAT/AO",
                         "-a", str(self.output.annotations_file),
-                        str(paftools_pipeline.output_file),
+                        str(paftools_cmd.output_file),
                     ],
                     description="Insert FORMAT header lines for DP and AO",
-                ),
-            ],
-            description="Annotate VCF with DP and AO headers",
-            output_file=self.output.vcf,
-        )
+                    output_file=self.output.vcf,
+                )
 
         return [
             paf_to_pipeline,
-            compute_missing_bed_pipeline,
-            paftools_pipeline,
+            compute_missing_bed_cmd,
+            paftools_cmd,
             create_annotation_file_pipeline,
             index_cmd,
-            annotations_pipeline,
+            annotations_cmd,
         ]
 
-class Clair3CallerOutput(BaseOutput):
+class Clair3CallerOutput(BaseCallerOutput):
     vcf: Path
 
 

@@ -1,4 +1,3 @@
-# Concrete Alignment Strategies
 from pathlib import Path
 from typing import List
 
@@ -29,15 +28,16 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     _dependencies = [
         bcftools
     ]
-
+    
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
             fasta=Path(f"{self.prefix}.pseudo.raw.fna")
         )
     
-    def fasta_file_matches_ref(self, fasta_file: Path):
-        """Asserts that the given FASTA file has the expected length and contig count as per the reference metadata."""
+    def test_output_matches_reference(self):
+        """Asserts that the FASTA file has the expected length and contig count as per the reference metadata."""
+        fasta_file = self.output.fasta
         ref_length = self.ref_metadata.total_length
         ref_contigs = self.ref_metadata.num_sequences
         assert ref_length is not None, "Reference length metadata is missing."
@@ -54,7 +54,6 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
             raise ConsensusValidationError(f"FASTA file {fasta_file} length mismatch: expected {ref_length}, got {actual_length}")
         if num_contigs != ref_contigs:
             raise ConsensusValidationError(f"FASTA file {fasta_file} contig count mismatch: expected {ref_contigs}, got {num_contigs}")
-        print(f"Consensus FASTA file matches reference metadata: length {actual_length}, contigs {num_contigs}")
 
     @property
     def commands(self) -> List:
@@ -71,14 +70,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
             "--mark-del", "-",
             str(self.vcf_gz),
         ])
-        length_check_cmd = self.python_cmd(
-            func=self.fasta_file_matches_ref,
-            args=[self.output.fasta],
-            description="Checking FASTA file length matches reference"
-        )
         return [
             self.shell_cmd(["bcftools", "index", str(self.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
-            self.shell_cmd(["rm", f"{self.vcf_gz}.csi"], description="Removing VCF index file"),
-            length_check_cmd
+            self.shell_cmd(["rm", f"{self.vcf_gz}.csi"], description="Removing VCF index file") 
         ]

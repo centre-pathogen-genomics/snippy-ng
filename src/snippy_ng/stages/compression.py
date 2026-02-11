@@ -27,9 +27,12 @@ class BgzipCompressor(Compressor):
         )
 
     @property
-    def commands(self) -> List:
+    def commands(self):
         """Constructs the gzip compression command."""
         bgzip_cmd = self.shell_cmd([
-            "bgzip", "-c", str(self.input)
-        ], description="Compressing file with bgzip")
-        return [self.shell_pipeline([bgzip_cmd], output_file=self.output.compressed, description="Bgzip compression pipeline")]
+                "bgzip", "-c", str(self.input)
+            ], 
+            output_file=self.output.compressed,
+            description="Compressing file with bgzip"
+        )
+        return [bgzip_cmd]

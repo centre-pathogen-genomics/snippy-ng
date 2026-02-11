@@ -4,6 +4,7 @@ hyperfine.csv
 out
 og_out
 asm_out
+long
 # pixi environments
 .pixi
 *.egg-info
@@ -16,3 +17,4 @@ coverage.xml
 .coverage
 dist/
 __pycache__/
+tests/data/samples.csv

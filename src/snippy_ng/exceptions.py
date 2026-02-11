@@ -1,4 +1,8 @@
-class DependencyError(Exception):
+class SnippyError(Exception):
+    """Base class for all Snippy exceptions."""
+    pass
+
+class DependencyError(SnippyError):
     pass
 
 class MissingDependencyError(DependencyError):
@@ -10,15 +14,20 @@ class InvalidDependencyError(DependencyError):
 class InvalidDependencyVersionError(DependencyError):
     pass
 
-class MissingInputError(Exception):
+class MissingInputError(SnippyError):
     pass
 
-class MissingOutputError(Exception):
+class MissingOutputError(SnippyError):
     pass
 
-class InvalidCommandTypeError(Exception):
+class InvalidCommandTypeError(SnippyError):
     pass
 
-class StageExecutionError(Exception):
+class StageExecutionError(SnippyError):
     pass
 
+class StageTestFailure(StageExecutionError):
+    pass
+
+class PipelineExecutionError(SnippyError):
+    pass

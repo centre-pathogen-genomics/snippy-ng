@@ -216,17 +216,16 @@ class HetMask(BaseStage):
         """Generate BED file of heterozygous and low quality sites using bcftools"""
         # Query for het sites and low quality sites
         bcftools_query = self.shell_cmd([
-            "bcftools", "query", 
-            "-i", f'GT="het" || QUAL<{self.min_qual}',
-            "-f", "%CHROM\\t%POS0\\t%POS\\n",
-            str(self.vcf)
-        ], description=f"Extract heterozygous sites and sites with QUAL < {self.min_qual}")
-        
-        return [self.shell_pipeline(
-            [bcftools_query],
+                "bcftools", "query", 
+                "-i", f'GT="het" || QUAL<{self.min_qual}',
+                "-f", "%CHROM\\t%POS0\\t%POS\\n",
+                str(self.vcf)
+            ], 
+            description=f"Extract heterozygous sites and sites with QUAL < {self.min_qual}",
             output_file=self.output.het_sites_bed,
-            description="Create BED file of heterozygous and low quality sites"
-        )]
+        )
+        
+        return [bcftools_query]
     
     def _apply_het_mask(self):
         """Apply het sites mask to FASTA file"""

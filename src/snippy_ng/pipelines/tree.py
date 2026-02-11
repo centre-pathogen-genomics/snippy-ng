@@ -1,21 +1,16 @@
-from snippy_ng.stages.trees import IQTreeBuildTree
 from pathlib import Path
+from snippy_ng.stages.trees import IQTreeBuildTree
 
 def create_tree_pipeline_stages(
     aln: str,
-    model: str,
-    bootstrap: int,
-    fconst: str | None,
-    tmpdir: str | None,
-    cpus: int,
-    ram: int,
+    model: str = "GTR+G",
+    bootstrap: int = 1000,
+    fconst: str | None = None,
+    tmpdir: Path = Path("/tmp"),
+    cpus: int = 1,
+    ram: int = 8,
 ) -> list:
     stages = []
-
-    #if fconst is a path read the content
-    if fconst and Path(fconst).is_file():
-        with open(fconst, 'r') as f:
-            fconst = f.read().strip()
 
     # Stage to build a phylogenetic tree using IQ-TREE
     iqtree_stage = IQTreeBuildTree(
