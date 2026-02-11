@@ -110,7 +110,7 @@ class SamtoolsFilter(BaseStage):
                     mapped_reads = int(line.split()[0])
                     if mapped_reads == 0:
                         raise ValueError(
-                            "No reads were mapped in BAM file. Did you use the correct reference?"
+                            "No reads were mapped in BAM file after filtering. Did you use the correct reference?"
                         )
                     break
 
