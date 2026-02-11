@@ -9,25 +9,32 @@ from pydantic import Field, field_validator
 class AlignerOutput(BaseOutput):
     cram: Path = Field(..., description="Output CRAM file")
 
-
-class ShortReadAligner(BaseStage):
+class Aligner(BaseStage):
     """
-    Base class for short read alignment pipelines. Implements common steps: sorting, fixing mates, and marking duplicates.
-    Optionally filters soft-clipped reads using samclip (recommended only for short reads, as it may discard valid soft clipping in long reads).
+    Base class for read alignment stages. Defines common properties and methods for alignment pipelines.
     """
-
     reference: Path = Field(..., description="Reference file")
-    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
+    reads: List[str] = Field(..., default_factory=list, description="List of input read files")
     aligner_opts: str = Field("", description="Additional options for the aligner")
-    samclip: bool = Field(
-        True, description="Whether to run samclip to filter soft-clipped reads"
-    )
 
     @property
     def output(self) -> AlignerOutput:
         return AlignerOutput(
             cram=self.prefix + ".cram",
         )
+
+class ShortReadAligner(Aligner):
+    """
+    Base class for short read alignment pipelines. Implements common steps: sorting, fixing mates, and marking duplicates.
+    Optionally filters soft-clipped reads using samclip (recommended only for short reads, as it may discard valid soft clipping in long reads).
+    """
+
+    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
+    samclip: bool = Field(
+        True, description="Whether to run samclip to filter soft-clipped reads"
+    )
+
+    _dependencies = [samtools]
 
     @property
     def common_commands(self) -> List:
@@ -134,17 +141,6 @@ class BWAMEMShortReadAligner(ShortReadAligner):
 
     reference_index: Path = Field(..., description="BWA index file for the reference")
 
-    reads: List[str] = Field(
-        default_factory=list, description="List of input read files"
-    )
-
-    @field_validator("reads")
-    @classmethod
-    def check_reads(cls, v):
-        if not v:
-            raise ValueError("Reads list must not be empty")
-        return v
-
     _dependencies = [samtools, bwa]
 
     @property
@@ -177,24 +173,13 @@ class Minimap2ShortReadAligner(ShortReadAligner):
     """
     Align reads to a reference using Minimap2.
     """
-
-    reads: List[str] = Field(
-        default_factory=list, description="List of input read files"
-    )
-
-    @field_validator("reads")
-    @classmethod
-    def check_reads(cls, v):
-        if not v:
-            raise ValueError("Reads list must not be empty")
-        return v
+    _dependencies = [minimap2, samtools]
 
     @property
     def ram_per_thread(self) -> int:
         """Calculate RAM per thread in MB."""
         return max(1, self.ram // self.cpus)
 
-    _dependencies = [minimap2, samtools]
 
     @property
     def commands(self) -> List:
@@ -217,23 +202,13 @@ class Minimap2ShortReadAligner(ShortReadAligner):
         return [alignment_pipeline]
 
 
-class Minimap2LongReadAligner(BaseStage):
+class Minimap2LongReadAligner(Aligner):
     """
     Align reads to a reference using Minimap2.
     """
-
-    reference: Path = Field(..., description="Reference file")
-    reads: List[str] = Field(..., description="List of input read files")
-    aligner_opts: str = Field("", description="Additional options for Minimap2")
     minimap_preset: str = Field(
         "map-ont", description="Minimap2 preset to use for alignment"
     )
-
-    @property
-    def output(self) -> AlignerOutput:
-        return AlignerOutput(
-            cram=self.prefix + ".cram",
-        )
     
     _dependencies = [minimap2, samtools]
 
