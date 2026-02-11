@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from typing import List
-from snippy_ng.stages.base import BaseStage, ShellCommandPipe, BaseOutput
+from snippy_ng.stages import BaseStage, ShellCommandPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2
 from pydantic import Field, field_validator
 

@@ -1,5 +1,5 @@
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.__about__ import __version__
 from pydantic import Field, computed_field, field_validator
 from pathlib import Path

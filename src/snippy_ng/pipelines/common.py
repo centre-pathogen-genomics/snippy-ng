@@ -9,8 +9,8 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
 from snippy_ng.stages.masks import ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
-from snippy_ng.seq_utils import guess_reference_format
-from snippy_ng.cli.utils import error
+from snippy_ng.utils.seq import guess_reference_format
+from snippy_ng.exceptions import InvalidReferenceError
 
 
 def load_or_prepare_reference(
@@ -33,7 +33,7 @@ def load_or_prepare_reference(
         # check for metadata.json in directory
         metadata = Path(reference_path) / "metadata.json"
         if not metadata.exists():
-            error(f"No metadata.json found in reference directory '{reference_path}'. Ensure you are providing a valid reference directory.")
+            raise InvalidReferenceError(f"No metadata.json found in reference directory '{reference_path}'. Ensure you are providing a valid reference directory.")
         setup = LoadReferenceFromMetadataFile(
             metadata=metadata
         )
@@ -59,7 +59,7 @@ def prepare_reference(reference_path, output_directory) -> PrepareReference:
     """
     reference_format = guess_reference_format(reference_path)
     if not reference_format:
-        error(f"Could not determine format of reference file '{reference_path}'")
+        raise InvalidReferenceError(f"Could not determine reference format for '{reference_path}'. Supported formats are FASTA and GenBank.")
 
     setup = PrepareReference(
         input=reference_path,

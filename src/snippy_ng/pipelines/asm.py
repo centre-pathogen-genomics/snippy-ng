@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
+from snippy_ng.pipelines import SnippyPipeline
 from snippy_ng.stages.filtering import VcfFilterShort
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -13,7 +14,7 @@ from snippy_ng.stages.calling import PAFCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram
 
 
-def create_asm_pipeline_stages(
+def create_asm_pipeline(
     reference: str,
     assembly: str,
     prefix: str = "snps",
@@ -21,7 +22,7 @@ def create_asm_pipeline_stages(
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
-) -> list:
+) -> SnippyPipeline:
     stages = []
     globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
@@ -138,4 +139,4 @@ def create_asm_pipeline_stages(
     )
     stages.append(vcf_histogram)
     
-    return stages
+    return SnippyPipeline(stages=stages)

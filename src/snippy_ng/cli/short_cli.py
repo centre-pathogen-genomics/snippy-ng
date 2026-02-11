@@ -10,10 +10,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--bam", default=None, type=click.Path(exists=True, resolve_path=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
+@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
-@click.option("--freebayes-opts", default='', type=click.STRING, help="Extra options for Freebayes")
-@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
 def short(**config):
@@ -24,9 +24,7 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.pipelines.short import create_short_pipeline_stages
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
-    import click
+    from snippy_ng.pipelines.short import create_short_pipeline
     
     # combine R1 and R2 into reads
     reads = []
@@ -41,7 +39,7 @@ def short(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_short_pipeline_stages(
+    pipeline = create_short_pipeline(
         reference=config["reference"],
         reads=reads,
         prefix=config["prefix"],
@@ -50,7 +48,7 @@ def short(**config):
         downsample=config["downsample"],
         aligner=config["aligner"],
         aligner_opts=config["aligner_opts"],
-        freebayes_opts=config["freebayes_opts"],
+        caller_opts=config["caller_opts"],
         mask=config["mask"],
         min_depth=config["min_depth"],
         min_qual=config["min_qual"],
@@ -60,11 +58,10 @@ def short(**config):
     )
     
     # Run the pipeline
-    return run_snippy_pipeline(
-        stages,
+    pipeline(
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=config['outdir'],
+        cwd=config['outdir'],
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],

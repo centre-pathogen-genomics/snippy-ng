@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional, List
 from snippy_ng.metadata import ReferenceMetadata
+from snippy_ng.pipelines import SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
@@ -15,7 +16,7 @@ from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
 
-def create_short_pipeline_stages(
+def create_short_pipeline(
     reference: str,
     reads: List[str],
     prefix: str = "snps",
@@ -24,14 +25,14 @@ def create_short_pipeline_stages(
     downsample: Optional[float] = None,
     aligner: str = "minimap2",
     aligner_opts: str = "",
-    freebayes_opts: str = "",
+    caller_opts: str = "",
     mask: Optional[str] = None,
     min_depth: int = 10,
     min_qual: float = 100,
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
-) -> list:
+) -> SnippyPipeline:
     stages = []
     globals = {'prefix': prefix, 'cpus': cpus, 'ram': ram, 'tmpdir': tmpdir}
     
@@ -119,7 +120,7 @@ def create_short_pipeline_stages(
         bam=aligned_reads,
         reference=reference_file,
         reference_index=reference_index,
-        fbopt=freebayes_opts,
+        fbopt=caller_opts,
         mincov=min_depth,
         **globals
     )
@@ -210,7 +211,7 @@ def create_short_pipeline_stages(
     )
     stages.append(vcf_histogram)
 
-    return stages
+    return SnippyPipeline(stages=stages)
     
 
 

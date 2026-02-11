@@ -1,5 +1,6 @@
 import click
-from snippy_ng.__about__ import __version__, EXE, GITHUB_URL 
+from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
+from snippy_ng.exceptions import SnippyError 
 
 class BugCatchingGroup(click.Group):
     """
@@ -16,7 +17,12 @@ class BugCatchingGroup(click.Group):
             # Pass standalone_mode=False so that Click will not swallow exceptions,
             # and will let them bubble up here.
             return super().main(*args, **kwargs)
-
+        except SnippyError as e:
+            # Known SnippyError exceptions
+            import sys
+            from snippy_ng.logging import logger
+            logger.error(e)
+            sys.exit(1)
         except Exception as e:
             import sys
             import traceback

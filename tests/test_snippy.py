@@ -2,8 +2,8 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from snippy_ng.snippy import Snippy
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.pipelines import SnippyPipeline
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import DependencyError, MissingOutputError
 from pydantic import Field
@@ -28,21 +28,21 @@ class MockStage(BaseStage):
 
 def test_snippy_init_empty():
     """Test Snippy initialization with no stages."""
-    snippy = Snippy()
+    snippy = SnippyPipeline()
     assert snippy.stages == []
 
 
 def test_snippy_init_with_stages():
     """Test Snippy initialization with stages."""
     stage = MockStage()
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     assert len(snippy.stages) == 1
     assert snippy.stages[0] == stage
 
 
 def test_snippy_add_stage():
     """Test adding a stage to Snippy."""
-    snippy = Snippy()
+    snippy = SnippyPipeline()
     stage = MockStage()
     snippy.add_stage(stage)
     assert len(snippy.stages) == 1
@@ -53,7 +53,7 @@ def test_snippy_dependencies():
     """Test getting dependencies from stages."""
     stage1 = MockStage()
     stage2 = MockStage()
-    snippy = Snippy(stages=[stage1, stage2])
+    snippy = SnippyPipeline(stages=[stage1, stage2])
     deps = snippy.dependencies
     assert len(deps) == 2  # Two stages, each with one dependency
 
@@ -69,7 +69,7 @@ def test_snippy_citations():
     stage2 = MockStage()
     stage2._dependencies = [dep3]
     
-    snippy = Snippy(stages=[stage1, stage2])
+    snippy = SnippyPipeline(stages=[stage1, stage2])
     citations = snippy.citations
     
     assert len(citations) == 2  # Duplicates removed
@@ -86,7 +86,7 @@ def test_snippy_citations_excludes_none():
     stage = MockStage()
     stage._dependencies = [dep1, dep2, dep3]
     
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     citations = snippy.citations
     
     assert len(citations) == 1
@@ -101,7 +101,7 @@ def test_snippy_validate_dependencies_success(mock_run, mock_which):
     mock_run.return_value = MagicMock(stdout="test_tool version 1.5.0\n")
     
     stage = MockStage()
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     
     # Should not raise an exception
     snippy.validate_dependencies()
@@ -113,7 +113,7 @@ def test_snippy_validate_dependencies_missing(mock_which):
     mock_which.return_value = None
     
     stage = MockStage()
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     
     with pytest.raises(DependencyError):
         snippy.validate_dependencies()
@@ -127,7 +127,7 @@ def test_snippy_validate_dependencies_invalid_version(mock_run, mock_which):
     mock_run.return_value = MagicMock(stdout="test_tool version 0.5.0\n")
     
     stage = MockStage()
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     
     with pytest.raises(DependencyError):
         snippy.validate_dependencies()
@@ -142,7 +142,7 @@ def test_snippy_validate_dependencies_skip_duplicate(mock_run, mock_which):
     
     stage1 = MockStage()
     stage2 = MockStage()
-    snippy = Snippy(stages=[stage1, stage2])
+    snippy = SnippyPipeline(stages=[stage1, stage2])
     
     snippy.validate_dependencies()
     
@@ -152,19 +152,19 @@ def test_snippy_validate_dependencies_skip_duplicate(mock_run, mock_which):
 
 def test_snippy_run_no_stages():
     """Test running Snippy with no stages."""
-    snippy = Snippy()
+    snippy = SnippyPipeline()
     
     with pytest.raises(ValueError, match="No stages to run"):
-        snippy.run()
+        snippy._run()
 
 
 def test_snippy_run_missing_output(tmp_path):
     """Test that missing outputs raise an error."""
     stage = MockStage()
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     
     with pytest.raises(MissingOutputError, match="snps.test"):
-        snippy.run()
+        snippy._run()
 
 
 def test_snippy_set_working_directory(tmp_path):
@@ -172,7 +172,7 @@ def test_snippy_set_working_directory(tmp_path):
     import os
     original_dir = os.getcwd()
     
-    snippy = Snippy()
+    snippy = SnippyPipeline()
     snippy.set_working_directory(str(tmp_path))
     
     assert os.getcwd() == str(tmp_path)
@@ -185,7 +185,7 @@ def test_snippy_welcome():
     """Test welcome message."""
     stage1 = MockStage()
     stage2 = MockStage()
-    snippy = Snippy(stages=[stage1, stage2])
+    snippy = SnippyPipeline(stages=[stage1, stage2])
     
     # Should not raise an exception
     snippy.welcome()
@@ -197,7 +197,7 @@ def test_snippy_goodbye():
     stage = MockStage()
     stage._dependencies = [dep]
     
-    snippy = Snippy(stages=[stage])
+    snippy = SnippyPipeline(stages=[stage])
     snippy.start_time = 0
     snippy.end_time = 10
     

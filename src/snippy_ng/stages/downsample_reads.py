@@ -1,6 +1,6 @@
 from typing import List, Optional
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import rasusa
 from pydantic import Field, field_validator, model_validator
 

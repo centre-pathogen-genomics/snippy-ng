@@ -5,7 +5,7 @@ import types
 
 import pytest
 
-import snippy_ng.pipelines.pipeline_runner as _pl
+import snippy_ng.pipelines as _pl
 
 
 class DummyPipeline:
@@ -17,11 +17,24 @@ class DummyPipeline:
         self.ran       = False
         DummyPipeline.last = self      # remember myself
 
+    def __call__(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=None):
+        """Match the new pipeline structure with __call__ method."""
+        self.welcome()
+        
+        if not skip_check:
+            self.validate_dependencies()
+        
+        if check:
+            return None
+        
+        self.set_working_directory(cwd)
+        self.ran = True
+        self.cleanup(None)
+        self.goodbye()
+
     def welcome(self):                 pass
     def validate_dependencies(self):   self.validated = True
     def set_working_directory(self, *_): pass
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False):
-        self.ran = True
     def cleanup(self, dir):                 pass
     def goodbye(self):                 pass
     def error(self, *_):               pass
@@ -40,14 +53,14 @@ def stage_factory(output):
 @pytest.fixture
 def stub_pipeline(monkeypatch):
     """Replace the Snippy pipeline with a lightweight stand-in."""
-    monkeypatch.setattr(_pl, "Snippy", DummyPipeline)
+    monkeypatch.setattr(_pl, "SnippyPipeline", DummyPipeline)
     return DummyPipeline
 
 
 @pytest.fixture
 def stub_reference_format(monkeypatch):
     """Always recognize the reference format as FASTA."""
-    monkeypatch.setattr("snippy_ng.seq_utils.guess_reference_format", lambda _: "fasta")
+    monkeypatch.setattr("snippy_ng.pipelines.common.guess_reference_format", lambda _: "fasta")
 
 
 @pytest.fixture

@@ -17,19 +17,16 @@ def gather(**config):
 
         $ snippy-ng gather > samples.csv
     """
-    from snippy_ng.seq_utils import gather_samples_config
+    from snippy_ng.utils.seq import gather_samples_config
     import os
 
-    try:
-        config_dict = gather_samples_config(
-            inputs=config["inputs"] if config.get("inputs") else [os.getcwd()],
-            max_depth=config["max_depth"],
-            aggressive_ids=config["aggressive_ids"],
-            exclude_name_regex=config["exclude"],
-            exclude_files=[config["reference"]] if config.get("reference") else [],
-        )
-    except ValueError as e:
-        raise click.ClickException(str(e))
+    config_dict = gather_samples_config(
+        inputs=config["inputs"] if config.get("inputs") else [os.getcwd()],
+        max_depth=config["max_depth"],
+        aggressive_ids=config["aggressive_ids"],
+        exclude_name_regex=config["exclude"],
+        exclude_files=[config["reference"]] if config.get("reference") else [],
+    )
     if config["json"]:
         import json
         samples = {"samples": config_dict}

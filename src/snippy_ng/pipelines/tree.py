@@ -1,7 +1,8 @@
 from pathlib import Path
+from snippy_ng.pipelines import SnippyPipeline
 from snippy_ng.stages.trees import IQTreeBuildTree
 
-def create_tree_pipeline_stages(
+def create_tree_pipeline(
     aln: str,
     model: str = "GTR+G",
     bootstrap: int = 1000,
@@ -9,7 +10,7 @@ def create_tree_pipeline_stages(
     tmpdir: Path = Path("/tmp"),
     cpus: int = 1,
     ram: int = 8,
-) -> list:
+) -> SnippyPipeline:
     stages = []
 
     # Stage to build a phylogenetic tree using IQ-TREE
@@ -25,4 +26,4 @@ def create_tree_pipeline_stages(
         
     stages.append(iqtree_stage)
 
-    return stages
+    return SnippyPipeline(stages=stages)

@@ -9,25 +9,27 @@ from pathlib import Path
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 def ref(**config):
     """
-    Reference preparation pipeline
+    Utility to prepare a reference genome for use with snippy-ng. 
+    
+    This includes indexing the reference and creating any necessary auxiliary files.
 
     Examples:
 
         $ snippy-ng ref --reference ref.fa --outdir output
     """
     from snippy_ng.pipelines.common import prepare_reference
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines import SnippyPipeline
 
-    run_snippy_pipeline(
-        stages=[
-            prepare_reference(
+    ref_stage = prepare_reference(
                 reference_path=config["reference"],
                 output_directory=config["outdir"]
             )
-        ],
+    pipeline = SnippyPipeline(stages=[ref_stage])
+
+    pipeline(
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=Path("."),
+        cwd=Path("."),
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],

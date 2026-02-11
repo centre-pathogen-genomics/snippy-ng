@@ -3,8 +3,8 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
-from snippy_ng.stages.base import BaseStage, BaseOutput
-from snippy_ng.stages.base import PythonCommand
+from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import PythonCommand
 from snippy_ng.logging import logger
 from pydantic import Field
 

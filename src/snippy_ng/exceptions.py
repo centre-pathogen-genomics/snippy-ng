@@ -31,3 +31,6 @@ class StageTestFailure(StageExecutionError):
 
 class PipelineExecutionError(SnippyError):
     pass
+
+class InvalidReferenceError(SnippyError):
+    pass

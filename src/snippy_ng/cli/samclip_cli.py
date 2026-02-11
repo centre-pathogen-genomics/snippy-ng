@@ -31,18 +31,15 @@ def samclip(
         contig_lengths = fai_to_dict(f)
     # Run the pipeline
     with open(sam_file, 'r') if sam_file else sys.stdin as sam_lines:
-        try:
-            for line in samclip_filter_lines(
-                sam_lines,
-                contig_lengths=contig_lengths,
-                max_clip=max,
-                invert=invert,
-                on_debug=lambda msg: click.echo(msg, err=True) if debug else None,
-                fix_mate=fix_mate,
-            ):
-                print(line, end="")
-        except SamclipError as e:
-            raise click.ClickException(str(e))
+        for line in samclip_filter_lines(
+            sam_lines,
+            contig_lengths=contig_lengths,
+            max_clip=max,
+            invert=invert,
+            on_debug=lambda msg: click.echo(msg, err=True) if debug else None,
+            fix_mate=fix_mate,
+        ):
+            print(line, end="")
 
     
 

@@ -1,7 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple
 import click
-
 
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -29,8 +27,8 @@ def multi(**config):
 
         snippy-ng multi samples.csv --ref reference.fasta
     """
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import load_or_prepare_reference
+    from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline
     
     try:
@@ -44,31 +42,27 @@ def multi(**config):
         reference_path=cfg["reference"],
         output_directory=Path(config["outdir"]) / 'reference',
     )
-    code = run_snippy_pipeline(
-        stages=[ref_stage],
+    ref_pipeline = SnippyPipeline(stages=[ref_stage])
+    ref_pipeline(
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=config["outdir"],
+        cwd=config["outdir"],
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )
-    if code != 0:
-        raise click.ClickException("Reference preparation failed, aborting multi-sample run.")
 
     snippy_reference_dir = ref_stage.output.reference.parent
-    code = run_multi_pipeline(
+    run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
         config=config,
     )
-    if code != 0:
-        raise click.ClickException("Multi-sample pipeline failed.")
     
     # core alignment
-    from snippy_ng.pipelines.aln import create_aln_pipeline_stages
+    from snippy_ng.pipelines.aln import create_aln_pipeline
 
-    stages = create_aln_pipeline_stages(
+    aln_pipeline = create_aln_pipeline(
         snippy_dirs=[str((Path(config["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]],
         reference=snippy_reference_dir,
         core=config["core"],
@@ -78,11 +72,10 @@ def multi(**config):
     )
     outdir = Path(config['outdir']) / 'core'
     outdir.mkdir(parents=True, exist_ok=True)
-    return run_snippy_pipeline(
-        stages,
+    aln_pipeline(
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=outdir,
+        cwd=outdir,
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],

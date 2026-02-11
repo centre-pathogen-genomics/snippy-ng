@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import List
 
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 
 from pydantic import Field
 
