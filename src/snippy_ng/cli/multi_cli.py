@@ -43,16 +43,14 @@ def multi(**config):
         output_directory=Path(config["outdir"]) / 'reference',
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    code = ref_pipeline(
+    ref_pipeline(
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=config["outdir"],
+        cwd=config["outdir"],
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )
-    if code != 0:
-        raise click.ClickException("Reference preparation failed, aborting multi-sample run.")
 
     snippy_reference_dir = ref_stage.output.reference.parent
     run_multi_pipeline(

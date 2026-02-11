@@ -106,17 +106,14 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
-    code = pipeline(
+    pipeline(
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=outdir,
+        cwd=outdir,
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
     )
-
-    if code != 0:
-            raise PipelineExecutionError(f"Sample '{sample_name}' failed with exit code {code}")
 
     return sample_name
 
