@@ -6,13 +6,12 @@ from snippy_ng.logging import logger
 from pydantic import Field, field_validator
 
 
-class BamFilterOutput(BaseOutput):
-    bam: Path
-    bai: Path = Field(..., description="Index file for the BAM file")
-    stats: Path = Field(..., description="Flagstat output file for the BAM file")
+class SamtoolsFilterOutput(BaseOutput):
+    cram: Path
+    stats: Path = Field(..., description="Flagstat output file for the CRAM file")
 
 
-class BamFilter(BaseStage):
+class SamtoolsFilter(BaseStage):
     """
     Filter BAM files using Samtools to remove unwanted alignments.
     """
@@ -27,17 +26,23 @@ class BamFilter(BaseStage):
     _dependencies = [samtools]
     
     @property
-    def output(self) -> BamFilterOutput:
-        filtered_bam = f"{self.prefix}.filtered.bam"
-        return BamFilterOutput(
-            bam=filtered_bam,
-            bai=f"{filtered_bam}.bai",
+    def output(self) -> SamtoolsFilterOutput:
+        filtered_bam = f"{self.prefix}.filtered.cram"
+        return SamtoolsFilterOutput(
+            cram=filtered_bam,
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
     def build_filter_command(self) -> ShellCommand:
         """Constructs the samtools view command for filtering."""
-        cmd_parts = ["samtools", "view", "-b"]
+        cmd_parts = [
+            "samtools",
+            "view",
+            "-O",
+            "cram,embed_ref=2",
+            "-o",
+            str(self.output.cram),
+        ]
         
         # Add threading
         if self.cpus > 1:
@@ -72,8 +77,7 @@ class BamFilter(BaseStage):
         
         filter_cmd = self.shell_cmd(
             command=cmd_parts,
-            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}", 
-            output_file=Path(self.output.bam)
+            description=f"Filter CRAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}",
         )
         
         return filter_cmd
@@ -81,14 +85,14 @@ class BamFilter(BaseStage):
     def build_index_command(self):
         """Returns the samtools index command."""
         return self.shell_cmd([
-            "samtools", "index", str(self.output.bam)
-        ], description=f"Index filtered BAM file: {self.output.bam}")
+            "samtools", "index", str(self.output.cram)
+        ], description=f"Index filtered CRAM file: {self.output.cram}")
     
     def build_flagstat_command(self):
         """Returns the samtools flagstat command."""
         return self.shell_cmd(
-            ["samtools", "flagstat", str(self.output.bam)],
-            description=f"Generate alignment statistics for {self.output.bam}",
+            ["samtools", "flagstat", str(self.output.cram)],
+            description=f"Generate alignment statistics for {self.output.cram}",
             output_file=Path(self.output.stats),
         )
 
@@ -119,7 +123,7 @@ class BamFilter(BaseStage):
         return [filter_cmd, index_cmd, stats_cmd]
 
 
-class BamFilterByRegion(BamFilter):
+class SamtoolsFilterByRegion(SamtoolsFilter):
     """
     Filter BAM file to include only alignments in specified regions.
     """
@@ -134,7 +138,7 @@ class BamFilterByRegion(BamFilter):
         return v
 
 
-class BamFilterByQuality(BamFilter):
+class SamtoolsFilterByQuality(SamtoolsFilter):
     """
     Filter BAM file based on mapping quality and alignment flags.
     """
@@ -143,7 +147,7 @@ class BamFilterByQuality(BamFilter):
     exclude_flags: int = Field(3844, description="SAM flags to exclude (default + supplementary)")
 
 
-class BamFilterProperPairs(BamFilter):
+class SamtoolsFilterProperPairs(SamtoolsFilter):
     """
     Filter BAM file to include only properly paired reads.
     """
