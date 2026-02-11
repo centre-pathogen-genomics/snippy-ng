@@ -206,6 +206,7 @@ class BaseStage(BaseModel):
                             try:
                                 p.wait(timeout=2)
                             except Exception:
+                                # Ignore errors while waiting during best-effort cleanup.
                                 # Ignore errors while waiting for processes to exit during cleanup.
                                 pass
                         raise
