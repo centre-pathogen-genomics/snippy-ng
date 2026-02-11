@@ -4,7 +4,7 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
-from snippy_ng.stages.alignment import BWAMEMReadsAligner, MinimapAligner
+from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -87,7 +87,7 @@ def create_short_pipeline_stages(
         stages.append(stats_stage)
         # Aligner
         if aligner == "bwamem":
-            aligner_stage = BWAMEMReadsAligner(
+            aligner_stage = BWAMEMShortReadAligner(
                 reads=current_reads,
                 reference=reference_file,
                 reference_index=reference_index,
@@ -96,11 +96,10 @@ def create_short_pipeline_stages(
             )
         else:
             # Minimap2
-            minimap_opts = "-x sr " + aligner_opts
-            aligner_stage = MinimapAligner(
+            aligner_stage = Minimap2ShortReadAligner(
                 reads=current_reads,
                 reference=reference_file,
-                aligner_opts=minimap_opts,
+                aligner_opts=aligner_opts,
                 **globals
             )
         
@@ -207,7 +206,6 @@ def create_short_pipeline_stages(
     # Print VCF histogram to terminal
     vcf_histogram = PrintVcfHistogram(
         vcf_path=variants_file,
-        height=4,
         **globals
     )
     stages.append(vcf_histogram)

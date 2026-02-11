@@ -3,7 +3,7 @@ from typing import Optional
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
-from snippy_ng.stages.alignment import MinimapAligner
+from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterLong
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
@@ -21,6 +21,8 @@ def create_long_pipeline_stages(
     bam: Optional[Path] = None,
     prefix: str = "snps",
     downsample: Optional[float] = None,
+    aligner: str = "minimap2",
+    aligner_opts: str = "",
     minimap_preset: str = "map-ont",
     caller: str = "clair3",
     caller_opts: str = "",
@@ -90,15 +92,19 @@ def create_long_pipeline_stages(
         )
         stages.append(stats_stage)
         # Minimap2
-        minimap_opts = f"-L --cs --MD -x {minimap_preset}"
-        aligner_stage = MinimapAligner(
-            reads=current_reads,
-            reference=reference_file,
-            aligner_opts=minimap_opts,
-            **globals
-        )
+        if aligner == "minimap2":
+            aligner_stage = Minimap2LongReadAligner(
+                reads=current_reads,
+                reference=reference_file,
+                aligner_opts=aligner_opts,
+                minimap_preset=minimap_preset,
+                **globals
+            )
+        else:
+            raise ValueError(f"Unsupported aligner '{aligner}'")
         aligned_reads = aligner_stage.output.cram
         stages.append(aligner_stage)
+        
     
     # Filter alignment
     align_filter = SamtoolsFilter(
@@ -217,7 +223,6 @@ def create_long_pipeline_stages(
     # Print VCF histogram to terminal
     vcf_histogram = PrintVcfHistogram(
         vcf_path=variants_file,
-        height=4,
         **globals
     )
     stages.append(vcf_histogram)

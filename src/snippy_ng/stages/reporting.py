@@ -72,7 +72,7 @@ class PrintVcfSummary(BaseStage):
 
 class PrintVcfHistogram(BaseStage):
     vcf_path: Path = Field(..., description="Input VCF file to print a terminal genome histogram for")
-    height: int = Field(12, description="Histogram height (rows)")
+    height: int = Field(5, description="Histogram height (rows)")
     contig_order: str = Field("header", description="Contig order: 'header' or 'alpha'")
     margin_cols: int = Field(1, description="Spaces between contig blocks")
     min_cols_per_contig: int = Field(1, description="Minimum columns allocated per contig")
@@ -102,7 +102,7 @@ class PrintVcfHistogram(BaseStage):
     @staticmethod
     def print_histograms(
         vcf_path: Path,
-        height: int = 12,
+        height: int = 5,
         contig_order: str = "header",
         margin_cols: int = 1,
         min_cols_per_contig: int = 1,
@@ -276,7 +276,14 @@ class PrintVcfHistogram(BaseStage):
                 raise ValueError("counts must be non-empty")
 
             max_count = max(counts) if max(counts) > 0 else 1
-            scaled = [int(round((c / max_count) * height)) for c in counts]
+            scaled = []
+            for c in counts:
+                if c == 0:
+                    scaled.append(0)
+                    continue
+                s = (c / max_count) * height
+                # Ensure that non-zero counts get at least 1 row, to be visible.
+                scaled.append(max(1, int(round(s))))
 
             sep_set = set(separators_after or [])
 
@@ -323,7 +330,7 @@ class PrintVcfHistogram(BaseStage):
         # --- End-to-end per VCF ---
         def terminal_genome_histogram_from_vcf(
             vcf_path: Union[str, Path],
-            height: int = 12,
+            height: int = 5,
             contig_order: str = "header",
             margin_cols: int = 1,
             min_cols_per_contig: int = 1,
