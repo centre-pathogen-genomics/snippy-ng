@@ -108,6 +108,9 @@ exclude_lines = [
 version_variables = ["src/snippy_ng/__about__.py:__version__"]
 repository = "git@github.com:centre-pathogen-genomics/snippy-ng.git"
 
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+
 [tool.semantic_release.remote]
 ignore_token_for_push = true 
 
