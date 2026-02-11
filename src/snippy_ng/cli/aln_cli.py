@@ -1,9 +1,10 @@
 import click
-from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
+@click.option("--outdir", "-o", default=Path("core"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.argument("snippy_dirs", required=True, nargs=-1, type=click.Path(exists=True, resolve_path=True, readable=True))
 @click.option("--ref", "reference", type=click.Path(exists=True, resolve_path=True, readable=True), required=True, help="Reference FASTA used to define contig order")
@@ -36,7 +37,7 @@ def aln(**config):
         stages,
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=Path('.'),
+        outdir=config['outdir'],
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],
