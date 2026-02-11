@@ -1,9 +1,10 @@
 from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.pipelines import SnippyPipeline
 from snippy_ng.stages.msa import CombineFastaFile, SoftCoreFilter
 from typing import Optional
 from pathlib import Path
 
-def create_aln_pipeline_stages(
+def create_aln_pipeline(
     snippy_dirs: list[Path],
     reference: Path,
     core: float,
@@ -11,7 +12,7 @@ def create_aln_pipeline_stages(
     cpus: int,
     ram: int,
     prefix: str = "core"
-) -> list:
+) -> SnippyPipeline:
 
     stages = []
 
@@ -44,4 +45,4 @@ def create_aln_pipeline_stages(
     )
     stages.append(filter_stage)
 
-    return stages
+    return SnippyPipeline(stages=stages)

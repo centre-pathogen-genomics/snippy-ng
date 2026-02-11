@@ -9,7 +9,7 @@ from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages.base import BaseStage
 
-class Snippy:
+class SnippyPipeline:
     """
     Main class for creating Snippy-NG Pipelines.
     """
@@ -19,6 +19,31 @@ class Snippy:
         if stages is None:
             stages = []
         self.stages = stages
+
+    def __call__(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
+        self.welcome()
+
+        if not skip_check:
+            try:
+                self.validate_dependencies()
+            except DependencyError as e:
+                raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
+        
+        if check:
+            return None
+
+        # Set working directory to output folder
+        current_dir = Path.cwd()
+        try:
+            self.set_working_directory(cwd)
+            self._run(
+                quiet=quiet,
+                create_missing=create_missing,
+                keep_incomplete=keep_incomplete
+            )
+        finally:
+            self.cleanup(current_dir)
+        self.goodbye()
     
     def add_stage(self, stage):
         self.stages.append(stage)
@@ -73,7 +98,7 @@ class Snippy:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False):
+    def _run(self, quiet=False, create_missing=False, keep_incomplete=False):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
@@ -117,6 +142,7 @@ class Snippy:
           
         self.end_time = time.perf_counter()
 
+    
     def cleanup(self, directory: Path = None):
         # reset working directory
         if directory:

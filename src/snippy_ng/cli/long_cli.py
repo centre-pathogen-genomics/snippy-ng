@@ -29,8 +29,7 @@ def long(**config):
 
         $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
     """
-    from snippy_ng.pipelines.long import create_long_pipeline_stages
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.long import create_long_pipeline
     import click
     
     if not config.get("reads") and not config.get("bam"):
@@ -43,7 +42,7 @@ def long(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_long_pipeline_stages(
+    pipeline = create_long_pipeline(
         reference=config["reference"],
         reads=config["reads"],
         prefix=config["prefix"],
@@ -67,11 +66,10 @@ def long(**config):
     )
     
     # Run the pipeline
-    return run_snippy_pipeline(
-        stages,
+    return pipeline(
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=config['outdir'],
+        cwd=config['outdir'],
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],

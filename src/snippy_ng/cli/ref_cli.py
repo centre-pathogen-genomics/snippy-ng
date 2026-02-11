@@ -18,18 +18,18 @@ def ref(**config):
         $ snippy-ng ref --reference ref.fa --outdir output
     """
     from snippy_ng.pipelines.common import prepare_reference
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines import SnippyPipeline
 
-    run_snippy_pipeline(
-        stages=[
-            prepare_reference(
+    ref_stage = prepare_reference(
                 reference_path=config["reference"],
                 output_directory=config["outdir"]
             )
-        ],
+    pipeline = SnippyPipeline(stages=[ref_stage])
+
+    pipeline(
         skip_check=config["skip_check"],
         check=config["check"],
-        outdir=Path("."),
+        cwd=Path("."),
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],

@@ -13,8 +13,7 @@ def aln(**config):
     """
     Create alignment from multiple snippy runs
     """
-    from snippy_ng.pipelines.aln import create_aln_pipeline_stages
-    from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
+    from snippy_ng.pipelines.aln import create_aln_pipeline
 
     if not config.get("snippy_dirs"):
         raise click.UsageError("Please provide at least one snippy directory!")
@@ -23,7 +22,7 @@ def aln(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    stages = create_aln_pipeline_stages(
+    pipeline = create_aln_pipeline(
         snippy_dirs=config["snippy_dirs"],
         reference=Path(config["reference"]),
         core=config["core"],
@@ -33,11 +32,10 @@ def aln(**config):
     )
 
     # Run the pipeline
-    return run_snippy_pipeline(
-        stages,
+    pipeline(
         skip_check=config['skip_check'],
         check=config['check'],
-        outdir=config['outdir'],
+        cwd=config['outdir'],
         quiet=config['quiet'],
         create_missing=config['create_missing'],
         keep_incomplete=config['keep_incomplete'],

@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from snippy_ng.exceptions import SnippyError
 import gzip
 import io
 import re
 
+class GatherSamplesError(SnippyError):
+    pass
 
 def guess_reference_format(fname):
     # Try to open as text, if fails, try gzip
@@ -135,10 +138,11 @@ def scan_sequence_files(
             base_parts = len(root.resolve().parts)
             candidates = []
             for p in root.rglob("*"):
+                p = p.resolve()
                 try:
                     if not p.is_file():
                         continue
-                    depth = len(p.resolve().parts) - base_parts
+                    depth = len(p.parts) - base_parts
                     if depth > max_depth:
                         continue
                     candidates.append(p)
@@ -183,7 +187,7 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
         if len(paths) == 2:
             r1, r2 = paths
         else:
-            raise ValueError(f"{sample_id}: ILL sample needs 2 files (R1/R2). Found: {paths}")
+            raise GatherSamplesError(f"{sample_id}: ILL sample needs 2 files (R1/R2). Found: {paths}")
 
     return {
         "type": "short",
@@ -195,9 +199,9 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
 def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
     paths = sorted([x.path for x in items])
     if not paths:
-        raise ValueError(f"{sample_id}: ONT sample has no files")
+        raise GatherSamplesError(f"{sample_id}: ONT sample has no files")
     if len(paths) > 1:
-        raise ValueError(f"{sample_id}: ONT sample has multiple files. Found: {paths}")
+        raise GatherSamplesError(f"{sample_id}: ONT sample has multiple files. Found: {paths}")
     entry = {
         "type": "long",
         "reads": str(paths[0]),
@@ -210,9 +214,9 @@ def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
 def handle_ASM(sample_id: str, items: List[SeqFile]) -> Dict:
     paths = sorted([x.path for x in items])
     if not paths:
-        raise ValueError(f"{sample_id}: ASM sample has no files")
+        raise GatherSamplesError(f"{sample_id}: ASM sample has no files")
     if len(paths) > 1:
-        raise ValueError(f"{sample_id}: ASM sample has multiple files. Found: {paths}")
+        raise GatherSamplesError(f"{sample_id}: ASM sample has multiple files. Found: {paths}")
     return {
         "type": "asm",
         "assembly": str(paths[0]),
@@ -243,7 +247,7 @@ def build_samples_config(
         kinds = {x.kind for x in items}
         if len(kinds) != 1:
             offending_files = '\n'.join([f"- {str(x.path)}:{x.kind}" for x in items])
-            raise ValueError(
+            raise GatherSamplesError(
                 f"Multiple kinds detected for sample_id '{sid}'.\n\nFilename parsing must not be ambiguous. "
                 f"Please rename files or consider adjusting aggressive_ids and exclude_name_regex settings.\n\nOffending files:\n{offending_files}"
             )
@@ -255,7 +259,7 @@ def build_samples_config(
                 f"Add one to handlers, e.g. handlers['{kind}']=my_handler"
             )
         if sid in samples:
-            raise ValueError(f"Duplicate sample_id '{sid}' after processing. Check your filenames and the aggressive_ids setting.")
+            raise GatherSamplesError(f"Duplicate sample_id '{sid}' after processing. Check your filenames and the aggressive_ids setting.")
         samples[sid] = handler(sid, items)
 
     return samples

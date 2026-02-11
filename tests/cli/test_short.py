@@ -2,7 +2,7 @@ import pytest
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng
-import snippy_ng.pipelines.pipeline_runner as _pl
+import snippy_ng.pipelines as _pl
 
 
 @pytest.fixture(autouse=True)
@@ -115,7 +115,7 @@ def test_short_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_
     assert result.exit_code == expect_exit, result.output
 
     # Did we create / run a pipeline?
-    last_pipeline = _pl.Snippy.last        # may be None if creation failed earlyA
+    last_pipeline = _pl.SnippyPipeline.last        # may be None if creation failed earlyA
 
     if expect_run:
         assert last_pipeline and last_pipeline.ran is True
