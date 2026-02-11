@@ -200,11 +200,13 @@ class BaseStage(BaseModel):
                                 if p.poll() is None:
                                     p.terminate()
                             except Exception:
+                                # Ignore errors during best-effort process termination in cleanup.
                                 pass
                         for p in processes:
                             try:
                                 p.wait(timeout=2)
                             except Exception:
+                                # Ignore errors while waiting for processes to exit during cleanup.
                                 pass
                         raise
                 else:
