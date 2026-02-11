@@ -17,7 +17,7 @@ def gather(**config):
 
         $ snippy-ng gather > samples.csv
     """
-    from snippy_ng.seq_utils import gather_samples_config
+    from snippy_ng.utils.seq import gather_samples_config
     import os
 
     try:

@@ -9,7 +9,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
 from snippy_ng.stages.masks import ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
-from snippy_ng.seq_utils import guess_reference_format
+from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.cli.utils import error
 
 

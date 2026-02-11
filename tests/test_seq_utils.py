@@ -1,6 +1,6 @@
 """Tests for seq_utils module."""
 import gzip
-from snippy_ng.seq_utils import gather_samples_config, guess_reference_format
+from snippy_ng.utils.seq import gather_samples_config, guess_reference_format
 
 
 def test_guess_format_fasta(tmp_path):

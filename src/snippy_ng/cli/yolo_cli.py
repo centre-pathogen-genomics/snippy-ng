@@ -27,7 +27,7 @@ def yolo(directory: Optional[Path], **config):
     from snippy_ng.pipelines.pipeline_runner import run_snippy_pipeline
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
-    from snippy_ng.seq_utils import gather_samples_config
+    from snippy_ng.utils.seq import gather_samples_config
     
     logger.warning("You are running the YOLO pipeline. This pipeline is not recommended for general use unless you have no idea what you're doing. Please consider using one of the other pipelines with more specific parameters for better results and more control over the analysis.")
 

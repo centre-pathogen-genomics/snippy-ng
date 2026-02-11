@@ -1,7 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple
 import click
-
 
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 

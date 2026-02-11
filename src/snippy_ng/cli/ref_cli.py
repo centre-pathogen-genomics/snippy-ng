@@ -9,7 +9,9 @@ from pathlib import Path
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 def ref(**config):
     """
-    Reference preparation pipeline
+    Utility to prepare a reference genome for use with snippy-ng. 
+    
+    This includes indexing the reference and creating any necessary auxiliary files.
 
     Examples:
 
