@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import List, Annotated, Optional
 
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3
 from snippy_ng.logging import logger
 

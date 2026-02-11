@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pydantic import Field
-from snippy_ng.stages.base import BaseOutput, BaseStage
+from snippy_ng.stages import BaseOutput, BaseStage
 from snippy_ng.dependencies import iqtree
 
 

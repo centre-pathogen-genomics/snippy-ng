@@ -9,7 +9,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from snippy_ng.exceptions import StageExecutionError, MissingInputError
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import biopython, core_snp_filter
 
 

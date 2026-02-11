@@ -7,7 +7,7 @@ import time
 from snippy_ng.exceptions import DependencyError, MissingOutputError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
-from snippy_ng.stages.base import BaseStage
+from snippy_ng.stages import BaseStage
 
 class SnippyPipeline:
     """

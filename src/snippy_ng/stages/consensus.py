@@ -3,7 +3,7 @@ from typing import List
 
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
 
 from pydantic import Field

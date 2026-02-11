@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from snippy_ng.pipelines import SnippyPipeline
-from snippy_ng.stages.base import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import DependencyError, MissingOutputError
 from pydantic import Field
