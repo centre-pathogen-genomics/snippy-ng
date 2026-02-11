@@ -40,6 +40,11 @@ def run_multi_pipeline(
             except SnippyError as e:
                 failures.append((sample, str(e)))
                 logger.error(f"FAILED: {sample}: {e}")
+            except Exception as e:
+                # Catch any unexpected exception types so that multi-sample
+                # runs always complete with a consolidated failure summary.
+                failures.append((sample, str(e)))
+                logger.exception(f"FAILED with unexpected error: {sample}: {e}")
 
     if failures:
         raise PipelineExecutionError("Some samples failed (check logs for details):\n" + "\n".join(f"- {s} -> {msg}" for s, msg in failures))
