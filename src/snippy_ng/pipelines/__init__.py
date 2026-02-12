@@ -8,6 +8,17 @@ from snippy_ng.exceptions import DependencyError, MissingOutputError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage
+from pydantic import BaseModel, ConfigDict
+
+
+class PipelineBuilder(BaseModel):
+    """Base class for building Snippy pipelines."""
+    model_config = ConfigDict(extra='forbid')
+
+    def build(self) -> 'SnippyPipeline':
+        """Build and return the SnippyPipeline."""
+        raise NotImplementedError("Subclasses must implement the build method.")
+
 
 class SnippyPipeline:
     """
@@ -20,7 +31,7 @@ class SnippyPipeline:
             stages = []
         self.stages = stages
 
-    def __call__(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
         self.welcome()
 
         if not skip_check:
@@ -36,7 +47,7 @@ class SnippyPipeline:
         current_dir = Path.cwd()
         try:
             self.set_working_directory(cwd)
-            self._run(
+            self._execute_pipeline_stages_in_order(
                 quiet=quiet,
                 create_missing=create_missing,
                 keep_incomplete=keep_incomplete
@@ -44,6 +55,10 @@ class SnippyPipeline:
         finally:
             self.cleanup(current_dir)
         self.goodbye()
+    
+    def __call__(self, *args, **kwargs):
+        """Delegate to run method for backward compatibility."""
+        return self.run(*args, **kwargs)
     
     def add_stage(self, stage):
         self.stages.append(stage)
@@ -98,7 +113,7 @@ class SnippyPipeline:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def _run(self, quiet=False, create_missing=False, keep_incomplete=False):
+    def _execute_pipeline_stages_in_order(self, quiet=False, create_missing=False, keep_incomplete=False):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially

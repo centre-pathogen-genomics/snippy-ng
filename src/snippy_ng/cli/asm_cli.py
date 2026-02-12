@@ -15,13 +15,13 @@ def asm(**config):
 
         $ snippy-ng asm --reference ref.fa --assembly assembly.fa --outdir output
     """
-    from snippy_ng.pipelines.asm import create_asm_pipeline
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
     
     # Choose stages to include in the pipeline
     # ensure this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    pipeline = create_asm_pipeline(
+    pipeline = AsmPipelineBuilder(
         reference=config["reference"],
         assembly=config["assembly"],
         prefix=config["prefix"],
@@ -29,10 +29,10 @@ def asm(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-    )
+    ).build()
     
     # Run the pipeline
-    pipeline(
+    pipeline.run(
         skip_check=config['skip_check'],
         check=config['check'],
         cwd=config['outdir'],

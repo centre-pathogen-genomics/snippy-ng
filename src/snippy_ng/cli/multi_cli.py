@@ -43,7 +43,7 @@ def multi(**config):
         output_directory=Path(config["outdir"]) / 'reference',
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    ref_pipeline(
+    ref_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=config["outdir"],
@@ -60,19 +60,19 @@ def multi(**config):
     )
     
     # core alignment
-    from snippy_ng.pipelines.aln import create_aln_pipeline
+    from snippy_ng.pipelines.aln import AlnPipelineBuilder
 
-    aln_pipeline = create_aln_pipeline(
+    aln_pipeline = AlnPipelineBuilder(
         snippy_dirs=[str((Path(config["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]],
         reference=snippy_reference_dir,
         core=config["core"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-    )
+    ).build()
     outdir = Path(config['outdir']) / 'core'
     outdir.mkdir(parents=True, exist_ok=True)
-    aln_pipeline(
+    aln_pipeline.run(
         skip_check=config['skip_check'],
         check=config['check'],
         cwd=outdir,

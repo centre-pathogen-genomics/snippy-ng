@@ -155,7 +155,7 @@ def test_snippy_run_no_stages():
     snippy = SnippyPipeline()
     
     with pytest.raises(ValueError, match="No stages to run"):
-        snippy._run()
+        snippy._execute_pipeline_stages_in_order()
 
 
 def test_snippy_run_missing_output(tmp_path):
@@ -164,7 +164,7 @@ def test_snippy_run_missing_output(tmp_path):
     snippy = SnippyPipeline(stages=[stage])
     
     with pytest.raises(MissingOutputError, match="snps.test"):
-        snippy._run()
+        snippy._execute_pipeline_stages_in_order()
 
 
 def test_snippy_set_working_directory(tmp_path):

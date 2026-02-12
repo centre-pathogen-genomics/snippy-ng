@@ -26,7 +26,7 @@ def ref(**config):
             )
     pipeline = SnippyPipeline(stages=[ref_stage])
 
-    pipeline(
+    pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=Path("."),
