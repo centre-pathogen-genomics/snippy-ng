@@ -5,7 +5,7 @@ from pathlib import Path
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
-@add_snippy_global_options()
+@add_snippy_global_options(exclude=['outdir', 'prefix'])
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank)")
 def ref(**config):
     """
