@@ -18,16 +18,16 @@ def _format_file_list(paths: Iterable[Path]) -> str:
 def _raise_multiple_files_error(sample_id: str, sample_type: str, paths: List[Path]) -> None:
     """Raise error for samples that should have exactly one file but have multiple."""
     raise GatherSamplesError(
-        f"{sample_id}: {sample_type} sample has multiple files!\n\n"
+        f"{sample_id} ({sample_type}) sample has multiple files!\n\n"
         f"Found:\n{_format_file_list(paths)}"
     )
 
 
-def _raise_duplicate_candidate_error(file_type: str, first: Path, second: Path) -> None:
+def _raise_duplicate_candidate_error(sample_id: str, file_type: str, first: Path, second: Path) -> None:
     """Raise error when multiple candidates are found for the same file type."""
     raise GatherSamplesError(
-        f"Multiple {file_type} candidates!\n\n"
-        f"Found:\n- {str(first)}\n- {str(second)}"
+        f"{sample_id} (ILL) has multiple {file_type} candidates!\n\n"
+        f"Found:\n{_format_file_list([first, second])}"
     )
 
 SeqKind = str  # "ILL" | "ONT" | "ASM" | ...
@@ -171,11 +171,11 @@ def _find_r1_r2(files: List[Path]) -> Tuple[Optional[Path], Optional[Path]]:
         n = p.name
         if re.search(r"(?:_R?1(?:_\d+)?)(?:\.\w+)*$", n):
             if r1 is not None:
-                _raise_duplicate_candidate_error("R1", r1, p)
+                _raise_duplicate_candidate_error(n, "R1", r1, p)
             r1 = p
         elif re.search(r"(?:_R?2(?:_\d+)?)(?:\.\w+)*$", n):
             if r2 is not None:
-                _raise_duplicate_candidate_error("R2", r2, p)
+                _raise_duplicate_candidate_error(n, "R2", r2, p)
             r2 = p
     return r1, r2
 
@@ -187,7 +187,11 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
 
     # Fallback if names don't encode R1/R2: take first two in sort order
     if r1 is None or r2 is None:
-        if len(paths) == 2:
+        if len(paths) == 1:
+            # single file, assume unpaired
+            r1 = paths[0]
+            r2 = None
+        elif len(paths) == 2:
             r1, r2 = paths
         else:
             raise GatherSamplesError(
@@ -205,7 +209,7 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
 def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
     paths = sorted([x.path for x in items])
     if not paths:
-        raise GatherSamplesError(f"{sample_id}: ONT sample has no files")
+        raise GatherSamplesError(f"{sample_id} (ONT) sample has no files")
     if len(paths) > 1:
         _raise_multiple_files_error(sample_id, "ONT", paths)
     entry = {
@@ -220,7 +224,7 @@ def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
 def handle_ASM(sample_id: str, items: List[SeqFile]) -> Dict:
     paths = sorted([x.path for x in items])
     if not paths:
-        raise GatherSamplesError(f"{sample_id}: ASM sample has no files")
+        raise GatherSamplesError(f"{sample_id} (ASM) sample has no files")
     if len(paths) > 1:
         _raise_multiple_files_error(sample_id, "ASM", paths)
     return {
