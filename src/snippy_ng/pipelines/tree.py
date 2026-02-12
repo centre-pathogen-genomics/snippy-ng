@@ -1,29 +1,35 @@
 from pathlib import Path
-from snippy_ng.pipelines import SnippyPipeline
+from typing import Optional
+from pydantic import Field
+from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.trees import IQTreeBuildTree
 
-def create_tree_pipeline(
-    aln: str,
-    model: str = "GTR+G",
-    bootstrap: int = 1000,
-    fconst: str | None = None,
-    tmpdir: Path = Path("/tmp"),
-    cpus: int = 1,
-    ram: int = 8,
-) -> SnippyPipeline:
-    stages = []
 
-    # Stage to build a phylogenetic tree using IQ-TREE
-    iqtree_stage = IQTreeBuildTree(
-        aln=aln,
-        model=model,
-        bootstrap=bootstrap,
-        fconst=fconst,
-        tmpdir=tmpdir,
-        cpus=cpus,
-        ram=ram,
-    )
-        
-    stages.append(iqtree_stage)
+class TreePipelineBuilder(PipelineBuilder):
+    """Builder for phylogenetic tree building pipeline."""
+    aln: str = Field(..., description="Multiple sequence alignment file")
+    model: str = Field(default="GTR+G", description="Substitution model for IQ-TREE")
+    bootstrap: int = Field(default=1000, description="Number of bootstrap replicates")
+    fconst: Optional[str] = Field(default=None, description="Frequency constants for ascertainment bias correction")
+    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
+    cpus: int = Field(default=1, description="Number of CPUs to use")
+    ram: int = Field(default=8, description="RAM in GB")
 
-    return SnippyPipeline(stages=stages)
+    def build(self) -> SnippyPipeline:
+        """Build and return the tree building pipeline."""
+        stages = []
+
+        # Stage to build a phylogenetic tree using IQ-TREE
+        iqtree_stage = IQTreeBuildTree(
+            aln=self.aln,
+            model=self.model,
+            bootstrap=self.bootstrap,
+            fconst=self.fconst,
+            tmpdir=self.tmpdir,
+            cpus=self.cpus,
+            ram=self.ram,
+        )
+            
+        stages.append(iqtree_stage)
+
+        return SnippyPipeline(stages=stages)

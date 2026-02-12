@@ -17,8 +17,8 @@ class DummyPipeline:
         self.ran       = False
         DummyPipeline.last = self      # remember myself
 
-    def __call__(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=None):
-        """Match the new pipeline structure with __call__ method."""
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=None):
+        """Match the new pipeline structure with run method."""
         self.welcome()
         
         if not skip_check:
@@ -52,8 +52,28 @@ def stage_factory(output):
 
 @pytest.fixture
 def stub_pipeline(monkeypatch):
-    """Replace the Snippy pipeline with a lightweight stand-in."""
-    monkeypatch.setattr(_pl, "SnippyPipeline", DummyPipeline)
+    """
+    Replace SnippyPipeline constructor to return DummyPipeline.
+    This allows builder.build() to execute (triggering Pydantic validation)
+    while still mocking the actual pipeline execution.
+    """
+    def mock_snippy_pipeline(stages=None):
+        # Builder instantiates stages (Pydantic validation happens here)
+        # But we return a DummyPipeline for execution
+        return DummyPipeline(stages=stages)
+    
+    # Preserve the 'last' attribute for tests to check
+    mock_snippy_pipeline.last = None
+    
+    # After DummyPipeline is created, update the function's last reference
+    original_init = DummyPipeline.__init__
+    def patched_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        mock_snippy_pipeline.last = self
+    
+    monkeypatch.setattr(DummyPipeline, "__init__", patched_init)
+    monkeypatch.setattr(_pl, "SnippyPipeline", mock_snippy_pipeline)
+    
     return DummyPipeline
 
 

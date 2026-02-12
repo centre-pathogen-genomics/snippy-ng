@@ -10,6 +10,9 @@ def run_multi_pipeline(
     samples: Dict[str, Any],
     config: Dict[str, Any],
 ) -> None:
+    """
+    Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
+    """
 
     total_cpus = int(config["cpus"])
     cpus_per_sample = min(int(config["cpus_per_sample"]), total_cpus) if config["cpus_per_sample"] else total_cpus
@@ -49,9 +52,9 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     sample_name, sample_cfg, config = job
 
     # Import inside worker for clean spawn
-    from snippy_ng.pipelines.asm import create_asm_pipeline
-    from snippy_ng.pipelines.long import create_long_pipeline
-    from snippy_ng.pipelines.short import create_short_pipeline
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
+    from snippy_ng.pipelines.long import LongPipelineBuilder
+    from snippy_ng.pipelines.short import ShortPipelineBuilder
     import click
     
     sample_type = sample_cfg.get("type")
@@ -62,7 +65,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         if not reads:
             # if reads not provided, expect left/right
             reads = [str(Path(r).resolve()) for r in (sample_cfg.get("left"), sample_cfg.get("right")) if r]
-        pipeline = create_short_pipeline(
+        pipeline = ShortPipelineBuilder(
             reference=config["reference"],
             reads=reads,
             bam=str(Path(sample_cfg.get("bam")).resolve()) if sample_cfg.get("bam") else None,
@@ -71,10 +74,10 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             cpus=config["cpus_per_sample"],
             ram=config["ram"],
             **{k: v for k, v in sample_cfg.items() if k not in ["left", "right", "bam", "reads"]},
-        )
+        ).build()
 
     elif sample_type == "long":
-        pipeline = create_long_pipeline(
+        pipeline = LongPipelineBuilder(
             reference=config["reference"],
             reads=str(Path(sample_cfg.get("reads")).resolve()) if sample_cfg.get("reads") else None,
             bam=str(Path(sample_cfg.get("bam")).resolve()) if sample_cfg.get("bam") else None,
@@ -83,18 +86,18 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             cpus=config["cpus_per_sample"],
             ram=config["ram"],
             **{k: v for k, v in sample_cfg.items() if k not in ["reads", "bam"]},
-        )
+        ).build()
 
     elif sample_type == "asm":
         sample_cfg['assembly'] = str(Path(sample_cfg.get("assembly")).resolve())
-        pipeline = create_asm_pipeline(
+        pipeline = AsmPipelineBuilder(
             reference=config["reference"],
             prefix=config["prefix"],
             tmpdir=config["tmpdir"],
             cpus=config["cpus_per_sample"],
             ram=config["ram"],
             **sample_cfg,
-        )
+        ).build()
 
     else:
         raise click.UsageError(
@@ -106,7 +109,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
-    pipeline(
+    pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=outdir,

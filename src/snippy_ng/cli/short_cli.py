@@ -24,7 +24,7 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng.pipelines.short import create_short_pipeline
+    from snippy_ng.pipelines.short import ShortPipelineBuilder
     
     # combine R1 and R2 into reads
     reads = []
@@ -39,7 +39,7 @@ def short(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    pipeline = create_short_pipeline(
+    pipeline = ShortPipelineBuilder(
         reference=config["reference"],
         reads=reads,
         prefix=config["prefix"],
@@ -55,10 +55,10 @@ def short(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-    )
+    ).build()
     
     # Run the pipeline
-    pipeline(
+    pipeline.run(
         skip_check=config['skip_check'],
         check=config['check'],
         cwd=config['outdir'],

@@ -18,7 +18,7 @@ def tree(**config):
 
         snippy-ng tree core.full.aln
     """
-    from snippy_ng.pipelines.tree import create_tree_pipeline
+    from snippy_ng.pipelines.tree import TreePipelineBuilder
 
     #if fconst is a path read the content
     fconst = config.get("fconst")
@@ -30,7 +30,7 @@ def tree(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    pipeline = create_tree_pipeline(
+    pipeline = TreePipelineBuilder(
         aln=config["alignment"],
         model=config["model"],
         bootstrap=config["bootstrap"],
@@ -38,10 +38,10 @@ def tree(**config):
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-    )
+    ).build()
 
     # Run the pipeline
-    pipeline(
+    pipeline.run(
         skip_check=config['skip_check'],
         check=config['check'],
         cwd=config['outdir'],

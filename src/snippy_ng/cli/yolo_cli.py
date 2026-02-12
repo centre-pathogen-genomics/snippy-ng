@@ -84,7 +84,7 @@ def yolo(directory: Optional[Path], **config):
         output_directory=Path(config["outdir"]) / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    ref_pipeline(
+    ref_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=config["outdir"],
@@ -110,23 +110,23 @@ def yolo(directory: Optional[Path], **config):
         raise e
 
     # core alignment
-    from snippy_ng.pipelines.aln import create_aln_pipeline
+    from snippy_ng.pipelines.aln import AlnPipelineBuilder
 
     snippy_dirs = [
         str((Path(config["outdir"]) / "samples" / sample).resolve())
         for sample in cfg["samples"]
     ]
-    aln_pipeline = create_aln_pipeline(
+    aln_pipeline = AlnPipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
         core=0.95,
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
-    )
+    ).build()
     outdir = Path(config["outdir"]) / "core"
     outdir.mkdir(parents=True, exist_ok=True)
-    aln_pipeline(
+    aln_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=outdir,
@@ -139,15 +139,15 @@ def yolo(directory: Optional[Path], **config):
         logger.warning("Less than 3 samples found, skipping tree construction.")
         return 0
     # tree
-    from snippy_ng.pipelines.tree import create_tree_pipeline
+    from snippy_ng.pipelines.tree import TreePipelineBuilder
 
-    tree_pipeline = create_tree_pipeline(
+    tree_pipeline = TreePipelineBuilder(
         aln=str(outdir / "core.aln"),
         fconst=(outdir / "core.aln.sites").read_text().strip(),
-    )
+    ).build()
     outdir = Path(config["outdir"]) / "tree"
     outdir.mkdir(parents=True, exist_ok=True)
-    tree_pipeline(
+    tree_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
         cwd=outdir,
