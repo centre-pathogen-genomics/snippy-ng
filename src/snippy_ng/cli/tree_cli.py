@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.argument("alignment", required=True, type=click.Path(exists=True, resolve_path=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction")
