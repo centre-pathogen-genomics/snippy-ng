@@ -26,7 +26,7 @@ Check out our progress in the [Snippy-NG Development Blog](https://snippy.cpg.or
 pip install snippy-nextgen
 ```
 
-The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
+The complete snippy-ng environment ([including most dependencies](https://github.com/centre-pathogen-genomics/snippy-ng/issues/110#issuecomment-3857834560)) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
 
 ```console
 curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
