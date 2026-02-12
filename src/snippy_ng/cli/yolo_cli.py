@@ -33,7 +33,7 @@ def yolo(directory: Optional[Path], **config):
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
-    from snippy_ng.utils.seq import gather_samples_config
+    from snippy_ng.utils.gather import gather_samples_config
     from snippy_ng.exceptions import PipelineExecutionError, InvalidReferenceError
 
     logger.warning(
