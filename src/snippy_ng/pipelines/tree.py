@@ -14,6 +14,7 @@ class TreePipelineBuilder(PipelineBuilder):
     tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
     cpus: int = Field(default=1, description="Number of CPUs to use")
     ram: int = Field(default=8, description="RAM in GB")
+    prefix: str = Field(default="tree", description="Output file prefix")
 
     def build(self) -> SnippyPipeline:
         """Build and return the tree building pipeline."""
@@ -28,6 +29,7 @@ class TreePipelineBuilder(PipelineBuilder):
             tmpdir=self.tmpdir,
             cpus=self.cpus,
             ram=self.ram,
+            prefix=self.prefix,
         )
             
         stages.append(iqtree_stage)
