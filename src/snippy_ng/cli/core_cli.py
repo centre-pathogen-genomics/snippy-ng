@@ -14,7 +14,7 @@ def core(**config):
     """
     Create core alignment from multiple snippy runs
     """
-    from snippy_ng.pipelines.aln import AlnPipelineBuilder
+    from snippy_ng.pipelines.core import CorePipelineBuilder
 
     if not config.get("snippy_dirs"):
         raise click.UsageError("Please provide at least one snippy directory!")
@@ -23,7 +23,7 @@ def core(**config):
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    pipeline = AlnPipelineBuilder(
+    pipeline = CorePipelineBuilder(
         snippy_dirs=config["snippy_dirs"],
         reference=Path(config["reference"]),
         core=config["core"],
