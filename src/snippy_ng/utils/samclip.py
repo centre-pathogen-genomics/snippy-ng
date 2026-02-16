@@ -17,7 +17,6 @@ _HAS_CLIP = re.compile(r"\d[SH]")
 _START_CLIPS = re.compile(r"^(?:(\d+)H)?(?:(\d+)S)?")
 _END_CLIPS_SUFFIX = re.compile(r"(?:(\d+)S)?(?:(\d+)H)?$")
 _SO = re.compile(r"(?:^|\t)SO:([^\t\n\r]+)")
-_QNAME_PARTS = re.compile(r"(\d+)")
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ from snippy_ng.cli.short_cli import short
 from snippy_ng.cli.asm_cli import asm
 from snippy_ng.cli.long_cli import long
 from snippy_ng.cli.ref_cli import ref
-from snippy_ng.cli.aln_cli import aln
+from snippy_ng.cli.core_cli import core
 from snippy_ng.cli.tree_cli import tree
 from snippy_ng.cli.multi_cli import multi
 from snippy_ng.cli.gather_cli import gather
@@ -60,7 +60,7 @@ snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
 snippy_ng.add_command(long)
 snippy_ng.add_command(multi)
-snippy_ng.add_command(aln)
+snippy_ng.add_command(core)
 snippy_ng.add_command(tree)
 snippy_ng.add_command(yolo)
 snippy_ng.add_command(ref)

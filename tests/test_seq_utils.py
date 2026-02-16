@@ -1,6 +1,5 @@
 """Tests for seq_utils module."""
 import gzip
-from snippy_ng.utils.gather import gather_samples_config
 from snippy_ng.utils.seq import guess_reference_format
 
 
@@ -72,62 +71,3 @@ def test_guess_format_nonexistent_file(tmp_path):
         pass
     else:
         assert False, "Expected FileNotFoundError"
-
-
-def test_gather_samples_config_ill_paired(tmp_path):
-    """Detect Illumina paired reads and build config."""
-    r1 = tmp_path / "sampleA_R1.fastq"
-    r2 = tmp_path / "sampleA_R2.fastq"
-    r1.write_text("@read1\nACGT\n+\n!!!!\n")
-    r2.write_text("@read2\nTGCA\n+\n!!!!\n")
-
-    cfg = gather_samples_config([tmp_path])
-    assert "sampleA" in cfg
-    assert cfg["sampleA"]["type"] == "short"
-    assert cfg["sampleA"]["left"].endswith("sampleA_R1.fastq")
-    assert cfg["sampleA"]["right"].endswith("sampleA_R2.fastq")
-
-
-def test_gather_samples_config_ont_single(tmp_path):
-    """Detect ONT reads by UUID-like header."""
-    ont = tmp_path / "sampleB.fastq"
-    ont.write_text("@550e8400-e29b-41d4-a716-446655440000\nACGT\n+\n!!!!\n")
-
-    cfg = gather_samples_config([tmp_path])
-    assert "sampleB" in cfg
-    assert cfg["sampleB"]["type"] == "long"
-    assert cfg["sampleB"]["reads"].endswith("sampleB.fastq")
-
-
-def test_gather_samples_config_asm_single(tmp_path):
-    """Detect assembly FASTA and build config."""
-    asm = tmp_path / "sampleC.fasta"
-    asm.write_text(">contig1\nACGT\n")
-
-    cfg = gather_samples_config([tmp_path])
-    assert "sampleC" in cfg
-    assert cfg["sampleC"]["type"] == "asm"
-    assert cfg["sampleC"]["assembly"].endswith("sampleC.fasta")
-
-
-def test_gather_samples_config_excludes_by_name(tmp_path):
-    """Exclude files by name regex."""
-    r1 = tmp_path / "Undetermined_S0_R1.fastq"
-    r2 = tmp_path / "Undetermined_S0_R2.fastq"
-    r1.write_text("@read1\nACGT\n+\n!!!!\n")
-    r2.write_text("@read2\nTGCA\n+\n!!!!\n")
-
-    cfg = gather_samples_config([tmp_path])
-    assert cfg == {}
-
-
-def test_gather_samples_config_aggressive_ids(tmp_path):
-    """Aggressive ID parsing should drop lane/sample suffixes."""
-    r1 = tmp_path / "samp_L001_S1_R1.fastq"
-    r2 = tmp_path / "samp_L001_S1_R2.fastq"
-    r1.write_text("@read1\nACGT\n+\n!!!!\n")
-    r2.write_text("@read2\nTGCA\n+\n!!!!\n")
-
-    cfg = gather_samples_config([tmp_path], aggressive_ids=True)
-    assert "samp" in cfg
-    assert cfg["samp"]["type"] == "short"

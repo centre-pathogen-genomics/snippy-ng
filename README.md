@@ -66,15 +66,16 @@ snippy-ng short --ref tests/data/wildtype.gbk --R1 tests/data/mutant_R1.fastq --
 ```
 
 ```bash
-snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v430_bacteria_finetuned" --clair3-fast-mode --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
+snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --clair3-fast-mode --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
 ```
 
 ```bash
-snippy-ng gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > tests/data/samples.csv 
-snippy-ng multi tests/data/samples.csv \
+snippy-ng gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > samples.csv 
+snippy-ng multi samples.csv \
   --ref tests/data/wildtype.gbk \
   -o multi \
   --cpus 6
+snippy-ng tree multi/core/core.095.aln -o multi/tree
 ```
 
 ## License

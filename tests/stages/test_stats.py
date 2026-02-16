@@ -30,7 +30,7 @@ class TestSeqKitReadStats:
             cpus=4
         )
         
-        assert stage.reads == [str(read1), str(read2)]
+        assert stage.reads == [read1, read2]
         assert stage.prefix == "test_stats"
         assert stage.cpus == 4
         assert stage.all_stats is True
@@ -77,7 +77,7 @@ class TestSeqKitReadStats:
         )
         
         output = stage.output
-        assert output.stats_tsv == "test_stats.stats.tsv"
+        assert str(output.stats_tsv) == "test_stats.stats.tsv"
         
     def test_basic_command(self, tmp_path):
         """Test basic seqkit stats command generation"""

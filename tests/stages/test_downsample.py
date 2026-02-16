@@ -33,7 +33,7 @@ class TestRasusaDownsampleReads:
             cpus=4
         )
         
-        assert stage.reads == [str(read1), str(read2)]
+        assert stage.reads == [read1, read2]
         assert stage.prefix == "downsampled"
         assert stage.coverage == 50.0
         assert stage.num_reads is None
@@ -159,8 +159,8 @@ class TestRasusaDownsampleReads:
         )
         
         output = stage.output
-        assert output.downsampled_r1 == "downsampled.downsampled.R1.fastq.gz"
-        assert output.downsampled_r2 == "downsampled.downsampled.R2.fastq.gz"
+        assert str(output.downsampled_r1) == "downsampled.downsampled.R1.fastq.gz"
+        assert str(output.downsampled_r2) == "downsampled.downsampled.R2.fastq.gz"
     
     def test_output_property_single_read_uncompressed(self, tmp_path):
         """Test output property with single uncompressed read"""
@@ -176,7 +176,7 @@ class TestRasusaDownsampleReads:
         )
         
         output = stage.output
-        assert output.downsampled_r1 == "ds.downsampled.R1.fasta"
+        assert str(output.downsampled_r1) == "ds.downsampled.R1.fasta"
         assert output.downsampled_r2 is None
     
     def test_basic_command_coverage(self, tmp_path):

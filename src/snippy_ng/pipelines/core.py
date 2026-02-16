@@ -1,12 +1,12 @@
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.msa import CombineFastaFile, SoftCoreFilter
+from snippy_ng.stages.core import CombineFastaFile, SoftCoreFilter
 from typing import Optional
 from pathlib import Path
 from pydantic import Field
 
 
-class AlnPipelineBuilder(PipelineBuilder):
+class CorePipelineBuilder(PipelineBuilder):
     """Builder for alignment (MSA) pipeline."""
     snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
     reference: Path = Field(..., description="Reference genome file")

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages import BaseStage, BaseOutput
@@ -12,8 +13,8 @@ class RasusaDownsampleReadsOutput(BaseOutput):
         downsampled_r1: Path to downsampled R1 read file.
         downsampled_r2: Optional path to downsampled R2 read file (for paired-end reads).
     """
-    downsampled_r1: str
-    downsampled_r2: Optional[str] = None
+    downsampled_r1: Path = Field(..., description="Path to downsampled R1 read file")
+    downsampled_r2: Optional[Path] = Field(None, description="Path to downsampled R2 read file (for paired-end reads)")
 
 
 class RasusaDownsampleReads(BaseStage):
@@ -53,7 +54,7 @@ class RasusaDownsampleReads(BaseStage):
         'downsampled.downsampled.R2.fastq.gz'
     """
     ref_metadata: Optional[ReferenceMetadata] = Field(None, description="Metadata for the run")
-    reads: List[str] = Field(..., description="List of input read files (FASTQ format)")
+    reads: List[Path] = Field(..., description="List of input read files (FASTQ format)")
     coverage: Optional[float] = Field(None, description="Target coverage depth for downsampling")
     num_reads: Optional[int] = Field(None, description="Target number of reads for downsampling")
     seed: Optional[int] = Field(None, description="Random seed for reproducible downsampling")
@@ -149,13 +150,13 @@ class RasusaDownsampleReads(BaseStage):
         """
         # Use the same style as FastpCleanReadsOutput
         downsampled_r1 = f"{self.prefix}.downsampled.R1.{self.output_format}"
-        if self.output_format == "fastq" and any(f.endswith(".gz") for f in self.reads):
+        if self.output_format == "fastq" and any(f.name.endswith(".gz") for f in self.reads):
             downsampled_r1 += ".gz"
         
         downsampled_r2 = None
         if len(self.reads) == 2:
             downsampled_r2 = f"{self.prefix}.downsampled.R2.{self.output_format}"
-            if self.output_format == "fastq" and any(f.endswith(".gz") for f in self.reads):
+            if self.output_format == "fastq" and any(f.name.endswith(".gz") for f in self.reads):
                 downsampled_r2 += ".gz"
         
         return RasusaDownsampleReadsOutput(
@@ -196,8 +197,8 @@ class RasusaDownsampleReads(BaseStage):
             cmd_parts.append("--fasta")
         
         # Compression level
-        if (self.output.downsampled_r1.endswith(".gz") or 
-            (self.output.downsampled_r2 and self.output.downsampled_r2.endswith(".gz"))):
+        if (self.output.downsampled_r1.name.endswith(".gz") or 
+            (self.output.downsampled_r2 and self.output.downsampled_r2.name.endswith(".gz"))):
             cmd_parts.extend(["--compress-level", str(self.compression_level)])
         
         # Additional options (split if it contains spaces)

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 import click
 
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -16,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, resolve_path=True, readable=True, path_type=Path),
+    type=click.Path(exists=True, readable=True, path_type=AbsolutePath),
 )
 def yolo(directory: Optional[Path], **config):
     """
@@ -28,7 +29,6 @@ def yolo(directory: Optional[Path], **config):
 
         snippy-ng yolo
     """
-    import os
     from snippy_ng.logging import logger
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
@@ -48,7 +48,7 @@ def yolo(directory: Optional[Path], **config):
         for name in ["reference", "ref"]:
             candidates = list(directory.rglob(f"{name}.{ext}"))
             if candidates:
-                reference = candidates[0].resolve()
+                reference = candidates[0].absolute()
                 logger.info(f"Found reference file: {reference}")
                 break
         if reference:
@@ -95,28 +95,36 @@ def yolo(directory: Optional[Path], **config):
 
     snippy_reference_dir = ref_stage.output.reference.parent
 
-    config["cpus"] = (
-        min(os.cpu_count(), config["cpus"]) if os.cpu_count() else config["cpus"]
-    )
-    config["cpus_per_sample"] = max(1, config["cpus"] // len(samples))
+    # each sample gets 2 CPUs or total_cpus / num_samples, whichever is higher
+    config["cpus_per_sample"] = max(4, config["cpus"] // len(samples))
     try:
         run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
-            config=config,
+            outdir=config["outdir"],
+            prefix=config["prefix"],
+            tmpdir=config["tmpdir"],
+            cpus=config["cpus"],
+            ram=config["ram"],
+            skip_check=config["skip_check"],
+            check=config["check"],
+            quiet=config["quiet"],
+            create_missing=config["create_missing"],
+            keep_incomplete=config["keep_incomplete"],
+            cpus_per_sample=config["cpus_per_sample"],
         )
     except PipelineExecutionError as e:
         logger.horizontal_rule(style="-")
         raise e
 
     # core alignment
-    from snippy_ng.pipelines.aln import AlnPipelineBuilder
+    from snippy_ng.pipelines.core import CorePipelineBuilder
 
     snippy_dirs = [
-        str((Path(config["outdir"]) / "samples" / sample).resolve())
+        config["outdir"] / "samples" / sample
         for sample in cfg["samples"]
     ]
-    aln_pipeline = AlnPipelineBuilder(
+    aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
         core=0.95,
@@ -144,6 +152,8 @@ def yolo(directory: Optional[Path], **config):
     tree_pipeline = TreePipelineBuilder(
         aln=str(outdir / "core.aln"),
         fconst=(outdir / "core.aln.sites").read_text().strip(),
+        cpus=config["cpus"],
+        ram=config["ram"],
     ).build()
     outdir = Path(config["outdir"]) / "tree"
     outdir.mkdir(parents=True, exist_ok=True)

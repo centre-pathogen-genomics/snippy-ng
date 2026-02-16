@@ -4,6 +4,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from snippy_ng.exceptions import SnippyError
 import gzip
 import io
+import os
 import re
 
 class GatherSamplesError(SnippyError):
@@ -37,6 +38,11 @@ class SeqFile:
     path: Path
     kind: SeqKind           # e.g. "ILL", "ONT", "ASM"
     sample_id: str          # inferred ID from filename
+
+
+def _to_absolute_path(path: Path) -> Path:
+    """Return absolute path without resolving symlinks."""
+    return Path(path).absolute()
 
 
 def _open_maybe_compressed(p: Path) -> io.TextIOBase:
@@ -108,8 +114,9 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
         name = re.sub(r"_L\d{3}", "", name)
 
     # strip common read-direction suffixes
-    # examples: _R1, _R1_001, _1, _2
-    name = re.sub(r"_(?:R?[12])(?:_\d+)?$", "", name)
+    # examples: _R1, _R1_001, _1, _2, R1, R2 (with or without prefix)
+    # Match either: underscore prefix OR start of string (for files like R1.fastq)
+    name = re.sub(r"(?:_|^)(?:R?[12])(?:_\d+)?$", "", name)
 
     return name
 
@@ -134,10 +141,10 @@ def scan_sequence_files(
             candidates = [root]
         elif root.is_dir():
             # manual depth control
-            base_parts = len(root.resolve().parts)
+            base_parts = len(_to_absolute_path(root).parts)
             candidates = []
             for p in root.rglob("*"):
-                p = p.resolve()
+                p = _to_absolute_path(p)
                 try:
                     if not p.is_file():
                         continue
@@ -153,12 +160,14 @@ def scan_sequence_files(
         for p in candidates:
             if exclude_files and p in exclude_files:
                 continue
-            if exclude_re and exclude_re.search(p.name):
+            if exclude_re and exclude_re.search(str(p)):
                 continue
             kind = detect_seq_kind(p)
             if not kind:
                 continue
             sid = guess_sample_id(p.name, aggressive=aggressive_ids)
+            if not sid:
+                sid = p.parent.name
             found.append(SeqFile(path=p, kind=kind, sample_id=sid))
 
     return found
@@ -169,11 +178,11 @@ def _find_r1_r2(files: List[Path]) -> Tuple[Optional[Path], Optional[Path]]:
     r2 = None
     for p in files:
         n = p.name
-        if re.search(r"(?:_R?1(?:_\d+)?)(?:\.\w+)*$", n):
+        if re.search(r"(?:R?1(?:_\d+)?)(?:\.\w+)*$", n):
             if r1 is not None:
                 _raise_duplicate_candidate_error(n, "R1", r1, p)
             r1 = p
-        elif re.search(r"(?:_R?2(?:_\d+)?)(?:\.\w+)*$", n):
+        elif re.search(r"(?:R?2(?:_\d+)?)(?:\.\w+)*$", n):
             if r2 is not None:
                 _raise_duplicate_candidate_error(n, "R2", r2, p)
             r2 = p
@@ -235,6 +244,124 @@ def handle_ASM(sample_id: str, items: List[SeqFile]) -> Dict:
 
 SampleHandler = Callable[[str, List[SeqFile], dict], Dict]
 
+
+def _is_expected_multi_file_sample(items: List[SeqFile]) -> bool:
+    """True when multiple files are expected for a single sample ID."""
+    if not items:
+        return False
+    kinds = {sf.kind for sf in items}
+    if len(kinds) != 1:
+        return False
+    kind = next(iter(kinds))
+    # Illumina can be paired-end and legitimately have multiple files.
+    return kind == "ILL"
+
+
+def _build_parent_labels(parents: List[Path]) -> List[str]:
+    """
+    Build stable, minimally qualified labels for parent directories.
+    """
+    if not parents:
+        return []
+
+    absolute_parents = [_to_absolute_path(p) for p in parents]
+    common_parent = Path(os.path.commonpath([str(p) for p in absolute_parents]))
+    labels: List[str] = []
+    for p in absolute_parents:
+        try:
+            rel_parts = p.relative_to(common_parent).parts
+        except ValueError:
+            rel_parts = p.parts
+        if rel_parts:
+            labels.append("-".join(rel_parts))
+        else:
+            labels.append(p.name)
+    return labels
+
+
+def _group_by_sample_id(seqfiles: List[SeqFile]) -> Dict[str, List[SeqFile]]:
+    grouped: Dict[str, List[SeqFile]] = {}
+    for sf in seqfiles:
+        grouped.setdefault(sf.sample_id, []).append(sf)
+    return grouped
+
+
+def _group_by_parent(seqfiles: List[SeqFile]) -> Dict[Path, List[SeqFile]]:
+    grouped: Dict[Path, List[SeqFile]] = {}
+    for sf in seqfiles:
+        grouped.setdefault(_to_absolute_path(sf.path.parent), []).append(sf)
+    return grouped
+
+
+def _is_filename_fallback_needed(items: List[SeqFile]) -> bool:
+    """
+    True for multi-file groups that are not expected ILL pair/single-end groups.
+    """
+    return len(items) > 1 and not _is_expected_multi_file_sample(items)
+
+
+def _build_disambiguated_id(sample_id: str, parent_label: str) -> str:
+    if not sample_id:
+        return parent_label
+    if parent_label == sample_id or parent_label.endswith(f"-{sample_id}"):
+        return parent_label
+    return f"{parent_label}-{sample_id}"
+
+
+def _resolve_duplicate_ids(seqfiles: List[SeqFile]) -> List[SeqFile]:
+    """
+    Resolve duplicate sample IDs by incorporating parent directory names.
+    """
+    # Group by initial sample_id
+    grouped = _group_by_sample_id(seqfiles)
+    
+    deduped_seqfiles: List[SeqFile] = []
+    
+    for sid, items in grouped.items():
+        by_parent = _group_by_parent(items)
+        
+        if len(by_parent) == 1:
+            # Same directory. Keep legitimate multi-file samples as-is.
+            if not _is_filename_fallback_needed(items):
+                deduped_seqfiles.extend(items)
+            else:
+                # Disambiguate by keeping filename (with extension), e.g.
+                # Sample.fa and Sample.fa.gz remain distinct sample IDs.
+                for sf in items:
+                    deduped_seqfiles.append(SeqFile(
+                        path=sf.path,
+                        kind=sf.kind,
+                        sample_id=sf.path.name,
+                    ))
+        else:
+            # We have duplicates - need to disambiguate
+            parent_dirs = list(by_parent.keys())
+            parent_labels = _build_parent_labels(parent_dirs)
+            
+            # Create new SeqFiles with updated IDs
+            for (_, files), parent_label in zip(by_parent.items(), parent_labels):
+                # If a parent directory itself has a non-ILL clash (e.g. mixed kinds
+                # like JKD6159.fastq.gz + JKD6159.fasta), keep file extensions.
+                if _is_filename_fallback_needed(files):
+                    for sf in files:
+                        deduped_seqfiles.append(SeqFile(
+                            path=sf.path,
+                            kind=sf.kind,
+                            sample_id=sf.path.name,
+                        ))
+                    continue
+
+                new_id = _build_disambiguated_id(sid, parent_label)
+                for sf in files:
+                    deduped_seqfiles.append(SeqFile(
+                        path=sf.path,
+                        kind=sf.kind,
+                        sample_id=new_id
+                    ))
+    
+    return deduped_seqfiles
+
+
 def build_samples_config(
     seqfiles: List[SeqFile],
 ) -> Dict:
@@ -247,6 +374,10 @@ def build_samples_config(
         "ONT": handle_ONT,
         "ASM": handle_ASM,
     }
+    
+    # Resolve duplicate IDs first
+    seqfiles = _resolve_duplicate_ids(seqfiles)
+    
     # group by sample_id
     grouped: Dict[str, List[SeqFile]] = {}
     for sf in seqfiles:
@@ -293,7 +424,7 @@ def gather_samples_config(
         max_depth=max_depth,
         aggressive_ids=aggressive_ids,
         exclude_name_regex=exclude_name_regex,
-        exclude_files=exclude_files,
+        exclude_files=[_to_absolute_path(p) for p in exclude_files] if exclude_files else None,
     )
     cfg = build_samples_config(
         seqfiles,

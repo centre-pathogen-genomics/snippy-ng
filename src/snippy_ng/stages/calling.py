@@ -336,11 +336,11 @@ class Clair3Caller(Caller):
         clair3_cmd = self.shell_cmd(
             [
                 "run_clair3.sh",
-                f"--model_path={self.clair3_model.resolve()}",
-                f"--bam_fn={str(self.bam.resolve())}",
-                f"--ref_fn={str(self.reference.resolve())}",
+                f"--model_path={self.clair3_model.absolute()}",
+                f"--bam_fn={str(self.bam.absolute())}",
+                f"--ref_fn={str(self.reference.absolute())}",
                 f"--threads={str(self.cpus)}",
-                f"--output={Path(self.prefix + '_clair3_out').resolve()}",
+                f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",
                 "--haploid_precise",

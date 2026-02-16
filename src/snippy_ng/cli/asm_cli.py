@@ -1,12 +1,12 @@
 import click
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
-
+from snippy_ng.cli.utils import AbsolutePath
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
-@click.option("--assembly", "--asm", required=True, type=click.Path(exists=True, resolve_path=True, readable=True), help="Assembly in FASTA format")
-@click.option("--mask", default=None, type=click.Path(exists=True, resolve_path=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, resolve_path=False, readable=True, path_type=AbsolutePath), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--assembly", "--asm", required=True, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Assembly in FASTA format")
+@click.option("--mask", default=None, type=click.Path(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 def asm(**config):
     """
     Assembly based SNP calling pipeline

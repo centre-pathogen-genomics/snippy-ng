@@ -17,8 +17,8 @@ from snippy_ng.stages.reporting import PrintVcfHistogram
 
 class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
-    reference: str = Field(..., description="Reference genome file path")
-    assembly: str = Field(..., description="Assembly file path")
+    reference: Path = Field(..., description="Reference genome file path")
+    assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snps", description="Output file prefix")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")

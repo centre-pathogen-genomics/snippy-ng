@@ -56,10 +56,6 @@ class SnippyPipeline:
             self.cleanup(current_dir)
         self.goodbye()
     
-    def __call__(self, *args, **kwargs):
-        """Delegate to run method for backward compatibility."""
-        return self.run(*args, **kwargs)
-    
     def add_stage(self, stage):
         self.stages.append(stage)
 

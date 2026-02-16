@@ -37,7 +37,7 @@ class ShellCommand(BaseModel):
         output_file = ''
         if self.output_file:
             output_file = f" > {self.output_file}"
-        return f"{' '.join(quote(arg) for arg in self.command)}{output_file}"
+        return f"{' '.join(quote(str(arg)) for arg in self.command)}{output_file}"
 
 class ShellCommandPipe(BaseModel):
     commands: List[ShellCommand]
