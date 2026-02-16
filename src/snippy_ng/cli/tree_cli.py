@@ -26,7 +26,7 @@ def tree(**config):
     #if fconst is a path read the content
     fconst = config.get("fconst")
     if not fconst and Path(config["alignment"]).with_suffix(".fconst").exists():
-        logger.warning("No fconst provided, but found .fconst file corresponding to the alignment. Using this file for constant sites counts.")
+        logger.debug("No fconst provided, but found .fconst file corresponding to the alignment. Using this file for constant sites counts.")
         fconst = Path(config["alignment"]).with_suffix(".fconst")
 
     if fconst and Path(fconst).is_file():
