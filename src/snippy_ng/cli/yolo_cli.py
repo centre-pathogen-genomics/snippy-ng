@@ -49,7 +49,7 @@ def yolo(directory: Optional[Path], **config):
         for name in ["reference", "ref"]:
             candidates = list(directory.rglob(f"{name}.{ext}"))
             if candidates:
-                reference = candidates[0].resolve()
+                reference = candidates[0].absolute()
                 logger.info(f"Found reference file: {reference}")
                 break
         if reference:
@@ -114,7 +114,7 @@ def yolo(directory: Optional[Path], **config):
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     snippy_dirs = [
-        str((Path(config["outdir"]) / "samples" / sample).resolve())
+        config["outdir"] / "samples" / sample
         for sample in cfg["samples"]
     ]
     aln_pipeline = CorePipelineBuilder(

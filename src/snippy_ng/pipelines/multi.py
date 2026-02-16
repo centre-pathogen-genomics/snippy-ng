@@ -26,7 +26,7 @@ def run_multi_pipeline(
     # Minimal picklable config
     global_config = dict(config)
     global_config["cpus_per_sample"] = cpus_per_sample
-    global_config['outdir'] = str(Path(config.get('outdir')).resolve())
+    global_config['outdir'] = str(config['outdir'])
     global_config['reference'] = str(snippy_reference_dir)
 
     jobs = [

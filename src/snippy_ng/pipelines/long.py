@@ -89,7 +89,7 @@ class LongPipelineBuilder(PipelineBuilder):
 
         # Aligner
         if self.bam:
-            aligned_reads = Path(self.bam).resolve()
+            aligned_reads = self.bam
         else:
             # SeqKit read statistics
             stats_stage = SeqKitReadStatsBasic(

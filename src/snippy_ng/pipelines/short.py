@@ -82,7 +82,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(clean_reads_stage)
 
         if self.bam:
-            aligned_reads = Path(self.bam).resolve()  
+            aligned_reads = Path(self.bam).absolute()  
         else:
             # SeqKit read statistics
             stats_stage = SeqKitReadStatsBasic(

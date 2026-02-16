@@ -66,7 +66,7 @@ def multi(config: click.File, reference: Path, **context):
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     aln_pipeline = CorePipelineBuilder(
-        snippy_dirs=[str((Path(context["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]],
+        snippy_dirs=[str(context["outdir"] / 'samples' / sample) for sample in cfg["samples"]],
         reference=snippy_reference_dir,
         core=context["core"],
         tmpdir=context["tmpdir"],

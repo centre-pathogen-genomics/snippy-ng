@@ -37,7 +37,7 @@ GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=AbsolutePath, resolve_path=True),
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=AbsolutePath),
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,
