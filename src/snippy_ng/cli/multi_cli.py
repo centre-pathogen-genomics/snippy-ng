@@ -1,5 +1,4 @@
 from pathlib import Path
-import sys
 import click
 
 from snippy_ng.cli.utils import AbsolutePath

@@ -1,6 +1,5 @@
 """Test gathering samples from multiple input directories."""
 import gzip
-from pathlib import Path
 from snippy_ng.utils.gather import gather_samples_config
 
 
