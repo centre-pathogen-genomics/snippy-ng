@@ -157,9 +157,10 @@ class SoftCoreFilter(BaseStage):
 
     @property
     def output(self) -> SoftCoreFilterOutput:
+        aln=Path(f"{self.prefix}.{round(self.core_threshold*100):03d}.aln")
         return SoftCoreFilterOutput(
-            aln=Path(f"{self.prefix}.{round(self.core_threshold*100):03d}.aln"),
-            constant_sites=Path(f"{self.prefix}.aln.sites"),
+            aln=aln,
+            constant_sites=aln.with_suffix(".fconst")
         )
 
     @property
