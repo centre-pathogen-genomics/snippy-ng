@@ -1,17 +1,17 @@
 import click
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Reference genome (FASTA or GenBank) or prepared reference directory")
-@click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, path_type=AbsolutePath, readable=True), help="Reads, paired-end R1 (left)")
-@click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, path_type=AbsolutePath, readable=True), help="Reads, paired-end R2 (right)")
-@click.option("--bam", default=None, type=click.Path(exists=True, path_type=AbsolutePath), help="Use this BAM file instead of aligning reads")
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reads, paired-end R1 (left)")
+@click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reads, paired-end R2 (right)")
+@click.option("--bam", default=None, type=click.Path(exists=True), callback=absolute_path_callback, help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--mask", default=None, type=click.Path(exists=True, path_type=AbsolutePath, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--mask", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")

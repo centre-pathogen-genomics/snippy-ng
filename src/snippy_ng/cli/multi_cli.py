@@ -1,7 +1,7 @@
 from pathlib import Path
 import click
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -16,7 +16,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     "--reference",
     "--ref",
     required=False,
-    type=click.Path(exists=True, readable=True, path_type=AbsolutePath),
+    type=click.Path(exists=True, readable=True), callback=absolute_path_callback,
 )
 @click.option("--cpus-per-sample", type=click.INT, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")

@@ -1,22 +1,22 @@
 import click
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Reference genome (FASTA or GenBank) or prepared reference directory")
-@click.option("--reads", default=None, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Long reads file (FASTQ)")
-@click.option("--bam", default=None, type=click.Path(exists=True, path_type=AbsolutePath), help="Use this BAM file instead of aligning reads")
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--reads", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Long reads file (FASTQ)")
+@click.option("--bam", default=None, type=click.Path(exists=True), callback=absolute_path_callback, help="Use this BAM file instead of aligning reads")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
-@click.option("--mask", default=None, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--mask", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
-@click.option("--clair3-model", default=None, type=click.Path(path_type=AbsolutePath), help="Absolute path to Clair3 model file.")
+@click.option("--clair3-model", default=None, type=click.Path(), callback=absolute_path_callback, help="Absolute path to Clair3 model file.")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
