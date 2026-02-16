@@ -51,6 +51,8 @@ class CombineFastaFile(BaseStage):
         ]
 
     def _find_pseudo_fasta(self, snippy_dir: Path) -> Path:
+        # Ensure snippy_dir is a proper Path object for Python 3.13 compatibility
+        snippy_dir = Path(snippy_dir)
         pseudo_fna_files = sorted(snippy_dir.glob("*.pseudo.fna"))
         if not pseudo_fna_files:
             raise MissingInputError(f"No *.pseudo.fna file found in {snippy_dir}")
