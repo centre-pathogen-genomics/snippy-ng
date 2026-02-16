@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 import click
 
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -16,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, resolve_path=True, readable=True, path_type=Path),
+    type=click.Path(exists=True, readable=True, path_type=AbsolutePath),
 )
 def yolo(directory: Optional[Path], **config):
     """
@@ -110,13 +111,13 @@ def yolo(directory: Optional[Path], **config):
         raise e
 
     # core alignment
-    from snippy_ng.pipelines.aln import AlnPipelineBuilder
+    from snippy_ng.pipelines.core import CorePipelineBuilder
 
     snippy_dirs = [
         str((Path(config["outdir"]) / "samples" / sample).resolve())
         for sample in cfg["samples"]
     ]
-    aln_pipeline = AlnPipelineBuilder(
+    aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
         core=0.95,
@@ -144,6 +145,8 @@ def yolo(directory: Optional[Path], **config):
     tree_pipeline = TreePipelineBuilder(
         aln=str(outdir / "core.aln"),
         fconst=(outdir / "core.aln.sites").read_text().strip(),
+        cpus=config["cpus"],
+        ram=config["ram"],
     ).build()
     outdir = Path(config["outdir"]) / "tree"
     outdir.mkdir(parents=True, exist_ok=True)

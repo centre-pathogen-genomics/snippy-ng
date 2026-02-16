@@ -1,10 +1,11 @@
-from pathlib import Path
 import click
+
+from snippy_ng.cli.utils import AbsolutePath
 
 
 @click.command(context_settings={'show_default': True})
-@click.argument("inputs", required=False, type=click.Path(exists=True, resolve_path=False, readable=True), nargs=-1)
-@click.option("--reference", "--ref", required=False, type=click.Path(exists=True, resolve_path=False, readable=True, path_type=Path), help="Reference genome to include in JSON output and exclude from the search")
+@click.argument("inputs", required=False, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), nargs=-1)
+@click.option("--reference", "--ref", required=False, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Reference genome to include in JSON output and exclude from the search")
 @click.option("--max-depth", "-d", type=click.INT, default=4, help="Maximum directory depth to search for sequence files", show_default=True)
 @click.option("--exclude", "-e", type=click.STRING, default=None, help="Regular expression to exclude files based on their name", show_default=True)
 @click.option("--aggressive-ids", "-a", is_flag=True, default=False, help="Aggressively parse sample IDs from file paths", show_default=True)

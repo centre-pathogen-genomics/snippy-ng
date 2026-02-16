@@ -1,6 +1,8 @@
 from pathlib import Path
+import sys
 import click
 
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -9,76 +11,78 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "config",
     required=True,
-    type=click.Path(exists=True, resolve_path=True, readable=True),
+    type=click.File(mode="r")
 )
 @click.option(
     "--reference",
     "--ref",
     required=False,
-    type=click.Path(exists=True, resolve_path=True, readable=True),
+    type=click.Path(exists=True, readable=True, path_type=AbsolutePath),
 )
 @click.option("--cpus-per-sample", type=click.INT, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
-def multi(**config):
+def multi(config: click.File, reference: Path, **context):
     """
     Multi-sample SNP calling pipeline
 
     Example usage:
 
-        snippy-ng multi samples.csv --ref reference.fasta
+        $ snippy-ng multi samples.csv --ref reference.fasta
+        $ snippy-ng gather | snippy-ng multi --ref reference.fasta - 
+
     """
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline
     
     try:
-        cfg = load_multi_config(config)
+        cfg = load_multi_config(config, reference)
     except Exception as e:
         raise click.ClickException(e)
-    if config["reference"] is not None:
-        cfg["reference"] = str(config["reference"])
+    if reference is not None:
+        cfg["reference"] = str(reference)
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
-        output_directory=Path(config["outdir"]) / 'reference',
+        output_directory=Path(context["outdir"]) / 'reference',
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     ref_pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        cwd=config["outdir"],
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
+        skip_check=context["skip_check"],
+        check=context["check"],
+        cwd=context["outdir"],
+        quiet=context["quiet"],
+        create_missing=context["create_missing"],
+        keep_incomplete=context["keep_incomplete"],
     )
 
     snippy_reference_dir = ref_stage.output.reference.parent
     run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
-        config=config,
+        config=context,
     )
     
     # core alignment
-    from snippy_ng.pipelines.aln import AlnPipelineBuilder
+    from snippy_ng.pipelines.core import CorePipelineBuilder
 
-    aln_pipeline = AlnPipelineBuilder(
-        snippy_dirs=[str((Path(config["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]],
+    aln_pipeline = CorePipelineBuilder(
+        snippy_dirs=[str((Path(context["outdir"]) / 'samples' / sample).resolve()) for sample in cfg["samples"]],
         reference=snippy_reference_dir,
-        core=config["core"],
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus"],
-        ram=config["ram"],
+        core=context["core"],
+        tmpdir=context["tmpdir"],
+        cpus=context["cpus"],
+        ram=context["ram"],
     ).build()
-    outdir = Path(config['outdir']) / 'core'
+    outdir = Path(context['outdir']) / 'core'
     outdir.mkdir(parents=True, exist_ok=True)
     aln_pipeline.run(
-        skip_check=config['skip_check'],
-        check=config['check'],
+        skip_check=context['skip_check'],
+        check=context['check'],
         cwd=outdir,
-        quiet=config['quiet'],
-        create_missing=config['create_missing'],
-        keep_incomplete=config['keep_incomplete'],
+        quiet=context['quiet'],
+        create_missing=context['create_missing'],
+        keep_incomplete=context['keep_incomplete'],
     )
 
 

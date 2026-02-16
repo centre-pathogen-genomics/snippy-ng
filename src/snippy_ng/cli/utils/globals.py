@@ -3,6 +3,8 @@ import tempfile
 from pathlib import Path
 import os
 
+from snippy_ng.cli.utils import AbsolutePath
+
 
 class GlobalOption(click.Option):
     def __init__(self, *args, **kwargs):
@@ -35,7 +37,7 @@ GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path, resolve_path=True),
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=AbsolutePath, resolve_path=True),
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,
