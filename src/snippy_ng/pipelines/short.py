@@ -19,8 +19,8 @@ from snippy_ng.pipelines.common import load_or_prepare_reference
 
 class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
-    reference: str = Field(..., description="Reference genome file path")
-    reads: List[str] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
+    reference: Path = Field(..., description="Reference genome file path")
+    reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
     prefix: str = Field(default="snps", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")

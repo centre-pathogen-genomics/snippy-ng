@@ -19,7 +19,7 @@ from snippy_ng.pipelines.common import load_or_prepare_reference
 
 class LongPipelineBuilder(PipelineBuilder):
     """Builder for long-read SNP calling pipeline."""
-    reference: str = Field(..., description="Reference genome file path")
+    reference: Path = Field(..., description="Reference genome file path")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     prefix: str = Field(default="snps", description="Output file prefix")

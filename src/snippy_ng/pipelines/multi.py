@@ -1,9 +1,13 @@
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, TextIO, Tuple
 from snippy_ng.exceptions import PipelineExecutionError, SnippyError
 from snippy_ng.logging import logger
+import csv
+import json
+import io
+
 
 def run_multi_pipeline(
     snippy_reference_dir: Path,
@@ -47,10 +51,10 @@ def run_multi_pipeline(
                 # Catch any unexpected exception types so that multi-sample
                 # runs always complete with a consolidated failure summary.
                 failures.append((sample, str(e)))
-                logger.exception(f"FAILED with unexpected error: {sample}: {e}")
+                logger.error(f"FAILED with unexpected error: {sample}: {e}")
 
     if failures:
-        raise PipelineExecutionError("Some samples failed (check logs for details):\n" + "\n".join(f"- {s} -> {msg}" for s, msg in failures))
+        raise PipelineExecutionError("Some samples failed (check logs for details):\n" + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures))
     
 
 def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
@@ -67,13 +71,15 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
 
     if sample_type == "short":
         reads = sample_cfg.get("reads")
+        if reads and isinstance(reads, str):
+            reads = [reads]
         if not reads:
             # if reads not provided, expect left/right
-            reads = [str(Path(r).resolve()) for r in (sample_cfg.get("left"), sample_cfg.get("right")) if r]
+            reads = [str(r) for r in (sample_cfg.get("left"), sample_cfg.get("right")) if r]
         pipeline = ShortPipelineBuilder(
             reference=config["reference"],
             reads=reads,
-            bam=str(Path(sample_cfg.get("bam")).resolve()) if sample_cfg.get("bam") else None,
+            bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
             tmpdir=config["tmpdir"],
             cpus=config["cpus_per_sample"],
@@ -84,8 +90,8 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     elif sample_type == "long":
         pipeline = LongPipelineBuilder(
             reference=config["reference"],
-            reads=str(Path(sample_cfg.get("reads")).resolve()) if sample_cfg.get("reads") else None,
-            bam=str(Path(sample_cfg.get("bam")).resolve()) if sample_cfg.get("bam") else None,
+            reads=str(sample_cfg.get("reads")) if sample_cfg.get("reads") else None,
+            bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
             tmpdir=config["tmpdir"],
             cpus=config["cpus_per_sample"],
@@ -94,7 +100,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         ).build()
 
     elif sample_type == "asm":
-        sample_cfg['assembly'] = str(Path(sample_cfg.get("assembly")).resolve())
+        sample_cfg['assembly'] = str(sample_cfg.get("assembly"))
         pipeline = AsmPipelineBuilder(
             reference=config["reference"],
             prefix=config["prefix"],
@@ -110,7 +116,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         )
 
     # Per-sample output directory to prevent collisions
-    outdir = (Path(config["outdir"]) / 'samples' / sample_name).resolve()
+    outdir = Path(config["outdir"]) / 'samples' / sample_name
     outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
@@ -126,37 +132,49 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     return sample_name
 
 
-def load_multi_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    config_path = config["config"]
-    is_tsv = config_path.endswith(".tsv")
-    is_csv = config_path.endswith(".csv")
-    is_json = config_path.endswith(".json")
-
-    if is_csv or is_tsv:
-        if not config.get("reference"):
-            raise ValueError("Reference must be provided option when using CSV/TSV config")
-        import csv
-
-        with open(config_path, newline="") as f:
-            reader = csv.DictReader(f, delimiter="\t" if is_tsv else ",")
-            cfg = {"samples": {}}
-            for row in reader:
-                sample = row.get("sample")
-                if not sample:
-                    raise ValueError("Each row in the config file must have a 'sample' column with a unique sample name")
-                if sample in cfg["samples"]:
-                    raise ValueError(f"Duplicate sample name '{sample}' found in config file")
-                row.pop("sample", None)
-                cfg["samples"][sample] = {k: v for k, v in row.items() if v}
-    elif is_json:
-        import json
-
-        with open(config_path) as f:
-            cfg = json.load(f)
-        if not config.get("reference") and "reference" not in cfg:
+def load_multi_config(config_file: TextIO, reference: Optional[Path]) -> Dict[str, Any]:
+    
+    # Read all content upfront to avoid seeking issues with stdin
+    content = config_file.read()
+    
+    # Guess format from filename or content
+    name = config_file.name
+    if name.endswith(".csv"):
+        config_type = "csv"
+    elif name.endswith(".tsv"):
+        config_type = "tsv"
+    elif name.endswith(".json"):
+        config_type = "json"
+    else:
+        # Guess from content
+        first_line = content.split('\n', 1)[0] if content else ""
+        if "," in first_line:
+            config_type = "csv"
+        elif "\t" in first_line:
+            config_type = "tsv"
+        elif first_line.strip().startswith("{"):
+            config_type = "json"
+        else:
+            raise ValueError("Could not guess config format from file extension or content. Please use .csv, .tsv, or .json extension.")
+    
+    # Parse based on type
+    if config_type in ("csv", "tsv"):
+        if not reference:
+            raise ValueError("Reference must be provided when using CSV/TSV config")
+        reader = csv.DictReader(io.StringIO(content), delimiter="\t" if config_type == "tsv" else ",")
+        cfg = {"samples": {}}
+        for row in reader:
+            sample = row.get("sample")
+            if not sample:
+                raise ValueError("Each row in the config file must have a 'sample' column with a unique sample name")
+            if sample in cfg["samples"]:
+                raise ValueError(f"Duplicate sample name '{sample}' found in config file")
+            row.pop("sample", None)
+            cfg["samples"][sample] = {k: v for k, v in row.items() if v}
+    elif config_type == "json":
+        cfg = json.loads(content)
+        if not reference and "reference" not in cfg:
             raise ValueError("Reference must be provided in config file or as a command-line option")
-        if "reference" in cfg and not config.get("reference"):
-            config["reference"] = cfg["reference"]
     else:
         raise ValueError("Unsupported config file format. Use CSV, TSV, or JSON.")
 

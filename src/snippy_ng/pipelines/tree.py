@@ -7,7 +7,7 @@ from snippy_ng.stages.trees import IQTreeBuildTree
 
 class TreePipelineBuilder(PipelineBuilder):
     """Builder for phylogenetic tree building pipeline."""
-    aln: str = Field(..., description="Multiple sequence alignment file")
+    aln: Path = Field(..., description="Multiple sequence alignment file")
     model: str = Field(default="GTR+G", description="Substitution model for IQ-TREE")
     bootstrap: int = Field(default=1000, description="Number of bootstrap replicates")
     fconst: Optional[str] = Field(default=None, description="Frequency constants for ascertainment bias correction")
