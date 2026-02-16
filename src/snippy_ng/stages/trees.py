@@ -26,7 +26,7 @@ class IQTreeBuildTree(BaseStage):
     aln: Path = Field(..., description="Input multiple sequence alignment file in FASTA format")
     model: str = Field(default="GTR+G", description="Substitution model for IQ-TREE")
     bootstrap: int = Field(default=1000, description="Number of ultrafast bootstrap replicates to perform")
-    fconst: str | None = Field(default=None, description="Constant patterns to add into alignment in format a,c,g,t (e.g. 10,5,0,0)")
+    fconst: Optional[str] = Field(default=None, description="Constant patterns to add into alignment in format a,c,g,t (e.g. 10,5,0,0)")
     fast_mode: bool = Field(default=False, description="Use fast mode for rough tree search (faster but less accurate)")
 
     _dependencies = [iqtree]
