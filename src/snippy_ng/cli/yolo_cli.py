@@ -29,7 +29,6 @@ def yolo(directory: Optional[Path], **config):
 
         snippy-ng yolo
     """
-    import os
     from snippy_ng.logging import logger
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
@@ -96,15 +95,23 @@ def yolo(directory: Optional[Path], **config):
 
     snippy_reference_dir = ref_stage.output.reference.parent
 
-    config["cpus"] = (
-        min(os.cpu_count(), config["cpus"]) if os.cpu_count() else config["cpus"]
-    )
-    config["cpus_per_sample"] = max(1, config["cpus"] // len(samples))
+    # each sample gets 2 CPUs or total_cpus / num_samples, whichever is higher
+    config["cpus_per_sample"] = max(4, config["cpus"] // len(samples))
     try:
         run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
-            config=config,
+            outdir=config["outdir"],
+            prefix=config["prefix"],
+            tmpdir=config["tmpdir"],
+            cpus=config["cpus"],
+            ram=config["ram"],
+            skip_check=config["skip_check"],
+            check=config["check"],
+            quiet=config["quiet"],
+            create_missing=config["create_missing"],
+            keep_incomplete=config["keep_incomplete"],
+            cpus_per_sample=config["cpus_per_sample"],
         )
     except PipelineExecutionError as e:
         logger.horizontal_rule(style="-")

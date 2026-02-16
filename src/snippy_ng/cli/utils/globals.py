@@ -33,6 +33,12 @@ def not_implemented_callback(ctx, param, value):
         raise NotImplementedError(f"The option '{param.name}' is not yet implemented.")
     return value
 
+def cap_cpus_callback(ctx, param, value):
+    if ctx.resilient_parsing:
+        return
+    available = os.cpu_count()
+    return min(available, value) if available else value
+
 GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
@@ -65,6 +71,7 @@ GLOBAL_DEFS = [
             "type": int,
             "default": 1,
             "help": "Max cores to use",
+            "callback": cap_cpus_callback,
         },
     },
     {

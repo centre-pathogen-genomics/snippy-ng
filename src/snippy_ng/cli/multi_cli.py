@@ -59,7 +59,17 @@ def multi(config: click.File, reference: Path, **context):
     run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
-        config=context,
+        outdir=context["outdir"],
+        prefix=context["prefix"],
+        tmpdir=context["tmpdir"],
+        cpus=context["cpus"],
+        ram=context["ram"],
+        skip_check=context["skip_check"],
+        check=context["check"],
+        quiet=context["quiet"],
+        create_missing=context["create_missing"],
+        keep_incomplete=context["keep_incomplete"],
+        cpus_per_sample=context["cpus_per_sample"],
     )
     
     # core alignment

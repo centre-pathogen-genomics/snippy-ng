@@ -12,22 +12,44 @@ import io
 def run_multi_pipeline(
     snippy_reference_dir: Path,
     samples: Dict[str, Any],
-    config: Dict[str, Any],
+    *,
+    outdir: Path,
+    prefix: str,
+    tmpdir: Path,
+    cpus: int,
+    cpus_per_sample: int,
+    ram: int,
+    skip_check: bool,
+    check: bool,
+    quiet: bool,
+    create_missing: bool,
+    keep_incomplete: bool,
 ) -> None:
     """
     Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
     """
 
-    total_cpus = int(config["cpus"])
-    cpus_per_sample = min(int(config["cpus_per_sample"]), total_cpus) if config["cpus_per_sample"] else total_cpus
+    total_cpus = int(cpus)
+    # cap cpus_per_sample to total_cpus
+    cpus_per_sample = min(int(cpus_per_sample), total_cpus)
+    # Limit max parallelism to avoid oversubscription
     max_parallel = max(1, total_cpus // cpus_per_sample)
 
 
     # Minimal picklable config
-    global_config = dict(config)
-    global_config["cpus_per_sample"] = cpus_per_sample
-    global_config['outdir'] = str(config['outdir'])
-    global_config['reference'] = str(snippy_reference_dir)
+    global_config = {
+        "reference": str(snippy_reference_dir),
+        "outdir": str(outdir),
+        "prefix": prefix,
+        "tmpdir": tmpdir,
+        "ram": ram,
+        "cpus_per_sample": cpus_per_sample,
+        "skip_check": skip_check,
+        "check": check,
+        "quiet": quiet,
+        "create_missing": create_missing,
+        "keep_incomplete": keep_incomplete,
+    }
 
     jobs = [
         (sample_name, sample_cfg, global_config)
