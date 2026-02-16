@@ -278,6 +278,7 @@ class PAFCaller(Caller):
         index_cmd = self.shell_cmd(
             [
                 "tabix",
+                "-f", # Force overwrite if index already exists
                 "-s1",
                 "-b2",
                 "-e2",
