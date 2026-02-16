@@ -8,12 +8,15 @@ from snippy_ng.exceptions import DependencyError, MissingOutputError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
+    cpus: int = Field(default=1, description="Number of CPUs to use")
+    ram: int = Field(default=8, description="RAM in GB")
+    prefix: str = Field(default="tree", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""
