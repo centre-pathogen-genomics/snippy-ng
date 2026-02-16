@@ -11,7 +11,7 @@ class SeqKitReadStatsOutput(BaseOutput):
     Attributes:
         stats_tsv: Path to the generated TSV file containing read statistics.
     """
-    stats_tsv: str
+    stats_tsv: Path = Field(..., description="Path to the generated TSV file containing read statistics")
 
 
 class SeqKitReadStats(BaseStage):
@@ -49,7 +49,7 @@ class SeqKitReadStats(BaseStage):
         sample_stats.stats.tsv
     """
     
-    reads: List[str] = Field(..., description="List of input read files (FASTQ or FASTA)")
+    reads: List[Path] = Field(..., description="List of input read files (FASTQ or FASTA)")
     all_stats: bool = Field(True, description="Output all statistics including quartiles and N50")
     tabular: bool = Field(True, description="Output in machine-friendly tabular format")
     basename_only: bool = Field(False, description="Only output basename of files")

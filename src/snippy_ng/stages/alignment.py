@@ -3,7 +3,7 @@ import sys
 from typing import List
 from snippy_ng.stages import BaseStage, ShellCommandPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2
-from pydantic import Field, field_validator
+from pydantic import Field 
 
 
 class AlignerOutput(BaseOutput):
@@ -14,7 +14,7 @@ class Aligner(BaseStage):
     Base class for read alignment stages. Defines common properties and methods for alignment pipelines.
     """
     reference: Path = Field(..., description="Reference file")
-    reads: List[str] = Field(..., default_factory=list, description="List of input read files")
+    reads: List[Path] = Field(..., default_factory=list, description="List of input read files")
     aligner_opts: str = Field("", description="Additional options for the aligner")
 
     @property

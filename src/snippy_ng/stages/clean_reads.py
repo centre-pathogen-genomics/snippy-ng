@@ -6,10 +6,10 @@ from pydantic import Field, field_validator
 
 
 class FastpCleanReadsOutput(BaseOutput):
-    cleaned_r1: str
-    cleaned_r2: Optional[str] = None
-    html_report: str
-    json_report: str
+    cleaned_r1: Path
+    cleaned_r2: Optional[Path] = None
+    html_report: Path
+    json_report: Path
 
 
 class FastpCleanReads(BaseStage):

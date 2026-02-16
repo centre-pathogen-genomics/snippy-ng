@@ -380,3 +380,28 @@ class PrintVcfHistogram(BaseStage):
             min_cols_per_contig=min_cols_per_contig,
             draw_separators=draw_separators,
         )
+
+class FormatTemplateReport(BaseStage):
+    template_path: Path = Field(..., description="Path to the template file")
+    context: Dict[str, Union[str, int, float]] = Field(default_factory=dict, description="Context variables for rendering the template")
+
+    @property
+    def output(self) -> None:
+        return BaseOutput()
+
+    @property
+    def commands(self) -> List[PythonCommand]:
+        return [
+            self.python_cmd(
+                func=self.render_template,
+                args=[self.template_path, self.context],
+                description="Render a template with provided context"
+            )
+        ]
+
+    @staticmethod
+    def render_template(template: Path, context: Dict[str, Union[str, int, float]]) -> None:
+        with open(template, "r") as f:
+            template_content = f.read()
+        rendered = template_content.format(**context)
+        print(rendered)
