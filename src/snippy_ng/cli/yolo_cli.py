@@ -152,6 +152,7 @@ def yolo(directory: Optional[Path], **config):
     tree_pipeline = TreePipelineBuilder(
         aln=str(outdir / "core.aln"),
         fconst=(outdir / "core.aln.sites").read_text().strip(),
+        fast_mode=False,
         cpus=config["cpus"],
         ram=config["ram"],
     ).build()

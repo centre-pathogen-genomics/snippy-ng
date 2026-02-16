@@ -12,6 +12,7 @@ from pathlib import Path
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction. Use 'TEST' to select the best model.")
 @click.option("--bootstrap", type=click.INT, default=1000, help="Number of bootstrap replicates to perform")
 @click.option("--fconst", type=click.STRING, default=None, help="Constant sites counts (string or path to file)")
+@click.option("--fast", is_flag=True, default=False, help="Use fast mode for IQ-TREE (faster but less accurate)")
 def tree(**config):
     """
     Create phylogenetic tree from alignment
@@ -42,6 +43,7 @@ def tree(**config):
         model=config["model"],
         bootstrap=config["bootstrap"],
         fconst=fconst,
+        fast_mode=config["fast"],
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
