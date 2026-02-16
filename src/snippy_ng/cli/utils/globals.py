@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 import os
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path
 
 
 class GlobalOption(click.Option):
@@ -20,6 +20,9 @@ def debug_callback(ctx, param, value):
 def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
+    value = absolute_path(value)
+    if not value:
+        raise click.UsageError("Output directory required!")
     if value.exists() and not ctx.params.get("force", False):
         raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
     if not value.exists():
@@ -43,7 +46,7 @@ GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=AbsolutePath),
+            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True),
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": create_outdir_callback,

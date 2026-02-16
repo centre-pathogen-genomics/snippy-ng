@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 import click
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -17,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, readable=True, path_type=AbsolutePath),
+    type=click.Path(exists=True, readable=True), callback=absolute_path_callback,
 )
 def yolo(directory: Optional[Path], **config):
     """
@@ -121,13 +121,14 @@ def yolo(directory: Optional[Path], **config):
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     snippy_dirs = [
-        config["outdir"] / "samples" / sample
+        Path(config["outdir"] / "samples" / sample)
         for sample in cfg["samples"]
     ]
+    soft_core_threshold = 0.95
     aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
-        core=0.95,
+        core=soft_core_threshold,
         tmpdir=config["tmpdir"],
         cpus=config["cpus"],
         ram=config["ram"],
@@ -150,8 +151,9 @@ def yolo(directory: Optional[Path], **config):
     from snippy_ng.pipelines.tree import TreePipelineBuilder
 
     tree_pipeline = TreePipelineBuilder(
-        aln=str(outdir / "core.aln"),
-        fconst=(outdir / "core.aln.sites").read_text().strip(),
+        aln=outdir / aln_pipeline.stages[-1].output.aln,
+        fconst=(outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
+        fast_mode=False,
         cpus=config["cpus"],
         ram=config["ram"],
     ).build()

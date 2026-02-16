@@ -1,13 +1,13 @@
 import click
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, create_outdir_callback, GlobalOption
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=AbsolutePath), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['outdir', 'prefix'])
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True, path_type=AbsolutePath), help="Reference genome (FASTA or GenBank)")
+@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank)")
 def ref(**config):
     """
     Utility to prepare a reference genome for use with snippy-ng. 
