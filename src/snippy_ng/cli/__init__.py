@@ -63,6 +63,16 @@ snippy_ng.add_command(multi)
 snippy_ng.add_command(core)
 snippy_ng.add_command(tree)
 snippy_ng.add_command(yolo)
-snippy_ng.add_command(ref)
-snippy_ng.add_command(gather)
-snippy_ng.add_command(samclip)
+
+
+# Add utility sub group
+@snippy_ng.group(cls=BugCatchingGroup, context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
+def utils():
+    """
+    Utility commands for Snippy-NG.
+    """
+    pass
+
+utils.add_command(ref)
+utils.add_command(gather)
+utils.add_command(samclip)
