@@ -70,7 +70,7 @@ snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --clair3-f
 ```
 
 ```bash
-snippy-ng gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > samples.csv 
+snippy-ng utils gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > samples.csv 
 snippy-ng multi samples.csv \
   --ref tests/data/wildtype.gbk \
   -o multi \
