@@ -13,7 +13,7 @@ from pathlib import Path
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
 def core(**config):
     """
-    Create core alignment from multiple snippy runs
+    Create core alignment from multiple Snippy-NG runs
     """
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
