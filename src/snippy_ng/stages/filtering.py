@@ -187,6 +187,12 @@ class VcfFilterShort(VcfFilter):
     Filter VCF files using Samtools to remove unwanted variants.
     """
     min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
+    
+    # Keep only the tags you want; everything else is dropped.
+    _keep_vcf_tags = ",".join(
+        [f"INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
+        + [f"FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+    )
 
     @property
     def commands(self) -> List:
@@ -197,15 +203,7 @@ class VcfFilterShort(VcfFilter):
             f'FMT/GT="1/1" && QUAL>={self.min_qual} && FMT/DP>={self.min_depth} '
             f'&& (FMT/AO)/(FMT/DP)>={self.min_frac} && N_ALT=1 && ALT!="*"'
         )
-
-        # Keep only the tags you want; everything else is dropped.
-        keep_vcf_tags = ",".join(
-            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
-        )
-
-        bcftools_pipeline = self.shell_pipeline(
-            commands=[
+        commands = [
                 self.shell_cmd(
                     ["cat", str(self.vcf)],
                     description="Read input VCF file",
@@ -227,18 +225,30 @@ class VcfFilterShort(VcfFilter):
                     description="Recompute TYPE from REF/ALT",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "view", "-Ob", "--include", base_filter, "-"],
+                    ["bcftools", "view", "--include", base_filter, "-"],
                     description="Filter variants after normalization and TYPE recomputation",
                 ),
+            ]
+        if self._keep_vcf_tags:
+            commands.append(
                 self.shell_cmd(
-                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
+                    ["bcftools", "annotate", "--remove", self._keep_vcf_tags, "-"],
                     description="Remove unnecessary VCF annotations",
                 ),
-            ],
+            )
+        bcftools_pipeline = self.shell_pipeline(
+            commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
             output_file=Path(self.output.vcf),
         )
         return [bcftools_pipeline]
+
+class VcfFilterAsm(VcfFilterShort):
+    """
+    Filter VCF files for assemblies using bcftools to remove unwanted variants.
+    """
+    # Keep only the tags you want; everything else is dropped.
+    _keep_vcf_tags = None # keep all tags for assembly-based calling
 
 
 class VcfFilterLong(VcfFilter):
