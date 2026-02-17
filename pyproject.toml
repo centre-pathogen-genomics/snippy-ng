@@ -52,6 +52,7 @@ path = "src/snippy_ng/__about__.py"
 packages = ["src/snippy_ng"]
 
 [tool.hatch.envs.default]
+python = "3.13"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
@@ -76,7 +77,7 @@ cov = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.types]
 dependencies = [
@@ -119,6 +120,7 @@ platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64"]
 
 [tool.pixi.dependencies]
 # python dependencies
+python = { version = ">=3.9", channel = "conda-forge" }
 click   = { version = "*", channel = "conda-forge" }
 packaging =  { version = "*", channel = "conda-forge" }
 pydantic  = { version = "*", channel = "conda-forge" }
