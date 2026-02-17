@@ -3,10 +3,9 @@ Thanks for looking at the source code! You found a hidden command :D
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, List
 import click
 
-from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -17,9 +16,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, readable=True), callback=absolute_path_callback,
+    type=click.Path(exists=True, readable=True, path_type=Path),
+    nargs=-1
 )
-def yolo(directory: Optional[Path], **config):
+def yolo(directory: Iterable[Path], **config):
     """
     Pipeline that automates everything.
 
@@ -40,16 +40,32 @@ def yolo(directory: Optional[Path], **config):
         "You are running the YOLO pipeline. This pipeline is not recommended for general use unless you have no idea what you're doing. Please consider using one of the other pipelines with more specific parameters for better results and more control over the analysis."
     )
 
-    # find reference and reads in the directory
+    # flatten, normalize, and de-duplicate input directories
+    directories: List[Path] = []
+    for d in directory or [Path.cwd()]:
+        if isinstance(d, (list, tuple, set)):
+            directories.extend(Path(item).absolute() for item in d if item)
+        elif d:
+            directories.append(Path(d).absolute())
+
+    if not directories:
+        directories = [Path.cwd()]
+
+    # keep order while removing duplicates
+    directories = list(dict.fromkeys(directories))
+
+    # find reference and reads in the directories
     # look for file called reference or ref with fasta, fa, fna, gbk, genbank extension
-    directory = directory or Path.cwd()
     reference = None
-    for ext in ["fasta", "fa", "fna", "gbk", "genbank"]:
-        for name in ["reference", "ref"]:
-            candidates = list(directory.rglob(f"{name}.{ext}"))
-            if candidates:
-                reference = candidates[0].absolute()
-                logger.info(f"Found reference file: {reference}")
+    for search_dir in directories:
+        for ext in ["fasta", "fa", "fna", "gbk", "genbank"]:
+            for name in ["reference", "ref"]:
+                candidates = list(search_dir.rglob(f"{name}.{ext}"))
+                if candidates:
+                    reference = candidates[0].absolute()
+                    logger.info(f"Found reference file: {reference}")
+                    break
+            if reference:
                 break
         if reference:
             break
@@ -60,7 +76,7 @@ def yolo(directory: Optional[Path], **config):
 
     # find all samples in the directory and create config
     samples = gather_samples_config(
-        inputs=[directory],
+        inputs=directories,
         max_depth=4,
         aggressive_ids=False,
         exclude_name_regex=None,
