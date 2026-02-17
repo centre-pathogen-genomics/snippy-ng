@@ -12,7 +12,7 @@ def ref(**config):
     """
     Utility to prepare a reference genome for use with snippy-ng. 
     
-    This includes indexing the reference and creating any necessary auxiliary files.
+    This includes converting gbk to gff, indexing the reference and creating any necessary auxiliary files.
 
     Examples:
 
