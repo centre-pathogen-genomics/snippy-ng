@@ -20,7 +20,7 @@ class FastpCleanReads(BaseStage):
     quality control on paired-end or single-end FASTQ files.
     """
     
-    reads: List[str] = Field(..., description="List of input read files (1 or 2 files)")
+    reads: List[Path] = Field(..., description="List of input read files (1 or 2 files)")
     min_length: int = Field(15, description="Minimum read length after trimming")
     quality_cutoff: int = Field(20, description="Quality cutoff for base trimming")
     unqualified_percent_limit: int = Field(20, description="Percentage of unqualified bases allowed")
@@ -40,9 +40,6 @@ class FastpCleanReads(BaseStage):
             raise ValueError("At least one read file must be provided")
         if len(v) > 2:
             raise ValueError("Maximum of 2 read files (paired-end) supported")
-        for read_file in v:
-            if not Path(read_file).exists():
-                raise ValueError(f"Read file does not exist: {read_file}")
         return v
     
     @property
