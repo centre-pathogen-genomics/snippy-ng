@@ -75,13 +75,14 @@ def yolo(directory: Iterable[Path], **config):
         )
 
     # find all samples in the directory and create config
-    samples = gather_samples_config(
+    gathered = gather_samples_config(
         inputs=directories,
         max_depth=4,
         aggressive_ids=False,
         exclude_name_regex=None,
-        exclude_files=[reference],
+        reference=reference,
     )
+    samples = gathered["samples"]
     logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}")
     # use freebayes for long read samples in YOLO mode
     # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
