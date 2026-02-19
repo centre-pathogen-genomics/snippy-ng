@@ -10,13 +10,13 @@ from pathlib import Path
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank)")
 def ref(**config):
     """
-    Utility to prepare a reference genome for use with snippy-ng. 
+    Prepare a reference genome for use with snippy-ng. 
     
     This includes converting gbk to gff, indexing the reference and creating any necessary auxiliary files.
 
     Examples:
 
-        $ snippy-ng ref --reference ref.fa --outdir output
+        $ snippy-ng utils ref --reference ref.fa --outdir output
     """
     from snippy_ng.pipelines.common import prepare_reference
     from snippy_ng.pipelines import SnippyPipeline

@@ -12,11 +12,11 @@ from snippy_ng.cli.utils import absolute_path_callback
 @click.option("--json", "-j", is_flag=True, default=False, help="Output JSON instead of TSV", show_default=True)
 def gather(**config):
     """
-    Utility to gather samples into a CSV file for multi-sample analysis
+    Gather samples into a CSV file for multi-sample analysis
 
     Examples:
 
-        $ snippy-ng gather > samples.csv
+        $ snippy-ng utils gather > samples.csv
     """
     from snippy_ng.utils.gather import gather_samples_config
     import os
