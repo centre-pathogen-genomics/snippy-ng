@@ -20,9 +20,9 @@ def debug_callback(ctx, param, value):
 def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
-    value = absolute_path(value)
     if not value:
-        raise click.UsageError("Output directory required!")
+        return value
+    value = absolute_path(value)
     if value.exists() and not ctx.params.get("force", False):
         raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
     if not value.exists():
