@@ -104,7 +104,7 @@ def yolo(directory: Iterable[Path], **config):
     ref_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
-        cwd=config["outdir"],
+        outdir=config["outdir"],
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
@@ -155,7 +155,7 @@ def yolo(directory: Iterable[Path], **config):
     aln_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
-        cwd=outdir,
+        outdir=outdir,
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
@@ -179,7 +179,7 @@ def yolo(directory: Iterable[Path], **config):
     tree_pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
-        cwd=outdir,
+        outdir=outdir,
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],

@@ -145,7 +145,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     pipeline.run(
         skip_check=config["skip_check"],
         check=config["check"],
-        cwd=outdir,
+        outdir=outdir,
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],

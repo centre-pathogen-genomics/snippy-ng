@@ -49,7 +49,7 @@ def multi(config: click.File, reference: Path, **context):
     ref_pipeline.run(
         skip_check=context["skip_check"],
         check=context["check"],
-        cwd=context["outdir"],
+        outdir=context["outdir"],
         quiet=context["quiet"],
         create_missing=context["create_missing"],
         keep_incomplete=context["keep_incomplete"],
@@ -88,7 +88,7 @@ def multi(config: click.File, reference: Path, **context):
     aln_pipeline.run(
         skip_check=context['skip_check'],
         check=context['check'],
-        cwd=outdir,
+        outdir=outdir,
         quiet=context['quiet'],
         create_missing=context['create_missing'],
         keep_incomplete=context['keep_incomplete'],

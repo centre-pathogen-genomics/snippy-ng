@@ -34,7 +34,7 @@ class SnippyPipeline:
             stages = []
         self.stages = stages
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, outdir=Path(".")):
         self.welcome()
 
         if not skip_check:
