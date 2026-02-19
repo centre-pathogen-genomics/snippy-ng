@@ -70,6 +70,7 @@ class ShortReadAligner(Aligner):
                     sys.executable,
                     "-m",
                     "snippy_ng",
+                    "utils",
                     "samclip",
                     "--index",
                     f"{self.reference}.fai",

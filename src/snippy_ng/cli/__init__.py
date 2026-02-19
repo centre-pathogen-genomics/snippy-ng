@@ -10,6 +10,7 @@ from snippy_ng.cli.tree_cli import tree
 from snippy_ng.cli.multi_cli import multi
 from snippy_ng.cli.gather_cli import gather
 from snippy_ng.cli.samclip_cli import samclip
+from snippy_ng.cli.report_cli import report
 from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
@@ -63,6 +64,17 @@ snippy_ng.add_command(multi)
 snippy_ng.add_command(core)
 snippy_ng.add_command(tree)
 snippy_ng.add_command(yolo)
-snippy_ng.add_command(ref)
-snippy_ng.add_command(gather)
-snippy_ng.add_command(samclip)
+
+
+# Add utility sub group
+@snippy_ng.group(cls=BugCatchingGroup, context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
+def utils():
+    """
+    Utility commands for Snippy-NG.
+    """
+    pass
+
+utils.add_command(ref)
+utils.add_command(gather)
+utils.add_command(samclip)
+utils.add_command(report)

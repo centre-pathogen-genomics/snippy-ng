@@ -19,14 +19,14 @@ def samclip(
     debug,
 ):
     """
-    Utility to filter clipped reads from a SAM file
+    Filter clipped reads from a SAM file
 
     Examples:
 
-        $ snippy-ng samclip --index ref.fa.fai input.sam > clipped.sam
+        $ snippy-ng utils samclip --index ref.fa.fai input.sam > clipped.sam
     """
     import sys
-    from snippy_ng.utils.samclip import samclip_filter_lines, fai_to_dict, SamclipError
+    from snippy_ng.utils.samclip import samclip_filter_lines, fai_to_dict
 
     # Load reference index
     with open(index, 'r') as f:

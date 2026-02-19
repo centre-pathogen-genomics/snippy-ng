@@ -17,13 +17,15 @@ def test_gather_multiple_directories_with_same_basename(tmp_path):
     
     # Scan both directories - should create separate samples
     cfg = gather_samples_config([samples_dir, data_dir])
+    samples = cfg["samples"]
     
     # Should have two different sample IDs
-    assert len(cfg) == 2
-    assert "samples-JKD6159" in cfg
-    assert "data-JKD6159" in cfg
-    assert cfg["samples-JKD6159"]["type"] == "asm"
-    assert cfg["data-JKD6159"]["type"] == "asm"
+    assert cfg["reference"] is None
+    assert len(samples) == 2
+    assert "samples-JKD6159" in samples
+    assert "data-JKD6159" in samples
+    assert samples["samples-JKD6159"]["type"] == "asm"
+    assert samples["data-JKD6159"]["type"] == "asm"
 
 
 def test_gather_single_directory_no_prefix(tmp_path):
@@ -34,10 +36,12 @@ def test_gather_single_directory_no_prefix(tmp_path):
     
     # Scan single directory - should not prefix
     cfg = gather_samples_config([samples_dir])
+    samples = cfg["samples"]
     
-    assert len(cfg) == 1
-    assert "JKD6159" in cfg  # No prefix!
-    assert cfg["JKD6159"]["type"] == "asm"
+    assert cfg["reference"] is None
+    assert len(samples) == 1
+    assert "JKD6159" in samples  # No prefix!
+    assert samples["JKD6159"]["type"] == "asm"
 
 
 def test_gather_multiple_directories_with_subdirs(tmp_path):
@@ -58,12 +62,13 @@ def test_gather_multiple_directories_with_subdirs(tmp_path):
     
     # Scan both - duplicate sample IDs should be disambiguated
     cfg = gather_samples_config([samples_dir, data_dir])
+    samples = cfg["samples"]
 
-    assert len(cfg) == 2
-    assert "samples-sample1" in cfg
-    assert "data-sample1" in cfg
-    assert cfg["samples-sample1"]["type"] == "short"
-    assert cfg["data-sample1"]["type"] == "short"
+    assert len(samples) == 2
+    assert "samples-sample1" in samples
+    assert "data-sample1" in samples
+    assert samples["samples-sample1"]["type"] == "short"
+    assert samples["data-sample1"]["type"] == "short"
 
 
 def test_gather_same_filename_with_compression_keeps_extension(tmp_path):
@@ -76,11 +81,12 @@ def test_gather_same_filename_with_compression_keeps_extension(tmp_path):
         fh.write(">contig1\nACGT\n")
 
     cfg = gather_samples_config([data_dir])
+    samples = cfg["samples"]
 
-    assert "Sample.fa" in cfg
-    assert "Sample.fa.gz" in cfg
-    assert cfg["Sample.fa"]["type"] == "asm"
-    assert cfg["Sample.fa.gz"]["type"] == "asm"
+    assert "Sample.fa" in samples
+    assert "Sample.fa.gz" in samples
+    assert samples["Sample.fa"]["type"] == "asm"
+    assert samples["Sample.fa.gz"]["type"] == "asm"
 
 
 def test_gather_r1_r2_in_sample_dirs_uses_directory_name(tmp_path):
@@ -92,11 +98,12 @@ def test_gather_r1_r2_in_sample_dirs_uses_directory_name(tmp_path):
         (sample_dir / "R2").write_text("@read\nTGCA\n+\nIIII\n")
 
     cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
 
-    assert "sample1" in cfg
-    assert "sample2" in cfg
-    assert cfg["sample1"]["type"] == "short"
-    assert cfg["sample2"]["type"] == "short"
+    assert "sample1" in samples
+    assert "sample2" in samples
+    assert samples["sample1"]["type"] == "short"
+    assert samples["sample2"]["type"] == "short"
 
 
 def test_gather_mutant_r1_r2_in_sample_dirs_prefixes_parent(tmp_path):
@@ -108,11 +115,12 @@ def test_gather_mutant_r1_r2_in_sample_dirs_prefixes_parent(tmp_path):
         (sample_dir / "mutant_R2").write_text("@read\nTGCA\n+\nIIII\n")
 
     cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
 
-    assert "sample1-mutant" in cfg
-    assert "sample2-mutant" in cfg
-    assert cfg["sample1-mutant"]["type"] == "short"
-    assert cfg["sample2-mutant"]["type"] == "short"
+    assert "sample1-mutant" in samples
+    assert "sample2-mutant" in samples
+    assert samples["sample1-mutant"]["type"] == "short"
+    assert samples["sample2-mutant"]["type"] == "short"
 
 
 def test_gather_same_filename_in_outbreak_dirs_prefixes_outbreak(tmp_path):
@@ -123,11 +131,12 @@ def test_gather_same_filename_in_outbreak_dirs_prefixes_outbreak(tmp_path):
         (outbreak_dir / "sample1.fa").write_text(">contig1\nACGT\n")
 
     cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
 
-    assert "outbreak1-sample1" in cfg
-    assert "outbreak2-sample1" in cfg
-    assert cfg["outbreak1-sample1"]["type"] == "asm"
-    assert cfg["outbreak2-sample1"]["type"] == "asm"
+    assert "outbreak1-sample1" in samples
+    assert "outbreak2-sample1" in samples
+    assert samples["outbreak1-sample1"]["type"] == "asm"
+    assert samples["outbreak2-sample1"]["type"] == "asm"
 
 
 def test_gather_respects_symlink_paths(tmp_path):
@@ -140,11 +149,12 @@ def test_gather_respects_symlink_paths(tmp_path):
     link_dir.symlink_to(real_dir, target_is_directory=True)
 
     cfg = gather_samples_config([real_dir, link_dir])
+    samples = cfg["samples"]
 
-    assert "outbreak_real-sample1" in cfg
-    assert "outbreak_link-sample1" in cfg
-    assert cfg["outbreak_real-sample1"]["type"] == "asm"
-    assert cfg["outbreak_link-sample1"]["type"] == "asm"
+    assert "outbreak_real-sample1" in samples
+    assert "outbreak_link-sample1" in samples
+    assert samples["outbreak_real-sample1"]["type"] == "asm"
+    assert samples["outbreak_link-sample1"]["type"] == "asm"
 
 
 def test_gather_mixed_kinds_keep_extension_with_cross_parent_collision(tmp_path):
@@ -160,8 +170,45 @@ def test_gather_mixed_kinds_keep_extension_with_cross_parent_collision(tmp_path)
     (long_ref / "JKD6159.fa").write_text(">contig2\nTGCA\n")
 
     cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
 
-    assert "JKD6159.fastq.gz" in cfg
-    assert "JKD6159.fasta" in cfg
-    assert cfg["JKD6159.fastq.gz"]["type"] == "long"
-    assert cfg["JKD6159.fasta"]["type"] == "asm"
+    assert "JKD6159.fastq.gz" in samples
+    assert "JKD6159.fasta" in samples
+    assert samples["JKD6159.fastq.gz"]["type"] == "long"
+    assert samples["JKD6159.fasta"]["type"] == "asm"
+
+
+def test_gather_reference_special_case_excluded_from_samples(tmp_path):
+    """Reference should be returned separately and excluded from discovered samples."""
+    ref = tmp_path / "reference.fa"
+    ref.write_text(">ref\nACGT\n")
+
+    # sample with a potentially clashing ID should still be kept as a sample
+    sample_dir = tmp_path / "reads"
+    sample_dir.mkdir()
+    (sample_dir / "reference.fastq").write_text("@read\nACGT\n+\nIIII\n")
+
+    cfg = gather_samples_config([tmp_path], reference=ref)
+    samples = cfg["samples"]
+
+    assert cfg["reference"] == str(ref.absolute())
+    assert "reads-reference" in samples
+    assert "reference.fa" not in samples
+
+
+def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
+    """If a sample ID clashes with reference ID, sample must be renamed, not dropped."""
+    ref = tmp_path / "ref.fasta"
+    ref.write_text(">ref\nACGT\n")
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "ref.fasta").write_text(">contig\nACGT\n")
+
+    cfg = gather_samples_config([data_dir], reference=ref)
+    samples = cfg["samples"]
+
+    assert cfg["reference"] == str(ref.absolute())
+    assert "ref" not in samples
+    assert "data-ref" in samples
+    assert samples["data-ref"]["type"] == "asm"

@@ -12,34 +12,33 @@ from snippy_ng.cli.utils import absolute_path_callback
 @click.option("--json", "-j", is_flag=True, default=False, help="Output JSON instead of TSV", show_default=True)
 def gather(**config):
     """
-    Utility to gather samples into a CSV file for multi-sample analysis
+    Gather samples into a CSV file for multi-sample analysis
 
     Examples:
 
-        $ snippy-ng gather > samples.csv
+        $ snippy-ng utils gather > samples.csv
     """
     from snippy_ng.utils.gather import gather_samples_config
     import os
 
-    config_dict = gather_samples_config(
+    gathered = gather_samples_config(
         inputs=config["inputs"] if config.get("inputs") else [os.getcwd()],
         max_depth=config["max_depth"],
         aggressive_ids=config["aggressive_ids"],
         exclude_name_regex=config["exclude"],
-        exclude_files=[config["reference"]] if config.get("reference") else [],
+        reference=config.get("reference"),
     )
+
     if config["json"]:
         import json
-        samples = {"samples": config_dict}
-        if config.get("reference"):
-            samples["reference"] = str(config["reference"])
-        print(json.dumps(samples, indent=2))
+        print(json.dumps(gathered, indent=2))
     else:
         import csv
         import sys
         # Collect all possible inner keys
+        samples = gathered["samples"]
         fieldnames = set()
-        for sample_data in config_dict.values():
+        for sample_data in samples.values():
             fieldnames.update(sample_data.keys())
 
         # Deterministic order, with sample first
@@ -49,9 +48,9 @@ def gather(**config):
         writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, delimiter=',')
         writer.writeheader()
 
-        for sample, sample_data in config_dict.items():
+        for sample, sample_data in samples.items():
             row = {"sample": sample}
             row.update(sample_data)
             writer.writerow(row)
-
+        
 

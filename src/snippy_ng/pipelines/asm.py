@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.filtering import VcfFilterShort
+from snippy_ng.stages.filtering import VcfFilterAsm
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
@@ -59,7 +59,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         stages.append(caller)
         
         # Filter VCF
-        variant_filter = VcfFilterShort(
+        variant_filter = VcfFilterAsm(
             vcf=caller.output.vcf,
             reference=reference_file,
             # hard code for asm-based calling

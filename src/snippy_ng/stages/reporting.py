@@ -2,10 +2,14 @@ import gzip
 import os
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+import datetime
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.stages import PythonCommand
 from snippy_ng.logging import logger
+from snippy_ng.exceptions import PipelineExecutionError
+from snippy_ng.dependencies import biopython
+from snippy_ng.__about__ import __version__
 from pydantic import Field
 
 
@@ -381,13 +385,19 @@ class PrintVcfHistogram(BaseStage):
             draw_separators=draw_separators,
         )
 
-class FormatTemplateReport(BaseStage):
+class FormatHTMLReportTemplateOutput(BaseOutput):
+    rendered: Path
+
+ContextValue = Optional[Union[str, int, float, Path, ]]
+Context = Dict[str, ContextValue]
+
+class FormatHTMLReportTemplate(BaseStage):
     template_path: Path = Field(..., description="Path to the template file")
-    context: Dict[str, Union[str, int, float]] = Field(default_factory=dict, description="Context variables for rendering the template")
+    context: Context = Field(default_factory=dict, description="Context variables for rendering the template")
 
     @property
-    def output(self) -> None:
-        return BaseOutput()
+    def output(self) -> FormatHTMLReportTemplateOutput:
+        return FormatHTMLReportTemplateOutput(rendered="report.html")
 
     @property
     def commands(self) -> List[PythonCommand]:
@@ -398,10 +408,88 @@ class FormatTemplateReport(BaseStage):
                 description="Render a template with provided context"
             )
         ]
+    
+    def validate_context(self, context: Context) -> None:
+        """
+        Override this method in subclasses to implement custom validation logic for the context variables before rendering the template.
+        """
+        pass
 
-    @staticmethod
-    def render_template(template: Path, context: Dict[str, Union[str, int, float]]) -> None:
+    def default_context(self) -> Context:
+        return {
+            'DATETIME': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            'VERSION': __version__,
+            'USER': os.getenv("USER", "Unknown"),
+        }
+
+    def render_template(self, template: Path, context: Context) -> None:
+        context = {**self.default_context(), **context}
+        # eval any callable context values (e.g. lambda functions) to get their actual value before rendering
+        for k, v in context.items():
+            # check value is of type Path and read the file content
+            if isinstance(v, Path):
+                context[k] = v.read_text().strip()
+        # Custom validation logic
+        self.validate_context(context)
+        # load template
         with open(template, "r") as f:
             template_content = f.read()
-        rendered = template_content.format(**context)
-        print(rendered)
+        template_vars = set(re.findall(r"{{\s*(\w+)\s*}}", template_content))
+        # check to see if any of the template variables are missing from the context
+        missing_template_vars = [v for v in template_vars if v not in context]
+        if missing_template_vars:
+            # if the template has variables that are not provided in the context, that likely 
+            # indicates a mistake in the template or missing context variables, so we should 
+            # raise an error instead of silently rendering with missing values
+            raise ValueError(f"Template variable(s) '{', '.join(missing_template_vars)}' not found in context for template {template}")
+
+        # Finally, render the template with the context values
+        for k, v in context.items():
+            template_content = re.sub(r"{{\s*" + re.escape(k) + r"\s*}}", str(v).strip(), template_content)
+
+        with open(self.output.rendered, "w") as f:
+            f.write(template_content)
+
+class EpiReport(FormatHTMLReportTemplate):
+    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "snippy-epi-report.html"
+
+    _dependencies = [biopython]
+
+    def validate_context(self, context: Dict[str, Union[str, int, float, Callable]]) -> None:
+        required_keys = {"NEWICK", "REPORT_NAME", "METADATA_JSON", "LOGS"}
+        missing_keys = [k for k in required_keys if k not in context]
+        if missing_keys:
+            raise ValueError(f"Context key(s) '{', '.join(missing_keys)}' are required for EpiReport but not found in context")
+        
+        from Bio import Phylo
+        from io import StringIO
+        try:
+            newick_str = context["NEWICK"]
+            tree = Phylo.read(StringIO(newick_str), "newick")
+            tree.root_at_midpoint()
+            tree.ladderize()
+            handle = StringIO()
+            Phylo.write(tree, handle, "newick")
+            context["NEWICK"] = handle.getvalue().strip()
+        except Exception as e:
+            raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
+        
+        if context["METADATA_JSON"] is not None:
+            import json
+            try:
+                metadata_json_str = context["METADATA_JSON"]
+                metadata = json.loads(metadata_json_str)
+            except Exception as e:
+                raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for EpiReport: {e}")
+            # check all the metadata entries have an "id" field that matches a tip in the tree
+            tree_tips = {tip.name for tip in tree.get_terminals()}
+            for entry in metadata:
+                if "id" not in entry:
+                    raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
+                if entry["id"] not in tree_tips:
+                    raise PipelineExecutionError(f"Metadata entry id '{entry['id']}' does not match any tip in the NEWICK tree for EpiReport context")
+        
+        # convert None to null for html
+        for k, v in context.items():
+            if v is None:
+                context[k] = "null"

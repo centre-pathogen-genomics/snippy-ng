@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Literal, Optional, Tuple, Union
 from snippy_ng.exceptions import SnippyError
 import gzip
 import io
@@ -127,12 +127,18 @@ def scan_sequence_files(
     aggressive_ids: bool = False,
     exclude_name_regex: Optional[str] = None,
     exclude_files: Optional[List[Path]] = None,
+    reference: Optional[Union[str, Path]] = None,
 ) -> List[SeqFile]:
     """
     Walk the given files/folders (recursively up to max_depth) and detect sequence files.
     exclude_name_regex is applied to the basename only (not full path).
+    If reference is provided, its inferred sample_id is treated as reserved and
+    discovered files with the same sample_id are disambiguated by parent folder.
     """
     exclude_re = re.compile(exclude_name_regex) if exclude_name_regex else None
+    reserved_reference_id: Optional[str] = None
+    if reference is not None:
+        reserved_reference_id = guess_sample_id(Path(reference).name, aggressive=aggressive_ids)
 
     found: List[SeqFile] = []
     for inp in inputs:
@@ -168,6 +174,8 @@ def scan_sequence_files(
             sid = guess_sample_id(p.name, aggressive=aggressive_ids)
             if not sid:
                 sid = p.parent.name
+            if reserved_reference_id and sid == reserved_reference_id:
+                sid = _build_disambiguated_id(sid, p.parent.name)
             found.append(SeqFile(path=p, kind=kind, sample_id=sid))
 
     return found
@@ -415,19 +423,29 @@ def gather_samples_config(
     aggressive_ids: bool = False,
     exclude_name_regex: Optional[str] = r"^(Undetermined|NTC|PTC)",
     exclude_files: Optional[List[Path]] = None,
-) -> Dict:
+    reference: Optional[Union[str, Path]] = None,
+) -> Dict[Literal["samples", "reference"], Union[Dict[str, Dict], Optional[str]]]:
     """
     Scan inputs for sequence files, build config dict, and return it.
     """
+    normalized_reference = _to_absolute_path(Path(reference)) if reference else None
+    normalized_exclude_files: List[Path] = [_to_absolute_path(p) for p in exclude_files] if exclude_files else []
+    if normalized_reference:
+        normalized_exclude_files.append(normalized_reference)
+
     seqfiles = scan_sequence_files(
         inputs,
         max_depth=max_depth,
         aggressive_ids=aggressive_ids,
         exclude_name_regex=exclude_name_regex,
-        exclude_files=[_to_absolute_path(p) for p in exclude_files] if exclude_files else None,
+        exclude_files=normalized_exclude_files,
+        reference=normalized_reference,
     )
-    cfg = build_samples_config(
+    samples = build_samples_config(
         seqfiles,
     )
-    return cfg
+    return {
+        "reference": str(normalized_reference) if normalized_reference else None,
+        "samples": samples,
+    }
 
