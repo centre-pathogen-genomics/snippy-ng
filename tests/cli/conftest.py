@@ -17,7 +17,7 @@ class DummyPipeline:
         self.ran       = False
         DummyPipeline.last = self      # remember myself
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=None):
+    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, outdir=None):
         """Match the new pipeline structure with run method."""
         self.welcome()
         
@@ -27,7 +27,7 @@ class DummyPipeline:
         if check:
             return None
         
-        self.set_working_directory(cwd)
+        self.set_working_directory(outdir)
         self.ran = True
         self.cleanup(None)
         self.goodbye()
