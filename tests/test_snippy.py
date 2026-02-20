@@ -21,8 +21,7 @@ class MockStage(BaseStage):
     def output(self):
         return MockOutput(test_file=Path(f"{self.prefix}.test"))
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return []
 
 

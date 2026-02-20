@@ -91,7 +91,7 @@ class TestSeqKitReadStats:
             cpus=2
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         assert len(commands) == 1
         
         cmd = str(commands[0])
@@ -124,7 +124,7 @@ class TestSeqKitReadStats:
             additional_options="--some-option"
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = str(commands[0])
         
         assert "seqkit stats" in cmd
@@ -156,7 +156,7 @@ class TestSeqKitReadStatsBasic:
         
         assert stage.all_stats is False
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" not in cmd  # all_stats disabled
@@ -180,7 +180,7 @@ class TestSeqKitReadStatsDetailed:
         assert stage.all_stats is True
         assert stage.additional_n_stats == [90, 95]
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" in cmd  # all_stats enabled
@@ -221,6 +221,6 @@ class TestSeqKitReadStatsDetailed:
             additional_n_stats=[]
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = commands[0]
         assert "-N" not in cmd  # No N-stats option when empty

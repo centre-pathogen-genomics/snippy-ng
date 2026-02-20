@@ -195,7 +195,7 @@ class TestRasusaDownsampleReads:
             tmpdir=tmp_path
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         assert len(commands) == 1
         
         cmd = str(commands[0])
@@ -223,7 +223,7 @@ class TestRasusaDownsampleReads:
             tmpdir=tmp_path
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = str(commands[0])
         
         assert cmd.startswith("rasusa reads")
@@ -249,7 +249,7 @@ class TestRasusaDownsampleReads:
             tmpdir=tmp_path
         )
         
-        commands = stage.commands
+        commands = stage.create_commands
         cmd = str(commands[0])
         
         assert "--coverage 75.0" in cmd
