@@ -17,6 +17,7 @@
             "rasusa": "2.2.2",
             "bedtools": "2.31.1",
             "core-snp-filter": "0.2.0",
-            "iqtree": "3.0.1"
+            "iqtree": "3.0.1",
+            "python": "3.15.0a3"
       }
 }
