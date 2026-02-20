@@ -161,8 +161,7 @@ class SeqKitReadStats(BaseStage):
         # Create shell command with output file
         return shell_cmd
     
-    @property
-    def commands(self) -> List[ShellCommand]:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Get the list of commands to execute for this stage.
         
         Returns:

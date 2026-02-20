@@ -112,8 +112,7 @@ class FastpCleanReads(BaseStage):
             description=f"Clean and filter {read_type} reads using fastp"
         )
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the fastp cleaning command."""
         return [self.build_fastp_command()]
 
@@ -166,8 +165,7 @@ class SeqkitCleanLongReads(BaseStage):
             cleaned_reads=cleaned_reads
         )
     
-    @property
-    def commands(self) -> List[ShellCommand]:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Constructs the seqkit command for long read cleaning."""
         cmd_parts = [
             "seqkit", "seq", "--remove-gaps",

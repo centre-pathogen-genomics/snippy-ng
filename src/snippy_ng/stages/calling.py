@@ -72,8 +72,7 @@ class FreebayesCaller(Caller):
             regions=str(self.reference) + ".txt",
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
         # 1) Regions for parallel FreeBayes
@@ -120,8 +119,7 @@ class FreebayesCallerLong(FreebayesCaller):
     Call variants using Freebayes for long-read data.
     """
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
         # Regions for parallel FreeBayes
@@ -191,8 +189,7 @@ class PAFCaller(Caller):
             annotations_file_index=Path(f"{self.prefix}.annotations.gz.tbi"),
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the PAF processing and BED generation commands."""
 
         # 4) Convert PAF to merged aligned reference intervals (BED)
@@ -330,8 +327,7 @@ class Clair3Caller(Caller):
             vcf=Path(f"{self.prefix}.raw.vcf"),
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Clair3 variant calling commands."""
 
         clair3_cmd = self.shell_cmd(

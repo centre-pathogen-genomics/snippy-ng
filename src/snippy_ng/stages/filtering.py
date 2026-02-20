@@ -114,8 +114,7 @@ class SamtoolsFilter(BaseStage):
                         )
                     break
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the filtering commands."""
         filter_cmd = self.build_filter_command()
         index_cmd = self.build_index_command()
@@ -194,8 +193,7 @@ class VcfFilterShort(VcfFilter):
         + [f"FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
     )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
@@ -266,8 +264,7 @@ class VcfFilterLong(VcfFilter):
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the bcftools pipeline for long-read variant filtering."""
         
         # Create temp files for contigs and header

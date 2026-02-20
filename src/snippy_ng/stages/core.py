@@ -40,8 +40,7 @@ class CombineFastaFile(BaseStage):
     def output(self) -> CombineFastaFileOutput:
         return CombineFastaFileOutput(aln=Path(f"{self.prefix}.full.aln"))
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.python_cmd(
                 func=self.build_concatenated_alignment,
@@ -163,8 +162,7 @@ class SoftCoreFilter(BaseStage):
             constant_sites=aln.with_suffix(".fconst")
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.shell_cmd(
                 [

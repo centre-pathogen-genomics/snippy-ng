@@ -5,7 +5,6 @@ from abc import abstractmethod
 from typing import ClassVar, Iterable, List, Callable, Optional
 import subprocess
 import sys
-import tempfile
 from io import StringIO
 from pathlib import Path
 import signal
@@ -85,7 +84,7 @@ class BaseStage(BaseModel):
         pass
 
     @abstractmethod
-    def commands(self, ctx: Context) -> List[ShellProcessPipe | ShellCommand | PythonCommand]:
+    def create_commands(self, ctx: Context) -> List[ShellProcessPipe | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -141,7 +140,7 @@ class BaseStage(BaseModel):
             except MissingOutputError:
                 pass
         try:
-            for cmd in self.commands(ctx):
+            for cmd in self.create_commands(ctx):
                 assert isinstance(cmd, (ShellCommand, PythonCommand, ShellProcessPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
                 logger.info(cmd.description)
                 logger.info(f" ❯ {cmd}") 

@@ -51,8 +51,7 @@ class IQTreeBuildTree(BaseStage):
             tree=prefix.with_suffix(".treefile"),
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         iqtree_cmd = self.shell_cmd(
             [
                 "iqtree",

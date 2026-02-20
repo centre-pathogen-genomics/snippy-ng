@@ -144,8 +144,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
 
     _dependencies = [samtools, bwa]
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the BWA alignment commands."""
         bwa_index_cmd = self.shell_cmd(
             ["bwa", "index", str(self.reference)],
@@ -182,8 +181,7 @@ class Minimap2ShortReadAligner(ShortReadAligner):
         return max(1, self.ram // self.cpus)
 
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
         # Build minimap2 command
         minimap_cmd_parts = ["minimap2", "-a", "-x", "sr"]
@@ -213,8 +211,7 @@ class Minimap2LongReadAligner(Aligner):
     
     _dependencies = [minimap2, samtools]
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
         # Build minimap2 command
         minimap_cmd_parts = [
@@ -271,8 +268,7 @@ class AssemblyAligner(BaseStage):
         paf_file = Path(f"{self.prefix}.paf")
         return AssemblyAlignerOutput(paf=paf_file)
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
 
         minimap_pipeline = self.shell_pipe(
@@ -283,7 +279,7 @@ class AssemblyAligner(BaseStage):
                         "-x",
                         "asm20",
                         "-t",
-                        str(self.cpus),
+                        str(ctx.cpus),
                         "-c",
                         "--cs",
                         str(self.reference),

@@ -215,8 +215,7 @@ class RasusaDownsampleReads(BaseStage):
             description=f"Downsample reads to {coverage_desc} using rasusa"
         )
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Get the list of commands to execute for this stage.
         
         Returns:

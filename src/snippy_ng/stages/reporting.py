@@ -20,8 +20,7 @@ class PrintVcfSummary(BaseStage):
     def output(self) -> None:
         return BaseOutput()
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.summarize_vcfs,
@@ -86,8 +85,7 @@ class PrintVcfHistogram(BaseStage):
     def output(self) -> None:
         return BaseOutput()
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.print_histograms,
@@ -399,8 +397,7 @@ class FormatHTMLReportTemplate(BaseStage):
     def output(self) -> FormatHTMLReportTemplateOutput:
         return FormatHTMLReportTemplateOutput(rendered="report.html")
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.render_template,
