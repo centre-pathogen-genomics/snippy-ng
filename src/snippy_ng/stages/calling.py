@@ -81,7 +81,7 @@ class FreebayesCaller(Caller):
             ["fasta_generate_regions.py", str(self.reference_index), "202106"],
             description="Generate genomic regions for parallel variant calling",
         )
-        generate_regions_pipeline = self.shell_pipeline(
+        generate_regions_pipeline = self.shell_pipe(
             commands=[generate_regions_cmd],
             description="Generate regions file for parallel processing",
             output_file=Path(self.output.regions),
@@ -197,7 +197,7 @@ class PAFCaller(Caller):
 
         # 4) Convert PAF to merged aligned reference intervals (BED)
         # Keep primary or pseudo-primary hits: tp:A:P or tp:A:I
-        paf_to_pipeline = self.shell_pipeline(
+        paf_to_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     ["grep", "-E", "tp:A:[PI]", str(self.paf)],
@@ -255,7 +255,7 @@ class PAFCaller(Caller):
                     output_file=self.output.vcf.with_suffix(".tmp"),
                 )
 
-        create_annotation_file_pipeline = self.shell_pipeline(
+        create_annotation_file_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     [

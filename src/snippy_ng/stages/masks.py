@@ -99,7 +99,7 @@ class DepthMask(BaseStage):
             description=f"Filter for regions with depth {filter_condition}"
         )
         
-        return [self.shell_pipeline(
+        return [self.shell_pipe(
             [genomecov_cmd, awk_cmd], 
             output_file=output_bed, 
             description=description

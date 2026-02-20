@@ -236,7 +236,7 @@ class VcfFilterShort(VcfFilter):
                     description="Remove unnecessary VCF annotations",
                 ),
             )
-        bcftools_pipeline = self.shell_pipeline(
+        bcftools_pipeline = self.shell_pipe(
             commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
             output_file=Path(self.output.vcf),
@@ -283,7 +283,7 @@ class VcfFilterLong(VcfFilter):
         
         # Create new header with all contigs
         # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
-        create_header_pipeline = self.shell_pipeline(
+        create_header_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     ["bcftools", "view", "-h", str(self.vcf)],
@@ -360,7 +360,7 @@ class VcfFilterLong(VcfFilter):
             ),
         ])
         
-        main_pipeline = self.shell_pipeline(
+        main_pipeline = self.shell_pipe(
             commands=pipeline_commands,
             description="Long-read variant filtering pipeline",
             output_file=Path(self.output.vcf)

@@ -71,7 +71,7 @@ class PrepareReference(BaseStage):
                 ["samtools", "faidx", str(self.output.reference)],
                 description=f"Index reference FASTA with samtools faidx: {self.output.reference}",
             ),
-            self.shell_pipeline(
+            self.shell_pipe(
                 commands=[
                     self.shell_cmd(
                         ["cut", "-f1,2", str(self.output.reference_index)],

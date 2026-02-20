@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from typing import List
-from snippy_ng.stages import BaseStage, ShellCommandPipe, BaseOutput
+from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2
 from pydantic import Field 
 
@@ -122,13 +122,13 @@ class ShortReadAligner(Aligner):
 
         return commands
 
-    def build_alignment_pipeline(self, align_cmd) -> ShellCommandPipe:
+    def build_alignment_pipeline(self, align_cmd) -> ShellProcessPipe:
         """Constructs the full alignment pipeline command."""
         common_cmds = self.common_commands
 
         pipeline_commands = [align_cmd] + common_cmds
 
-        return self.shell_pipeline(
+        return self.shell_pipe(
             commands=pipeline_commands,
             description="Alignment pipeline: align, filter, fix mates, sort, mark duplicates",
             output_file=Path(self.output.cram),
@@ -233,7 +233,7 @@ class Minimap2LongReadAligner(Aligner):
         minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
-        minimap_pipeline = self.shell_pipeline(
+        minimap_pipeline = self.shell_pipe(
             [
                 self.shell_cmd(
                     minimap_cmd_parts,
@@ -275,7 +275,7 @@ class AssemblyAligner(BaseStage):
     def commands(self) -> List:
         """Constructs the Minimap2 alignment commands."""
 
-        minimap_pipeline = self.shell_pipeline(
+        minimap_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     [
