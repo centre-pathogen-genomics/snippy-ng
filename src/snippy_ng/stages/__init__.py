@@ -18,6 +18,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
+class Context(BaseModel):
+    outdir: Path = Field(..., description="Output directory for the pipeline run")
+    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
+    cpus: int = Field(default=1, description="Max number of CPUs to use")
+    ram: int = Field(default=8, description="RAM in GB")
+    quiet_mode: bool = Field(False)
+    create_missing: bool = Field(False)
+    keep_incomplete: bool = Field(False)
+    # add stats like start time?
+
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     _immutable: bool = False
@@ -41,8 +51,8 @@ class ShellCommand(BaseModel):
             output_file = f" > {self.output_file}"
         return f"{' '.join(quote(str(arg)) for arg in self.command)}{output_file}"
 
-class ShellCommandPipe(BaseModel):
-    commands: List[ShellCommand]
+class ShellProcessPipe(BaseModel):
+    processes: List[ShellCommand] # TODO rename to parts
     description: str
     output_file: Optional[Path] = None
 
@@ -50,18 +60,15 @@ class ShellCommandPipe(BaseModel):
         output_file = ''
         if self.output_file:
             output_file = f" > {self.output_file}"
-        return f"{' | '.join(str(cmd) for cmd in self.commands)}{output_file}"
+        return f"{' | '.join(str(cmd) for cmd in self.processes)}{output_file}"
     
     def __iter__(self):
-        return iter(self.commands)
+        return iter(self.processes)
 
 TestFn = Callable[["BaseStage"], None]
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
-    cpus: int = Field(1, description="Number of CPU cores to use")
-    ram: Optional[int] = Field(4, description="RAM in GB to use")
-    tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
-    prefix: str = Field("snps", description="Prefix for output files")
+    prefix: str = Field("snps", description="Prefix for output files") # TODO maybe this should be in the context instead?
 
     _dependencies: List[Dependency] = []
     _tests: ClassVar[List[TestFn]] = []
@@ -77,9 +84,8 @@ class BaseStage(BaseModel):
         """Defines the output of the stage."""
         pass
 
-    @property
     @abstractmethod
-    def commands(self) -> List[ShellCommandPipe | ShellCommand | PythonCommand]:
+    def commands(self, ctx: Context) -> List[ShellProcessPipe | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -100,7 +106,7 @@ class BaseStage(BaseModel):
         assert isinstance(description, str), f"Description must be a string, got {description}"
         return ShellCommand(command=command, description=description, output_file=output_file)
     
-    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
+    def shell_pipe(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellProcessPipe:
         """Creates a shell pipeline."""
         # Validate that all commands are ShellCommand objects
         for i, cmd in enumerate(commands):
@@ -122,103 +128,126 @@ class BaseStage(BaseModel):
                 "Pipeline output_file conflicts with final command output_file. "
                 "Set output_file on the pipeline or the final command, not both."
             )
-        return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
+        return ShellProcessPipe(processes=commands, description=description, output_file=output_file)
 
 
-    def run(self, quiet=False):
+    def run(self, ctx: Context):
         """Runs the commands in the shell or calls the function."""
-        for cmd in self.commands:
-            assert isinstance(cmd, (ShellCommand, PythonCommand, ShellCommandPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
-            logger.info(cmd.description)
-            logger.info(f" ❯ {cmd}") 
-            stdout = sys.stderr
-            stderr = sys.stderr
-            if quiet:
-                stdout = subprocess.DEVNULL
-                stderr = subprocess.DEVNULL
+        if ctx.create_missing:
             try:
-                if isinstance(cmd, PythonCommand):
-                    if quiet:
-                        # Capture output if quiet mode is enabled
-                        with StringIO() as out, StringIO() as err, \
-                                self.redirect_output(out), self.redirect_error(err):
-                            cmd.func(*cmd.args)
-                    else:
-                        with self.redirect_stdout_to_err():
-                            cmd.func(*cmd.args)
-                elif isinstance(cmd, ShellCommand):
-                    if cmd.output_file:
-                        with open(cmd.output_file, 'w') as out:
-                            subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
-                    else:
-                        subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
-                elif isinstance(cmd, ShellCommandPipe):
-                    if not cmd.commands:
-                        raise ValueError("No commands to run in the pipeline")
+                self.error_if_outputs_missing()
+                logger.info(f"{self.name} already completed, skipping...")
+                return
+            except MissingOutputError:
+                pass
+        try:
+            for cmd in self.commands(ctx):
+                assert isinstance(cmd, (ShellCommand, PythonCommand, ShellProcessPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
+                logger.info(cmd.description)
+                logger.info(f" ❯ {cmd}") 
+                stdout = sys.stderr
+                stderr = sys.stderr
+                if ctx.quiet_mode:
+                    stdout = subprocess.DEVNULL
+                    stderr = subprocess.DEVNULL
+                try:
+                    if isinstance(cmd, PythonCommand):
+                        if ctx.quiet_mode:
+                            # Capture output if quiet mode is enabled
+                            with StringIO() as out, StringIO() as err, \
+                                    self.redirect_output(out), self.redirect_error(err):
+                                cmd.func(*cmd.args)
+                        else:
+                            with self.redirect_stdout_to_err():
+                                cmd.func(*cmd.args)
+                    elif isinstance(cmd, ShellCommand):
+                        if cmd.output_file:
+                            with open(cmd.output_file, 'w') as out:
+                                subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
+                        else:
+                            subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
+                    elif isinstance(cmd, ShellProcessPipe):
+                        if not cmd.processes:
+                            raise ValueError("No commands to run in the pipeline")
 
-                    processes: List[subprocess.Popen] = []
-                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
+                        processes: List[subprocess.Popen] = []
+                        last_output_file = cmd.output_file or (cmd.processes[-1].output_file if cmd.processes else None)
 
-                    try:
-                        with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
-                            prev_proc: Optional[subprocess.Popen] = None
-                            for i, pipeline_part in enumerate(cmd.commands):
-                                is_last = i == len(cmd.commands) - 1
-                                process_stdout = final_stdout if is_last else subprocess.PIPE
-                                process_stdin = None if prev_proc is None else prev_proc.stdout
+                        try:
+                            with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
+                                prev_proc: Optional[subprocess.Popen] = None
+                                for i, pipeline_part in enumerate(cmd.processes):
+                                    is_last = i == len(cmd.processes) - 1
+                                    process_stdout = final_stdout if is_last else subprocess.PIPE
+                                    process_stdin = None if prev_proc is None else prev_proc.stdout
 
-                                p = subprocess.Popen(
-                                    pipeline_part.command,
-                                    stdin=process_stdin,
-                                    stdout=process_stdout,
-                                    stderr=stderr,
-                                    text=False, # pipes should be in binary mode
-                                )
-                                processes.append(p)
+                                    p = subprocess.Popen(
+                                        pipeline_part.command,
+                                        stdin=process_stdin,
+                                        stdout=process_stdout,
+                                        stderr=stderr,
+                                        text=False, # pipes should be in binary mode
+                                    )
+                                    processes.append(p)
 
-                                # Allow upstream processes to receive SIGPIPE if downstream exits.
-                                if prev_proc is not None and prev_proc.stdout is not None:
-                                    prev_proc.stdout.close()
+                                    # Allow upstream processes to receive SIGPIPE if downstream exits.
+                                    if prev_proc is not None and prev_proc.stdout is not None:
+                                        prev_proc.stdout.close()
 
-                                prev_proc = p
+                                    prev_proc = p
 
-                            # Wait for all processes to complete
+                                # Wait for all processes to complete
+                                for p in processes:
+                                    p.wait()
+
+                                failures = [p for p in processes if p.returncode not in (0, None)]
+                                if failures:
+                                    sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
+                                    non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
+                                    primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
+                                    raise subprocess.CalledProcessError(
+                                        returncode=primary.returncode,
+                                        cmd=primary.args,
+                                    )
+                        except Exception:
+                            # Ensure we don't leave a half-running pipeline behind.
                             for p in processes:
-                                p.wait()
-
-                            failures = [p for p in processes if p.returncode not in (0, None)]
-                            if failures:
-                                sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
-                                non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
-                                primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
-                                raise subprocess.CalledProcessError(
-                                    returncode=primary.returncode,
-                                    cmd=primary.args,
-                                )
-                    except Exception:
-                        # Ensure we don't leave a half-running pipeline behind.
-                        for p in processes:
-                            try:
-                                if p.poll() is None:
-                                    p.terminate()
-                            except Exception:
-                                # Ignore errors during best-effort process termination in cleanup.
-                                pass
-                        for p in processes:
-                            try:
-                                p.wait(timeout=2)
-                            except Exception:
-                                # Ignore errors while waiting during best-effort cleanup.
-                                # Ignore errors while waiting for processes to exit during cleanup.
-                                pass
-                        raise
-                else:
-                    raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Command failed with exit code {e.returncode}")
-                cmd = " ".join(quote(arg) for arg in e.cmd) 
-                raise StageExecutionError(f"Failed to run command: {cmd}")
-            except InvalidCommandTypeError as e:
+                                try:
+                                    if p.poll() is None:
+                                        p.terminate()
+                                except Exception:
+                                    # Ignore errors during best-effort process termination in cleanup.
+                                    pass
+                            for p in processes:
+                                try:
+                                    p.wait(timeout=2)
+                                except Exception:
+                                    # Ignore errors while waiting during best-effort cleanup.
+                                    # Ignore errors while waiting for processes to exit during cleanup.
+                                    pass
+                            raise
+                    else:
+                        raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Command failed with exit code {e.returncode}")
+                    cmd = " ".join(quote(arg) for arg in e.cmd) 
+                    raise StageExecutionError(f"Failed to run command: {cmd}")
+                except InvalidCommandTypeError as e:
+                    raise e
+        except (Exception, KeyboardInterrupt) as e:
+                # remove outputs if stage fails
+                if ctx.keep_incomplete:
+                    raise e 
+                if self.output._immutable:
+                    raise e
+                output_removed = False
+                for name, path in self.output:
+                    if path and Path(path).exists():
+                        output_removed = True
+                        logger.warning(f"Removing incomplete output '{name}' ({path}).")
+                        Path(path).unlink()
+                if output_removed:
+                    logger.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
 
     def _discover_test_methods(self) -> Iterable[Callable[[], None]]:
