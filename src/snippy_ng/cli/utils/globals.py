@@ -12,7 +12,7 @@ class GlobalOption(click.Option):
         self.is_global = True
 
 def debug_callback(ctx, param, value):
-    if not value or ctx.resilient_parsing:
+    if value is None or ctx.resilient_parsing:
         return
     os.environ["SNIPPY_NG_DEBUG"] = "1"
     return value
@@ -20,7 +20,7 @@ def debug_callback(ctx, param, value):
 def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
-    if not value:
+    if value is None:
         return value
     value = absolute_path(value)
     if value.exists() and not ctx.params.get("force", False):

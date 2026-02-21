@@ -1,6 +1,6 @@
 import click
 from typing import Any, Optional
-from snippy_ng.cli.utils import absolute_path_callback
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
 from pathlib import Path
 
@@ -9,9 +9,9 @@ from pathlib import Path
 @click.option("--outdir", "-o", default=None, required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="report", help="Prefix for html report", cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
-@click.option("--tree", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Newick tree file to include in the report")
-@click.option("--metadata", required=False, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Optional metadata file (JSON or CSV) to include in the report")
-@click.option("--logs", required=False, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Optional log file to include in the report")
+@click.option("--tree", required=True, type=AbsolutePath(exists=True, readable=True), help="Newick tree file to include in the report")
+@click.option("--metadata", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional metadata file (JSON or CSV) to include in the report")
+@click.option("--logs", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional log file to include in the report")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
 def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: str, outdir: Optional[Path], prefix: str, **context: Any):
     """

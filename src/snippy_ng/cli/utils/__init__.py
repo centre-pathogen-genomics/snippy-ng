@@ -1,6 +1,20 @@
 import click
 from pathlib import Path
 
+
+class AbsolutePath(click.Path):
+    """Click path type that always returns absolute `Path` values without resolving symlinks."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("path_type", Path)
+        super().__init__(*args, **kwargs)
+
+    def convert(self, value, param, ctx):
+        p = super().convert(value, param, ctx)
+        if p is None:
+            return None
+        return Path(p).absolute()
+
 def error(msg):
     click.echo(f"Error: {msg}", err=True)
     raise click.Abort()

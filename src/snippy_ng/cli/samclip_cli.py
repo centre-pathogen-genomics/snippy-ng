@@ -1,11 +1,11 @@
 import click
 
-from snippy_ng.cli.utils import absolute_path_callback
+from snippy_ng.cli.utils import AbsolutePath
 
 
 @click.command(context_settings={'show_default': True})
-@click.argument("sam_file", required=False, nargs=1, type=click.Path(exists=True, readable=True), callback=absolute_path_callback)
-@click.option("--index", "-i", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference FASTA index (.fai) file corresponding to the reference used for alignment")
+@click.argument("sam_file", required=False, nargs=1, type=AbsolutePath(exists=True, readable=True))
+@click.option("--index", "-i", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA index (.fai) file corresponding to the reference used for alignment")
 @click.option("--fix-mate/--no-fix-mate", default=True, help="Attempt to fix mate information for paired-end reads when one read is filtered out", show_default=True)
 @click.option("--max", "-m", type=click.INT, default=10, help="Maximum clip length to allow before filtering out the read", show_default=True)
 @click.option("--invert", is_flag=True, default=False, help="Invert the filter to keep only clipped reads instead of filtering them out")

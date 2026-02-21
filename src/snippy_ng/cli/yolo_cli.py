@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable, List
 import click
 
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -16,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, readable=True, path_type=Path),
+    type=AbsolutePath(exists=True, readable=True),
     nargs=-1
 )
 def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
