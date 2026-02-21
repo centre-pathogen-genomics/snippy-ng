@@ -738,7 +738,10 @@
       }
 
       function parseCoordinate(value) {
-        if (value === null || value === undefined) return null;
+        // check if values is empty string, null, or undefined
+        if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) {
+          return null;
+        }
         const n = Number(value);
         return Number.isFinite(n) ? n : null;
       }
@@ -792,7 +795,6 @@
             : normalizeMetadataRows(rawMetadata).map(normalizeRowObject)
         ).filter((r) => typeof r === "object");
         console.info(`Initializing map with ${rows} metadata rows.`);
-        console.info(JSON.stringify(rows, null, 2));
         const { latKey, lonKey } = findCoordinateKeys(rows);
         if (!latKey || !lonKey) {
           els.mapPanel.classList.add("hidden");
@@ -820,8 +822,6 @@
             return { lat, lon, label };
           })
           .filter(Boolean);
-
-        console.info(`Found ${points} valid coordinate points in metadata.`);
 
         if (!points.length) {
           els.mapPanel.classList.add("hidden");
