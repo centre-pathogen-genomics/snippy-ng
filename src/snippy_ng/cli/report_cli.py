@@ -1,4 +1,5 @@
 import click
+from typing import Any, Optional
 from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
 from pathlib import Path
@@ -12,7 +13,7 @@ from pathlib import Path
 @click.option("--metadata", required=False, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Optional metadata file (JSON or CSV) to include in the report")
 @click.option("--logs", required=False, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Optional log file to include in the report")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
-def report(**config):
+def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: str, outdir: Optional[Path], prefix: str, **context: Any):
     """
     Create phylogenetic tree from alignment
 
@@ -20,23 +21,24 @@ def report(**config):
 
         snippy-ng utils report --tree tree.newick
     """
+    from snippy_ng import Context
     from snippy_ng.pipelines.report import ReportPipelineBuilder
     import json
     import csv
 
-    if config.get("metadata"):
-        if config["metadata"].suffix.lower() == ".json":
+    if metadata:
+        if metadata.suffix.lower() == ".json":
         # if metadata is a JSON file, read it and pass the content as a string to the pipeline
-            with open(config["metadata"], "r") as f:
-                config["metadata"] = json.dumps(json.load(f))
-        elif config["metadata"].suffix.lower() == ".csv" or config["metadata"].suffix.lower() == ".tsv":
+            with open(metadata, "r") as f:
+                metadata = json.dumps(json.load(f))
+        elif metadata.suffix.lower() == ".csv" or metadata.suffix.lower() == ".tsv":
             # if metadata is a CSV/TSV file, read it and convert to a list of dicts, then pass as a JSON string to the pipeline
-            with open(config["metadata"], "r") as f:
-                if config["metadata"].suffix.lower() == ".csv":
+            with open(metadata, "r") as f:
+                if metadata.suffix.lower() == ".csv":
                     reader = csv.DictReader(f)
                 else:
                     reader = csv.DictReader(f, delimiter="\t")
-                config["metadata"] = json.dumps(list(reader))
+                metadata = json.dumps(list(reader))
         else:
             raise click.BadParameter("Metadata file must be in JSON, CSV, or TSV format", param_hint="--metadata")
     
@@ -45,20 +47,14 @@ def report(**config):
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = ReportPipelineBuilder(
-        tree=config["tree"],
-        title=config["title"],
-        metadata=config.get("metadata"),
-        logs=config.get("logs"),
-        prefix=config["prefix"],
+        tree=tree,
+        title=title,
+        metadata=metadata,
+        logs=logs,
+        prefix=prefix,
     ).build()
 
-    outdir = config["outdir"] or Path(".").absolute()
+    context["outdir"] = outdir or Path(".").absolute()
     # Run the pipeline
-    pipeline.run(
-        skip_check=config['skip_check'],
-        check=config['check'],
-        outdir=outdir,
-        quiet=config['quiet'],
-        create_missing=config['create_missing'],
-        keep_incomplete=config['keep_incomplete'],
-    )
+    run_ctx = Context(**context)
+    return pipeline.run(run_ctx)

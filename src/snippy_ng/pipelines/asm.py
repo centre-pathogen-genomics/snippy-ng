@@ -21,14 +21,10 @@ class AsmPipelineBuilder(PipelineBuilder):
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snps", description="Output file prefix")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        globals = {'prefix': self.prefix, 'cpus': self.cpus, 'ram': self.ram, 'tmpdir': self.tmpdir}
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -44,7 +40,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         aligner = AssemblyAligner(
             reference=reference_file,
             assembly=Path(self.assembly),
-            **globals
+            prefix=self.prefix
         )
         stages.append(aligner)
         
@@ -54,7 +50,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             ref_dict=setup.output.reference_dict,
             reference=reference_file,
             reference_index=reference_index,
-            **globals
+            prefix=self.prefix
         )
         stages.append(caller)
         
@@ -65,7 +61,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             # hard code for asm-based calling
             min_depth=1,
             min_qual=60,
-            **globals
+            prefix=self.prefix
         )
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
@@ -75,7 +71,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             variants=variants_file,
             features=features_file,
             reference=reference_file,
-            **globals
+            prefix=self.prefix
         )
         stages.append(consequences)
         
@@ -83,7 +79,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         gzip = BgzipCompressor(
             input=consequences.output.annotated_vcf,
             suffix="gz",
-            **globals
+            prefix=self.prefix
         )
         stages.append(gzip)
         
@@ -92,7 +88,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             ref_metadata=ref_metadata,
             vcf_gz=gzip.output.compressed,
             reference=reference_file,
-            **globals
+            prefix=self.prefix
         )
         stages.append(pseudo)
         
@@ -104,7 +100,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             fasta=current_fasta,
             mask_bed=caller.output.missing_bed,
             mask_char="-",
-            **globals
+            prefix=self.prefix
         )
         stages.append(missing_mask)
         current_fasta = missing_mask.output.masked_fasta
@@ -113,7 +109,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         het_mask = HetMask(
             vcf=caller.output.vcf,  # Use raw VCF for complete site information
             fasta=current_fasta,
-            **globals
+            prefix=self.prefix
         )
         stages.append(het_mask)
         current_fasta = het_mask.output.masked_fasta
@@ -123,7 +119,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             user_mask = ApplyMask(
                 fasta=current_fasta,
                 mask_bed=Path(self.mask),
-                **globals
+                prefix=self.prefix
             )
             stages.append(user_mask)
             current_fasta = user_mask.output.masked_fasta
@@ -132,14 +128,14 @@ class AsmPipelineBuilder(PipelineBuilder):
         copy_final = CopyFasta(
             input=current_fasta,
             output_path=f"{self.prefix}.pseudo.fna",
-            **globals
+            prefix=self.prefix
         )
         stages.append(copy_final)
 
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
-            **globals
+            prefix=self.prefix
         )
         stages.append(vcf_histogram)
         

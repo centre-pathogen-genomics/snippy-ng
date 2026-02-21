@@ -1,4 +1,6 @@
 import click
+from typing import Any, Optional
+from pathlib import Path
 from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -22,7 +24,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-def long(**config):
+def long(reference: Path, reads: Optional[Path], bam: Optional[Path], downsample: Optional[float], clean_reads: bool, mask: Optional[Path], aligner: str, aligner_opts: str, minimap_preset: str, caller: str, caller_opts: str, clair3_model: Optional[Path], clair3_fast_mode: bool, min_read_len: int, min_read_qual: float, min_depth: int, min_qual: float, prefix: str, outdir: Path, **context: Any):
     """
     Long read based SNP calling pipeline
 
@@ -30,13 +32,14 @@ def long(**config):
 
         $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
     """
+    from snippy_ng import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
     import click
     
-    if not config.get("reads") and not config.get("bam"):
+    if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
 
-    if config.get("caller") == "clair3" and not config.get("clair3_model"):
+    if caller == "clair3" and not clair3_model:
         raise click.UsageError("Please provide a Clair3 model file (--clair3-model) when using Clair3 as the variant caller!")
     
     # Choose stages to include in the pipeline
@@ -44,35 +47,27 @@ def long(**config):
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = LongPipelineBuilder(
-        reference=config["reference"],
-        reads=config["reads"],
-        prefix=config["prefix"],
-        bam=config["bam"],
-        aligner=config["aligner"],
-        aligner_opts=config["aligner_opts"],
-        minimap_preset=config["minimap_preset"],
-        caller=config["caller"],
-        caller_opts=config["caller_opts"],
-        clair3_model=config.get("clair3_model"),
-        clair3_fast_mode=config["clair3_fast_mode"],
-        downsample=config["downsample"],
-        min_read_len=config.get("min_read_len"),
-        min_read_qual=config.get("min_read_qual"),
-        min_qual=config["min_qual"],
-        min_depth=config["min_depth"],
-        mask=config["mask"],
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus"],
-        ram=config["ram"],
+        reference=reference,
+        reads=reads,
+        prefix=prefix,
+        bam=bam,
+        aligner=aligner,
+        aligner_opts=aligner_opts,
+        minimap_preset=minimap_preset,
+        caller=caller,
+        caller_opts=caller_opts,
+        clair3_model=clair3_model,
+        clair3_fast_mode=clair3_fast_mode,
+        downsample=downsample,
+        min_read_len=min_read_len,
+        min_read_qual=min_read_qual,
+        min_qual=min_qual,
+        min_depth=min_depth,
+        mask=mask,
     ).build()
     
     # Run the pipeline
-    return pipeline.run(
-        skip_check=config['skip_check'],
-        check=config['check'],
-        outdir=config['outdir'],
-        quiet=config['quiet'],
-        create_missing=config['create_missing'],
-        keep_incomplete=config['keep_incomplete'],
-    )
+    context["outdir"] = outdir
+    run_ctx = Context(**context)
+    return pipeline.run(run_ctx)
     

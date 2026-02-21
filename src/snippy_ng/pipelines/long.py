@@ -36,14 +36,11 @@ class LongPipelineBuilder(PipelineBuilder):
     min_qual: float = Field(default=100, description="Minimum variant quality")
     min_depth: int = Field(default=10, description="Minimum variant depth")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
         stages = []
-        globals = {'prefix': self.prefix, 'cpus': self.cpus, 'ram': self.ram, 'tmpdir': self.tmpdir}
+        globals = {'prefix': self.prefix}
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(

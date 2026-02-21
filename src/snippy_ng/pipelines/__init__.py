@@ -14,9 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
-    prefix: str = Field(default="tree", description="Output file prefix")
+    prefix: str = Field(default="snps", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""
@@ -34,33 +32,24 @@ class SnippyPipeline:
             stages = []
         self.stages = stages
 
-    def run(self, outdir, tmpdir, cpus, ram, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, force=False, debug=False, no_cleanup=False):
+    def run(self, context: Context):
         self.welcome()
 
-        if not skip_check:
+        if not context.skip_check:
             try:
                 self.validate_dependencies()
             except DependencyError as e:
                 raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
         
-        if check:
+        if context.check:
             return None
 
         # Set working directory to output folder
         current_dir = Path.cwd()
-        run_ctx = Context(
-            outdir=outdir,
-            tmpdir=tmpdir,
-            cpus=cpus,
-            ram=ram,
-            quiet_mode=quiet,
-            create_missing=create_missing,
-            keep_incomplete=keep_incomplete
-        )
         try:
-            self.set_working_directory(outdir)
+            self.set_working_directory(context.outdir)
             self._execute_pipeline_stages_in_order(
-                run_ctx,
+                context,
             )
         finally:
             self.cleanup(current_dir)

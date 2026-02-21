@@ -59,15 +59,15 @@ class IQTreeBuildTree(BaseStage):
                 "-pre", str(self.prefix),
                 "-m", self.model, 
                 "-T", "AUTO",
-                "--threads-max", str(self.cpus),
+                "--threads-max", str(ctx.cpus),
                 "-nt", "AUTO",
                 "-st", "DNA",
                 "-redo"
             ], 
             description="Building phylogenetic tree with IQ-TREE"
         )
-        if self.ram:
-            iqtree_cmd.command.extend(["-mem", f"{self.ram}G"])
+        if ctx.ram:
+            iqtree_cmd.command.extend(["-mem", f"{ctx.ram}G"])
         if self.fconst:
             iqtree_cmd.command.extend(["-fconst", self.fconst])
         if self.fast_mode:

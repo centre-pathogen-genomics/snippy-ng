@@ -90,7 +90,7 @@ class FreebayesCaller(Caller):
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
-            str(self.cpus),
+            str(ctx.cpus),
             "--ploidy", "2",
             "--min-alternate-count", "2",
             "--min-alternate-fraction", str(self.minfrac),
@@ -132,7 +132,7 @@ class FreebayesCallerLong(FreebayesCaller):
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
-            str(self.cpus),
+            str(ctx.cpus),
             "--haplotype-length", "-1",
             "--min-mapping-quality", "10",
             "--min-base-quality", "10",
@@ -336,7 +336,7 @@ class Clair3Caller(Caller):
                 f"--model_path={self.clair3_model.absolute()}",
                 f"--bam_fn={str(self.bam.absolute())}",
                 f"--ref_fn={str(self.reference.absolute())}",
-                f"--threads={str(self.cpus)}",
+                f"--threads={str(ctx.cpus)}",
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",

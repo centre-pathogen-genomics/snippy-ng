@@ -1,4 +1,6 @@
 import click
+from typing import Any, Optional
+from pathlib import Path
 from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -17,7 +19,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
 @click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-def short(**config):
+def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional[Path], clean_reads: bool, downsample: Optional[float], mask: Optional[Path], aligner: str, aligner_opts: str, caller_opts: str, min_depth: int, min_qual: float, prefix: str, outdir: Path, **context: Any):
     """
     Short read based SNP calling pipeline
 
@@ -25,15 +27,16 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
+    from snippy_ng import Context
     from snippy_ng.pipelines.short import ShortPipelineBuilder
     
     # combine R1 and R2 into reads
     reads = []
-    if config.get("r1"):
-        reads.append(config["r1"])
-    if config.get("r2"):
-        reads.append(config["r2"])
-    if not reads and not config.get("bam"):
+    if r1:
+        reads.append(r1)
+    if r2:
+        reads.append(r2)
+    if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
     
     # Choose stages to include in the pipeline
@@ -41,30 +44,22 @@ def short(**config):
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = ShortPipelineBuilder(
-        reference=config["reference"],
+        reference=reference,
         reads=reads,
-        prefix=config["prefix"],
-        bam=config["bam"],
-        clean_reads=config["clean_reads"],
-        downsample=config["downsample"],
-        aligner=config["aligner"],
-        aligner_opts=config["aligner_opts"],
-        caller_opts=config["caller_opts"],
-        mask=config["mask"],
-        min_depth=config["min_depth"],
-        min_qual=config["min_qual"],
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus"],
-        ram=config["ram"],
+        prefix=prefix,
+        bam=bam,
+        clean_reads=clean_reads,
+        downsample=downsample,
+        aligner=aligner,
+        aligner_opts=aligner_opts,
+        caller_opts=caller_opts,
+        mask=mask,
+        min_depth=min_depth,
+        min_qual=min_qual,
     ).build()
     
     # Run the pipeline
-    pipeline.run(
-        skip_check=config['skip_check'],
-        check=config['check'],
-        outdir=config['outdir'],
-        quiet=config['quiet'],
-        create_missing=config['create_missing'],
-        keep_incomplete=config['keep_incomplete'],
-    )
+    context["outdir"] = outdir
+    run_ctx = Context(**context)
+    return pipeline.run(run_ctx)
     

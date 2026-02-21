@@ -36,13 +36,12 @@ class ShortReadAligner(Aligner):
 
     _dependencies = [samtools]
 
-    @property
-    def common_commands(self) -> List:
+    def common_commands(self, ctx) -> List:
         """Common commands for sorting, fixing mates, and marking duplicates."""
-        sort_cpus = max(1, int(self.cpus / 2))
-        sort_ram = f"{1000 * self.ram // sort_cpus}M"
+        sort_cpus = max(1, int(ctx.cpus / 2))
+        sort_ram = f"{1000 * ctx.ram // sort_cpus}M"
         sort_threads = str(max(1, sort_cpus - 1))
-        sort_temp = str(self.tmpdir)
+        sort_temp = str(ctx.tmpdir or ".")
 
         commands: List = []
 
@@ -122,9 +121,9 @@ class ShortReadAligner(Aligner):
 
         return commands
 
-    def build_alignment_pipeline(self, align_cmd) -> ShellProcessPipe:
+    def build_alignment_pipeline(self, align_cmd, ctx) -> ShellProcessPipe:
         """Constructs the full alignment pipeline command."""
-        common_cmds = self.common_commands
+        common_cmds = self.common_commands(ctx)
 
         pipeline_commands = [align_cmd] + common_cmds
 
@@ -157,7 +156,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
             import shlex
 
             bwa_cmd_parts.extend(shlex.split(self.aligner_opts))
-        bwa_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        bwa_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         bwa_cmd_parts.extend([str(r) for r in self.reads])
 
         bwa_cmd = self.shell_cmd(
@@ -165,7 +164,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
             description=f"Align {len(self.reads)} read files with BWA-MEM",
         )
 
-        alignment_pipeline = self.build_alignment_pipeline(bwa_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(bwa_cmd, ctx)
         return [bwa_index_cmd, alignment_pipeline]
 
 
@@ -175,10 +174,9 @@ class Minimap2ShortReadAligner(ShortReadAligner):
     """
     _dependencies = [minimap2, samtools]
 
-    @property
-    def ram_per_thread(self) -> int:
+    def ram_per_thread(self, ctx) -> int:
         """Calculate RAM per thread in MB."""
-        return max(1, self.ram // self.cpus)
+        return max(1, ctx.ram // ctx.cpus)
 
 
     def create_commands(self, ctx) -> List:
@@ -189,7 +187,7 @@ class Minimap2ShortReadAligner(ShortReadAligner):
             import shlex
 
             minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
-        minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
         minimap_cmd = self.shell_cmd(
@@ -197,7 +195,7 @@ class Minimap2ShortReadAligner(ShortReadAligner):
             description=f"Align {len(self.reads)} read files with Minimap2",
         )
 
-        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd, ctx)
         return [alignment_pipeline]
 
 
@@ -227,7 +225,7 @@ class Minimap2LongReadAligner(Aligner):
             import shlex
 
             minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
-        minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
         minimap_pipeline = self.shell_pipe(
@@ -237,7 +235,7 @@ class Minimap2LongReadAligner(Aligner):
                     description=f"Align {len(self.reads)} read files with Minimap2",
                 ),
                 self.shell_cmd(
-                    ["samtools", "sort", "--threads", str(self.cpus), "-O",
+                    ["samtools", "sort", "--threads", str(ctx.cpus), "-O",
                 "cram,embed_ref=2"],
                     description="Sort and convert to CRAM",
                 ),

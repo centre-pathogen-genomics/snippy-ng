@@ -33,7 +33,7 @@ class SamtoolsFilter(BaseStage):
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
-    def build_filter_command(self) -> ShellCommand:
+    def build_filter_command(self, ctx) -> ShellCommand:
         """Constructs the samtools view command for filtering."""
         cmd_parts = [
             "samtools",
@@ -45,8 +45,8 @@ class SamtoolsFilter(BaseStage):
         ]
         
         # Add threading
-        if self.cpus > 1:
-            cmd_parts.extend(["--threads", str(self.cpus - 1)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["--threads", str(ctx.cpus - 1)])
         
         # Add mapping quality filter
         if self.min_mapq > 0:
@@ -116,7 +116,7 @@ class SamtoolsFilter(BaseStage):
 
     def create_commands(self, ctx) -> List:
         """Constructs the filtering commands."""
-        filter_cmd = self.build_filter_command()
+        filter_cmd = self.build_filter_command(ctx)
         index_cmd = self.build_index_command()
         stats_cmd = self.build_flagstat_command()
         return [filter_cmd, index_cmd, stats_cmd]

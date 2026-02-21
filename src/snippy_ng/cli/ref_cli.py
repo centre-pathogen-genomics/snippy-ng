@@ -1,4 +1,5 @@
 import click
+from typing import Any
 from snippy_ng.cli.utils import absolute_path_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, create_outdir_callback, GlobalOption
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 @click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['outdir', 'prefix'])
 @click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank)")
-def ref(**config):
+def ref(reference: Path, outdir: Path, **context: Any):
     """
     Prepare a reference genome for use with snippy-ng. 
     
@@ -18,20 +19,16 @@ def ref(**config):
 
         $ snippy-ng utils ref --reference ref.fa --outdir output
     """
+    from snippy_ng import Context
     from snippy_ng.pipelines.common import prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
 
     ref_stage = prepare_reference(
-                reference_path=config["reference"],
-                output_directory=config["outdir"]
+                reference_path=reference,
+                output_directory=outdir
             )
     pipeline = SnippyPipeline(stages=[ref_stage])
 
-    pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        outdir=Path("."),
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-    )
+    context["outdir"] = Path(".")
+    run_ctx = Context(**context)
+    return pipeline.run(run_ctx)

@@ -110,7 +110,7 @@ class SeqKitReadStats(BaseStage):
             stats_tsv=f"{self.prefix}.stats.tsv"
         )
     
-    def build_seqkit_stats_command(self) -> ShellCommand:
+    def build_seqkit_stats_command(self, ctx) -> ShellCommand:
         """Constructs the seqkit stats command.
         
         Builds the complete seqkit stats command with all specified options
@@ -126,8 +126,8 @@ class SeqKitReadStats(BaseStage):
         )
         
         # Threading
-        if self.cpus > 1:
-            shell_cmd.command.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            shell_cmd.command.extend(["-j", str(ctx.cpus)])
         
         # Output format options
         if self.tabular:
@@ -167,7 +167,7 @@ class SeqKitReadStats(BaseStage):
         Returns:
             List[ShellCommand]: List containing the seqkit stats command.
         """
-        return [self.build_seqkit_stats_command()]
+        return [self.build_seqkit_stats_command(ctx)]
 
 
 class SeqKitReadStatsBasic(SeqKitReadStats):
@@ -245,7 +245,7 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
                 raise ValueError(f"N-statistic values must be between 0 and 100, got: {stat}")
         return v
     
-    def build_seqkit_stats_command(self) -> ShellCommand:
+    def build_seqkit_stats_command(self, ctx) -> ShellCommand:
         """Constructs the seqkit stats command with additional N-statistics.
         
         Builds the complete seqkit stats command including any additional
@@ -261,8 +261,8 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         ) 
         
         # Threading
-        if self.cpus > 1:
-            shell_cmd.command.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            shell_cmd.command.extend(["-j", str(ctx.cpus)])
         
         # Output format options
         if self.tabular:
