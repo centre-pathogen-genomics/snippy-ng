@@ -14,6 +14,9 @@ class GlobalOption(click.Option):
 def debug_callback(ctx, param, value):
     if value is None or ctx.resilient_parsing:
         return
+    if not value:
+        # don't update env
+        return value
     os.environ["SNIPPY_NG_DEBUG"] = "1"
     return value
 
