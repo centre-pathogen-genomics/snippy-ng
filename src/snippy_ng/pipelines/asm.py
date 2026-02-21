@@ -59,7 +59,6 @@ class AsmPipelineBuilder(PipelineBuilder):
             vcf=caller.output.vcf,
             reference=reference_file,
             # hard code for asm-based calling
-            min_depth=1,
             min_qual=60,
             prefix=self.prefix
         )

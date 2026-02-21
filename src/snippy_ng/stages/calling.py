@@ -54,10 +54,6 @@ class FreebayesCaller(Caller):
 
     bam: Path = Field(..., description="Input BAM file")
     fbopt: str = Field("", description="Additional Freebayes options")
-    mincov: int = Field(10, description="Minimum site depth for calling alleles")
-    minfrac: float = Field(
-        0.05, description="Require at least this fraction of observations supporting an alternate allele within a single individual in the in order to evaluate the position"
-    )
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -93,8 +89,6 @@ class FreebayesCaller(Caller):
             str(ctx.cpus),
             "--ploidy", "2",
             "--min-alternate-count", "2",
-            "--min-alternate-fraction", str(self.minfrac),
-            "--min-coverage", str(self.mincov),
             "--min-repeat-entropy", "1.0",
             "--min-base-quality", "13",
             "--min-mapping-quality", "60",
@@ -137,9 +131,6 @@ class FreebayesCallerLong(FreebayesCaller):
             "--min-mapping-quality", "10",
             "--min-base-quality", "10",
             "--ploidy", "2",
-            "--min-coverage", str(self.mincov),
-            "--min-alternate-fraction", str(self.minfrac),
-
         ]
         if self.fbopt:
             import shlex

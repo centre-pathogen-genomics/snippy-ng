@@ -29,7 +29,6 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    min_depth: int = Field(default=10, description="Minimum variant depth")
     min_qual: float = Field(default=100, description="Minimum variant quality")
 
     def build(self) -> SnippyPipeline:
@@ -122,7 +121,6 @@ class ShortPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
-            mincov=self.min_depth,
             **globals
         )
         stages.append(caller)
@@ -131,7 +129,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         variant_filter = VcfFilterShort(
             vcf=caller.output.vcf,
             reference=reference_file,
-            min_depth=self.min_depth,
             min_qual=self.min_qual,
             **globals
         )
@@ -171,7 +168,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         depth_mask = DepthMask(
             bam=aligned_reads,
             fasta=current_fasta,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(depth_mask)

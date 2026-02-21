@@ -77,7 +77,6 @@ def filter_annotate_and_generate_consensus(
     reference_index: Path,
     features: Path,
     header: Optional[str],
-    min_depth: int,
     min_qual: float,
     globals: dict,
 ) -> Path:
@@ -94,7 +93,6 @@ def filter_annotate_and_generate_consensus(
         reference_index: Reference index file
         features: GFF features file
         header: Optional header for the output FASTA
-        min_depth: Minimum depth for filtering
         min_qual: Minimum quality for filtering
         globals: Dictionary containing prefix, cpus, ram, outdir, tmpdir
         
@@ -105,7 +103,6 @@ def filter_annotate_and_generate_consensus(
     variant_filter = VcfFilterShort(
         vcf=vcf,
         reference=reference,
-        min_depth=min_depth,
         min_qual=min_qual,
         **globals
     )

@@ -34,7 +34,6 @@ class LongPipelineBuilder(PipelineBuilder):
     min_read_len: int = Field(default=1000, description="Minimum read length")
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     min_qual: float = Field(default=100, description="Minimum variant quality")
-    min_depth: int = Field(default=10, description="Minimum variant depth")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
 
     def build(self) -> SnippyPipeline:
@@ -139,7 +138,6 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference=reference_file,
                 reference_index=reference_index,
                 fbopt=self.caller_opts,
-                mincov=2,
                 **globals
             )
         stages.append(caller_stage)
@@ -150,7 +148,6 @@ class LongPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             min_qual=self.min_qual,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(variant_filter)
@@ -189,7 +186,6 @@ class LongPipelineBuilder(PipelineBuilder):
         depth_mask = DepthMask(
             bam=aligned_reads,
             fasta=current_fasta,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(depth_mask)

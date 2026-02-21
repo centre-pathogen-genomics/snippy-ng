@@ -17,9 +17,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
-@click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional[Path], clean_reads: bool, downsample: Optional[float], mask: Optional[Path], aligner: str, aligner_opts: str, caller_opts: str, min_depth: int, min_qual: float, prefix: str, outdir: Path, **context: Any):
+def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional[Path], clean_reads: bool, downsample: Optional[float], mask: Optional[Path], aligner: str, aligner_opts: str, caller_opts: str, min_qual: float, prefix: str, outdir: Path, **context: Any):
     """
     Short read based SNP calling pipeline
 
@@ -54,7 +53,6 @@ def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional
         aligner_opts=aligner_opts,
         caller_opts=caller_opts,
         mask=mask,
-        min_depth=min_depth,
         min_qual=min_qual,
     ).build()
     
