@@ -18,7 +18,7 @@ from shlex import quote
 
 
 class Context(BaseModel):
-    outdir: Path = Field(..., description="Output directory for the pipeline run")
+    outdir: Optional[Path] = Field(None, description="Output directory for the pipeline run")
     tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
     cpus: int = Field(default=1, description="Max number of CPUs to use")
     ram: int = Field(default=8, description="RAM in GB")
@@ -30,7 +30,6 @@ class Context(BaseModel):
     force: bool = Field(False, description="Allow overwriting existing output directories or files where applicable")
     debug: bool = Field(False, description="Enable debug-oriented runtime behavior and verbose diagnostics")
     no_cleanup: bool = Field(False, description="Disable cleanup of temporary/intermediate files after pipeline execution")
-    # add stats like start time?
 
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')

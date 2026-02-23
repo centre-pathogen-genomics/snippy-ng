@@ -1,8 +1,7 @@
 import json
 import pytest
 from click.testing import CliRunner
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines as _pl

@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from snippy_ng.metadata import ReferenceMetadata
+from snippy_ng.stages import Context
 from snippy_ng.stages.downsample_reads import (
     RasusaDownsampleReads,
     RasusaDownsampleReadsByCoverage,
@@ -29,8 +30,6 @@ class TestRasusaDownsampleReads:
             reads=[str(read1), str(read2)],
             prefix="downsampled",
             coverage=50.0,
-            tmpdir=tmp_path,
-            cpus=4
         )
         
         assert stage.reads == [read1, read2]
@@ -50,7 +49,6 @@ class TestRasusaDownsampleReads:
             reads=[str(read_file)],
             prefix="downsampled",
             num_reads=1000000,
-            tmpdir=tmp_path
         )
         
         assert stage.num_reads == 1000000
@@ -78,7 +76,6 @@ class TestRasusaDownsampleReads:
                 reads=[str(read_file)],
                 prefix="downsampled",
                 coverage=50.0,
-                tmpdir=tmp_path
             )
         assert "is required when using coverage-based downsampling" in str(excinfo.value)
     
@@ -94,7 +91,6 @@ class TestRasusaDownsampleReads:
                 ref_metadata=ReferenceMetadata(total_length=197394),
                 coverage=50.0,
                 num_reads=1000000,
-                tmpdir=tmp_path
             )
         assert "Cannot specify both coverage and num_reads" in str(excinfo.value)
     
@@ -107,7 +103,6 @@ class TestRasusaDownsampleReads:
             RasusaDownsampleReads(
                 reads=[str(read_file)],
                 prefix="downsampled",
-                tmpdir=tmp_path
             )
         assert "Must specify either coverage or num_reads" in str(excinfo.value)
     
@@ -155,7 +150,6 @@ class TestRasusaDownsampleReads:
             prefix="downsampled",
             ref_metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
-            tmpdir=tmp_path
         )
         
         output = stage.output
@@ -172,7 +166,6 @@ class TestRasusaDownsampleReads:
             prefix="ds",
             num_reads=1000000,
             output_format="fasta",
-            tmpdir=tmp_path
         )
         
         output = stage.output
@@ -192,10 +185,9 @@ class TestRasusaDownsampleReads:
             ref_metadata=ReferenceMetadata(total_length=197394),
             coverage=50.0,
             seed=42,
-            tmpdir=tmp_path
         )
-        
-        commands = stage.create_commands
+        ctx = Context()
+        commands = stage.create_commands(ctx)
         assert len(commands) == 1
         
         cmd = str(commands[0])
@@ -220,10 +212,9 @@ class TestRasusaDownsampleReads:
             ref_metadata=ReferenceMetadata(total_length=197394),
             num_reads=1000000,
             output_format="fasta",
-            tmpdir=tmp_path
         )
-        
-        commands = stage.create_commands
+        ctx = Context()
+        commands = stage.create_commands(ctx)
         cmd = str(commands[0])
         
         assert cmd.startswith("rasusa reads")
@@ -246,10 +237,9 @@ class TestRasusaDownsampleReads:
             seed=123,
             compression_level=9,
             additional_options="--verbose",
-            tmpdir=tmp_path
         )
-        
-        commands = stage.create_commands
+        ctx = Context()
+        commands = stage.create_commands(ctx)
         cmd = str(commands[0])
         
         assert "--coverage 75.0" in cmd
@@ -271,7 +261,6 @@ class TestRasusaDownsampleReadsByCoverage:
             prefix="cov_ds",
             ref_metadata=ReferenceMetadata(total_length=150000),
             coverage=30.0,
-            tmpdir=tmp_path
         )
         
         assert stage.coverage == 30.0
@@ -306,7 +295,6 @@ class TestRasusaDownsampleReadsByCount:
             reads=[str(read_file)],
             prefix="count_ds",
             num_reads=500000,
-            tmpdir=tmp_path
         )
         
         assert stage.num_reads == 500000

@@ -10,6 +10,7 @@ from snippy_ng.stages.stats import (
     SeqKitReadStatsBasic,
     SeqKitReadStatsDetailed
 )
+from snippy_ng.stages import Context
 
 
 class TestSeqKitReadStats:
@@ -26,13 +27,10 @@ class TestSeqKitReadStats:
         stage = SeqKitReadStats(
             reads=[str(read1), str(read2)],
             prefix="test_stats",
-            tmpdir=tmp_path,
-            cpus=4
         )
         
         assert stage.reads == [read1, read2]
         assert stage.prefix == "test_stats"
-        assert stage.cpus == 4
         assert stage.all_stats is True
         assert stage.tabular is True
         assert stage.basename_only is False
@@ -73,7 +71,6 @@ class TestSeqKitReadStats:
         stage = SeqKitReadStats(
             reads=[str(read_file)],
             prefix="test_stats",
-            tmpdir=tmp_path
         )
         
         output = stage.output
@@ -87,11 +84,9 @@ class TestSeqKitReadStats:
         stage = SeqKitReadStats(
             reads=[str(read_file)],
             prefix="test_stats",
-            tmpdir=tmp_path,
-            cpus=2
         )
-        
-        commands = stage.create_commands
+        ctx = Context(cpus=2)
+        commands = stage.create_commands(ctx)
         assert len(commands) == 1
         
         cmd = str(commands[0])
@@ -113,18 +108,17 @@ class TestSeqKitReadStats:
         stage = SeqKitReadStats(
             reads=[str(read1), str(read2)],
             prefix="custom_stats",
-            tmpdir=tmp_path,
-            cpus=4,
             all_stats=False,
             tabular=False,
             basename_only=True,
             skip_errors=False,
             fastq_encoding="illumina-1.3+",
-            gap_letters="'N -'",
+            gap_letters="N -",
             additional_options="--some-option"
         )
         
-        commands = stage.create_commands
+        ctx = Context(cpus=4)
+        commands = stage.create_commands(ctx)
         cmd = str(commands[0])
         
         assert "seqkit stats" in cmd
@@ -150,13 +144,12 @@ class TestSeqKitReadStatsBasic:
         
         stage = SeqKitReadStatsBasic(
             reads=[str(read_file)],
-            prefix="basic_stats",
-            tmpdir=tmp_path
+            prefix="basic_stats"
         )
         
         assert stage.all_stats is False
-        
-        commands = stage.create_commands
+        ctx = Context()
+        commands = stage.create_commands(ctx)
         cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" not in cmd  # all_stats disabled
@@ -173,14 +166,14 @@ class TestSeqKitReadStatsDetailed:
         stage = SeqKitReadStatsDetailed(
             reads=[str(read_file)],
             prefix="detailed_stats",
-            tmpdir=tmp_path,
             additional_n_stats=[90, 95]
         )
         
         assert stage.all_stats is True
         assert stage.additional_n_stats == [90, 95]
         
-        commands = stage.create_commands
+        ctx = Context()
+        commands = stage.create_commands(ctx)
         cmd = str(commands[0])
         assert "seqkit stats" in cmd
         assert "-a" in cmd  # all_stats enabled
@@ -217,10 +210,10 @@ class TestSeqKitReadStatsDetailed:
         stage = SeqKitReadStatsDetailed(
             reads=[str(read_file)],
             prefix="detailed_stats",
-            tmpdir=tmp_path,
             additional_n_stats=[]
         )
+        ctx = Context()
         
-        commands = stage.create_commands
+        commands = stage.create_commands(ctx)
         cmd = commands[0]
         assert "-N" not in cmd  # No N-stats option when empty

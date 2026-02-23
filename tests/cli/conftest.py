@@ -6,6 +6,7 @@ import types
 import pytest
 
 import snippy_ng.pipelines as _pl
+from snippy_ng import Context
 
 
 class DummyPipeline:
@@ -17,17 +18,17 @@ class DummyPipeline:
         self.ran       = False
         DummyPipeline.last = self      # remember myself
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, outdir=None):
+    def run(self, ctx: Context):
         """Match the new pipeline structure with run method."""
         self.welcome()
         
-        if not skip_check:
+        if not ctx.skip_check:
             self.validate_dependencies()
         
-        if check:
+        if ctx.check:
             return None
         
-        self.set_working_directory(outdir)
+        self.set_working_directory(ctx.outdir)
         self.ran = True
         self.cleanup(None)
         self.goodbye()

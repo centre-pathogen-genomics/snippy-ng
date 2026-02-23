@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List
 from snippy_ng.stages import BaseStage, ShellCommand, BaseOutput
 from snippy_ng.dependencies import seqkit
+from snippy_ng import Context 
 from pydantic import Field, field_validator
 
 
@@ -110,7 +111,7 @@ class SeqKitReadStats(BaseStage):
             stats_tsv=f"{self.prefix}.stats.tsv"
         )
     
-    def build_seqkit_stats_command(self, ctx) -> ShellCommand:
+    def build_seqkit_stats_command(self, ctx: Context) -> ShellCommand:
         """Constructs the seqkit stats command.
         
         Builds the complete seqkit stats command with all specified options
