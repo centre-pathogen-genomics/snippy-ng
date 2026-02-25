@@ -139,7 +139,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         tmpdir=config["tmpdir"],
         cpus=config["cpus_per_sample"],
         ram=config["ram"],
-        quiet_mode=config["quiet"],
+        quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
         skip_check=config["skip_check"],

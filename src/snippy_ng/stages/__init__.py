@@ -137,12 +137,12 @@ class BaseStage(BaseModel):
                 logger.info(f" ❯ {cmd}") 
                 stdout = sys.stderr
                 stderr = sys.stderr
-                if ctx.quiet_mode:
+                if ctx.quiet:
                     stdout = subprocess.DEVNULL
                     stderr = subprocess.DEVNULL
                 try:
                     if isinstance(cmd, PythonCommand):
-                        if ctx.quiet_mode:
+                        if ctx.quiet:
                             # Capture output if quiet mode is enabled
                             with StringIO() as out, StringIO() as err, \
                                     self.redirect_output(out), self.redirect_error(err):
