@@ -17,7 +17,7 @@ def asm(reference: Path, assembly: Path, mask: Optional[Path], prefix: str, **co
 
         $ snippy-ng asm --reference ref.fa --assembly assembly.fa --outdir output
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     
     # Choose stages to include in the pipeline

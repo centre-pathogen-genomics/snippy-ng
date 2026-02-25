@@ -6,7 +6,7 @@ import types
 import pytest
 
 import snippy_ng.pipelines as _pl
-from snippy_ng import Context
+from snippy_ng.context import Context
 
 
 class DummyPipeline:

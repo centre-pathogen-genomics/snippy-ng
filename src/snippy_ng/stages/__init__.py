@@ -12,24 +12,11 @@ import signal
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError, MissingOutputError, StageExecutionError, StageTestFailure
+from snippy_ng.context import Context
 
 from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
-
-class Context(BaseModel):
-    outdir: Optional[Path] = Field(None, description="Output directory for the pipeline run")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Max number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
-    quiet_mode: bool = Field(False, description="Suppress command stdout/stderr output during stage execution")
-    create_missing: bool = Field(False, description="Skip stages whose expected outputs already exist")
-    keep_incomplete: bool = Field(False, description="Keep partially generated outputs if a stage fails")
-    skip_check: bool = Field(False, description="Skip dependency validation before running the pipeline")
-    check: bool = Field(False, description="Only validate dependencies and exit without executing stages")
-    force: bool = Field(False, description="Allow overwriting existing output directories or files where applicable")
-    debug: bool = Field(False, description="Enable debug-oriented runtime behavior and verbose diagnostics")
-    no_cleanup: bool = Field(False, description="Disable cleanup of temporary/intermediate files after pipeline execution")
 
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')

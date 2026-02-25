@@ -30,7 +30,7 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
 
         snippy-ng yolo
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.logging import logger
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline

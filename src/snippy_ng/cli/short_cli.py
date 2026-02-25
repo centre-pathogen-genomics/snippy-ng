@@ -26,7 +26,7 @@ def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.short import ShortPipelineBuilder
     
     # combine R1 and R2 into reads

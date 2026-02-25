@@ -4,7 +4,7 @@ All CLI commands follow a common structure. They are defined as Click commands t
 @add_snippy_global_options()
 # ...pipeline-specific options...
 def <name>(..., prefix, **context):
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.<name> import <Name>PipelineBuilder
 
     pipeline = <Name>PipelineBuilder(

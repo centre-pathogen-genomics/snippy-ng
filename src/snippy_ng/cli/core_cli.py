@@ -16,7 +16,7 @@ def core(snippy_dirs: tuple[Path, ...], reference: Path, core: float, outdir: Pa
     """
     Create core alignment from multiple Snippy-NG runs
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     if not snippy_dirs:

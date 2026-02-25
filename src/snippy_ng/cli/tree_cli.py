@@ -22,7 +22,7 @@ def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fas
 
         snippy-ng tree core.full.aln
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.tree import TreePipelineBuilder
     from snippy_ng.logging import logger
 

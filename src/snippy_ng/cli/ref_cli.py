@@ -19,7 +19,7 @@ def ref(reference: Path, outdir: Path, **context: Any):
 
         $ snippy-ng utils ref --reference ref.fa --outdir output
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.common import prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
 

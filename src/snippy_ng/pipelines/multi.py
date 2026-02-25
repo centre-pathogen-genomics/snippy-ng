@@ -86,7 +86,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     from snippy_ng.pipelines.long import LongPipelineBuilder
     from snippy_ng.pipelines.short import ShortPipelineBuilder
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     import click
     
     sample_type = sample_cfg.get("type")

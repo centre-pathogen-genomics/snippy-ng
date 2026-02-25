@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 from snippy_ng.stages import BaseStage, ShellCommand, BaseOutput
 from snippy_ng.dependencies import seqkit
-from snippy_ng import Context 
+from snippy_ng.context import Context 
 from pydantic import Field, field_validator
 
 

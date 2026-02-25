@@ -10,7 +10,7 @@ from snippy_ng.stages.stats import (
     SeqKitReadStatsBasic,
     SeqKitReadStatsDetailed
 )
-from snippy_ng.stages import Context
+from snippy_ng.context import Context
 
 
 class TestSeqKitReadStats:

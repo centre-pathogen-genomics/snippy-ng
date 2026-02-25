@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages import Context
+from snippy_ng.context import Context
 from snippy_ng.stages.downsample_reads import (
     RasusaDownsampleReads,
     RasusaDownsampleReadsByCoverage,

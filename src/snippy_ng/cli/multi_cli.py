@@ -31,7 +31,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         $ snippy-ng gather | snippy-ng multi --ref reference.fasta - 
 
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline

@@ -22,7 +22,7 @@ def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: st
 
         snippy-ng utils report --tree tree.newick
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.report import ReportPipelineBuilder
     import json
     import csv

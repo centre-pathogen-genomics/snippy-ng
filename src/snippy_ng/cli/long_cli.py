@@ -31,7 +31,7 @@ def long(reference: Path, reads: Optional[Path], bam: Optional[Path], downsample
 
         $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
     """
-    from snippy_ng import Context
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
     import click
     
