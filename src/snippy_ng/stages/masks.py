@@ -40,8 +40,7 @@ class DepthMask(BaseStage):
             zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Generate all depth masking commands in sequence"""
         commands = []
 
@@ -99,7 +98,7 @@ class DepthMask(BaseStage):
             description=f"Filter for regions with depth {filter_condition}"
         )
         
-        return [self.shell_pipeline(
+        return [self.shell_pipe(
             [genomecov_cmd, awk_cmd], 
             output_file=output_bed, 
             description=description
@@ -139,8 +138,7 @@ class ApplyMask(BaseStage):
             masked_fasta=Path(f"{self.prefix}.masked.fasta")
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Apply mask to FASTA file using temporary copy"""
         temp_fasta = self.fasta.with_suffix(".tmp")
         
@@ -199,8 +197,7 @@ class HetMask(BaseStage):
             het_sites_bed=Path(f"{self.prefix}.het_sites.bed")
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Generate het/low-qual masking commands"""
         commands = []
         

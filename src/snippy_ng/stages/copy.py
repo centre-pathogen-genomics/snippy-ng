@@ -22,8 +22,7 @@ class CopyFile(BaseStage):
     def output(self) -> CopyFileOutput:
         return CopyFileOutput(copied_file=self.output_path)
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.shell_cmd(
                 ["cp", str(self.input), str(self.output_path)],
@@ -41,8 +40,7 @@ class CopyFasta(CopyFile):
 
     _dependencies = [seqkit]
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         if self.header:
             cmd = self.shell_cmd(
                     ["seqkit", "replace", "-p", ".*", "-r", self.header, str(self.input)],

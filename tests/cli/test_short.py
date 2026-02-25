@@ -52,7 +52,6 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
                 "--R2",        p["r2"],
                 "--outdir",    p["out"],
                 "--check",
-                "--skip-check",
             ],
             0,
             False,

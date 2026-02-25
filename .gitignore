@@ -18,3 +18,5 @@ coverage.xml
 dist/
 __pycache__/
 tests/data/samples.csv
+report.html
+samples.csv

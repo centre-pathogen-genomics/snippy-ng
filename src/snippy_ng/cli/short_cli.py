@@ -1,23 +1,24 @@
 import click
-from snippy_ng.cli.utils import absolute_path_callback
+from typing import Any, Optional
+from pathlib import Path
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reference genome (FASTA or GenBank) or prepared reference directory")
-@click.option("--R1", "--pe1", "--left", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reads, paired-end R1 (left)")
-@click.option("--R2", "--pe2", "--right", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Reads, paired-end R2 (right)")
-@click.option("--bam", default=None, type=click.Path(exists=True), callback=absolute_path_callback, help="Use this BAM file instead of aligning reads")
+@click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
+@click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
+@click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--mask", default=None, type=click.Path(exists=True, readable=True), callback=absolute_path_callback, help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
-@click.option("--min-depth", default=10, type=click.INT, help="Minimum coverage to call a variant")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
-def short(**config):
+def short(reference: Path, r1: Optional[Path], r2: Optional[Path], bam: Optional[Path], clean_reads: bool, downsample: Optional[float], mask: Optional[Path], aligner: str, aligner_opts: str, caller_opts: str, min_qual: float, prefix: str, outdir: Path, **context: Any):
     """
     Short read based SNP calling pipeline
 
@@ -25,15 +26,16 @@ def short(**config):
 
         $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
     """
+    from snippy_ng.context import Context
     from snippy_ng.pipelines.short import ShortPipelineBuilder
     
     # combine R1 and R2 into reads
     reads = []
-    if config.get("r1"):
-        reads.append(config["r1"])
-    if config.get("r2"):
-        reads.append(config["r2"])
-    if not reads and not config.get("bam"):
+    if r1:
+        reads.append(r1)
+    if r2:
+        reads.append(r2)
+    if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
     
     # Choose stages to include in the pipeline
@@ -41,30 +43,21 @@ def short(**config):
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = ShortPipelineBuilder(
-        reference=config["reference"],
+        reference=reference,
         reads=reads,
-        prefix=config["prefix"],
-        bam=config["bam"],
-        clean_reads=config["clean_reads"],
-        downsample=config["downsample"],
-        aligner=config["aligner"],
-        aligner_opts=config["aligner_opts"],
-        caller_opts=config["caller_opts"],
-        mask=config["mask"],
-        min_depth=config["min_depth"],
-        min_qual=config["min_qual"],
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus"],
-        ram=config["ram"],
+        prefix=prefix,
+        bam=bam,
+        clean_reads=clean_reads,
+        downsample=downsample,
+        aligner=aligner,
+        aligner_opts=aligner_opts,
+        caller_opts=caller_opts,
+        mask=mask,
+        min_qual=min_qual,
     ).build()
     
     # Run the pipeline
-    pipeline.run(
-        skip_check=config['skip_check'],
-        check=config['check'],
-        cwd=config['outdir'],
-        quiet=config['quiet'],
-        create_missing=config['create_missing'],
-        keep_incomplete=config['keep_incomplete'],
-    )
+    context["outdir"] = outdir
+    run_ctx = Context(**context)
+    return pipeline.run(run_ctx)
     

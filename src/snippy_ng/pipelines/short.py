@@ -29,16 +29,12 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    min_depth: int = Field(default=10, description="Minimum variant depth")
     min_qual: float = Field(default=100, description="Minimum variant quality")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
 
     def build(self) -> SnippyPipeline:
         """Build and return the short-read pipeline."""
         stages = []
-        globals = {'prefix': self.prefix, 'cpus': self.cpus, 'ram': self.ram, 'tmpdir': self.tmpdir}
+        globals = {'prefix': self.prefix}
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -125,7 +121,6 @@ class ShortPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
-            mincov=self.min_depth,
             **globals
         )
         stages.append(caller)
@@ -134,7 +129,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         variant_filter = VcfFilterShort(
             vcf=caller.output.vcf,
             reference=reference_file,
-            min_depth=self.min_depth,
             min_qual=self.min_qual,
             **globals
         )
@@ -174,7 +168,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         depth_mask = DepthMask(
             bam=aligned_reads,
             fasta=current_fasta,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(depth_mask)

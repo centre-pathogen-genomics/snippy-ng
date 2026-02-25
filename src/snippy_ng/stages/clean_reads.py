@@ -56,7 +56,7 @@ class FastpCleanReads(BaseStage):
             json_report=f"{self.prefix}.fastp.json"
         )
     
-    def build_fastp_command(self) -> ShellCommand:
+    def build_fastp_command(self, ctx) -> ShellCommand:
         """Constructs the fastp command for read cleaning."""
         cmd_parts = ["fastp"]
         
@@ -75,8 +75,8 @@ class FastpCleanReads(BaseStage):
         cmd_parts.extend(["-j", str(self.output.json_report)])
         
         # Threading
-        if self.cpus > 1:
-            cmd_parts.extend(["--thread", str(self.cpus)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["--thread", str(ctx.cpus)])
         
         # Quality filtering
         cmd_parts.extend(["--length_required", str(self.min_length)])
@@ -112,10 +112,9 @@ class FastpCleanReads(BaseStage):
             description=f"Clean and filter {read_type} reads using fastp"
         )
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the fastp cleaning command."""
-        return [self.build_fastp_command()]
+        return [self.build_fastp_command(ctx)]
 
 
 class FastpCleanReadsAggressive(FastpCleanReads):
@@ -166,8 +165,7 @@ class SeqkitCleanLongReads(BaseStage):
             cleaned_reads=cleaned_reads
         )
     
-    @property
-    def commands(self) -> List[ShellCommand]:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Constructs the seqkit command for long read cleaning."""
         cmd_parts = [
             "seqkit", "seq", "--remove-gaps",
@@ -177,8 +175,8 @@ class SeqkitCleanLongReads(BaseStage):
             str(self.reads)
         ]
         
-        if self.cpus > 1:
-            cmd_parts.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["-j", str(ctx.cpus)])
         
         return [self.shell_cmd(
             command=cmd_parts,

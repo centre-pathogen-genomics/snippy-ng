@@ -54,10 +54,6 @@ class FreebayesCaller(Caller):
 
     bam: Path = Field(..., description="Input BAM file")
     fbopt: str = Field("", description="Additional Freebayes options")
-    mincov: int = Field(10, description="Minimum site depth for calling alleles")
-    minfrac: float = Field(
-        0.05, description="Require at least this fraction of observations supporting an alternate allele within a single individual in the in order to evaluate the position"
-    )
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -72,8 +68,7 @@ class FreebayesCaller(Caller):
             regions=str(self.reference) + ".txt",
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
         # 1) Regions for parallel FreeBayes
@@ -81,7 +76,7 @@ class FreebayesCaller(Caller):
             ["fasta_generate_regions.py", str(self.reference_index), "202106"],
             description="Generate genomic regions for parallel variant calling",
         )
-        generate_regions_pipeline = self.shell_pipeline(
+        generate_regions_pipeline = self.shell_pipe(
             commands=[generate_regions_cmd],
             description="Generate regions file for parallel processing",
             output_file=Path(self.output.regions),
@@ -91,11 +86,9 @@ class FreebayesCaller(Caller):
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
-            str(self.cpus),
+            str(ctx.cpus),
             "--ploidy", "2",
             "--min-alternate-count", "2",
-            "--min-alternate-fraction", str(self.minfrac),
-            "--min-coverage", str(self.mincov),
             "--min-repeat-entropy", "1.0",
             "--min-base-quality", "13",
             "--min-mapping-quality", "60",
@@ -120,8 +113,7 @@ class FreebayesCallerLong(FreebayesCaller):
     Call variants using Freebayes for long-read data.
     """
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
         # Regions for parallel FreeBayes
@@ -134,14 +126,11 @@ class FreebayesCallerLong(FreebayesCaller):
         freebayes_cmd_parts = [
             "freebayes-parallel",
             str(self.output.regions),
-            str(self.cpus),
+            str(ctx.cpus),
             "--haplotype-length", "-1",
             "--min-mapping-quality", "10",
             "--min-base-quality", "10",
             "--ploidy", "2",
-            "--min-coverage", str(self.mincov),
-            "--min-alternate-fraction", str(self.minfrac),
-
         ]
         if self.fbopt:
             import shlex
@@ -191,13 +180,12 @@ class PAFCaller(Caller):
             annotations_file_index=Path(f"{self.prefix}.annotations.gz.tbi"),
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the PAF processing and BED generation commands."""
 
         # 4) Convert PAF to merged aligned reference intervals (BED)
         # Keep primary or pseudo-primary hits: tp:A:P or tp:A:I
-        paf_to_pipeline = self.shell_pipeline(
+        paf_to_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     ["grep", "-E", "tp:A:[PI]", str(self.paf)],
@@ -255,7 +243,7 @@ class PAFCaller(Caller):
                     output_file=self.output.vcf.with_suffix(".tmp"),
                 )
 
-        create_annotation_file_pipeline = self.shell_pipeline(
+        create_annotation_file_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     [
@@ -330,8 +318,7 @@ class Clair3Caller(Caller):
             vcf=Path(f"{self.prefix}.raw.vcf"),
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Clair3 variant calling commands."""
 
         clair3_cmd = self.shell_cmd(
@@ -340,7 +327,7 @@ class Clair3Caller(Caller):
                 f"--model_path={self.clair3_model.absolute()}",
                 f"--bam_fn={str(self.bam.absolute())}",
                 f"--ref_fn={str(self.reference.absolute())}",
-                f"--threads={str(self.cpus)}",
+                f"--threads={str(ctx.cpus)}",
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",

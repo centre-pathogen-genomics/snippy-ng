@@ -1,7 +1,6 @@
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
 from snippy_ng.stages.core import CombineFastaFile, SoftCoreFilter
-from typing import Optional
 from pathlib import Path
 from pydantic import Field
 
@@ -11,9 +10,6 @@ class CorePipelineBuilder(PipelineBuilder):
     snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
     prefix: str = Field(default="core", description="Output file prefix")
 
     def build(self) -> SnippyPipeline:
@@ -31,9 +27,6 @@ class CorePipelineBuilder(PipelineBuilder):
         combine_stage = CombineFastaFile(
             snippy_dirs=self.snippy_dirs,
             reference=reference_file,
-            tmpdir=self.tmpdir,
-            cpus=self.cpus,
-            ram=self.ram,
             prefix=self.prefix,
         )
         stages.append(combine_stage)
@@ -42,9 +35,6 @@ class CorePipelineBuilder(PipelineBuilder):
         filter_stage = SoftCoreFilter(
             aln=combine_stage.output.aln,
             core_threshold=self.core,
-            tmpdir=self.tmpdir,
-            cpus=self.cpus,
-            ram=self.ram,
             prefix=self.prefix,
         )
         stages.append(filter_stage)

@@ -55,8 +55,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         if num_contigs != ref_contigs:
             raise ConsensusValidationError(f"FASTA file {fasta_file} contig count mismatch: expected {ref_contigs}, got {num_contigs}")
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the bcftools consensus command."""
 
         bcf_csq_args = ["bcftools", "consensus"]

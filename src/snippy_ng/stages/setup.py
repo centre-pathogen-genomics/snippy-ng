@@ -50,8 +50,7 @@ class PrepareReference(BaseStage):
             metadata=self.directory / METADATA_FILE_NAME,
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         process_reference_cmd = self.python_cmd(
             func=self.process_reference,
             args=(self.input, self.ref_fmt, self.output.reference, self.output.gff),
@@ -71,7 +70,7 @@ class PrepareReference(BaseStage):
                 ["samtools", "faidx", str(self.output.reference)],
                 description=f"Index reference FASTA with samtools faidx: {self.output.reference}",
             ),
-            self.shell_pipeline(
+            self.shell_pipe(
                 commands=[
                     self.shell_cmd(
                         ["cut", "-f1,2", str(self.output.reference_index)],
@@ -396,8 +395,7 @@ class LoadReferenceFromMetadataFile(BaseStage):
             metadata=self.metadata,
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         validate_reference_cmd = self.python_cmd(
             func=self.validate_reference,
             description="Validate reference files and metadata",

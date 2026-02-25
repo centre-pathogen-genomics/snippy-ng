@@ -4,19 +4,17 @@ import os
 from pathlib import Path
 import time
 
-from snippy_ng.exceptions import DependencyError, MissingOutputError
+from snippy_ng.exceptions import DependencyError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
-from snippy_ng.stages import BaseStage
+from snippy_ng.stages import BaseStage, Context
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
-    prefix: str = Field(default="tree", description="Output file prefix")
+    prefix: str = Field(default="snps", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""
@@ -34,26 +32,24 @@ class SnippyPipeline:
             stages = []
         self.stages = stages
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
+    def run(self, context: Context):
         self.welcome()
 
-        if not skip_check:
+        if not context.skip_check:
             try:
                 self.validate_dependencies()
             except DependencyError as e:
                 raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
         
-        if check:
+        if context.check:
             return None
 
         # Set working directory to output folder
         current_dir = Path.cwd()
         try:
-            self.set_working_directory(cwd)
+            self.set_working_directory(context.outdir)
             self._execute_pipeline_stages_in_order(
-                quiet=quiet,
-                create_missing=create_missing,
-                keep_incomplete=keep_incomplete
+                context,
             )
         finally:
             self.cleanup(current_dir)
@@ -112,7 +108,7 @@ class SnippyPipeline:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def _execute_pipeline_stages_in_order(self, quiet=False, create_missing=False, keep_incomplete=False):
+    def _execute_pipeline_stages_in_order(self, run_ctx: Context):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
@@ -120,40 +116,15 @@ class SnippyPipeline:
         for stage in self.stages:
             self.hr(f"{stage.name}")
             self.debug(stage)
-
-            if create_missing:
-                try:
-                    stage.error_if_outputs_missing()
-                    self.log(f"{stage.name} already completed, skipping...")
-                    continue
-                except MissingOutputError:
-                    pass
-            try:
-                start = time.perf_counter()
-                stage.run(quiet)
-                end = time.perf_counter()
-                self.debug(f"Runtime: {(end - start):.2f} seconds")
-                # After running each stage,
-                # check all expected outputs were produced
-                stage.error_if_outputs_missing()
-                # run any tests defined for the stage
-                stage.run_tests()
-            except (Exception, KeyboardInterrupt) as e:
-                # remove outputs if stage fails
-                if keep_incomplete:
-                    raise e 
-                if stage.output._immutable:
-                    raise e
-                output_removed = False
-                for name, path in stage.output:
-                    if path and Path(path).exists():
-                        output_removed = True
-                        self.warning(f"Removing incomplete output '{name}' ({path}).")
-                        Path(path).unlink()
-                if output_removed:
-                    self.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
-                raise e
-          
+            start = time.perf_counter()
+            stage.run(run_ctx)
+            end = time.perf_counter()
+            self.debug(f"Runtime: {(end - start):.2f} seconds")
+            # After running each stage,
+            # check all expected outputs were produced
+            stage.error_if_outputs_missing()
+            # run any tests defined for the stage
+            stage.run_tests()
         self.end_time = time.perf_counter()
 
     

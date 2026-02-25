@@ -26,8 +26,7 @@ class BgzipCompressor(Compressor):
             compressed=self.input.with_name(f"{self.input.name}.{self.suffix}")
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         """Constructs the gzip compression command."""
         bgzip_cmd = self.shell_cmd([
                 "bgzip", "-c", str(self.input)

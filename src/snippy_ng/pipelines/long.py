@@ -34,16 +34,12 @@ class LongPipelineBuilder(PipelineBuilder):
     min_read_len: int = Field(default=1000, description="Minimum read length")
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     min_qual: float = Field(default=100, description="Minimum variant quality")
-    min_depth: int = Field(default=10, description="Minimum variant depth")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
         stages = []
-        globals = {'prefix': self.prefix, 'cpus': self.cpus, 'ram': self.ram, 'tmpdir': self.tmpdir}
+        globals = {'prefix': self.prefix}
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -142,7 +138,6 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference=reference_file,
                 reference_index=reference_index,
                 fbopt=self.caller_opts,
-                mincov=2,
                 **globals
             )
         stages.append(caller_stage)
@@ -153,7 +148,6 @@ class LongPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             min_qual=self.min_qual,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(variant_filter)
@@ -192,7 +186,6 @@ class LongPipelineBuilder(PipelineBuilder):
         depth_mask = DepthMask(
             bam=aligned_reads,
             fasta=current_fasta,
-            min_depth=self.min_depth,
             **globals
         )
         stages.append(depth_mask)

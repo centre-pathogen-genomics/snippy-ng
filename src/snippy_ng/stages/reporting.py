@@ -1,8 +1,10 @@
 import gzip
 import os
 import re
+import csv
 from pathlib import Path
 import datetime
+import json
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.stages import PythonCommand
@@ -20,8 +22,7 @@ class PrintVcfSummary(BaseStage):
     def output(self) -> None:
         return BaseOutput()
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.summarize_vcfs,
@@ -86,8 +87,7 @@ class PrintVcfHistogram(BaseStage):
     def output(self) -> None:
         return BaseOutput()
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.print_histograms,
@@ -399,12 +399,10 @@ class FormatHTMLReportTemplate(BaseStage):
     def output(self) -> FormatHTMLReportTemplateOutput:
         return FormatHTMLReportTemplateOutput(rendered="report.html")
 
-    @property
-    def commands(self) -> List[PythonCommand]:
+    def create_commands(self, ctx) -> List[PythonCommand]:
         return [
             self.python_cmd(
                 func=self.render_template,
-                args=[self.template_path, self.context],
                 description="Render a template with provided context"
             )
         ]
@@ -422,8 +420,9 @@ class FormatHTMLReportTemplate(BaseStage):
             'USER': os.getenv("USER", "Unknown"),
         }
 
-    def render_template(self, template: Path, context: Context) -> None:
-        context = {**self.default_context(), **context}
+    def render_template(self) -> None:
+        template = self.template_path
+        context = {**self.default_context(), **self.context}
         # eval any callable context values (e.g. lambda functions) to get their actual value before rendering
         for k, v in context.items():
             # check value is of type Path and read the file content
@@ -451,7 +450,9 @@ class FormatHTMLReportTemplate(BaseStage):
             f.write(template_content)
 
 class EpiReport(FormatHTMLReportTemplate):
-    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "snippy-epi-report.html"
+    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "snippy-epi-report.html"
+    iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "iso3166-2-export.csv"
+    preprocess_tree: bool = Field(default=True, description="Whether to pre-process the NEWICK tree by rooting at midpoint and ladderizing before rendering the report")
 
     _dependencies = [biopython]
 
@@ -466,8 +467,9 @@ class EpiReport(FormatHTMLReportTemplate):
         try:
             newick_str = context["NEWICK"]
             tree = Phylo.read(StringIO(newick_str), "newick")
-            tree.root_at_midpoint()
-            tree.ladderize()
+            if self.preprocess_tree:
+                tree.root_at_midpoint()
+                tree.ladderize()
             handle = StringIO()
             Phylo.write(tree, handle, "newick")
             context["NEWICK"] = handle.getvalue().strip()
@@ -475,7 +477,6 @@ class EpiReport(FormatHTMLReportTemplate):
             raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
         
         if context["METADATA_JSON"] is not None:
-            import json
             try:
                 metadata_json_str = context["METADATA_JSON"]
                 metadata = json.loads(metadata_json_str)
@@ -488,7 +489,26 @@ class EpiReport(FormatHTMLReportTemplate):
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
                 if entry["id"] not in tree_tips:
                     raise PipelineExecutionError(f"Metadata entry id '{entry['id']}' does not match any tip in the NEWICK tree for EpiReport context")
-        
+
+        # add iso3166-2 country code mapping to context for use in the template
+        iso3166_mapping = {}
+        with open(self.iso3166_2, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                subdivision_code = row.get("subdivisionCode")
+                lat_lng_str = row.get("latLng")
+                if not subdivision_code or not lat_lng_str:
+                    continue
+
+                try:
+                    lat_lng = json.loads(lat_lng_str)
+                    if isinstance(lat_lng, list) and len(lat_lng) == 2:
+                        iso3166_mapping[subdivision_code] = lat_lng
+                except Exception:
+                    continue
+                
+        context["ISO3166_MAPPING_JSON"] = json.dumps(iso3166_mapping)
+
         # convert None to null for html
         for k, v in context.items():
             if v is None:
