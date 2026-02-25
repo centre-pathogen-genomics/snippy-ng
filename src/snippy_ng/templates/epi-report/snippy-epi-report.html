@@ -34,7 +34,7 @@
       }
 
       #metadata-table .tabulator-row.component-selected .tabulator-cell {
-        background-color: #74baff63 !important; 
+        background-color: #e74c3c63 !important; 
       }
 
       .map-marker-label-icon .map-marker-label {
@@ -42,7 +42,7 @@
       }
 
       .map-marker-label-icon.component-selected .map-marker-label {
-        border-color: #74baff !important;
+        border-color: #e74c3c !important;
         border-width: 2px !important;
       }
     </style>
@@ -60,6 +60,8 @@
       const treeData = `{{NEWICK}}`;
       const metadata = {{METADATA_JSON}};
       const logs = `{{LOGS}}`;
+      // Parse the ISO3166-2 mapping subdivision_code: lat, long e.g. "US-CA": [37.7749, -122.4194]
+      const iso3166Mapping = JSON.parse(`{{ISO3166_MAPPING_JSON}}`);
     </script>
   </head>
 
@@ -135,7 +137,9 @@
                 <li><b>Toggle selection:</b> Click the currently selected item again to clear selection.</li>
                 <li><b>Explore the table:</b> Sort columns, search values, and page through rows.</li>
                 <li><b>Resize panels:</b> Drag the row and column handles between panels to adjust layout.</li>
+                <li><b>Shortcuts:</b> Press <code>t</code> (tree), <code>m</code> (map), <code>d</code> (data table).</li>
                 <li><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched by column <code>id</code>.</li>
+                <li><b>Use ISO subdivision mapping:</b> If your metadata includes an ISO 3166-2 column (e.g. <code>iso3166-2</code>), the report auto-fills missing <code>latitude</code>/<code>longitude</code> values from the built-in subdivision mapping.</li>
               </ul>
             </div>
             <pre
@@ -276,6 +280,7 @@
       const ROW_RESIZER_OFFSET_PX = 8;
       let currentTreeWidthPct = DEFAULT_TREE_WIDTH_PCT;
       let selectedMetadataId = null;
+      let mapHasData = false;
       const LINK_ID_KEYS = ["id", "sample_id", "sample", "name"];
 
       function findLinkValueInObject(row) {
@@ -381,7 +386,8 @@
       function setTreeMapWidths(treePercent) {
         if (!els.treeContainer || !els.mapPanel) return;
         const mapIsHidden = els.mapPanel.classList.contains("hidden");
-        if (window.innerWidth < 768 || mapIsHidden) {
+        const treeIsHidden = els.treeContainer.classList.contains("hidden");
+        if (window.innerWidth < 768 || mapIsHidden || treeIsHidden) {
           els.treeContainer.style.width = "";
           els.mapPanel.style.width = "";
           return;
@@ -415,7 +421,8 @@
         els.colResizer.addEventListener("pointerdown", (e) => {
           if (
             window.innerWidth < 768 ||
-            (els.mapPanel && els.mapPanel.classList.contains("hidden"))
+            (els.mapPanel && els.mapPanel.classList.contains("hidden")) ||
+            (els.treeContainer && els.treeContainer.classList.contains("hidden"))
           )
             return;
           isResizingCols = true;
@@ -534,7 +541,7 @@
             source: newickStr,
             showLabels: true,
             showLeafLabels: true,
-            highlightColour: "#74baff",
+            highlightColour: "#e74c3c",
             interactive: true,
           },
           [window.phylocanvas.plugins.scalebar],
@@ -594,6 +601,51 @@
           out.id = normalizeId(out.id);
         }
         return out;
+      }
+
+      function canonicalIsoKey(key) {
+        let k = String(key || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+        return k
+      }
+
+      function enrichRowsWithIso3166Coordinates(rows) {
+        if (!Array.isArray(rows) || !rows.length) return rows;
+        const { latKey, lonKey } = findCoordinateKeys(rows);
+        if (!iso3166Mapping || typeof iso3166Mapping !== "object") return rows;
+
+        return rows.map((row) => {
+          if (!row || typeof row !== "object") return row;
+
+          const targetLatKey = latKey || "latitude";
+          const targetLonKey = lonKey || "longitude";
+          const currentLat = parseCoordinate(row[targetLatKey]);
+          const currentLon = parseCoordinate(row[targetLonKey]);
+          const hasRowCoordinates = currentLat !== null && currentLon !== null;
+          if (hasRowCoordinates) return row;
+          
+          const isoKey = Object.keys(row).find(
+            (k) => canonicalIsoKey(k) === "iso31662",
+          );
+          if (!isoKey) return row;
+
+          const isoCode = String(row[isoKey] || "").trim().toUpperCase();
+          if (!isoCode) return row;
+
+          const mapped = iso3166Mapping[isoCode];
+          if (!Array.isArray(mapped) || mapped.length < 2) return row;
+
+          const lat = parseCoordinate(mapped[0]);
+          const lon = parseCoordinate(mapped[1]);
+          if (lat === null || lon === null) return row;
+
+          return {
+            ...row,
+            [targetLatKey]: String(lat),
+            [targetLonKey]: String(lon),
+          };
+        });
       }
 
       function parseDelimitedLine(line, delimiter) {
@@ -729,6 +781,7 @@
         }
 
         if (changed) {
+          metadataRows = enrichRowsWithIso3166Coordinates(metadataRows);
           renderMetadataTable();
           initMapFromMetadata(metadataRows);
           refreshVisualSizes();
@@ -744,6 +797,7 @@
 
         metadataRows =
           normalizeMetadataRows(rawMetadata).map(normalizeRowObject);
+        metadataRows = enrichRowsWithIso3166Coordinates(metadataRows);
         renderMetadataTable();
       }
 
@@ -997,6 +1051,7 @@
         ).filter((r) => typeof r === "object");
         const { latKey, lonKey } = findCoordinateKeys(rows);
         if (!latKey || !lonKey) {
+          mapHasData = false;
           els.mapPanel.classList.add("hidden");
           if (els.colResizer) {
             els.colResizer.classList.remove("md:block");
@@ -1025,6 +1080,7 @@
           .filter(Boolean);
 
         if (!points.length) {
+          mapHasData = false;
           els.mapPanel.classList.add("hidden");
           if (els.colResizer) {
             els.colResizer.classList.remove("md:block");
@@ -1036,6 +1092,7 @@
           return;
         }
 
+        mapHasData = true;
         els.mapPanel.classList.remove("hidden");
         if (els.colResizer) {
           els.colResizer.classList.remove("md:hidden");
@@ -1104,6 +1161,64 @@
         });
       }
 
+      function isEditableTarget(target) {
+        if (!(target instanceof HTMLElement)) return false;
+        const tag = target.tagName;
+        return (
+          target.isContentEditable ||
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT"
+        );
+      }
+
+      function syncTopPanelLayout() {
+        if (!els.colResizer || !els.mapPanel || !els.treeContainer) return;
+        const mapVisible = !els.mapPanel.classList.contains("hidden");
+        const treeVisible = !els.treeContainer.classList.contains("hidden");
+        const showTopPanels = mapVisible || treeVisible;
+
+        if (els.topRow) {
+          els.topRow.classList.toggle("hidden", !showTopPanels);
+        }
+        if (els.rowResizer) {
+          els.rowResizer.classList.toggle("hidden", !showTopPanels);
+        }
+
+        if (mapVisible && treeVisible) {
+          els.colResizer.classList.remove("md:hidden");
+          els.colResizer.classList.add("md:block");
+        } else {
+          els.colResizer.classList.remove("md:block");
+          els.colResizer.classList.add("md:hidden");
+        }
+        setTreeMapWidths(currentTreeWidthPct);
+        refreshVisualSizes();
+      }
+
+      function initKeyboardShortcuts() {
+        document.addEventListener("keydown", (e) => {
+          if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+          if (isEditableTarget(e.target)) return;
+
+          const key = String(e.key || "").toLowerCase();
+          if (key === "t" && els.treeContainer) {
+            e.preventDefault();
+            els.treeContainer.classList.toggle("hidden");
+            syncTopPanelLayout();
+          } else if (key === "m" && els.mapPanel) {
+            e.preventDefault();
+            if (!mapHasData && els.mapPanel.classList.contains("hidden")) return;
+            els.mapPanel.classList.toggle("hidden");
+            syncTopPanelLayout();
+          } else if (key === "d" && els.metadataTableContainer) {
+            e.preventDefault();
+            els.metadataTableContainer.classList.toggle("hidden");
+            refreshVisualSizes();
+          }
+        });
+      }
+
       function openLogsModal() {
         if (!els.logsModal) return;
         if (els.logsModalContent) {
@@ -1156,6 +1271,8 @@
       initRowResizer();
       initColResizer();
       initMetadataDropzone();
+      initKeyboardShortcuts();
+      syncTopPanelLayout();
     </script>
   </body>
 </html>

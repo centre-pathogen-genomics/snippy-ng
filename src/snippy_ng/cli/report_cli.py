@@ -13,7 +13,8 @@ from pathlib import Path
 @click.option("--metadata", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional metadata file (JSON or CSV) to include in the report")
 @click.option("--logs", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional log file to include in the report")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
-def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: str, outdir: Optional[Path], prefix: str, **context: Any):
+@click.option("--no-preprocess-tree", is_flag=True, default=False, help="Disable pre-processing of the NEWICK tree (rooting at midpoint and ladderizing) before rendering the report")
+def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: str, outdir: Optional[Path], prefix: str, no_preprocess_tree: bool, **context: Any):
     """
     Create phylogenetic tree from alignment
 
@@ -48,6 +49,7 @@ def report(tree: Path, metadata: Optional[Path], logs: Optional[Path], title: st
     # before starting the pipeline
     pipeline = ReportPipelineBuilder(
         tree=tree,
+        preprocess_tree=not no_preprocess_tree,
         title=title,
         metadata=metadata,
         logs=logs,
