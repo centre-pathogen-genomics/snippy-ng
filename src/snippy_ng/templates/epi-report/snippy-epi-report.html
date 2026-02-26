@@ -515,6 +515,10 @@
       }
 
       function applyLinkedSelectionToMapMarkers() {
+        const selectedOrder = Array.from(selectedMetadataIds);
+        const selectedRankById = new Map(
+          selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
+        );
         mapMarkersById.forEach((marker, id) => {
           const markerEl =
             marker && typeof marker.getElement === "function"
@@ -525,7 +529,8 @@
             markerEl.classList.toggle("component-selected", isSelected);
           }
           if (marker && typeof marker.setZIndexOffset === "function") {
-            marker.setZIndexOffset(isSelected ? 1000 : 0);
+            const rank = selectedRankById.get(id) || 0;
+            marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
           }
         });
       }
