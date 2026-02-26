@@ -8,7 +8,8 @@ from snippy_ng.stages.reporting import EpiReport, Context
 class ReportPipelineBuilder(PipelineBuilder):
     """Builder for reporting pipeline."""
     tree: Path = Field(..., description="Phylogenetic tree file in Newick format")
-    preprocess_tree: bool = Field(default=True, description="Whether to pre-process the NEWICK tree by rooting at midpoint and ladderizing before rendering the report")
+    mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
+    ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     title: str = Field(default="Snippy-NG Report", description="Title for the report")
     metadata: Optional[Union[Path, str]] = Field(default=None, description="Metadata file in JSON format or a JSON string")
     logs: Optional[Path] = Field(default=None, description="Log file to include in the report")
@@ -25,7 +26,8 @@ class ReportPipelineBuilder(PipelineBuilder):
             }
         report_stage = EpiReport(
             context=context,
-            preprocess_tree=self.preprocess_tree,
+            mid_point_root=self.mid_point_root,
+            ladderize=self.ladderize,
         )
         stages.append(report_stage)
 

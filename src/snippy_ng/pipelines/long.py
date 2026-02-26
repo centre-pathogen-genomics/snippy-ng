@@ -12,7 +12,7 @@ from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
+from snippy_ng.stages.masks import DepthMask, DelMask, ApplyMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -23,6 +23,7 @@ class LongPipelineBuilder(PipelineBuilder):
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     prefix: str = Field(default="snps", description="Output file prefix")
+    clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
     aligner: str = Field(default="minimap2", description="Aligner to use")
     aligner_opts: str = Field(default="", description="Additional aligner options")
@@ -35,6 +36,7 @@ class LongPipelineBuilder(PipelineBuilder):
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     min_qual: float = Field(default=100, description="Minimum variant quality")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    depth_mask: int = Field(default=0, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
@@ -72,7 +74,7 @@ class LongPipelineBuilder(PipelineBuilder):
             stages.append(downsample_stage)
         
         # Clean reads
-        if current_reads and current_reads:
+        if self.clean_reads and current_reads:
             clean_reads_stage = SeqkitCleanLongReads(
                 reads=str(current_reads[0]),
                 min_length=self.min_read_len,
@@ -182,14 +184,25 @@ class LongPipelineBuilder(PipelineBuilder):
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
         
-        # Apply depth masking
-        depth_mask = DepthMask(
+        # Apply minimum-depth masking
+        if self.depth_mask > 0:
+            depth_mask = DepthMask(
+                bam=aligned_reads,
+                fasta=current_fasta,
+                min_depth=self.depth_mask,
+                **globals
+            )
+            stages.append(depth_mask)
+            current_fasta = depth_mask.output.masked_fasta
+
+        # Apply zero-depth deletion masking
+        del_mask = DelMask(
             bam=aligned_reads,
             fasta=current_fasta,
             **globals
         )
-        stages.append(depth_mask)
-        current_fasta = depth_mask.output.masked_fasta
+        stages.append(del_mask)
+        current_fasta = del_mask.output.masked_fasta
 
         # Apply heterozygous and low quality sites masking
         het_mask = HetMask(

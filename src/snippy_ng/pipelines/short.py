@@ -12,7 +12,7 @@ from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
+from snippy_ng.stages.masks import DelMask, ApplyMask, DepthMask, HetMask
 from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -29,6 +29,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    depth_mask: int = Field(default=0, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=100, description="Minimum variant quality")
 
     def build(self) -> SnippyPipeline:
@@ -163,15 +164,26 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
+
+         # Apply minimum-depth masking
+        if self.depth_mask > 0:
+            depth_mask = DepthMask(
+                bam=aligned_reads,
+                fasta=current_fasta,
+                min_depth=self.depth_mask,
+                **globals
+            )
+            stages.append(depth_mask)
+            current_fasta = depth_mask.output.masked_fasta
         
-        # Apply depth masking
-        depth_mask = DepthMask(
+        # Apply zero-depth deletion masking
+        del_mask = DelMask(
             bam=aligned_reads,
             fasta=current_fasta,
             **globals
         )
-        stages.append(depth_mask)
-        current_fasta = depth_mask.output.masked_fasta
+        stages.append(del_mask)
+        current_fasta = del_mask.output.masked_fasta
 
         # Apply heterozygous and low quality sites masking
         het_mask = HetMask(

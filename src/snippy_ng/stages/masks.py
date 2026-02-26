@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bedtools, bcftools 
@@ -9,24 +9,21 @@ from pydantic import Field
 
 
 class DepthMaskOutput(BaseOutput):
-    """Output from the depth masking stage"""
+    """Output from the minimum-depth masking stage."""
     masked_fasta: Path
-    min_depth_bed: Optional[Path] = None
-    zero_depth_bed: Path
+    min_depth_bed: Path = Field(..., description="BED file with regions masked due to low depth")
 
 
 class DepthMask(BaseStage):
     """
-    Depth masking stage that generates depth-based masks and applies them sequentially.
-    
-    This stage:
-    1. Generates min-depth mask BED file (if min_depth > 0)
-    2. Generates zero-depth mask BED file
-    3. Applies masks sequentially to the reference FASTA
+    Minimum-depth masking stage.
+
+    This stage masks regions with depth strictly below `min_depth` using `N`.
     """
     bam: Path = Field(..., description="Input BAM file")
     fasta: Path = Field(..., description="Input FASTA file to be masked")
-    min_depth: int = Field(0, description="Minimum depth threshold (0 = skip min depth masking)")
+    min_depth: int = Field(..., description="Minimum depth threshold")
+    mask_char: str = Field("N", description="Character to use for masking")
 
     _dependencies = [
         bedtools
@@ -35,57 +32,26 @@ class DepthMask(BaseStage):
     @property
     def output(self) -> DepthMaskOutput:
         return DepthMaskOutput(
-            masked_fasta=Path(f"{self.prefix}.depth_masked.fasta"),
-            min_depth_bed=Path(f"{self.prefix}.mindepth.bed") if self.min_depth > 0 else None,
-            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
+            masked_fasta=Path(f"{self.prefix}.mindepth_masked.fasta"),
+            min_depth_bed=Path(f"{self.prefix}.mindepth.bed")
         )
 
     def create_commands(self, ctx) -> List:
-        """Generate all depth masking commands in sequence"""
-        commands = []
-
-        if self.min_depth > 0: 
-            # Generate min-depth mask if requested
-            min_depth_cmd = self._generate_depth_mask_commands(
+        """Generate commands to create and apply a minimum-depth mask."""
+        return [
+            *self._generate_depth_mask_commands(
                 filter_condition=f"<{self.min_depth}",
                 output_bed=self.output.min_depth_bed,
-                description=f"Generate min-depth mask (depth < {self.min_depth})"
-            )
-            commands.extend(min_depth_cmd)
-        
-        # Generate zero-depth mask (always)
-        zero_depth_cmd = self._generate_depth_mask_commands(
-            filter_condition="==0",
-            output_bed=self.output.zero_depth_bed,
-            description="Generate zero-depth mask"
-        )
-        commands.extend(zero_depth_cmd)
-        
-        # Apply masks sequentially
-        current_fasta = self.fasta
-        
-        if self.min_depth > 0:
-            # Apply min-depth mask first (with 'N')
-            min_depth_masked = Path(f"{self.prefix}.mindepth_masked.fasta")
-            commands.append(self._apply_mask_command(
-                input_fasta=current_fasta,
+                description=f"Generate min-depth mask (depth < {self.min_depth})",
+            ),
+            self._apply_mask_command(
+                input_fasta=self.fasta,
                 mask_bed=self.output.min_depth_bed,
-                output_fasta=min_depth_masked,
-                mask_char="N",
-                description=f"Apply min-depth mask (< {self.min_depth})"
-            ))
-            current_fasta = min_depth_masked
-        
-        # Apply zero-depth mask (with '-')
-        commands.append(self._apply_mask_command(
-            input_fasta=current_fasta,
-            mask_bed=self.output.zero_depth_bed,
-            output_fasta=self.output.masked_fasta,
-            mask_char="-",
-            description="Apply zero-depth mask"
-        ))
-        
-        return commands
+                output_fasta=self.output.masked_fasta,
+                mask_char=self.mask_char,
+                description=f"Apply min-depth mask (< {self.min_depth})",
+            ),
+        ]
     
     def _generate_depth_mask_commands(self, filter_condition: str, output_bed: Path, description: str) -> List:
         """Generate commands to create a depth-based mask BED file using bedtools genomecov"""
@@ -114,6 +80,69 @@ class DepthMask(BaseStage):
             "-fullHeader",
             "-mc", mask_char
         ], description=description)
+
+
+class DelMaskOutput(BaseOutput):
+    """Output from the deletion (zero-depth) masking stage."""
+    masked_fasta: Path
+    zero_depth_bed: Path
+
+
+class DelMask(BaseStage):
+    """
+    Zero-depth masking stage.
+
+    This stage masks regions with depth equal to zero using `-`.
+    """
+    bam: Path = Field(..., description="Input BAM file")
+    fasta: Path = Field(..., description="Input FASTA file to be masked")
+    mask_char: str = Field("-", description="Character to use for masking")
+
+    _dependencies = [
+        bedtools
+    ]
+
+    @property
+    def output(self) -> DelMaskOutput:
+        return DelMaskOutput(
+            masked_fasta=Path(f"{self.prefix}.del_masked.fasta"),
+            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
+        )
+
+    def create_commands(self, ctx) -> List:
+        """Generate commands to create and apply a zero-depth mask."""
+        return [
+            *self._generate_zero_depth_mask_commands(),
+            self._apply_zero_depth_mask(),
+        ]
+
+    def _generate_zero_depth_mask_commands(self) -> List:
+        """Generate commands to create a zero-depth BED mask file."""
+        genomecov_cmd = self.shell_cmd(
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            description="Generate genome coverage in BED format"
+        )
+        awk_cmd = self.shell_cmd(
+            ["awk", '$4==0 {print $1"\\t"$2"\\t"$3}'],
+            description="Filter for regions with depth == 0"
+        )
+
+        return [self.shell_pipe(
+            [genomecov_cmd, awk_cmd],
+            output_file=self.output.zero_depth_bed,
+            description="Generate zero-depth mask"
+        )]
+
+    def _apply_zero_depth_mask(self):
+        """Apply zero-depth mask to FASTA file."""
+        return self.shell_cmd([
+            "bedtools", "maskfasta",
+            "-fi", str(self.fasta),
+            "-bed", str(self.output.zero_depth_bed),
+            "-fo", str(self.output.masked_fasta),
+            "-fullHeader",
+            "-mc", self.mask_char
+        ], description="Apply zero-depth mask")
 
 
 class ApplyMaskOutput(BaseOutput):
