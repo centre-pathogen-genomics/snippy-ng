@@ -151,8 +151,7 @@ GLOBAL_DEFS = [
         "attrs": {
             "is_flag": True,
             "default": False,
-            "help": "Do not delete temporary files after run",
-            "callback": not_implemented_callback
+            "help": "Do not delete temporary files after run"
         },
     }
 ]

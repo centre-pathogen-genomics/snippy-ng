@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
-from typing import ClassVar, Iterable, List, Callable, Optional
+from typing import Annotated, ClassVar, Iterable, List, Callable, Optional
 import subprocess
 import sys
 from io import StringIO
@@ -18,9 +18,43 @@ from pydantic import BaseModel, ConfigDict, Field
 from shlex import quote
 
 
+class TemporaryOutput:
+    """Marker metadata for temporary output fields."""
+
+
+TempPath = Annotated[Path, TemporaryOutput()]
+
+
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     _immutable: bool = False
+
+    @classmethod
+    def _is_temporary_field(cls, field_name: str) -> bool:
+        field_info = cls.model_fields[field_name]
+        return any(isinstance(meta, TemporaryOutput) for meta in field_info.metadata)
+
+    def temporary_outputs(self) -> List[tuple[str, Path]]:
+        """Return temporary output fields and their resolved path values."""
+        tmp_outputs = []
+        for name in self.__class__.model_fields:
+            if not self._is_temporary_field(name):
+                continue
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                tmp_outputs.append((name, value))
+        return tmp_outputs
+
+    def non_temporary_outputs(self) -> List[tuple[str, Path]]:
+        """Return non-temporary output fields and their resolved path values."""
+        outputs = []
+        for name in self.__class__.model_fields:
+            if self._is_temporary_field(name):
+                continue
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                outputs.append((name, value))
+        return outputs
 
 class PythonCommand(BaseModel):
     func: Callable
@@ -124,12 +158,19 @@ class BaseStage(BaseModel):
     def run(self, ctx: Context):
         """Runs the commands in the shell or calls the function."""
         if ctx.create_missing:
-            try:
-                self.error_if_outputs_missing()
-                logger.info(f"{self.name} already completed, skipping...")
-                return
-            except MissingOutputError:
-                pass
+            # Only persistent outputs define whether a stage is "complete".
+            persistent_outputs = self.output.non_temporary_outputs()
+            if persistent_outputs:
+                try:
+                    self.error_if_outputs_missing()
+                    logger.info(f"{self.name} already completed, skipping...")
+                    return
+                except MissingOutputError:
+                    pass
+            else:
+                logger.debug(
+                    f"{self.name} has no persistent outputs (all temporary or none), rerunning with --create-missing."
+                )
         try:
             for cmd in self.create_commands(ctx):
                 assert isinstance(cmd, (ShellCommand, PythonCommand, ShellProcessPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
@@ -272,10 +313,11 @@ class BaseStage(BaseModel):
                 name = getattr(t, "__name__", repr(t))
                 raise StageTestFailure(f"{name.upper()}: {e}") from e
 
-    def error_if_outputs_missing(self):
+    def error_if_outputs_missing(self, include_temporary: bool = False):
         """Raises an error if any expected output files are missing."""
         missing = []
-        for name, path in self.output:
+        outputs = self.output if include_temporary else self.output.non_temporary_outputs()
+        for name, path in outputs:
             if not path:
                 continue
             if not Path(path).exists():

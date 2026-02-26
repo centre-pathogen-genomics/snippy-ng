@@ -52,7 +52,7 @@ class SnippyPipeline:
                 context,
             )
         finally:
-            self.cleanup(current_dir)
+            self.cleanup(current_dir, context)
         self.goodbye()
     
     def add_stage(self, stage):
@@ -128,12 +128,28 @@ class SnippyPipeline:
         self.end_time = time.perf_counter()
 
     
-    def cleanup(self, directory: Path = None):
+    def cleanup(self, directory: Path = None, context: Context = None):
+        # Clean up temporary outputs
+        if context and context.no_cleanup:
+            self.debug("Skipping temporary output cleanup (--no-cleanup).")
+            return
+
+        removed = 0
+        seen = set()
+        for stage in self.stages:
+            for _, path in stage.output.temporary_outputs():
+                if path in seen:
+                    continue
+                seen.add(path)
+                if path.exists():
+                    path.unlink()
+                    removed += 1
+        if removed:
+            self.debug(f"Removed {removed} temporary output file(s).")
+        
         # reset working directory
         if directory:
             os.chdir(directory)
-        # Clean up unnecessary files
-        pass
     
     @property
     def citations(self):
