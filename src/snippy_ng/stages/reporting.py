@@ -452,7 +452,8 @@ class FormatHTMLReportTemplate(BaseStage):
 class EpiReport(FormatHTMLReportTemplate):
     template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "snippy-epi-report.html"
     iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "iso3166-2-export.csv"
-    preprocess_tree: bool = Field(default=True, description="Whether to pre-process the NEWICK tree by rooting at midpoint and ladderizing before rendering the report")
+    ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
+    mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
 
     _dependencies = [biopython]
 
@@ -467,8 +468,9 @@ class EpiReport(FormatHTMLReportTemplate):
         try:
             newick_str = context["NEWICK"]
             tree = Phylo.read(StringIO(newick_str), "newick")
-            if self.preprocess_tree:
+            if self.mid_point_root:
                 tree.root_at_midpoint()
+            if self.ladderize:
                 tree.ladderize()
             handle = StringIO()
             Phylo.write(tree, handle, "newick")
