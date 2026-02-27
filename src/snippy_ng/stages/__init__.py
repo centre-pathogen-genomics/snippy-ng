@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
-from typing import Annotated, ClassVar, Iterable, List, Callable, Optional
+from types import UnionType
+from typing import Annotated, Any, ClassVar, Iterable, List, Callable, Optional, Union, get_args, get_origin
 import subprocess
 import sys
 from io import StringIO
@@ -14,7 +15,7 @@ from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError, MissingOutputError, StageExecutionError, StageTestFailure
 from snippy_ng.context import Context
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from shlex import quote
 
 
@@ -28,11 +29,43 @@ TempPath = Annotated[Path, TemporaryOutput()]
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     _immutable: bool = False
+    _description_overrides: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def get_description(self, field_name: str) -> str:
+        """Get an output field description, honoring instance overrides."""
+        if field_name in self._description_overrides:
+            return self._description_overrides[field_name]
+        field_info = self.__class__.model_fields[field_name]
+        return field_info.description or ""
+
+    @classmethod
+    def _annotation_has_temporary_marker(cls, annotation: Any) -> bool:
+        """Recursively detect TemporaryOutput marker in nested type annotations."""
+        if annotation is None:
+            return False
+
+        origin = get_origin(annotation)
+
+        if origin is Annotated:
+            args = get_args(annotation)
+            if not args:
+                return False
+            base_type, *metadata = args
+            if any(isinstance(meta, TemporaryOutput) for meta in metadata):
+                return True
+            return cls._annotation_has_temporary_marker(base_type)
+
+        if origin in (Union, UnionType):
+            return any(cls._annotation_has_temporary_marker(arg) for arg in get_args(annotation))
+
+        return False
 
     @classmethod
     def _is_temporary_field(cls, field_name: str) -> bool:
         field_info = cls.model_fields[field_name]
-        return any(isinstance(meta, TemporaryOutput) for meta in field_info.metadata)
+        if any(isinstance(meta, TemporaryOutput) for meta in field_info.metadata):
+            return True
+        return cls._annotation_has_temporary_marker(field_info.annotation)
 
     def temporary_outputs(self) -> List[tuple[str, Path]]:
         """Return temporary output fields and their resolved path values."""
@@ -51,6 +84,15 @@ class BaseOutput(BaseModel):
         for name in self.__class__.model_fields:
             if self._is_temporary_field(name):
                 continue
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                outputs.append((name, value))
+        return outputs
+
+    def all_outputs(self) -> List[tuple[str, Path]]:
+        """Return all output fields and their resolved path values."""
+        outputs = []
+        for name in self.__class__.model_fields:
             value = getattr(self, name, None)
             if isinstance(value, Path):
                 outputs.append((name, value))
@@ -96,17 +138,30 @@ class BaseStage(BaseModel):
 
     _dependencies: List[Dependency] = []
     _tests: ClassVar[List[TestFn]] = []
+    _output_description_overrides: dict[str, str] = PrivateAttr(default_factory=dict)
 
     @property
     def name(self) -> str:
         """Returns the name of the stage."""
         return self.__class__.__name__
-
+    
     @property
     @abstractmethod
     def output(self) -> BaseOutput:
         """Defines the output of the stage."""
         pass
+
+    def update_output_description(self, field_name: str, description: str) -> None:
+        """Override an output field description for this stage instance."""
+        if field_name not in self.output.__class__.model_fields:
+            raise ValueError(f"Unknown output field '{field_name}' for {self.name}")
+        self._output_description_overrides[field_name] = description
+
+    def get_output_description(self, field_name: str) -> str:
+        """Get the effective output description for this stage instance."""
+        if field_name in self._output_description_overrides:
+            return self._output_description_overrides[field_name]
+        return self.output.get_description(field_name)
 
     @abstractmethod
     def create_commands(self, ctx: Context) -> List[ShellProcessPipe | ShellCommand | PythonCommand]:
@@ -171,6 +226,8 @@ class BaseStage(BaseModel):
                 logger.debug(
                     f"{self.name} has no persistent outputs (all temporary or none), rerunning with --create-missing."
                 )
+        if ctx.break_points:
+            self.breakpoint()
         try:
             for cmd in self.create_commands(ctx):
                 assert isinstance(cmd, (ShellCommand, PythonCommand, ShellProcessPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
@@ -281,6 +338,25 @@ class BaseStage(BaseModel):
                     logger.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
 
+    def cleanup_tmp_outputs(self):
+        """Delete temporary outputs."""
+        dirs_to_remove = set()
+        for name, path in self.output.temporary_outputs():
+            if path and Path(path).exists():
+                if path.is_dir():
+                    dirs_to_remove.add(path)
+                else:   
+                    logger.debug(f"Removing temporary output '{name}' ({path}).")
+                    Path(path).unlink()
+        for d in sorted(dirs_to_remove, reverse=True):
+            if d.exists():
+                logger.debug(f"Removing temporary output directory ({d}).")
+                try:
+                    d.rmdir()
+                except OSError:
+                    logger.warning(f"Could not remove temporary directory {d} (not empty).")
+                    continue
+
     def _discover_test_methods(self) -> Iterable[Callable[[], None]]:
         """
         Finds bound instance methods named test_*.
@@ -325,6 +401,9 @@ class BaseStage(BaseModel):
         if missing:
             missing_str = ", ".join(f"{name} ({path})" for name, path in missing)
             raise MissingOutputError(f"Expected output files are missing: {missing_str}")
+
+    def breakpoint(self):
+        input("Press Enter to continue...")
 
     @contextmanager
     def redirect_stdout_to_err(self):
