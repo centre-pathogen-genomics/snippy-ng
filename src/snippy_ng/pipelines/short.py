@@ -11,9 +11,9 @@ from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import BgzipCompressor
+from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import DelMask, ApplyMask, DepthMask, HetMask
-from snippy_ng.stages.copy import CopyFasta
+from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
 
@@ -146,9 +146,8 @@ class ShortPipelineBuilder(PipelineBuilder):
         stages.append(consequences)
         
         # Compress VCF
-        gzip = BgzipCompressor(
+        gzip = VcfCompressor(
             input=consequences.output.annotated_vcf,
-            suffix="gz",
             **globals
         )
         stages.append(gzip)
@@ -206,7 +205,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             current_fasta = user_mask.output.masked_fasta
 
         # Copy final masked consensus to standard output location
-        copy_final = CopyFasta(
+        copy_final = FinaliseFasta(
             input=current_fasta,
             output_path=f"{self.prefix}.pseudo.fna",
             **globals

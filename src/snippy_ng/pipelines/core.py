@@ -31,7 +31,7 @@ class CorePipelineBuilder(PipelineBuilder):
         )
         stages.append(combine_stage)
 
-        # # Stage to filter the alignment to create core alignment
+        # Stage to filter the alignment to create core alignment
         filter_stage = SoftCoreFilter(
             aln=combine_stage.output.aln,
             core_threshold=self.core,
