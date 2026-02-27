@@ -26,9 +26,12 @@ class Logger():
     
     def warning(self, msg):
         self.echo(self._format("WARNING", msg), err=True)
-    
+
+    def is_debug(self):
+        return os.getenv("SNIPPY_NG_DEBUG", "0") == "1"
+
     def debug(self, msg):
-        if os.getenv("SNIPPY_NG_DEBUG", "0") == "1":
+        if self.is_debug():
             self.echo(self._format("DEBUG", msg), err=True)
     
     def error(self, msg):
