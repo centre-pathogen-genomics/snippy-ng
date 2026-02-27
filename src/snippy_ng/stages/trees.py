@@ -2,19 +2,19 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
-from snippy_ng.stages import BaseOutput, BaseStage
+from snippy_ng.stages import BaseOutput, BaseStage, TempPath
 from snippy_ng.dependencies import iqtree
 
 
 class IQTreeBuildTreeOutput(BaseOutput):
-    bionj: Path
-    checkpoint: Path
-    contree: Optional[Path]
-    iqtree: Path
-    log: Path
-    mldist: Path
-    splits: Optional[Path]
-    tree: Path
+    bionj: TempPath
+    checkpoint: TempPath
+    contree: Optional[TempPath]
+    iqtree: TempPath
+    log: TempPath
+    mldist: TempPath
+    splits: Optional[TempPath]
+    tree: Path = Field(..., description="Output tree file in Newick format")
 
 
 class IQTreeBuildTree(BaseStage):

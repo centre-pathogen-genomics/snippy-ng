@@ -3,7 +3,7 @@ from typing import List
 
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput, TempPath
 from snippy_ng.dependencies import bcftools
 
 from pydantic import Field
@@ -16,6 +16,7 @@ class PseudoAlignment(BaseStage):
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
     fasta: Path
+    vcf_index: TempPath = Field(..., description="Index file for the input VCF.gz")
 
 class BcftoolsPseudoAlignment(PseudoAlignment):
     """
@@ -32,7 +33,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.pseudo.raw.fna")
+            fasta=Path(f"{self.prefix}.pseudo.raw.fna"),
+            vcf_index=Path(f"{self.vcf_gz}.csi")
         )
     
     def test_output_matches_reference(self):
@@ -72,5 +74,4 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         return [
             self.shell_cmd(["bcftools", "index", str(self.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
-            self.shell_cmd(["rm", f"{self.vcf_gz}.csi"], description="Removing VCF index file") 
         ]

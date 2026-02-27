@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
 from snippy_ng.dependencies import fastp, seqkit
 from pydantic import Field, field_validator
 
 
 class FastpCleanReadsOutput(BaseOutput):
-    cleaned_r1: Path
-    cleaned_r2: Optional[Path] = None
-    html_report: Path
-    json_report: Path
+    cleaned_r1: Path = Field(..., description="Cleaned R1 FASTQ file")
+    cleaned_r2: Optional[Path] = Field(None, description="Cleaned R2 FASTQ file (if paired-end)")
+    html_report: TempPath
+    json_report: TempPath
 
 
 class FastpCleanReads(BaseStage):
@@ -142,7 +142,7 @@ class FastpCleanReadsConservative(FastpCleanReads):
 
 
 class SeqkitCleanReadsOutput(BaseOutput):
-    cleaned_reads: str
+    cleaned_reads: Path
 
 class SeqkitCleanLongReads(BaseStage):
     """

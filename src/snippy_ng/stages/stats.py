@@ -7,12 +7,7 @@ from pydantic import Field, field_validator
 
 
 class SeqKitReadStatsOutput(BaseOutput):
-    """Output model for SeqKitReadStats stages.
-    
-    Attributes:
-        stats_tsv: Path to the generated TSV file containing read statistics.
-    """
-    stats_tsv: Path = Field(..., description="Path to the generated TSV file containing read statistics")
+    stats_tsv: Path = Field(..., description="Tab Separated Values (TSV) file containing read statistics")
 
 
 class SeqKitReadStats(BaseStage):

@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import List, Annotated, Optional
 
-from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput, TempPath
 from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3
 from snippy_ng.logging import logger
 
@@ -43,8 +43,8 @@ class BaseCallerOutput(BaseOutput):
     vcf: Path
 
 class FreebayesCallerOutput(BaseCallerOutput):
-    vcf: Path
-    regions: str
+    vcf: Path = Field(..., description="VCF file containing raw variant calls")
+    regions: TempPath = Field(..., description="BED file with regions used for parallel calling")
 
 
 class FreebayesCaller(Caller):
@@ -65,7 +65,7 @@ class FreebayesCaller(Caller):
     def output(self) -> FreebayesCallerOutput:
         return FreebayesCallerOutput(
             vcf=self.prefix + ".raw.vcf",
-            regions=str(self.reference) + ".txt",
+            regions=self.prefix + ".regions.txt",
         )
 
     def create_commands(self, ctx) -> List:
@@ -148,10 +148,11 @@ class FreebayesCallerLong(FreebayesCaller):
 
 class PAFCallerOutput(BaseCallerOutput):
     vcf: Path
-    aln_bed: Path
+    tmp_vcf: TempPath
     missing_bed: Path
-    annotations_file: Path
-    annotations_file_index: Path
+    aln_bed: TempPath
+    annotations_file: TempPath
+    annotations_file_index: TempPath
 
 
 class PAFCaller(Caller):
@@ -178,6 +179,7 @@ class PAFCaller(Caller):
             missing_bed=Path(f"{self.prefix}.missing.bed"),
             annotations_file=Path(f"{self.prefix}.annotations.gz"),
             annotations_file_index=Path(f"{self.prefix}.annotations.gz.tbi"),
+            tmp_vcf=Path(f"{self.prefix}.tmp.vcf"),
         )
 
     def create_commands(self, ctx) -> List:
@@ -240,7 +242,7 @@ class PAFCaller(Caller):
                         str(self.paf),
                     ],
                     description="Call variants from PAF using paftools.js",
-                    output_file=self.output.vcf.with_suffix(".tmp"),
+                    output_file=self.output.tmp_vcf,
                 )
 
         create_annotation_file_pipeline = self.shell_pipe(
@@ -287,7 +289,8 @@ class PAFCaller(Caller):
                     description="Insert FORMAT header lines for DP and AO",
                     output_file=self.output.vcf,
                 )
-
+        # TODO: Combine vcf with missing bed using <DEL> blocks so we have a single 
+        # VCF output with both variant calls and missing regions annotated as deletions.
         return [
             paf_to_pipeline,
             compute_missing_bed_cmd,

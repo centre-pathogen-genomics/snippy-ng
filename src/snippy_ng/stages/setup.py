@@ -18,11 +18,12 @@ class ReferenceValidationError(StageExecutionError):
 
 
 class ReferenceOutput(BaseOutput):
-    reference: Path
-    reference_index: Path
-    reference_dict: Path
-    gff: Path
-    metadata: Path
+    reference: Path = Field(..., description="Reference FASTA file")
+    reference_index: Path = Field(..., description="Reference FASTA index file")
+    reference_dict: Path = Field(..., description="Reference dictionary file")
+    gff: Path = Field(..., description="Reference GFF file")
+    metadata: Path = Field(..., description="Reference metadata JSON file")
+    reference_directory: Path = Field(..., description="Directory containing reference files")
 
 
 class PrepareReference(BaseStage):
@@ -48,6 +49,7 @@ class PrepareReference(BaseStage):
             reference_dict=self.directory / f"{self.reference_prefix}.dict",
             gff=self.directory / f"{self.reference_prefix}.gff",
             metadata=self.directory / METADATA_FILE_NAME,
+            reference_directory=self.directory,
         )
 
     def create_commands(self, ctx):
@@ -57,10 +59,6 @@ class PrepareReference(BaseStage):
             description=f"Extract FASTA and GFF from reference ({self.ref_fmt})",
         )
         return [
-            self.shell_cmd(
-                ["rm", "-f", str(self.output.reference)],
-                description=f"Remove existing reference FASTA: {self.output.reference}",
-            ),
             self.shell_cmd(
                 ["mkdir", "-p", str(self.directory)],
                 description=f"Create reference directory: {self.directory}",
@@ -393,6 +391,7 @@ class LoadReferenceFromMetadataFile(BaseStage):
             reference_dict=f"{reference_prefix}.dict",
             gff=f"{reference_prefix}.gff",
             metadata=self.metadata,
+            reference_directory=self.metadata.parent,
         )
 
     def create_commands(self, ctx):

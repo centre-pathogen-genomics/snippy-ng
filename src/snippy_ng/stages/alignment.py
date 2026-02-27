@@ -248,7 +248,7 @@ class Minimap2LongReadAligner(Aligner):
 
 
 class AssemblyAlignerOutput(BaseOutput):
-    paf: Path
+    paf: Path = Field(..., description="Output PAF file")
 
 
 class AssemblyAligner(BaseStage):

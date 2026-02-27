@@ -1,6 +1,5 @@
 # Concrete Alignment Strategies
 from pathlib import Path
-from typing import List
 
 from snippy_ng.stages import BaseStage, BaseOutput
 
@@ -35,3 +34,18 @@ class BgzipCompressor(Compressor):
             description="Compressing file with bgzip"
         )
         return [bgzip_cmd]
+
+class VcfCompressorOutput(BaseOutput):
+    compressed: Path = Field(..., description="Compressed VCF file")
+
+class VcfCompressor(BgzipCompressor):
+    """
+    Compress a VCF file using bgzip.
+    """
+    suffix: str = Field("vcf.gz", description="Compression suffix for VCF files")
+
+    @property
+    def output(self) -> VcfCompressorOutput:
+        return VcfCompressorOutput(
+            compressed=self.input.with_name(f"{self.input.stem}.{self.suffix}")
+        )

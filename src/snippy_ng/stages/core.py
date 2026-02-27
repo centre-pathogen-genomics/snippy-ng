@@ -18,7 +18,7 @@ class MSAValidationError(StageExecutionError):
 
 
 class CombineFastaFileOutput(BaseOutput):
-    aln: Path
+    aln: Path = Field(..., description="Combined multi-sample alignment in FASTA format")
 
 
 class CombineFastaFile(BaseStage):
@@ -137,7 +137,7 @@ class CombineFastaFile(BaseStage):
 
 
 class SoftCoreFilterOutput(BaseOutput):
-    aln: Path
+    soft_core: Path = Field(..., description="Filtered MSA containing only soft core positions")
     constant_sites: Path
 
 
@@ -158,7 +158,7 @@ class SoftCoreFilter(BaseStage):
     def output(self) -> SoftCoreFilterOutput:
         aln=Path(f"{self.prefix}.{round(self.core_threshold*100):03d}.aln")
         return SoftCoreFilterOutput(
-            aln=aln,
+            soft_core=aln,
             constant_sites=aln.with_suffix(".fconst")
         )
 
@@ -182,6 +182,6 @@ class SoftCoreFilter(BaseStage):
                     str(self.aln),
                 ],
                 description="Filter MSA to soft core positions",
-                output_file=self.output.aln,
+                output_file=self.output.soft_core,
             ),
         ]

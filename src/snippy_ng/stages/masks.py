@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput, TempPath
 from snippy_ng.dependencies import bedtools, bcftools 
 
 from pydantic import Field
@@ -11,7 +11,7 @@ from pydantic import Field
 class DepthMaskOutput(BaseOutput):
     """Output from the minimum-depth masking stage."""
     masked_fasta: Path
-    min_depth_bed: Path = Field(..., description="BED file with regions masked due to low depth")
+    min_depth_bed: TempPath = Field(..., description="BED file with regions masked due to low depth")
 
 
 class DepthMask(BaseStage):
@@ -85,7 +85,7 @@ class DepthMask(BaseStage):
 class DelMaskOutput(BaseOutput):
     """Output from the deletion (zero-depth) masking stage."""
     masked_fasta: Path
-    zero_depth_bed: Path
+    zero_depth_bed: TempPath
 
 
 class DelMask(BaseStage):
@@ -197,7 +197,7 @@ class ApplyMask(BaseStage):
 class HetMaskOutput(BaseOutput):
     """Output from the heterozygous/low quality masking stage"""
     masked_fasta: Path
-    het_sites_bed: Path
+    het_sites_bed: TempPath
 
 
 class HetMask(BaseStage):
