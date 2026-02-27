@@ -1,5 +1,5 @@
 import random
-from typing import List
+from typing import List, Optional
 import os
 from pathlib import Path
 import time
@@ -24,13 +24,28 @@ class PipelineBuilder(BaseModel):
 class SnippyPipeline:
     """
     Main class for creating Snippy-NG Pipelines.
+
+    If outputs_to_keep is not specified, all stage outputs will be kept by default. If outputs_to_keep is provided, only the specified outputs will be kept and all other stage outputs will be deleted during cleanup (unless --no-cleanup is used).
     """
     stages: List[BaseStage]
+    outputs_to_keep: List[Path]
+    outdir: Optional[Path] = None
 
-    def __init__(self, stages: List[BaseStage] = None):
-        if stages is None:
-            stages = []
-        self.stages = stages
+    def __init__(self, stages: List[BaseStage] = None, outputs_to_keep: List[Path] = None):
+        self.stages = stages or []
+        if outputs_to_keep is None:
+            # keep all outputs by default if not specified
+            outputs_to_keep = []
+            for stage in self.stages:
+                for _, output in stage.output.non_temporary_outputs():
+                    if isinstance(output, Path):
+                        outputs_to_keep.append(output)
+        self.outputs_to_keep = outputs_to_keep
+        # check that outputs_to_keep are Paths else error
+        for output in self.outputs_to_keep:
+            if not isinstance(output, Path):
+                raise ValueError(f"All outputs to keep must be of type Path. Invalid output: {output} ({type(output)})")
+
 
     def run(self, context: Context):
         self.welcome()
@@ -46,13 +61,16 @@ class SnippyPipeline:
 
         # Set working directory to output folder
         current_dir = Path.cwd()
+        self.outdir = context.outdir
         try:
             self.set_working_directory(context.outdir)
             self._execute_pipeline_stages_in_order(
                 context,
             )
+            self.cleanup(context, outputs_to_keep=self.outputs_to_keep)
         finally:
-            self.cleanup(current_dir, context)
+            # Ensure we always return to the original working directory
+            os.chdir(current_dir)
         self.goodbye()
     
     def add_stage(self, stage):
@@ -75,6 +93,9 @@ class SnippyPipeline:
     def warning(self, msg):
         logger.warning(msg)
     
+    def is_debug(self):
+        return logger.is_debug()
+
     def debug(self, msg):
         logger.debug(msg)
 
@@ -125,31 +146,64 @@ class SnippyPipeline:
             stage.error_if_outputs_missing()
             # run any tests defined for the stage
             stage.run_tests()
+            # Clean up stage tmp outputs
+            stage.cleanup_tmp_outputs()
         self.end_time = time.perf_counter()
 
-    
-    def cleanup(self, directory: Path = None, context: Context = None):
-        # Clean up temporary outputs
+    def cleanup(self, context: Context = None, outputs_to_keep: List[Path] | None = None):
+        """Delete all declared stage outputs except those explicitly kept."""
         if context and context.no_cleanup:
-            self.debug("Skipping temporary output cleanup (--no-cleanup).")
+            self.debug("Skipping output cleanup (--no-cleanup).")
             return
 
+        keep_keys = {os.path.abspath(str(p)) for p in (outputs_to_keep or [])}
+        if not keep_keys:
+            self.debug("No outputs specified to keep, skipping cleanup.")
+            return
+        self.debug(f"Keeping {len(keep_keys)} output file(s) from cleanup.")
+        self.debug(f"Keep list: {outputs_to_keep}")
         removed = 0
         seen = set()
+        dirs_to_remove = set()
+
         for stage in self.stages:
-            for _, path in stage.output.temporary_outputs():
-                if path in seen:
+            if stage.output._immutable:
+                self.debug(f"Skipping cleanup for stage '{stage.name}' with immutable output.")
+                continue
+            # Assume temporary outputs are already cleaned up by the stage
+            for _, output in stage.output.non_temporary_outputs():
+                key = os.path.abspath(str(output))
+                if key in seen:
                     continue
-                seen.add(path)
-                if path.exists():
-                    path.unlink()
+                seen.add(key)
+
+                if key in keep_keys:
+                    continue
+
+                if output.exists():
+                    if output.is_dir():
+                        dirs_to_remove.add(output)
+                    else:
+                        self.debug(f"Removing output file: {output}")
+                        output.unlink()
+                        removed += 1
+
+        # Remove directories only if they are empty, after files are deleted.
+        for output_dir in sorted(dirs_to_remove, reverse=True):
+            key = os.path.abspath(str(output_dir))
+            if key in keep_keys:
+                continue
+            if output_dir.exists() and output_dir.is_dir():
+                try:
+                    output_dir.rmdir()
+                    self.debug(f"Removed empty output directory: {output_dir}")
                     removed += 1
+                except OSError:
+                    self.warning(f"Could not remove output directory {output_dir} (not empty).")
+                    continue
+
         if removed:
-            self.debug(f"Removed {removed} temporary output file(s).")
-        
-        # reset working directory
-        if directory:
-            os.chdir(directory)
+            self.debug(f"Removed {removed} output file(s) not in keep list.")
     
     @property
     def citations(self):
@@ -159,6 +213,36 @@ class SnippyPipeline:
                 if dependency.citation:
                     citations.append(dependency.citation)
         return sorted(set(citations))
+    
+    def output_descriptions(self) -> List[str]:
+        """Return kept outputs formatted as: name (path): description."""
+        keep_keys = {os.path.abspath(str(p)) for p in self.outputs_to_keep}
+        lines: List[str] = []
+        seen = set()
+
+        for stage in self.stages:
+            output_model = stage.output
+            for field_name in output_model.__class__.model_fields:
+                output_value = getattr(output_model, field_name, None)
+                if not isinstance(output_value, Path):
+                    continue
+
+                key = os.path.abspath(str(output_value))
+                if key not in keep_keys or key in seen:
+                    continue
+                seen.add(key)
+
+                description = stage.get_output_description(field_name)
+                # join outdir with output path if outdir is set and output path is not absolute
+                path_with_outdir = output_value
+                if self.outdir and not output_value.is_absolute():
+                    path_with_outdir = self.outdir / output_value
+                # make the path relative to the current working directory for display
+                path_with_outdir = path_with_outdir.absolute().relative_to(Path.cwd())
+                description_formatted = f"\n ∟ {description}" if description else ""
+                lines.append(f"{path_with_outdir}{description_formatted}")
+
+        return lines
 
     def welcome(self):
         self.hr()
@@ -203,6 +287,9 @@ class SnippyPipeline:
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
+        self.hr("Output files")
+        descriptions = self.output_descriptions()
+        self.echo("\n".join(descriptions) if descriptions else "No kept output files. Use --no-cleanup to keep all outputs.")
         self.hr("Citations")
         self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
         self.hr()
