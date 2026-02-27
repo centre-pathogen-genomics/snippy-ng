@@ -58,10 +58,10 @@ def stub_pipeline(monkeypatch):
     This allows builder.build() to execute (triggering Pydantic validation)
     while still mocking the actual pipeline execution.
     """
-    def mock_snippy_pipeline(stages=None):
+    def mock_snippy_pipeline(stages=None, outputs_to_keep=None):
         # Builder instantiates stages (Pydantic validation happens here)
         # But we return a DummyPipeline for execution
-        return DummyPipeline(stages=stages)
+        return DummyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)
     
     # Preserve the 'last' attribute for tests to check
     mock_snippy_pipeline.last = None
