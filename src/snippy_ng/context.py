@@ -17,6 +17,7 @@ class Context(BaseModel):
     check: bool = Field(False, description="Only validate dependencies and exit without executing stages")
     force: bool = Field(False, description="Allow overwriting existing output directories or files where applicable")
     debug: bool = Field(False, description="Enable debug-oriented runtime behavior and verbose diagnostics")
+    break_points: bool = Field(False, description="Break at the start of each stage for debugging")
     no_cleanup: bool = Field(False, description="Disable cleanup of temporary/intermediate files after pipeline execution")
 
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)

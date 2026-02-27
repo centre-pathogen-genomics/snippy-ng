@@ -20,6 +20,15 @@ def debug_callback(ctx, param, value):
     os.environ["SNIPPY_NG_DEBUG"] = "1"
     return value
 
+def break_points_callback(ctx, param, value):
+    if value is None or ctx.resilient_parsing:
+        return
+    if not value:
+        # don't update env
+        return value
+    os.environ["SNIPPY_NG_BREAK_POINTS"] = "1"
+    return value
+
 def create_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
@@ -112,6 +121,14 @@ GLOBAL_DEFS = [
             "default": False,
             "help": "Print debug output",
             "callback": debug_callback, 
+        }, 
+    },
+    {
+        "param_decls": ("--break-points",),
+        "attrs": {
+            "is_flag": True,
+            "default": False,
+            "help": "Break at the start of each stage",
         }, 
     },
     {
