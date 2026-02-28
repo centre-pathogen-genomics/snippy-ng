@@ -222,6 +222,8 @@ class SnippyPipeline:
 
         for stage in self.stages:
             output_model = stage.output
+            if output_model._immutable:
+                continue
             for field_name in output_model.__class__.model_fields:
                 output_value = getattr(output_model, field_name, None)
                 if not isinstance(output_value, Path):

@@ -168,7 +168,7 @@ GLOBAL_DEFS = [
         "attrs": {
             "is_flag": True,
             "default": False,
-            "help": "Do not delete temporary files after run"
+            "help": "Do not delete intermediary files after run"
         },
     }
 ]
