@@ -137,4 +137,5 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
         
-        return SnippyPipeline(stages=stages)
+        files_to_keep = [copy_final.output.fasta, consequences.output.annotated_vcf]    
+        return SnippyPipeline(stages=stages, outputs_to_keep=files_to_keep)
