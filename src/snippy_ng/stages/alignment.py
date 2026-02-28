@@ -7,7 +7,7 @@ from pydantic import Field
 
 
 class AlignerOutput(BaseOutput):
-    cram: Path = Field(..., description="Output CRAM file")
+    cram: Path = Field(..., description="Coordinate-sorted, deduplicated alignment file in CRAM format")
 
 class Aligner(BaseStage):
     """
@@ -248,7 +248,7 @@ class Minimap2LongReadAligner(Aligner):
 
 
 class AssemblyAlignerOutput(BaseOutput):
-    paf: Path = Field(..., description="Output PAF file")
+    paf: Path = Field(..., description="Sorted pairwise alignment file (PAF) of assembly-to-reference alignments")
 
 
 class AssemblyAligner(BaseStage):

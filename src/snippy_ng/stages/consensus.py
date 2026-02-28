@@ -15,7 +15,7 @@ class PseudoAlignment(BaseStage):
     reference: Path = Field(..., description="Reference file")
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
-    fasta: Path
+    fasta: Path = Field(..., description="Pseudo-alignment consensus FASTA generated from reference + variants")
     vcf_index: TempPath = Field(..., description="Index file for the input VCF.gz")
 
 class BcftoolsPseudoAlignment(PseudoAlignment):

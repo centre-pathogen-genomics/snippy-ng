@@ -7,7 +7,7 @@ from snippy_ng.dependencies import seqkit
 
 
 class CopyFileOutput(BaseOutput):
-    copied_file: Path
+    copied_file: Path = Field(..., description="Copied output file")
 
 
 class CopyFile(BaseStage):

@@ -138,7 +138,7 @@ class CombineFastaFile(BaseStage):
 
 class SoftCoreFilterOutput(BaseOutput):
     soft_core: Path = Field(..., description="Filtered MSA containing only soft core positions")
-    constant_sites: Path
+    constant_sites: Path = Field(..., description="File containing constant-site counts for phylogenetic model correction")
 
 
 class SoftCoreFilter(BaseStage):

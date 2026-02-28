@@ -13,8 +13,8 @@ class RasusaDownsampleReadsOutput(BaseOutput):
         downsampled_r1: Path to downsampled R1 read file.
         downsampled_r2: Optional path to downsampled R2 read file (for paired-end reads).
     """
-    downsampled_r1: Path = Field(..., description="Path to downsampled R1 read file")
-    downsampled_r2: Optional[Path] = Field(None, description="Path to downsampled R2 read file (for paired-end reads)")
+    downsampled_r1: Path = Field(..., description="Downsampled R1 read file")
+    downsampled_r2: Optional[Path] = Field(None, description="Downsampled R2 read file (for paired-end reads)")
 
 
 class RasusaDownsampleReads(BaseStage):

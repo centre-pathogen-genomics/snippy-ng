@@ -8,8 +8,8 @@ from pydantic import Field, field_validator
 class FastpCleanReadsOutput(BaseOutput):
     cleaned_r1: Path = Field(..., description="Cleaned R1 FASTQ file")
     cleaned_r2: Optional[Path] = Field(None, description="Cleaned R2 FASTQ file (if paired-end)")
-    html_report: TempPath
-    json_report: TempPath
+    html_report: TempPath = Field(..., description="Temporary fastp HTML quality-control report")
+    json_report: TempPath = Field(..., description="Temporary fastp JSON quality-control report")
 
 
 class FastpCleanReads(BaseStage):
@@ -142,7 +142,7 @@ class FastpCleanReadsConservative(FastpCleanReads):
 
 
 class SeqkitCleanReadsOutput(BaseOutput):
-    cleaned_reads: Path
+    cleaned_reads: Path = Field(..., description="Cleaned long-read FASTQ file after seqkit length/quality filtering")
 
 class SeqkitCleanLongReads(BaseStage):
     """

@@ -10,8 +10,8 @@ from pydantic import Field
 
 class DepthMaskOutput(BaseOutput):
     """Output from the minimum-depth masking stage."""
-    masked_fasta: Path
-    min_depth_bed: TempPath = Field(..., description="BED file with regions masked due to low depth")
+    masked_fasta: Path = Field(..., description="FASTA with low-depth regions (depth < min_depth) masked")
+    min_depth_bed: TempPath = Field(..., description="BED file with regions to mask due to low depth")
 
 
 class DepthMask(BaseStage):
@@ -84,8 +84,8 @@ class DepthMask(BaseStage):
 
 class DelMaskOutput(BaseOutput):
     """Output from the deletion (zero-depth) masking stage."""
-    masked_fasta: Path
-    zero_depth_bed: TempPath
+    masked_fasta: Path = Field(..., description="FASTA with zero-depth regions masked using the deletion character")
+    zero_depth_bed: TempPath = Field(..., description="BED file with zero-depth regions")
 
 
 class DelMask(BaseStage):
@@ -146,7 +146,7 @@ class DelMask(BaseStage):
 
 
 class ApplyMaskOutput(BaseOutput):
-    masked_fasta: Path
+    masked_fasta: Path = Field(..., description="FASTA with user-supplied BED mask applied")
 
 
 class ApplyMask(BaseStage):
@@ -196,8 +196,8 @@ class ApplyMask(BaseStage):
 
 class HetMaskOutput(BaseOutput):
     """Output from the heterozygous/low quality masking stage"""
-    masked_fasta: Path
-    het_sites_bed: TempPath
+    masked_fasta: Path = Field(..., description="FASTA with heterozygous and low-quality sites masked")
+    het_sites_bed: TempPath = Field(..., description="BED file of heterozygous and low-quality variant sites")
 
 
 class HetMask(BaseStage):

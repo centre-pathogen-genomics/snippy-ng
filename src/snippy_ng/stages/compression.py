@@ -12,7 +12,7 @@ class Compressor(BaseStage):
 
 
 class BgzipCompressorOutput(BaseOutput):
-    compressed: Path
+    compressed: Path = Field(..., description="BGZF-compressed output file")
 
 class BgzipCompressor(Compressor):
     """

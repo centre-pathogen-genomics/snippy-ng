@@ -7,7 +7,7 @@ from pydantic import Field, field_validator
 
 
 class SamtoolsFilterOutput(BaseOutput):
-    cram: Path
+    cram: Path = Field(..., description="Filtered alignment file in CRAM format")
     stats: Path = Field(..., description="Flagstat output file for the CRAM file")
 
 
@@ -156,7 +156,7 @@ class SamtoolsFilterProperPairs(SamtoolsFilter):
 
 
 class VcfFilterOutput(BaseOutput):
-    vcf: Path
+    vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")

@@ -386,7 +386,7 @@ class PrintVcfHistogram(BaseStage):
         )
 
 class FormatHTMLReportTemplateOutput(BaseOutput):
-    rendered: Path
+    rendered: Path = Field(..., description="Rendered HTML report file")
 
 ContextValue = Optional[Union[str, int, float, Path, ]]
 Context = Dict[str, ContextValue]

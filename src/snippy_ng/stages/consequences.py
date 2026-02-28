@@ -9,7 +9,7 @@ from pydantic import Field
 
 
 class BcftoolsConsequencesCallerOutput(BaseOutput):
-    annotated_vcf: Path
+    annotated_vcf: Path = Field(..., description="VCF file with functional consequence annotations from bcftools csq")
 
 class BcftoolsConsequencesCaller(BaseStage):
     """
