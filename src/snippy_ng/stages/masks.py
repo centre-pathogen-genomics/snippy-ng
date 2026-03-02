@@ -24,7 +24,7 @@ class DepthMask(BaseStage):
     2. Generates zero-depth mask BED file
     3. Applies masks sequentially to the reference FASTA
     """
-    bam: Path = Field(..., description="Input BAM file")
+    cram: Path = Field(..., description="Input CRAM file")
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     min_depth: int = Field(0, description="Minimum depth threshold (0 = skip min depth masking)")
 
@@ -90,8 +90,11 @@ class DepthMask(BaseStage):
     
     def _generate_depth_mask_commands(self, filter_condition: str, output_bed: Path, description: str) -> List:
         """Generate commands to create a depth-based mask BED file using bedtools genomecov"""
+        view_cram = self.shell_cmd([
+            "samtools", "view", "-b", str(self.cram)
+        ], description="Convert CRAM to BAM for depth calculation")
         genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            ["bedtools", "genomecov", "-ibam", '-', "-bga"],
             description="Generate genome coverage in BED format"
         )
         awk_cmd = self.shell_cmd(
@@ -100,7 +103,7 @@ class DepthMask(BaseStage):
         )
         
         return [self.shell_pipeline(
-            [genomecov_cmd, awk_cmd], 
+            [view_cram, genomecov_cmd, awk_cmd], 
             output_file=output_bed, 
             description=description
         )]
