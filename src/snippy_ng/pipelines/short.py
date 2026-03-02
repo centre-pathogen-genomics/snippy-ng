@@ -110,7 +110,8 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Filter alignment
         align_filter = SamtoolsFilter(
-            bam=aligned_reads,
+            cram=aligned_reads,
+            reference=reference_file,
             **globals
         )
         aligned_reads = align_filter.output.cram
@@ -118,7 +119,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # SNP calling
         caller = FreebayesCaller(
-            bam=aligned_reads,
+            cram=aligned_reads,
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
@@ -167,7 +168,7 @@ class ShortPipelineBuilder(PipelineBuilder):
          # Apply minimum-depth masking
         if self.depth_mask > 0:
             depth_mask = DepthMask(
-                bam=aligned_reads,
+                cram=aligned_reads,
                 fasta=current_fasta,
                 min_depth=self.depth_mask,
                 **globals

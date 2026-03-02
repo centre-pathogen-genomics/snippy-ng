@@ -52,7 +52,7 @@ class FreebayesCaller(Caller):
     Call variants using Freebayes.
     """
 
-    bam: Path = Field(..., description="Input BAM file")
+    cram: Path = Field(..., description="Input BAM file")
     fbopt: str = Field("", description="Additional Freebayes options")
     ploidy: int = Field(1, description="Ploidy for variant calling")
     exclude_insertions: bool = Field(
@@ -100,7 +100,7 @@ class FreebayesCaller(Caller):
             import shlex
 
             freebayes_cmd_parts.extend(shlex.split(self.fbopt))
-        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
+        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.cram)])
 
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
@@ -139,7 +139,7 @@ class FreebayesCallerLong(FreebayesCaller):
             import shlex
 
             freebayes_cmd_parts.extend(shlex.split(self.fbopt))
-        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
+        freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.cram)])
 
         freebayes_cmd = self.shell_cmd(
             freebayes_cmd_parts,
@@ -311,7 +311,7 @@ class Clair3Caller(Caller):
     """
     Call variants using Clair3.
     """
-    bam: Path = Field(..., description="Input BAM file")
+    cram: Path = Field(..., description="Input BAM file")
     clair3_model: Path = Field(..., description="Absolute path to Clair3 model")
     platform: str = Field("ont", description="Sequencing platform (e.g., ont, hifi)")
     fast_mode: bool = Field(True, description="Enable fast mode for Clair3")
@@ -331,7 +331,7 @@ class Clair3Caller(Caller):
             [
                 "run_clair3.sh",
                 f"--model_path={self.clair3_model.absolute()}",
-                f"--bam_fn={str(self.bam.absolute())}",
+                f"--bam_fn={str(self.cram.absolute())}",
                 f"--ref_fn={str(self.reference.absolute())}",
                 f"--threads={str(ctx.cpus)}",
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",

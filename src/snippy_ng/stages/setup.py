@@ -101,6 +101,50 @@ class PrepareReference(BaseStage):
             output_gff_path (Path): Path to save the extracted GFF3 file.
         """
         import gzip
+        from Bio.SeqFeature import BeforePosition, AfterPosition
+
+        def to_start_1based(position) -> int:
+            """Convert Biopython position object to 1-based inclusive integer start."""
+            return int(position) + 1
+
+        def to_end_1based(position) -> int:
+            """Convert Biopython position object to 1-based inclusive integer end."""
+            return int(position)
+
+        def partial_attrs(feature, start_1based: int, end_1based: int, strand: str) -> str:
+            """Build GFF attributes for fuzzy (<, >) feature boundaries."""
+            loc = feature.location
+            start_partial = isinstance(loc.start, BeforePosition)
+            end_partial = isinstance(loc.end, AfterPosition)
+
+            attrs = []
+            if start_partial or end_partial:
+                attrs.append("partial=true")
+
+                # 5'/3' depends on strand orientation
+                if strand == "-":
+                    partial_5prime = end_partial
+                    partial_3prime = start_partial
+                else:
+                    partial_5prime = start_partial
+                    partial_3prime = end_partial
+
+                if partial_5prime:
+                    attrs.append("partial_5prime=true")
+                if partial_3prime:
+                    attrs.append("partial_3prime=true")
+
+                # Optional explicit range hints (NCBI-style)
+                if start_partial:
+                    attrs.append(f"start_range=.,{start_1based}")
+                if end_partial:
+                    attrs.append(f"end_range={end_1based},.")
+
+            # Preserve pseudogene marker where present
+            if "pseudo" in feature.qualifiers:
+                attrs.append("pseudo=true")
+
+            return "" if not attrs else ";" + ";".join(attrs)
 
         try:
             # Open gzipped or plain text reference
@@ -175,14 +219,15 @@ class PrepareReference(BaseStage):
                     # For features that need transcripts (CDS, exon, UTRs)
                     if ftype in ("CDS", "exon", "five_prime_UTR", "three_prime_UTR"):
                         transcript_id = f"{gene_id}_transcript_1"
+                        feature_start = to_start_1based(feature.location.start)
+                        feature_end = to_end_1based(feature.location.end)
 
                         if gene_id not in genes:
                             genes[gene_id] = {
                                 "feature": feature,
                                 "transcripts": {},
-                                "start": feature.location.start
-                                + 1,  # Convert to 1-based
-                                "end": feature.location.end,
+                                "start": feature_start,
+                                "end": feature_end,
                                 "strand": "+"
                                 if feature.location.strand == 1
                                 else "-"
@@ -192,17 +237,17 @@ class PrepareReference(BaseStage):
                         else:
                             # Extend gene boundaries
                             genes[gene_id]["start"] = min(
-                                genes[gene_id]["start"], feature.location.start + 1
+                                genes[gene_id]["start"], feature_start
                             )
                             genes[gene_id]["end"] = max(
-                                genes[gene_id]["end"], feature.location.end
+                                genes[gene_id]["end"], feature_end
                             )
 
                         if transcript_id not in genes[gene_id]["transcripts"]:
                             genes[gene_id]["transcripts"][transcript_id] = {
                                 "features": [],
-                                "start": feature.location.start + 1,
-                                "end": feature.location.end,
+                                "start": feature_start,
+                                "end": feature_end,
                                 "strand": "+"
                                 if feature.location.strand == 1
                                 else "-"
@@ -213,10 +258,10 @@ class PrepareReference(BaseStage):
                             # Extend transcript boundaries
                             transcript = genes[gene_id]["transcripts"][transcript_id]
                             transcript["start"] = min(
-                                transcript["start"], feature.location.start + 1
+                                transcript["start"], feature_start
                             )
                             transcript["end"] = max(
-                                transcript["end"], feature.location.end
+                                transcript["end"], feature_end
                             )
 
                         genes[gene_id]["transcripts"][transcript_id]["features"].append(
@@ -228,8 +273,8 @@ class PrepareReference(BaseStage):
                             genes[gene_id] = {
                                 "feature": feature,
                                 "transcripts": {},
-                                "start": feature.location.start + 1,
-                                "end": feature.location.end,
+                                "start": to_start_1based(feature.location.start),
+                                "end": to_end_1based(feature.location.end),
                                 "strand": "+"
                                 if feature.location.strand == 1
                                 else "-"
@@ -261,8 +306,14 @@ class PrepareReference(BaseStage):
                         gene_name = f";Name={gene_feature.qualifiers['product'][0]}"
 
                     # Write gene line
+                    gene_partial = partial_attrs(
+                        gene_feature,
+                        gene_data["start"],
+                        gene_data["end"],
+                        gene_data["strand"],
+                    )
                     gff_out.write(
-                        f"{seq_record.id}\tsnipy-ng\tgene\t{gene_data['start']}\t{gene_data['end']}\t.\t{gene_data['strand']}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}\n"
+                        f"{seq_record.id}\tsnipy-ng\tgene\t{gene_data['start']}\t{gene_data['end']}\t.\t{gene_data['strand']}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{gene_partial}\n"
                     )
                     nfeat += 1
 
@@ -278,8 +329,8 @@ class PrepareReference(BaseStage):
 
                         # Write transcript features (CDS, exon, UTRs)
                         for feature in transcript_data["features"]:
-                            start = feature.location.start + 1  # Convert to 1-based
-                            end = feature.location.end
+                            start = to_start_1based(feature.location.start)
+                            end = to_end_1based(feature.location.end)
                             strand = (
                                 "+"
                                 if feature.location.strand == 1
@@ -288,9 +339,10 @@ class PrepareReference(BaseStage):
                                 else "."
                             )
                             phase = "0" if feature.type == "CDS" else "."
+                            feature_partial = partial_attrs(feature, start, end, strand)
 
                             gff_out.write(
-                                f"{seq_record.id}\tsnipy-ng\t{feature.type}\t{start}\t{end}\t.\t{strand}\t{phase}\tParent=transcript:{transcript_id}\n"
+                                f"{seq_record.id}\tsnipy-ng\t{feature.type}\t{start}\t{end}\t.\t{strand}\t{phase}\tParent=transcript:{transcript_id}{feature_partial}\n"
                             )
                             nfeat += 1
 
@@ -304,8 +356,8 @@ class PrepareReference(BaseStage):
                     elif "gene" in feature.qualifiers:
                         gene_id = feature.qualifiers["gene"][0]
 
-                    start = feature.location.start + 1  # Convert to 1-based
-                    end = feature.location.end
+                    start = to_start_1based(feature.location.start)
+                    end = to_end_1based(feature.location.end)
                     strand = (
                         "+"
                         if feature.location.strand == 1
@@ -330,8 +382,10 @@ class PrepareReference(BaseStage):
                     elif "product" in feature.qualifiers:
                         gene_name = f";Name={feature.qualifiers['product'][0]}"
 
+                    standalone_partial = partial_attrs(feature, start, end, strand)
+
                     gff_out.write(
-                        f"{seq_record.id}\tsnipy-ng\tgene\t{start}\t{end}\t.\t{strand}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}\n"
+                        f"{seq_record.id}\tsnipy-ng\tgene\t{start}\t{end}\t.\t{strand}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{standalone_partial}\n"
                     )
                     nfeat += 1
         

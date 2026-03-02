@@ -1,7 +1,7 @@
 # Snippy-NG
 
 
-
+[![CZI's Essential Open Source Software for Science](https://img.shields.io/badge/funded%20by-EOSS-FF414B)](https://czi.co/EOSS)
 [![PyPI - Version](https://img.shields.io/pypi/v/snippy-nextgen.svg)](https://pypi.org/project/snippy-nextgen)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/snippy-nextgen.svg)](https://pypi.org/project/snippy-nextgen)
 [![Test Coverage](https://raw.githubusercontent.com/centre-pathogen-genomics/snippy-ng/refs/heads/_xml_coverage_reports/data/tests/badge.svg)](https://app.codecov.io/github/centre-pathogen-genomics/snippy-ng)
@@ -26,7 +26,7 @@ Check out our progress in the [Snippy-NG Development Blog](https://snippy.cpg.or
 pip install snippy-nextgen
 ```
 
-The complete snippy-ng environment (including all dependencies) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
+The complete snippy-ng environment ([including most dependencies](https://github.com/centre-pathogen-genomics/snippy-ng/issues/110#issuecomment-3857834560)) can be installed using the `snippy-ng` installer script. This script will install the latest version of `snippy-ng` and all its dependencies.
 
 ```console
 curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
@@ -41,7 +41,7 @@ git clone git@github.com:centre-pathogen-genomics/snippy-ng.git && cd snippy-ng
 # install pixi if not already installed
 curl -fsSL https://pixi.sh/install.sh | bash
 # install hatch if not already installed
-pixi global add hatch
+pixi global install hatch
 ```
 
 Activate the pixi environment and launch a hatch shell. This will install all dependencies and set up the development environment.

@@ -112,7 +112,8 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # Filter alignment
         align_filter = SamtoolsFilter(
-            bam=aligned_reads,
+            cram=aligned_reads,
+            reference=reference_file,
             **globals
         )
         aligned_reads = align_filter.output.cram
@@ -126,7 +127,7 @@ class LongPipelineBuilder(PipelineBuilder):
             if 'hifi' in str(self.clair3_model).lower():
                 platform = 'hifi'
             caller_stage = Clair3Caller(
-                bam=aligned_reads,
+                cram=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
                 clair3_model=self.clair3_model,
@@ -136,7 +137,7 @@ class LongPipelineBuilder(PipelineBuilder):
             )
         else:
             caller_stage = FreebayesCallerLong(
-                bam=aligned_reads,
+                cram=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
                 fbopt=self.caller_opts,
@@ -186,13 +187,14 @@ class LongPipelineBuilder(PipelineBuilder):
         # Apply minimum-depth masking
         if self.depth_mask > 0:
             depth_mask = DepthMask(
-                bam=aligned_reads,
+                cram=aligned_reads,
                 fasta=current_fasta,
                 min_depth=self.depth_mask,
                 **globals
             )
             stages.append(depth_mask)
             current_fasta = depth_mask.output.masked_fasta
+        
 
         # Apply zero-depth deletion masking
         del_mask = DelMask(

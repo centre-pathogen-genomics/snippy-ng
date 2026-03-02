@@ -16,7 +16,8 @@ class SamtoolsFilter(BaseStage):
     Filter BAM files using Samtools to remove unwanted alignments.
     """
     
-    bam: Path = Field(..., description="Input BAM file to filter")
+    cram: Path = Field(..., description="Input BAM file to filter")
+    reference: Path = Field(..., description="Reference FASTA file for CRAM output")
     min_mapq: int = Field(20, description="Minimum mapping quality")
     exclude_flags: int = Field(1796, description="SAM flags to exclude (default: unmapped, secondary, qcfail, duplicate)")
     include_flags: Optional[int] = Field(None, description="SAM flags to include")
@@ -39,7 +40,8 @@ class SamtoolsFilter(BaseStage):
             "samtools",
             "view",
             "-O",
-            "cram,embed_ref=2",
+            "cram,embed_ref=1",
+            "--reference", str(self.reference),
             "-o",
             str(self.output.cram),
         ]
@@ -69,7 +71,7 @@ class SamtoolsFilter(BaseStage):
             cmd_parts.extend(shlex.split(self.additional_filters))
         
         # Add input file
-        cmd_parts.append(str(self.bam))
+        cmd_parts.append(str(self.cram))
         
         # Add region string if not a file
         if self.regions and not Path(self.regions).exists():
