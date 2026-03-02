@@ -24,6 +24,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     """
     vcf_gz: Path = Field(..., description="Input VCF.gz file")
     no_insertions: bool = Field(True, description="Do not apply insertions to the consensus sequence")
+    iupac_ambiguity_codes: bool = Field(True, description="Use IUPAC ambiguity codes for heterozygous sites")
     ref_metadata: ReferenceMetadata = Field(..., description="Metadata for the run")
 
     _dependencies = [
@@ -65,6 +66,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         if self.no_insertions:
             # Ensure that only indels where ALT is shorter than REF are applied i.e. no insertions
             bcf_csq_args.extend(["-i", "strlen(ALT)<=strlen(REF)"])
+        if self.iupac_ambiguity_codes:
+            bcf_csq_args.append("--iupac-codes")
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),

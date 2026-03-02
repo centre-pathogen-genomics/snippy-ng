@@ -54,6 +54,7 @@ class FreebayesCaller(Caller):
 
     bam: Path = Field(..., description="Input BAM file")
     fbopt: str = Field("", description="Additional Freebayes options")
+    ploidy: int = Field(1, description="Ploidy for variant calling")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -87,7 +88,8 @@ class FreebayesCaller(Caller):
             "freebayes-parallel",
             str(self.output.regions),
             str(ctx.cpus),
-            "--ploidy", "2",
+            "--ploidy", str(self.ploidy),
+            "--genotype-qualities",
             "--min-alternate-count", "2",
             "--min-repeat-entropy", "1.0",
             "--min-base-quality", "13",
@@ -127,10 +129,11 @@ class FreebayesCallerLong(FreebayesCaller):
             "freebayes-parallel",
             str(self.output.regions),
             str(ctx.cpus),
+            "--ploidy", str(self.ploidy),
+            "--genotype-qualities",
             "--haplotype-length", "-1",
             "--min-mapping-quality", "10",
             "--min-base-quality", "10",
-            "--ploidy", "2",
         ]
         if self.fbopt:
             import shlex

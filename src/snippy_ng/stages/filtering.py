@@ -187,16 +187,16 @@ class VcfFilterShort(VcfFilter):
     # Keep only the tags you want; everything else is dropped.
     _keep_vcf_tags = ",".join(
         [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-        + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+        + [f"^FORMAT/{tag}" for tag in ["GT", "GQ", "DP", "RO", "AO", "QR", "QA", "GL"]]
     )
 
     def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
-        base_filter = (
-            f'FMT/GT="1/1" && QUAL>={self.min_qual} && N_ALT=1 && ALT!="*"'
-        )
+        base_filter = " && ".join([
+            f'QUAL>={self.min_qual}','ALT!="*"'
+        ])
         commands = [
                 self.shell_cmd(
                     ["cat", str(self.vcf)],
