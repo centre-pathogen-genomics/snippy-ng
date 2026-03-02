@@ -197,7 +197,7 @@ class VcfFilterShort(VcfFilter):
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
         base_filter = " && ".join([
-            f'QUAL>={self.min_qual}','ALT!="*"'
+            f'QUAL>={self.min_qual}','ALT!="*"', 'FMT/GT="1/1"'
         ])
         commands = [
                 self.shell_cmd(
@@ -223,6 +223,10 @@ class VcfFilterShort(VcfFilter):
                 self.shell_cmd(
                     ["bcftools", "view", "--include", base_filter, "-"],
                     description="Filter variants after normalization and TYPE recomputation",
+                ),
+                self.shell_cmd(
+                    ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
+                    description="Make genotypes haploid (e.g., 1/1 -> 1)"
                 ),
             ]
         if self._keep_vcf_tags:
