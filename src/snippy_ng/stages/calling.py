@@ -54,7 +54,7 @@ class FreebayesCaller(Caller):
 
     cram: Path = Field(..., description="Input BAM file")
     fbopt: str = Field("", description="Additional Freebayes options")
-    ploidy: int = Field(1, description="Ploidy for variant calling")
+    ploidy: int = Field(2, description="Ploidy for variant calling")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -337,7 +337,7 @@ class Clair3Caller(Caller):
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",
-                "--haploid_precise",
+                "--haploid_precise", # Only 1/1 is considered as a variant
                 "--no_phasing_for_fa",
                 "--enable_long_indel",
             ],
