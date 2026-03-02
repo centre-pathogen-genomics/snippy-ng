@@ -114,6 +114,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # Filter alignment
         align_filter = SamtoolsFilter(
             bam=aligned_reads,
+            reference=reference_file,
             **globals
         )
         aligned_reads = align_filter.output.cram
