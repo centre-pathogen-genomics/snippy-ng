@@ -4,9 +4,7 @@ import time
 
 
 class Logger():
-    def __init__(self):
-        self.debug_mode = os.getenv("SNIPPY_NG_DEBUG", "0") == "1"
-        self.levels = {
+    levels = {
             'INFO': click.style('INFO', fg='green', bold=True),
             'WARNING': click.style('WARNING', fg='yellow', bold=True),
             'DEBUG': click.style('DEBUG', fg='blue', bold=True),
@@ -28,9 +26,12 @@ class Logger():
     
     def warning(self, msg):
         self.echo(self._format("WARNING", msg), err=True)
-    
+
+    def is_debug(self):
+        return os.getenv("SNIPPY_NG_DEBUG", "0") == "1"
+
     def debug(self, msg):
-        if self.debug_mode:
+        if self.is_debug():
             self.echo(self._format("DEBUG", msg), err=True)
     
     def error(self, msg):

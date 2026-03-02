@@ -66,7 +66,7 @@ snippy-ng short --ref tests/data/wildtype.gbk --R1 tests/data/mutant_R1.fastq --
 ```
 
 ```bash
-snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --clair3-fast-mode --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
+snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
 ```
 
 ```bash

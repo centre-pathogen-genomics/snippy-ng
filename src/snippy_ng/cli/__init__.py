@@ -57,8 +57,8 @@ def snippy_ng():
 ########################
 # Register Subcommands #
 ########################
-snippy_ng.add_command(short)
 snippy_ng.add_command(asm)
+snippy_ng.add_command(short)
 snippy_ng.add_command(long)
 snippy_ng.add_command(multi)
 snippy_ng.add_command(core)

@@ -3,9 +3,10 @@ Thanks for looking at the source code! You found a hidden command :D
 """
 
 from pathlib import Path
-from typing import Iterable, List
+from typing import Any, Iterable, List
 import click
 
+from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -16,10 +17,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.argument(
     "directory",
     required=False,
-    type=click.Path(exists=True, readable=True, path_type=Path),
+    type=AbsolutePath(exists=True, readable=True),
     nargs=-1
 )
-def yolo(directory: Iterable[Path], **config):
+def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
     """
     Pipeline that automates everything.
 
@@ -29,6 +30,7 @@ def yolo(directory: Iterable[Path], **config):
 
         snippy-ng yolo
     """
+    from snippy_ng.context import Context
     from snippy_ng.logging import logger
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
@@ -98,37 +100,32 @@ def yolo(directory: Iterable[Path], **config):
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
-        output_directory=Path(config["outdir"]) / "reference",
+        output_directory=Path(outdir) / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    ref_pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        cwd=config["outdir"],
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-    )
+    context["outdir"] = outdir
+    run_ctx = Context(**context)
+    ref_pipeline.run(run_ctx)
 
     snippy_reference_dir = ref_stage.output.reference.parent
 
     # each sample gets 2 CPUs or total_cpus / num_samples, whichever is higher
-    config["cpus_per_sample"] = max(4, config["cpus"] // len(samples))
+    cpus_per_sample = max(4, context["cpus"] // len(samples))
     try:
         run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
-            outdir=config["outdir"],
-            prefix=config["prefix"],
-            tmpdir=config["tmpdir"],
-            cpus=config["cpus"],
-            ram=config["ram"],
-            skip_check=config["skip_check"],
-            check=config["check"],
-            quiet=config["quiet"],
-            create_missing=config["create_missing"],
-            keep_incomplete=config["keep_incomplete"],
-            cpus_per_sample=config["cpus_per_sample"],
+            outdir=outdir,
+            prefix=prefix,
+            tmpdir=context["tmpdir"],
+            cpus=context["cpus"],
+            ram=context["ram"],
+            skip_check=context["skip_check"],
+            check=context["check"],
+            quiet=context["quiet"],
+            create_missing=context["create_missing"],
+            keep_incomplete=context["keep_incomplete"],
+            cpus_per_sample=cpus_per_sample,
         )
     except PipelineExecutionError as e:
         logger.horizontal_rule(style="-")
@@ -138,7 +135,7 @@ def yolo(directory: Iterable[Path], **config):
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     snippy_dirs = [
-        Path(config["outdir"] / "samples" / sample)
+        Path(outdir / "samples" / sample)
         for sample in cfg["samples"]
     ]
     soft_core_threshold = 0.95
@@ -146,20 +143,12 @@ def yolo(directory: Iterable[Path], **config):
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
         core=soft_core_threshold,
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus"],
-        ram=config["ram"],
     ).build()
-    outdir = Path(config["outdir"]) / "core"
-    outdir.mkdir(parents=True, exist_ok=True)
-    aln_pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        cwd=outdir,
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-    )
+    core_outdir = Path(outdir) / "core"
+    core_outdir.mkdir(parents=True, exist_ok=True)
+    context["outdir"] = core_outdir
+    core_run_ctx = Context(**context)
+    aln_pipeline.run(core_run_ctx)
 
     if len(samples) < 3:
         logger.warning("Less than 3 samples found, skipping tree construction.")
@@ -168,19 +157,12 @@ def yolo(directory: Iterable[Path], **config):
     from snippy_ng.pipelines.tree import TreePipelineBuilder
 
     tree_pipeline = TreePipelineBuilder(
-        aln=outdir / aln_pipeline.stages[-1].output.aln,
-        fconst=(outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
+        aln=core_outdir / aln_pipeline.stages[-1].output.aln,
+        fconst=(core_outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
         fast_mode=False,
-        cpus=config["cpus"],
-        ram=config["ram"],
     ).build()
-    outdir = Path(config["outdir"]) / "tree"
-    outdir.mkdir(parents=True, exist_ok=True)
-    tree_pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        cwd=outdir,
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-    )
+    tree_outdir = Path(outdir) / "tree"
+    tree_outdir.mkdir(parents=True, exist_ok=True)
+    context["outdir"] = tree_outdir
+    tree_run_ctx = Context(**context)
+    return tree_pipeline.run(tree_run_ctx)

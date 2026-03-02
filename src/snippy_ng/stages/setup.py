@@ -18,11 +18,12 @@ class ReferenceValidationError(StageExecutionError):
 
 
 class ReferenceOutput(BaseOutput):
-    reference: Path
-    reference_index: Path
-    reference_dict: Path
-    gff: Path
-    metadata: Path
+    reference: Path = Field(..., description="Reference FASTA file")
+    reference_index: Path = Field(..., description="Reference FASTA index file")
+    reference_dict: Path = Field(..., description="Reference dictionary file")
+    gff: Path = Field(..., description="Reference GFF file")
+    metadata: Path = Field(..., description="Reference metadata JSON file")
+    reference_directory: Path = Field(..., description="Directory containing reference files")
 
 
 class PrepareReference(BaseStage):
@@ -48,20 +49,16 @@ class PrepareReference(BaseStage):
             reference_dict=self.directory / f"{self.reference_prefix}.dict",
             gff=self.directory / f"{self.reference_prefix}.gff",
             metadata=self.directory / METADATA_FILE_NAME,
+            reference_directory=self.directory,
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         process_reference_cmd = self.python_cmd(
             func=self.process_reference,
             args=(self.input, self.ref_fmt, self.output.reference, self.output.gff),
             description=f"Extract FASTA and GFF from reference ({self.ref_fmt})",
         )
         return [
-            self.shell_cmd(
-                ["rm", "-f", str(self.output.reference)],
-                description=f"Remove existing reference FASTA: {self.output.reference}",
-            ),
             self.shell_cmd(
                 ["mkdir", "-p", str(self.directory)],
                 description=f"Create reference directory: {self.directory}",
@@ -71,7 +68,7 @@ class PrepareReference(BaseStage):
                 ["samtools", "faidx", str(self.output.reference)],
                 description=f"Index reference FASTA with samtools faidx: {self.output.reference}",
             ),
-            self.shell_pipeline(
+            self.shell_pipe(
                 commands=[
                     self.shell_cmd(
                         ["cut", "-f1,2", str(self.output.reference_index)],
@@ -448,10 +445,10 @@ class LoadReferenceFromMetadataFile(BaseStage):
             reference_dict=f"{reference_prefix}.dict",
             gff=f"{reference_prefix}.gff",
             metadata=self.metadata,
+            reference_directory=self.metadata.parent,
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         validate_reference_cmd = self.python_cmd(
             func=self.validate_reference,
             description="Validate reference files and metadata",

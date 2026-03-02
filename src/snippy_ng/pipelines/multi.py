@@ -86,6 +86,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     from snippy_ng.pipelines.long import LongPipelineBuilder
     from snippy_ng.pipelines.short import ShortPipelineBuilder
+    from snippy_ng.context import Context
     import click
     
     sample_type = sample_cfg.get("type")
@@ -103,9 +104,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             reads=reads,
             bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
-            tmpdir=config["tmpdir"],
-            cpus=config["cpus_per_sample"],
-            ram=config["ram"],
             **{k: v for k, v in sample_cfg.items() if k not in ["left", "right", "bam", "reads"]},
         ).build()
 
@@ -115,9 +113,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             reads=str(sample_cfg.get("reads")) if sample_cfg.get("reads") else None,
             bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
-            tmpdir=config["tmpdir"],
-            cpus=config["cpus_per_sample"],
-            ram=config["ram"],
             **{k: v for k, v in sample_cfg.items() if k not in ["reads", "bam"]},
         ).build()
 
@@ -126,9 +121,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         pipeline = AsmPipelineBuilder(
             reference=config["reference"],
             prefix=config["prefix"],
-            tmpdir=config["tmpdir"],
-            cpus=config["cpus_per_sample"],
-            ram=config["ram"],
             **sample_cfg,
         ).build()
 
@@ -142,14 +134,18 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
-    pipeline.run(
-        skip_check=config["skip_check"],
-        check=config["check"],
-        cwd=outdir,
+    run_ctx = Context(
+        outdir=outdir,
+        tmpdir=config["tmpdir"],
+        cpus=config["cpus_per_sample"],
+        ram=config["ram"],
         quiet=config["quiet"],
         create_missing=config["create_missing"],
         keep_incomplete=config["keep_incomplete"],
+        skip_check=config["skip_check"],
+        check=config["check"],
     )
+    pipeline.run(run_ctx)
 
     return sample_name
 

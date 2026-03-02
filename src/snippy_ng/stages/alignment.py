@@ -1,13 +1,13 @@
 from pathlib import Path
 import sys
 from typing import List
-from snippy_ng.stages import BaseStage, ShellCommandPipe, BaseOutput
+from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2
 from pydantic import Field 
 
 
 class AlignerOutput(BaseOutput):
-    cram: Path = Field(..., description="Output CRAM file")
+    cram: Path = Field(..., description="Coordinate-sorted, deduplicated alignment file in CRAM format")
 
 class Aligner(BaseStage):
     """
@@ -36,13 +36,12 @@ class ShortReadAligner(Aligner):
 
     _dependencies = [samtools]
 
-    @property
-    def common_commands(self) -> List:
+    def common_commands(self, ctx) -> List:
         """Common commands for sorting, fixing mates, and marking duplicates."""
-        sort_cpus = max(1, int(self.cpus / 2))
-        sort_ram = f"{1000 * self.ram // sort_cpus}M"
+        sort_cpus = max(1, int(ctx.cpus / 2))
+        sort_ram = f"{1000 * ctx.ram // sort_cpus}M"
         sort_threads = str(max(1, sort_cpus - 1))
-        sort_temp = str(self.tmpdir)
+        sort_temp = str(ctx.tmpdir or ".")
 
         commands: List = []
 
@@ -124,13 +123,13 @@ class ShortReadAligner(Aligner):
 
         return commands
 
-    def build_alignment_pipeline(self, align_cmd) -> ShellCommandPipe:
+    def build_alignment_pipeline(self, align_cmd, ctx) -> ShellProcessPipe:
         """Constructs the full alignment pipeline command."""
-        common_cmds = self.common_commands
+        common_cmds = self.common_commands(ctx)
 
         pipeline_commands = [align_cmd] + common_cmds
 
-        return self.shell_pipeline(
+        return self.shell_pipe(
             commands=pipeline_commands,
             description="Alignment pipeline: align, filter, fix mates, sort, mark duplicates",
             output_file=Path(self.output.cram),
@@ -146,8 +145,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
 
     _dependencies = [samtools, bwa]
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the BWA alignment commands."""
         bwa_index_cmd = self.shell_cmd(
             ["bwa", "index", str(self.reference)],
@@ -160,7 +158,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
             import shlex
 
             bwa_cmd_parts.extend(shlex.split(self.aligner_opts))
-        bwa_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        bwa_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         bwa_cmd_parts.extend([str(r) for r in self.reads])
 
         bwa_cmd = self.shell_cmd(
@@ -168,7 +166,7 @@ class BWAMEMShortReadAligner(ShortReadAligner):
             description=f"Align {len(self.reads)} read files with BWA-MEM",
         )
 
-        alignment_pipeline = self.build_alignment_pipeline(bwa_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(bwa_cmd, ctx)
         return [bwa_index_cmd, alignment_pipeline]
 
 
@@ -178,14 +176,12 @@ class Minimap2ShortReadAligner(ShortReadAligner):
     """
     _dependencies = [minimap2, samtools]
 
-    @property
-    def ram_per_thread(self) -> int:
+    def ram_per_thread(self, ctx) -> int:
         """Calculate RAM per thread in MB."""
-        return max(1, self.ram // self.cpus)
+        return max(1, ctx.ram // ctx.cpus)
 
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
         # Build minimap2 command
         minimap_cmd_parts = ["minimap2", "-a", "-x", "sr"]
@@ -193,7 +189,7 @@ class Minimap2ShortReadAligner(ShortReadAligner):
             import shlex
 
             minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
-        minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
         minimap_cmd = self.shell_cmd(
@@ -201,7 +197,7 @@ class Minimap2ShortReadAligner(ShortReadAligner):
             description=f"Align {len(self.reads)} read files with Minimap2",
         )
 
-        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd)
+        alignment_pipeline = self.build_alignment_pipeline(minimap_cmd, ctx)
         return [alignment_pipeline]
 
 
@@ -215,8 +211,7 @@ class Minimap2LongReadAligner(Aligner):
     
     _dependencies = [minimap2, samtools]
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
         # Build minimap2 command
         minimap_cmd_parts = [
@@ -232,10 +227,10 @@ class Minimap2LongReadAligner(Aligner):
             import shlex
 
             minimap_cmd_parts.extend(shlex.split(self.aligner_opts))
-        minimap_cmd_parts.extend(["-t", str(self.cpus), str(self.reference)])
+        minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
-        minimap_pipeline = self.shell_pipeline(
+        minimap_pipeline = self.shell_pipe(
             [
                 self.shell_cmd(
                     minimap_cmd_parts,
@@ -246,7 +241,7 @@ class Minimap2LongReadAligner(Aligner):
                         "samtools",
                         "sort",
                         "--threads",
-                        str(self.cpus),
+                        str(ctx.cpus),
                         "-O",
                         "cram,embed_ref=1",
                         "--reference",
@@ -263,7 +258,7 @@ class Minimap2LongReadAligner(Aligner):
 
 
 class AssemblyAlignerOutput(BaseOutput):
-    paf: Path
+    paf: Path = Field(..., description="Sorted pairwise alignment file (PAF) of assembly-to-reference alignments")
 
 
 class AssemblyAligner(BaseStage):
@@ -281,11 +276,10 @@ class AssemblyAligner(BaseStage):
         paf_file = Path(f"{self.prefix}.paf")
         return AssemblyAlignerOutput(paf=paf_file)
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
 
-        minimap_pipeline = self.shell_pipeline(
+        minimap_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     [
@@ -293,7 +287,7 @@ class AssemblyAligner(BaseStage):
                         "-x",
                         "asm20",
                         "-t",
-                        str(self.cpus),
+                        str(ctx.cpus),
                         "-c",
                         "--cs",
                         str(self.reference),

@@ -6,6 +6,7 @@ import types
 import pytest
 
 import snippy_ng.pipelines as _pl
+from snippy_ng.context import Context
 
 
 class DummyPipeline:
@@ -17,17 +18,17 @@ class DummyPipeline:
         self.ran       = False
         DummyPipeline.last = self      # remember myself
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=None):
+    def run(self, ctx: Context):
         """Match the new pipeline structure with run method."""
         self.welcome()
         
-        if not skip_check:
+        if not ctx.skip_check:
             self.validate_dependencies()
         
-        if check:
+        if ctx.check:
             return None
         
-        self.set_working_directory(cwd)
+        self.set_working_directory(ctx.outdir)
         self.ran = True
         self.cleanup(None)
         self.goodbye()
@@ -57,10 +58,10 @@ def stub_pipeline(monkeypatch):
     This allows builder.build() to execute (triggering Pydantic validation)
     while still mocking the actual pipeline execution.
     """
-    def mock_snippy_pipeline(stages=None):
+    def mock_snippy_pipeline(stages=None, outputs_to_keep=None):
         # Builder instantiates stages (Pydantic validation happens here)
         # But we return a DummyPipeline for execution
-        return DummyPipeline(stages=stages)
+        return DummyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)
     
     # Preserve the 'last' attribute for tests to check
     mock_snippy_pipeline.last = None

@@ -11,9 +11,9 @@ from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import DepthMask, ApplyMask, HetMask
-from snippy_ng.stages.copy import CopyFasta
+from snippy_ng.stages.compression import VcfCompressor
+from snippy_ng.stages.masks import DelMask, ApplyMask, DepthMask, HetMask
+from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
 
@@ -29,16 +29,13 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    min_depth: int = Field(default=10, description="Minimum variant depth")
+    depth_mask: int = Field(default=0, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=100, description="Minimum variant quality")
-    tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
 
     def build(self) -> SnippyPipeline:
         """Build and return the short-read pipeline."""
         stages = []
-        globals = {'prefix': self.prefix, 'cpus': self.cpus, 'ram': self.ram, 'tmpdir': self.tmpdir}
+        globals = {'prefix': self.prefix}
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -126,7 +123,6 @@ class ShortPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
-            mincov=self.min_depth,
             **globals
         )
         stages.append(caller)
@@ -135,7 +131,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         variant_filter = VcfFilterShort(
             vcf=caller.output.vcf,
             reference=reference_file,
-            min_depth=self.min_depth,
             min_qual=self.min_qual,
             **globals
         )
@@ -152,9 +147,8 @@ class ShortPipelineBuilder(PipelineBuilder):
         stages.append(consequences)
         
         # Compress VCF
-        gzip = BgzipCompressor(
+        gzip = VcfCompressor(
             input=consequences.output.annotated_vcf,
-            suffix="gz",
             **globals
         )
         stages.append(gzip)
@@ -170,16 +164,26 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
+
+         # Apply minimum-depth masking
+        if self.depth_mask > 0:
+            depth_mask = DepthMask(
+                cram=aligned_reads,
+                fasta=current_fasta,
+                min_depth=self.depth_mask,
+                **globals
+            )
+            stages.append(depth_mask)
+            current_fasta = depth_mask.output.masked_fasta
         
-        # Apply depth masking
-        depth_mask = DepthMask(
-            cram=aligned_reads,
+        # Apply zero-depth deletion masking
+        del_mask = DelMask(
+            bam=aligned_reads,
             fasta=current_fasta,
-            min_depth=self.min_depth,
             **globals
         )
-        stages.append(depth_mask)
-        current_fasta = depth_mask.output.masked_fasta
+        stages.append(del_mask)
+        current_fasta = del_mask.output.masked_fasta
 
         # Apply heterozygous and low quality sites masking
         het_mask = HetMask(
@@ -202,7 +206,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             current_fasta = user_mask.output.masked_fasta
 
         # Copy final masked consensus to standard output location
-        copy_final = CopyFasta(
+        copy_final = FinaliseFasta(
             input=current_fasta,
             output_path=f"{self.prefix}.pseudo.fna",
             **globals

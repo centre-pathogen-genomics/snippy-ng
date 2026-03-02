@@ -1,0 +1,1755 @@
+<!-- This will be a full screen tree viewer wil metadata -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,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" />
+    <title>{{REPORT_NAME}}</title>
+
+    <!-- Tailwind (CDN for a single-file static page) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Phylocanvas (WebGL) -->
+    <script src="https://unpkg.com/@phylocanvas/phylocanvas.gl@latest/dist/bundle.min.js"></script>
+
+    <!-- PhyloJS -->
+    <script src="https://unpkg.com/phylojs@latest/lib/dist/phylojs.min.js"></script>
+
+    <!-- Tabulator -->
+    <link href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables/dist/js/tabulator.min.js"></script>
+    <!-- Excel export -->
+    <script type="text/javascript" src="https://oss.sheetjs.com/sheetjs/xlsx.full.min.js"></script>
+
+    <style>
+      #metadata-table .tabulator-row {
+        cursor: pointer;
+      }
+
+      .tabulator {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem !important;
+        overflow: hidden;
+      }
+
+      #metadata-table .tabulator-row.component-selected .tabulator-cell {
+        background-color: #e74c3c63 !important; 
+      }
+
+      #metadata-table .tabulator-cell.cell-updated {
+        background-color: #b4d3fb66 !important;
+      }
+
+      #tree-container {
+        position: relative;
+      }
+
+      #tree-modebar {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        z-index: 20;
+        display: flex;
+        gap: 0.375rem;
+        padding: 0.25rem;
+        border-radius: 0.5rem;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.08);
+        opacity: 0;
+        transform: translateY(-4px);
+        pointer-events: none;
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+
+      #tree-container:hover #tree-modebar,
+      #tree-container:focus-within #tree-modebar {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      .tree-modebar-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        font-size: 0.95rem;
+        line-height: 1;
+      }
+
+      .tree-modebar-btn:hover {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      .tree-modebar-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .map-marker-label-icon .map-marker-label {
+        transition: border-color 120ms ease, border-width 120ms ease;
+      }
+
+      .map-marker-label-icon.component-selected .map-marker-label {
+        border-color: #e74c3c !important;
+        border-width: 2px !important;
+      }
+    </style>
+
+    <!-- Leaflet -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
+    <script src="https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet-global.js"></script>
+
+    <!-- DATA -->
+    <script>
+      const treeData = `{{NEWICK}}`;
+      const metadata = {{METADATA_JSON}};
+      const logs = `{{LOGS}}`;
+      // Parse the ISO3166-2 mapping subdivision_code: lat, long e.g. "US-CA": [37.7749, -122.4194]
+      const iso3166Mapping = JSON.parse(`{{ISO3166_MAPPING_JSON}}`);
+    </script>
+  </head>
+
+  <body class="bg-slate-50 text-slate-900">
+    <!-- center vertically -->
+    <div
+      class="flex flex-row justify-between w-full border bg-white shadow p-2 items-center"
+    >
+      <div class="p-2">
+        <h1 class="text-2xl font-bold">{{REPORT_NAME}}</h1>
+        <h2 class="text-sm text-slate-500 mt-1">{{DATETIME}}</h2>
+      </div>
+      <!-- Info panel -->
+      <div
+        class="p-2 hover:text-blue-300 text-slate-500 transition-colors duration-200 cursor-pointer"
+        id="info-panel"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-7"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+          />
+        </svg>
+      </div>
+    </div>
+
+    <div
+      id="logs-modal"
+      class="fixed inset-0 z-[3000] hidden"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logs-modal-title"
+    >
+      <div
+        class="absolute inset-0 bg-slate-900/60"
+        id="logs-modal-backdrop"
+      ></div>
+      <div class="relative flex min-h-full items-center justify-center p-4">
+        <div
+          id="logs-modal-panel"
+          class="w-full max-w-4xl rounded-lg bg-white shadow-xl border"
+        >
+          <div class="flex items-center justify-between border-b px-4 py-3">
+            <h3
+              id="logs-modal-title"
+              class="text-lg font-semibold text-slate-900"
+            >
+              About
+            </h3>
+            <button
+              id="logs-modal-close"
+              type="button"
+              class="rounded p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              aria-label="Close logs modal"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="max-h-[70vh] overflow-auto p-4 bg-slate-100 ">
+            <div class="mb-4 text-sm text-slate-700">
+              <ul class="space-y-2">
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Multi-select samples:</b> Click a row, map marker, or tree tip label to select across all views. Click additional items to add/remove them from the current selection set.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Clear selection quickly:</b> Click the page background (outside the tree, map, and metadata panels) to clear all selected samples.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and page through rows.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Resize panels:</b> Drag the row and column handles between panels to adjust layout.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Shortcuts:</b> Press <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">t</kbd> (tree), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">m</kbd> (map), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">d</kbd> (data table).</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched by column <code>id</code> so you must include an <code>id</code> column that corresponds to tree tip labels (e.g. sample names) for linking to work.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Find changed metadata:</b> Newly inserted rows and updated cells are highlighted in <span class="rounded-lg px-1.5 py-0.5  bg-blue-100">blue</span>.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>ISO subdivision mapping:</b> If metadata includes an ISO 3166-2 column (e.g. <code>iso3166-2</code>), missing <code>latitude</code>/<code>longitude</code> values are auto-filled from built-in mapping.</li>
+              </ul>
+            </div>
+            <pre
+              id="logs-modal-content"
+              class="whitespace-pre-wrap break-words rounded bg-white border p-4 text-xs text-slate-800"
+            >
+            </pre>
+          </div>
+          <footer
+            class="flex flex-row border-t px-4 py-3 text-xs text-slate-500 justify-between"
+          >
+            <p class="text-slate-700">
+              This report was generated by <b>{{USER}}</b> using Snippy-NG (v{{VERSION}}) at {{DATETIME}}.
+            </p>
+            <a
+              href="https://github.com/centre-pathogen-genomics/snippy-ng"
+              target="_blank"
+              class="text-blue-600 hover:underline"
+              >GitHub
+            </a>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="metadata-drop-overlay"
+      class="fixed inset-0 z-[2500] hidden bg-slate-700/60 text-white"
+      aria-hidden="true"
+    >
+      <div
+        class="flex h-full w-full items-center justify-center p-6 text-center"
+      >
+        <div
+          class="rounded-lg border border-white/30 bg-slate-800/60 px-6 py-4 text-lg font-semibold"
+        >
+          Drop metadata here
+        </div>
+      </div>
+    </div>
+
+    <div class="p-4">
+      <div
+        id="top-row"
+        class="flex flex-col md:flex-row gap-2 items-stretch h-[40vh] min-h-[200px]"
+      >
+        <div
+          id="tree-container"
+          class="w-full h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+        >
+          <div id="tree-modebar" aria-label="Tree controls">
+            <!-- Tree navigation -->
+            <button
+              id="tree-reset-view-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Reset tree view"
+              aria-label="Reset tree view"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+            </button>
+            <button
+              id="tree-step-zoom-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Adjust step zoom"
+              aria-label="Adjust step zoom"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+              </svg>
+            </button>
+            <button
+              id="tree-branch-zoom-in-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Increase branch zoom"
+              aria-label="Increase branch zoom"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+            </button>
+            <!-- Tree modifications -->
+            <button
+              id="tree-reroot-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Reroot on first selected tip"
+              aria-label="Reroot on first selected tip"
+              disabled
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75 3.75m0 0-3.75 3.75m3.75-3.75H3.74V4.499" />
+              </svg>
+            </button>
+            <button
+              id="tree-toggle-align-labels-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Toggle aligned labels"
+              aria-label="Toggle aligned labels"
+              aria-pressed="false"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
+              </svg>
+            </button>
+            <button
+              id="tree-toggle-internal-labels-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Toggle internal labels"
+              aria-label="Toggle internal labels"
+              aria-pressed="false"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+              </svg>
+            </button>
+            <!-- Download buttons -->
+            <button
+              id="tree-export-newick-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Export Newick"
+              aria-label="Export Newick"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            </button>
+            <button
+              id="tree-export-png-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Export PNG"
+              aria-label="Export PNG"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+              </svg>
+            </button>
+            <button
+              id="tree-export-svg-btn"
+              type="button"
+              class="tree-modebar-btn"
+              title="Export SVG"
+              aria-label="Export SVG"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+              </svg>
+            </button>
+          </div>
+          <div id="tree" class="w-full h-full min-h-0"></div>
+        </div>
+        <div
+          id="col-resizer"
+          class="hidden md:hidden w-2 h-16 self-center rounded bg-slate-300 hover:border-2 border-slate-200 cursor-col-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize tree and map width"
+        ></div>
+        <div
+          id="map-panel"
+          class="hidden w-full h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+        >
+          <div id="map" class="w-full h-full min-h-0 rounded"></div>
+        </div>
+      </div>
+      <div class="flex flex-row justify-center">
+        <div
+          id="row-resizer"
+          class="my-2 h-2 w-16 rounded bg-slate-300 hover:border-2 border-slate-200 cursor-row-resize"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize tree and map panels"
+        ></div>
+      </div>
+      <div
+        id="metadata-table-container"
+        class="w-full rounded-lg bg-white shadow overflow-auto"
+      >
+        <table id="metadata-table" class="min-w-full"></table>
+      </div>
+      <input
+        id="metadata-file-input"
+        type="file"
+        accept=".csv,.tsv,.json"
+        multiple
+        class="hidden"
+      />
+    </div>
+
+    <script>
+      "use strict";
+      // PHYLOCANVAS GL RENDERING LOGIC
+      const $ = (id) => document.getElementById(id);
+
+      const els = {
+        tree: $("tree"),
+        treeContainer: $("tree-container"),
+        metadataTableContainer: $("metadata-table-container"),
+        metadataTable: $("metadata-table"),
+        metadataFileInput: $("metadata-file-input"),
+        metadataDropOverlay: $("metadata-drop-overlay"),
+        infoPanel: $("info-panel"),
+        logsModal: $("logs-modal"),
+        logsModalBackdrop: $("logs-modal-backdrop"),
+        logsModalPanel: $("logs-modal-panel"),
+        logsModalClose: $("logs-modal-close"),
+        logsModalContent: $("logs-modal-content"),
+        mapPanel: $("map-panel"),
+        map: $("map"),
+        topRow: $("top-row"),
+        rowResizer: $("row-resizer"),
+        colResizer: $("col-resizer"),
+      };
+
+      let canvas = null; // PhylocanvasGL instance
+      let leafletMap = null;
+      let mapMarkersLayer = null;
+      let mapMarkersById = new Map();
+      let isResizingRows = false;
+      let isResizingCols = false;
+      let phyloJSTree = phylojs.readNewick(treeData);
+      let tipNodes = phyloJSTree.leafList || [];
+      let tipLabels = tipNodes.map((node) => node.label);
+      const normalizeId = (value) =>
+        String(value ?? "")
+          .trim()
+          .replace(/^['"]|['"]$/g, "");
+      const tipLabelSet = new Set(tipLabels.map(normalizeId));
+      const tipLabelByNormalized = new Map(
+        tipLabels.map((label) => [normalizeId(label), label]),
+      );
+      let metadataRows = [];
+      let metadataDataTable = null;
+      const MIN_PANEL_SIZE = 200;
+      const DEFAULT_TREE_WIDTH_PCT = 66;
+      const MIN_TREE_WIDTH_PCT = 10;
+      const MAX_TREE_WIDTH_PCT = 90;
+      const ROW_RESIZER_OFFSET_PX = 8;
+      let currentTreeWidthPct = DEFAULT_TREE_WIDTH_PCT;
+      let alignLabels = false;
+      let showInternalLabels = false;
+      let selectedMetadataIds = new Set();
+      let insertedRowIds = new Set();
+      let updatedCellKeys = new Set();
+      let mapHasData = false;
+      const LINK_ID_KEYS = ["id", "sample_id", "sample", "name"];
+
+      function makeCellKey(id, field) {
+        return `${normalizeId(id)}::${String(field)}`;
+      }
+
+      function triggerDownload(filename, href) {
+        if (!filename || !href) return;
+        const a = document.createElement("a");
+        a.href = href;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      function downloadText(filename, text, mimeType = "text/plain;charset=utf-8") {
+        if (typeof text !== "string" || !text.trim()) return;
+        const blob = new Blob([text], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        triggerDownload(filename, url);
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadBlob(filename, blob) {
+        if (!(blob instanceof Blob)) return;
+        const url = URL.createObjectURL(blob);
+        triggerDownload(filename, url);
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadDataUri(filename, dataUri) {
+        if (typeof dataUri !== "string" || !dataUri.trim()) return;
+        triggerDownload(filename, dataUri);
+      }
+
+      function findLinkValueInObject(row) {
+        if (!row || typeof row !== "object") return "";
+        const lowerToOriginal = new Map(
+          Object.keys(row).map((k) => [String(k).toLowerCase(), k]),
+        );
+        const key = LINK_ID_KEYS.find((k) => lowerToOriginal.has(k));
+        if (!key) return "";
+        const originalKey = lowerToOriginal.get(key);
+        return normalizeId(row[originalKey]);
+      }
+
+      function applyLinkedSelectionToTableRows() {
+        if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
+        metadataDataTable.getRows().forEach((row) => {
+          const rowEl = typeof row.getElement === "function" ? row.getElement() : null;
+          if (!rowEl) return;
+          const rowId = findLinkValueInObject(
+            typeof row.getData === "function" ? row.getData() : null,
+          );
+          rowEl.classList.toggle(
+            "component-selected",
+            !!rowId && selectedMetadataIds.has(rowId),
+          );
+        });
+      }
+
+      function applyLinkedSelectionToMapMarkers() {
+        const selectedOrder = Array.from(selectedMetadataIds);
+        const selectedRankById = new Map(
+          selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
+        );
+        mapMarkersById.forEach((marker, id) => {
+          const markerEl =
+            marker && typeof marker.getElement === "function"
+              ? marker.getElement()
+              : null;
+          const isSelected = selectedMetadataIds.has(id);
+          if (markerEl) {
+            markerEl.classList.toggle("component-selected", isSelected);
+          }
+          if (marker && typeof marker.setZIndexOffset === "function") {
+            const rank = selectedRankById.get(id) || 0;
+            marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
+          }
+        });
+      }
+
+      function setLinkedSelection(id, toggle = false) {
+        const normalized = normalizeId(id);
+        if (!normalized) {
+          selectedMetadataIds.clear();
+        } else if (toggle) {
+          if (selectedMetadataIds.has(normalized)) {
+            selectedMetadataIds.delete(normalized);
+          } else {
+            selectedMetadataIds.add(normalized);
+          }
+        } else {
+          selectedMetadataIds = new Set([normalized]);
+        }
+        applyLinkedSelectionToTableRows();
+        applyLinkedSelectionToMapMarkers();
+        if (canvas && typeof canvas.setProps === "function") {
+          const selectedTreeIds = Array.from(selectedMetadataIds)
+            .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
+            .filter(Boolean);
+          canvas.setProps({
+            selectedIds: selectedTreeIds,
+          });
+          if (typeof canvas.render === "function") {
+            canvas.render();
+          }
+        }
+
+        const rerootBtn = $("tree-reroot-btn");
+        if (rerootBtn) {
+          rerootBtn.disabled = selectedMetadataIds.size === 0;
+        }
+      }
+
+      function getPhylocanvasCtor() {
+        return (
+          (window.phylocanvas && window.phylocanvas.PhylocanvasGL) ||
+          window.PhylocanvasGL
+        );
+      }
+      function getTreeType() {
+        const tt = window.phylocanvas && window.phylocanvas.TreeTypes;
+        return tt ? tt.Rectangular : undefined;
+      }
+      function computeCanvasSize(container) {
+        const rect = container.getBoundingClientRect();
+        const height = Math.max(MIN_PANEL_SIZE, Math.floor(rect.height || 0));
+        return {
+          width: Math.max(MIN_PANEL_SIZE, Math.floor(rect.width || 0)),
+          height,
+        };
+      }
+
+      function refreshVisualSizes() {
+        if (
+          canvas &&
+          typeof canvas.setProps === "function" &&
+          typeof canvas.render === "function"
+        ) {
+          canvas.setProps({
+            source: treeData,
+            size: computeCanvasSize(els.treeContainer || els.tree),
+            alignLabels,
+            showInternalLabels,
+          });
+          canvas.render();
+          if (typeof canvas.fitInCanvas === "function") canvas.fitInCanvas();
+        }
+        if (leafletMap && typeof leafletMap.invalidateSize === "function") {
+          leafletMap.invalidateSize();
+        }
+      }
+
+      function setTreeMapWidths(treePercent) {
+        if (!els.treeContainer || !els.mapPanel) return;
+        const mapIsHidden = els.mapPanel.classList.contains("hidden");
+        const treeIsHidden = els.treeContainer.classList.contains("hidden");
+        if (window.innerWidth < 768 || mapIsHidden || treeIsHidden) {
+          els.treeContainer.style.width = "";
+          els.mapPanel.style.width = "";
+          return;
+        }
+        const clamped = Math.max(
+          MIN_TREE_WIDTH_PCT,
+          Math.min(MAX_TREE_WIDTH_PCT, treePercent),
+        );
+        currentTreeWidthPct = clamped;
+        els.treeContainer.style.width = `${clamped}%`;
+        els.mapPanel.style.width = `${100 - clamped}%`;
+      }
+
+      function initColResizer() {
+        if (!els.colResizer || !els.topRow) return;
+
+        const onPointerMove = (e) => {
+          if (!isResizingCols) return;
+          const rect = els.topRow.getBoundingClientRect();
+          const nextPercent = ((e.clientX - rect.left) / rect.width) * 100;
+          setTreeMapWidths(nextPercent);
+          refreshVisualSizes();
+        };
+
+        const stopResize = () => {
+          if (!isResizingCols) return;
+          isResizingCols = false;
+          document.body.classList.remove("select-none", "cursor-col-resize");
+        };
+
+        els.colResizer.addEventListener("pointerdown", (e) => {
+          if (
+            window.innerWidth < 768 ||
+            (els.mapPanel && els.mapPanel.classList.contains("hidden")) ||
+            (els.treeContainer && els.treeContainer.classList.contains("hidden"))
+          )
+            return;
+          isResizingCols = true;
+          document.body.classList.add("select-none", "cursor-col-resize");
+          if (els.colResizer.setPointerCapture) {
+            els.colResizer.setPointerCapture(e.pointerId);
+          }
+          e.preventDefault();
+        });
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", stopResize);
+        window.addEventListener("pointercancel", stopResize);
+        window.addEventListener("resize", () => {
+          setTreeMapWidths(currentTreeWidthPct);
+          refreshVisualSizes();
+        });
+      }
+
+      function initRowResizer() {
+        if (!els.rowResizer || !els.topRow) return;
+
+        const onPointerMove = (e) => {
+          if (!isResizingRows) return;
+          const top = els.topRow.getBoundingClientRect().top;
+          const nextHeight = Math.max(
+            MIN_PANEL_SIZE,
+            e.clientY - top - ROW_RESIZER_OFFSET_PX,
+          );
+          els.topRow.style.height = `${Math.round(nextHeight)}px`;
+          refreshVisualSizes();
+        };
+
+        const stopResize = () => {
+          if (!isResizingRows) return;
+          isResizingRows = false;
+          document.body.classList.remove("select-none", "cursor-row-resize");
+        };
+
+        els.rowResizer.addEventListener("pointerdown", (e) => {
+          isResizingRows = true;
+          document.body.classList.add("select-none", "cursor-row-resize");
+          if (els.rowResizer.setPointerCapture) {
+            els.rowResizer.setPointerCapture(e.pointerId);
+          }
+          e.preventDefault();
+        });
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", stopResize);
+        window.addEventListener("pointercancel", stopResize);
+      }
+
+      function getTreeClickLabel(info) {
+        const node =
+          info?.object?.node ??
+          info?.object ??
+          info?.picked?.node ??
+          info?.node ??
+          null;
+        const rawLabel =
+          node?.label ??
+          node?.name ??
+          node?.id ??
+          info?.label ??
+          info?.id ??
+          info?.object?.id;
+        return normalizeId(rawLabel);
+      }
+
+      function bindTreeClickSelection(c) {
+        if (!c || c.__snippyTreeClickBound) return;
+        c.__snippyTreeClickBound = true;
+
+        const onTreeClick = (info) => {
+          const label = getTreeClickLabel(info);
+          if (!label || !tipLabelSet.has(label)) return;
+          setLinkedSelection(label, true);
+        };
+
+        if (typeof c.addClickHandler === "function") {
+          c.addClickHandler(onTreeClick);
+          return;
+        }
+
+        if (typeof c.handleClick === "function") {
+          const originalHandleClick = c.handleClick.bind(c);
+          c.handleClick = (info, event) => {
+            originalHandleClick(info, event);
+            onTreeClick(info);
+          };
+        }
+      }
+
+      function ensureCanvas(newickStr) {
+        if (canvas) return canvas;
+
+        const ctor = getPhylocanvasCtor();
+        if (!ctor)
+          throw new Error(
+            "PhylocanvasGL constructor not found. Did the bundle load?",
+          );
+
+        const type = getTreeType();
+        if (!type)
+          throw new Error(
+            "phylocanvas.TreeTypes not found. Ensure you are using the standalone bundle.",
+          );
+
+        const size = computeCanvasSize(els.treeContainer || els.tree);
+        canvas = new ctor(
+          els.tree,
+          {
+            size,
+            type,
+            source: newickStr,
+            alignLabels,
+            showInternalLabels,
+            showLabels: true,
+            showLeafLabels: true,
+            highlightColour: "#e74c3c",
+            interactive: true,
+          },
+          [window.phylocanvas.plugins.scalebar],
+        );
+
+        bindTreeClickSelection(canvas);
+
+        return canvas;
+      }
+
+      function renderNewick(newickStr) {
+        const c = ensureCanvas(newickStr);
+        if (
+          typeof c.setProps !== "function" ||
+          typeof c.render !== "function"
+        ) {
+          throw new Error(
+            "Unexpected PhylocanvasGL API: setProps/render missing.",
+          );
+        }
+        c.setProps({
+          source: newickStr,
+          size: computeCanvasSize(els.treeContainer || els.tree),
+          alignLabels,
+          showInternalLabels,
+        });
+        c.render();
+        if (typeof c.fitInCanvas === "function") c.fitInCanvas();
+      }
+
+      function normalizeMetadataRows(raw) {
+        if (Array.isArray(raw)) {
+          return raw
+            .filter((row) => row !== null && row !== undefined)
+            .map((row) =>
+              typeof row === "object" ? row : { value: String(row) },
+            );
+        }
+
+        if (raw && typeof raw === "object") {
+          return [raw];
+        }
+
+        return [];
+      }
+
+      function normalizeRowObject(row) {
+        const out = {};
+        Object.entries(row || {}).forEach(([k, v]) => {
+          const key = String(k).trim();
+          out[key] = v === null || v === undefined ? "" : String(v).trim();
+        });
+        const idKey = Object.keys(out).find((k) => k.toLowerCase() === "id");
+        if (idKey && idKey !== "id") {
+          out.id = out[idKey];
+          delete out[idKey];
+        }
+        if ("id" in out) {
+          out.id = normalizeId(out.id);
+        }
+        return out;
+      }
+
+      function canonicalIsoKey(key) {
+        let k = String(key || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+        return k
+      }
+
+      function enrichRowsWithIso3166Coordinates(rows) {
+        if (!Array.isArray(rows) || !rows.length) return rows;
+        const { latKey, lonKey } = findCoordinateKeys(rows);
+        if (!iso3166Mapping || typeof iso3166Mapping !== "object") return rows;
+
+        return rows.map((row) => {
+          if (!row || typeof row !== "object") return row;
+
+          const targetLatKey = latKey || "latitude";
+          const targetLonKey = lonKey || "longitude";
+          const currentLat = parseCoordinate(row[targetLatKey]);
+          const currentLon = parseCoordinate(row[targetLonKey]);
+          const hasRowCoordinates = currentLat !== null && currentLon !== null;
+          if (hasRowCoordinates) return row;
+          
+          const isoKey = Object.keys(row).find(
+            (k) => canonicalIsoKey(k) === "iso31662",
+          );
+          if (!isoKey) return row;
+
+          const isoCode = String(row[isoKey] || "").trim().toUpperCase();
+          if (!isoCode) return row;
+
+          const mapped = iso3166Mapping[isoCode];
+          if (!Array.isArray(mapped) || mapped.length < 2) return row;
+
+          const lat = parseCoordinate(mapped[0]);
+          const lon = parseCoordinate(mapped[1]);
+          if (lat === null || lon === null) return row;
+
+          const rowId = normalizeId(row.id);
+          if (rowId) {
+            updatedCellKeys.add(makeCellKey(rowId, targetLatKey));
+            updatedCellKeys.add(makeCellKey(rowId, targetLonKey));
+          }
+
+          return {
+            ...row,
+            [targetLatKey]: String(lat),
+            [targetLonKey]: String(lon),
+          };
+        });
+      }
+
+      function parseDelimitedLine(line, delimiter) {
+        const out = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i += 1) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+          if (ch === delimiter && !inQuotes) {
+            out.push(current);
+            current = "";
+            continue;
+          }
+          current += ch;
+        }
+        out.push(current);
+        return out;
+      }
+
+      function parseDelimitedText(text, delimiter) {
+        const lines = text
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
+        if (!lines.length) return [];
+        const headers = parseDelimitedLine(lines[0], delimiter).map((h) =>
+          h.trim(),
+        );
+        return lines.slice(1).map((line) => {
+          const values = parseDelimitedLine(line, delimiter);
+          const row = {};
+          headers.forEach((h, idx) => {
+            row[h] = values[idx] ?? "";
+          });
+          return row;
+        });
+      }
+
+      function parseTextRowsByType(text, fileName) {
+        const lower = String(fileName || "").toLowerCase();
+        if (lower.endsWith(".json")) {
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed)) return parsed;
+          if (parsed && typeof parsed === "object") return [parsed];
+          return [];
+        }
+        if (lower.endsWith(".tsv")) {
+          return parseDelimitedText(text, "\t");
+        }
+        return parseDelimitedText(text, ",");
+      }
+
+      async function parseFileRows(file) {
+        const text = await file.text();
+        const rows = parseTextRowsByType(text, file.name).map(
+          normalizeRowObject,
+        );
+        return rows;
+      }
+
+      function upsertMetadataRows(incomingRows) {
+        const rowById = new Map();
+        metadataRows.forEach((row) => {
+          const id = normalizeId(row.id);
+          if (id) rowById.set(id, row);
+        });
+
+        let inserted = 0;
+        let updated = 0;
+        let skipped = 0;
+        const newRows = [];
+
+        incomingRows.forEach((row) => {
+          const id = normalizeId(row.id);
+          if (!id || !tipLabelSet.has(id)) {
+            skipped += 1;
+            return;
+          }
+
+          const normalizedRow = { ...row, id };
+          const existingRow = rowById.get(id);
+          if (!existingRow) {
+            const createdRow = { ...normalizedRow };
+            newRows.push(createdRow);
+            rowById.set(id, createdRow);
+            inserted += 1;
+            insertedRowIds.add(id);
+          } else {
+            Object.keys(normalizedRow).forEach((field) => {
+              const prev = existingRow[field] ?? "";
+              const next = normalizedRow[field] ?? "";
+              if (String(prev) !== String(next)) {
+                updatedCellKeys.add(makeCellKey(id, field));
+              }
+            });
+            Object.assign(existingRow, normalizedRow);
+            updated += 1;
+          }
+        });
+
+        if (newRows.length) {
+          metadataRows = [...newRows, ...metadataRows];
+        }
+
+        return { inserted, updated, skipped };
+      }
+
+      async function importMetadataFiles(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length) return;
+
+        insertedRowIds.clear();
+        updatedCellKeys.clear();
+
+        let changed = false;
+        let summaryInserted = 0;
+        let summaryUpdated = 0;
+        let summarySkipped = 0;
+
+        for (const file of files) {
+          try {
+            const rows = await parseFileRows(file);
+            const rowsWithIdColumn = rows.filter((row) =>
+              Object.keys(row).some((k) => k.toLowerCase() === "id"),
+            );
+            const result = upsertMetadataRows(rowsWithIdColumn);
+            summaryInserted += result.inserted;
+            summaryUpdated += result.updated;
+            summarySkipped +=
+              result.skipped + (rows.length - rowsWithIdColumn.length);
+            if (result.inserted || result.updated) changed = true;
+          } catch (err) {
+            console.error(`Failed to parse dropped file ${file.name}:`, err);
+          }
+        }
+
+        if (changed) {
+          metadataRows = enrichRowsWithIso3166Coordinates(metadataRows);
+          renderMetadataTable();
+          initMapFromMetadata(metadataRows);
+          refreshVisualSizes();
+        }
+
+        console.info(
+          `Metadata import complete: inserted=${summaryInserted}, updated=${summaryUpdated}, skipped=${summarySkipped}`,
+        );
+      }
+
+      function initMetadataTable(rawMetadata) {
+        if (!els.metadataTable || typeof window.Tabulator === "undefined") return;
+
+        metadataRows =
+          normalizeMetadataRows(rawMetadata).map(normalizeRowObject);
+        metadataRows = enrichRowsWithIso3166Coordinates(metadataRows);
+        renderMetadataTable();
+      }
+
+      function renderMetadataTable() {
+        if (!els.metadataTableContainer || typeof window.Tabulator === "undefined") return;
+
+        if (
+          metadataDataTable &&
+          typeof metadataDataTable.destroy === "function"
+        ) {
+          metadataDataTable.destroy();
+          metadataDataTable = null;
+        }
+
+        const rows = metadataRows;
+        if (!rows.length) {
+          els.metadataTableContainer.innerHTML =
+            '<p id="metadata-empty" class="text-slate-500 p-4">Drop a CSV, TSV, or JSON file to view sample metadata or <a id="metadata-load-link" href="#" class="text-blue-600 hover:underline">click here to load</a></p>';
+          els.metadataTable = null;
+          return;
+        }
+
+        els.metadataTableContainer.innerHTML =
+          '<div id="metadata-table" class="w-full"></div>';
+        els.metadataTable = $("metadata-table");
+        if (!els.metadataTable) return;
+
+        const headingsSet = new Set();
+        rows.forEach((row) =>
+          Object.keys(row).forEach((k) => headingsSet.add(k)),
+        );
+        const headings = Array.from(headingsSet);
+        const columns = headings.map((h) => ({
+          title: h,
+          field: h,
+          headerSort: true,
+          headerFilter: "input",
+          formatter: (cell) => {
+            const rowData = cell.getData() || {};
+            const rowId = normalizeId(rowData.id);
+            const isUpdated =
+              (rowId && insertedRowIds.has(rowId)) ||
+              (rowId && updatedCellKeys.has(makeCellKey(rowId, cell.getField())));
+            const el = cell.getElement();
+            if (el && isUpdated) el.classList.add("cell-updated");
+
+            const value = cell.getValue();
+            if (value === null || value === undefined) return "";
+            return typeof value === "object" ? JSON.stringify(value) : String(value);
+          },
+        }));
+
+        metadataDataTable = new Tabulator(els.metadataTable, {
+          data: rows,
+          columns,
+          layout: "fitColumns",
+          pagination: true,
+          paginationSize: 5,
+          paginationSizeSelector: [5, 10, 25, 50, 100],
+          movableColumns: true,
+          placeholder: "No metadata rows",
+          footerElement:
+            '<div class="flex w-full justify-start gap-2 px-2 ">' +
+            '<button type="button" class="tabulator-export-csv rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">Export CSV</button>' +
+            '<button type="button" class="tabulator-export-xlsx rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">Export XLSX</button>' +
+            '</div>',
+        });
+
+        const bindFooterExportButtons = () => {
+          const csvButton = els.metadataTable?.querySelector(".tabulator-export-csv");
+          if (csvButton && !csvButton.dataset.bound) {
+            csvButton.dataset.bound = "1";
+            csvButton.addEventListener("click", () => {
+              if (!metadataDataTable || typeof metadataDataTable.download !== "function") return;
+              metadataDataTable.download("csv", "data.csv");
+            });
+          }
+
+          const xlsxButton = els.metadataTable?.querySelector(".tabulator-export-xlsx");
+          if (xlsxButton && !xlsxButton.dataset.bound) {
+            xlsxButton.dataset.bound = "1";
+            xlsxButton.addEventListener("click", () => {
+              if (!metadataDataTable || typeof metadataDataTable.download !== "function") return;
+              metadataDataTable.download("xlsx", "data.xlsx", { sheetName: "My Data" });
+            });
+          }
+        };
+
+        metadataDataTable.on("tableBuilt", bindFooterExportButtons);
+        metadataDataTable.on("renderComplete", bindFooterExportButtons);
+        requestAnimationFrame(bindFooterExportButtons);
+
+        const syncLinkedSelection = () => {
+          requestAnimationFrame(() => {
+            applyLinkedSelectionToTableRows();
+          });
+        };
+
+        ["dataSorted", "dataFiltered", "pageLoaded", "dataProcessed", "renderComplete"].forEach(
+          (eventName) => {
+            metadataDataTable.on(eventName, syncLinkedSelection);
+          },
+        );
+
+        metadataDataTable.on("rowClick", (_e, row) => {
+          const linkId = findLinkValueInObject(row.getData());
+          if (linkId) {
+            setLinkedSelection(linkId, true);
+          }
+        });
+
+        applyLinkedSelectionToTableRows();
+      }
+
+      function initMetadataDropzone() {
+        const supported = /\.(csv|tsv|json)$/i;
+        let dragDepth = 0;
+
+        const preventDefaults = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        };
+
+        const showDropOverlay = () => {
+          if (!els.metadataDropOverlay) return;
+          els.metadataDropOverlay.classList.remove("hidden");
+          els.metadataDropOverlay.setAttribute("aria-hidden", "false");
+        };
+
+        const hideDropOverlay = () => {
+          if (!els.metadataDropOverlay) return;
+          els.metadataDropOverlay.classList.add("hidden");
+          els.metadataDropOverlay.setAttribute("aria-hidden", "true");
+        };
+
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+          document.addEventListener(eventName, preventDefaults, false);
+        });
+
+        document.addEventListener("dragenter", () => {
+          dragDepth += 1;
+          showDropOverlay();
+        });
+        document.addEventListener("dragleave", () => {
+          dragDepth = Math.max(0, dragDepth - 1);
+          if (dragDepth === 0) {
+            hideDropOverlay();
+          }
+        });
+        document.addEventListener("drop", async (e) => {
+          dragDepth = 0;
+          hideDropOverlay();
+          const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
+            supported.test(f.name),
+          );
+          if (!files.length) return;
+          await importMetadataFiles(files);
+        });
+
+        if (els.metadataTableContainer && els.metadataFileInput) {
+          els.metadataTableContainer.addEventListener("click", (e) => {
+            const target = e.target;
+            if (
+              target instanceof HTMLElement &&
+              target.id === "metadata-load-link"
+            ) {
+              e.preventDefault();
+              els.metadataFileInput.click();
+            }
+          });
+
+          els.metadataFileInput.addEventListener("change", async () => {
+            const files = Array.from(els.metadataFileInput.files || []);
+            if (!files.length) return;
+            await importMetadataFiles(files);
+            els.metadataFileInput.value = "";
+          });
+        }
+      }
+
+      function findCoordinateKeys(rows) {
+        if (!rows.length) return { latKey: null, lonKey: null };
+        const keys = Array.from(
+          rows.reduce((acc, row) => {
+            Object.keys(row || {}).forEach((k) => acc.add(k));
+            return acc;
+          }, new Set()),
+        );
+        const lowerToOriginal = new Map(keys.map((k) => [k.toLowerCase(), k]));
+
+        const latCandidates = ["latitude", "lat", "y"];
+        const lonCandidates = ["longitude", "lon", "lng", "long", "x"];
+
+        const latKey = latCandidates.find((k) => lowerToOriginal.has(k));
+        const lonKey = lonCandidates.find((k) => lowerToOriginal.has(k));
+
+        return {
+          latKey: latKey ? lowerToOriginal.get(latKey) : null,
+          lonKey: lonKey ? lowerToOriginal.get(lonKey) : null,
+        };
+      }
+
+      function parseCoordinate(value) {
+        // check if values is empty string, null, or undefined
+        if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) {
+          return null;
+        }
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      }
+
+      function createLeafletMap(elementId, center, zoom) {
+        if (typeof L.map === "function") {
+          return L.map(elementId).setView(center, zoom);
+        }
+        return new L.Map(elementId).setView(center, zoom);
+      }
+
+      function createLeafletTileLayer(url, options) {
+        if (typeof L.tileLayer === "function") {
+          return L.tileLayer(url, options);
+        }
+        return new L.TileLayer(url, options);
+      }
+
+      function createLeafletMarker(latLng, options = {}) {
+        if (typeof L.marker === "function") {
+          return L.marker(latLng, options);
+        }
+        return new L.Marker(latLng, options);
+      }
+
+      function createLeafletDivIcon(options = {}) {
+        if (typeof L.divIcon === "function") {
+          return L.divIcon(options);
+        }
+        return new L.DivIcon(options);
+      }
+
+      function createLeafletLayerGroup() {
+        if (typeof L.layerGroup === "function") {
+          return L.layerGroup();
+        }
+        return new L.LayerGroup();
+      }
+
+      function initMapFromMetadata(rawMetadata) {
+        if (!els.mapPanel || !els.map || typeof L === "undefined") {
+          console.warn(
+            "Leaflet library not found. Map cannot be initialized.",
+          );
+          return;
+        }
+
+        const rows = (
+          metadataRows.length
+            ? metadataRows
+            : normalizeMetadataRows(rawMetadata).map(normalizeRowObject)
+        ).filter((r) => typeof r === "object");
+        const { latKey, lonKey } = findCoordinateKeys(rows);
+        if (!latKey || !lonKey) {
+          mapHasData = false;
+          els.mapPanel.classList.add("hidden");
+          if (els.colResizer) {
+            els.colResizer.classList.remove("md:block");
+            els.colResizer.classList.add("md:hidden");
+          }
+          if (els.treeContainer) {
+            els.treeContainer.style.width = "";
+          }
+          console.info(
+            "No valid latitude/longitude keys found in metadata. Map will be hidden.",
+          );
+          return;
+        }
+
+        const points = rows
+          .map((row) => {
+            const lat = parseCoordinate(row[latKey]);
+            const lon = parseCoordinate(row[lonKey]);
+            if (lat === null || lon === null) return null;
+            if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+            const id = findLinkValueInObject(row);
+            const label =
+              row.sample_id ?? row.id ?? row.sample ?? row.name ?? "sample";
+            return { lat, lon, label, id };
+          })
+          .filter(Boolean);
+
+        if (!points.length) {
+          mapHasData = false;
+          els.mapPanel.classList.add("hidden");
+          if (els.colResizer) {
+            els.colResizer.classList.remove("md:block");
+            els.colResizer.classList.add("md:hidden");
+          }
+          if (els.treeContainer) {
+            els.treeContainer.style.width = "";
+          }
+          return;
+        }
+
+        mapHasData = true;
+        els.mapPanel.classList.remove("hidden");
+        if (els.colResizer) {
+          els.colResizer.classList.remove("md:hidden");
+          els.colResizer.classList.add("md:block");
+        }
+        setTreeMapWidths(DEFAULT_TREE_WIDTH_PCT);
+        refreshVisualSizes();
+
+        if (!leafletMap) {
+          leafletMap = createLeafletMap(
+            "map",
+            [points[0].lat, points[0].lon],
+            2,
+          );
+          createLeafletTileLayer(
+            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+              maxZoom: 19,
+              attribution:
+                '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            },
+          ).addTo(leafletMap);
+        }
+
+        if (!mapMarkersLayer) {
+          mapMarkersLayer = createLeafletLayerGroup().addTo(leafletMap);
+        } else if (typeof mapMarkersLayer.clearLayers === "function") {
+          mapMarkersLayer.clearLayers();
+        }
+        mapMarkersById = new Map();
+
+        const latLngs = [];
+        points.forEach((p) => {
+          latLngs.push([p.lat, p.lon]);
+          const labelIcon = createLeafletDivIcon({
+            className: "map-marker-label-icon",
+            html: `<div class="inline-flex flex-col items-center">
+                <div class="map-marker-label px-2 py-0.5 rounded bg-white/90 border border-slate-300 text-xs font-medium text-slate-800 shadow-sm whitespace-nowrap">${String(p.label)}</div>
+              </div>`,
+            iconSize: [0, 0],
+            iconAnchor: [0, 0],
+          });
+          const marker = createLeafletMarker([p.lat, p.lon], {
+            icon: labelIcon,
+          }).addTo(mapMarkersLayer);
+          if (p.id) {
+            mapMarkersById.set(p.id, marker);
+            if (typeof marker.on === "function") {
+              marker.on("click", () => {
+                setLinkedSelection(p.id, true);
+              });
+            }
+          }
+        });
+
+        if (latLngs.length === 1) {
+          leafletMap.setView(latLngs[0], 6);
+        } else {
+          leafletMap.fitBounds(latLngs, { padding: [20, 20] });
+        }
+
+        // Ensure final sizes are correct after DOM/layout settles.
+        requestAnimationFrame(() => {
+          refreshVisualSizes();
+          applyLinkedSelectionToMapMarkers();
+        });
+      }
+
+      function isEditableTarget(target) {
+        if (!(target instanceof HTMLElement)) return false;
+        const tag = target.tagName;
+        return (
+          target.isContentEditable ||
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT"
+        );
+      }
+
+      function syncTopPanelLayout() {
+        if (!els.colResizer || !els.mapPanel || !els.treeContainer) return;
+        const mapVisible = !els.mapPanel.classList.contains("hidden");
+        const treeVisible = !els.treeContainer.classList.contains("hidden");
+        const showTopPanels = mapVisible || treeVisible;
+
+        if (els.topRow) {
+          els.topRow.classList.toggle("hidden", !showTopPanels);
+        }
+        if (els.rowResizer) {
+          els.rowResizer.classList.toggle("hidden", !showTopPanels);
+        }
+
+        if (mapVisible && treeVisible) {
+          els.colResizer.classList.remove("md:hidden");
+          els.colResizer.classList.add("md:block");
+        } else {
+          els.colResizer.classList.remove("md:block");
+          els.colResizer.classList.add("md:hidden");
+        }
+        setTreeMapWidths(currentTreeWidthPct);
+        refreshVisualSizes();
+      }
+
+      function initKeyboardShortcuts() {
+        document.addEventListener("keydown", (e) => {
+          if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+          if (isEditableTarget(e.target)) return;
+
+          const key = String(e.key || "").toLowerCase();
+          if (key === "t" && els.treeContainer) {
+            e.preventDefault();
+            els.treeContainer.classList.toggle("hidden");
+            syncTopPanelLayout();
+          } else if (key === "m" && els.mapPanel) {
+            e.preventDefault();
+            if (!mapHasData && els.mapPanel.classList.contains("hidden")) return;
+            els.mapPanel.classList.toggle("hidden");
+            syncTopPanelLayout();
+          } else if (key === "d" && els.metadataTableContainer) {
+            e.preventDefault();
+            els.metadataTableContainer.classList.toggle("hidden");
+            refreshVisualSizes();
+          }
+        });
+      }
+
+      function initBackgroundSelectionClear() {
+        document.addEventListener("click", (e) => {
+          const target = e.target;
+          if (!(target instanceof Node)) return;
+
+          const panelElements = [
+            els.treeContainer,
+            els.mapPanel,
+            els.metadataTableContainer,
+          ].filter(Boolean);
+
+          const clickedInsidePanel = panelElements.some((panel) =>
+            panel.contains(target),
+          );
+          if (clickedInsidePanel) return;
+
+          setLinkedSelection(null);
+        });
+      }
+
+      function initTreeModebar() {
+        const resetBtn = $("tree-reset-view-btn");
+        const rerootBtn = $("tree-reroot-btn");
+        const branchZoomInBtn = $("tree-branch-zoom-in-btn");
+        const stepZoomBtn = $("tree-step-zoom-btn");
+        const exportBtn = $("tree-export-newick-btn");
+        const exportPngBtn = $("tree-export-png-btn");
+        const exportSvgBtn = $("tree-export-svg-btn");
+        const toggleAlignBtn = $("tree-toggle-align-labels-btn");
+        const toggleInternalBtn = $("tree-toggle-internal-labels-btn");
+        if (!resetBtn && !rerootBtn && !branchZoomInBtn && !stepZoomBtn && !exportBtn && !exportPngBtn && !exportSvgBtn && !toggleAlignBtn && !toggleInternalBtn) return;
+
+        const syncToggleButtonState = (btn, isActive) => {
+          if (!btn) return;
+          btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+          btn.classList.toggle("bg-slate-100", isActive);
+          btn.classList.toggle("text-slate-900", isActive);
+        };
+        syncToggleButtonState(toggleAlignBtn, alignLabels);
+        syncToggleButtonState(toggleInternalBtn, showInternalLabels);
+        if (rerootBtn) {
+          rerootBtn.disabled = selectedMetadataIds.size === 0;
+        }
+        // navigation 
+        if (resetBtn) {
+          resetBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (tree && typeof tree.fitInCanvas === "function") {
+              tree.setProps({ source:  treeData });
+              tree.fitInCanvas();
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (stepZoomBtn) {
+          stepZoomBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (
+              tree &&
+              typeof tree.getStepZoom === "function" &&
+              typeof tree.setStepZoom === "function"
+            ) {
+              const currentZoom = Number(tree.getStepZoom());
+              const zoomStep = e.shiftKey ? -0.2 : 0.2;
+              const nextZoom = (Number.isFinite(currentZoom) ? currentZoom : 0) + zoomStep;
+              tree.setStepZoom(nextZoom);
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (branchZoomInBtn) {
+          branchZoomInBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (
+              tree &&
+              typeof tree.getBranchZoom === "function" &&
+              typeof tree.setBranchZoom === "function"
+            ) {
+              const currentZoom = Number(tree.getBranchZoom());
+              const zoomStep = e.shiftKey ? -0.2 : 0.2;
+              const nextZoom = (Number.isFinite(currentZoom) ? currentZoom : 0) + zoomStep;
+              tree.setBranchZoom(nextZoom);
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (rerootBtn) {
+          rerootBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const firstSelectedId = Array.from(selectedMetadataIds)[0];
+            if (!firstSelectedId) return;
+
+            const tree = canvas;
+            const rerootNode =
+              phyloJSTree.getNodeByLabel(firstSelectedId);
+
+            if (tree && typeof tree.setProps === "function") {
+              phyloJSTree.reroot(rerootNode);
+              tree.setProps({ source:  phylojs.writeNewick(phyloJSTree) });
+              // Re-parse the tree to reset internal state after rerooting
+              phyloJSTree = phylojs.readNewick(treeData);
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (exportBtn) {
+          exportBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (tree && typeof tree.exportNewick === "function") {
+              const newickText = tree.exportNewick();
+              if (typeof newickText !== "string" || !newickText.trim()) return;
+
+              const safeName = String(document.title || "tree")
+                .trim()
+                .replace(/[^a-z0-9._-]+/gi, "_")
+                .replace(/^_+|_+$/g, "") || "tree";
+              downloadText(`${safeName}.nwk`, newickText);
+            }
+          });
+        }
+
+        if (exportPngBtn) {
+          exportPngBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (tree && typeof tree.exportPNG === "function") {
+              const pngDataUri = tree.exportPNG();
+              if (typeof pngDataUri === "string" && pngDataUri.startsWith("data:image/png")) {
+                const safeName = String(document.title || "tree")
+                  .trim()
+                  .replace(/[^a-z0-9._-]+/gi, "_")
+                  .replace(/^_+|_+$/g, "") || "tree";
+                downloadDataUri(`${safeName}.png`, pngDataUri);
+              }
+            }
+          });
+        }
+
+        if (exportSvgBtn) {
+          exportSvgBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            if (tree && typeof tree.exportSVG === "function") {
+              const svgBlob = tree.exportSVG();
+              if (svgBlob instanceof Blob) {
+                const safeName = String(document.title || "tree")
+                  .trim()
+                  .replace(/[^a-z0-9._-]+/gi, "_")
+                  .replace(/^_+|_+$/g, "") || "tree";
+                downloadBlob(`${safeName}.svg`, svgBlob);
+              }
+            }
+          });
+        }
+
+        if (toggleAlignBtn) {
+          toggleAlignBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            alignLabels = !alignLabels;
+            syncToggleButtonState(toggleAlignBtn, alignLabels);
+
+            if (tree && typeof tree.setProps === "function") {
+              tree.setProps({ alignLabels });
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (toggleInternalBtn) {
+          toggleInternalBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            showInternalLabels = !showInternalLabels;
+            syncToggleButtonState(toggleInternalBtn, showInternalLabels);
+
+            if (tree && typeof tree.setProps === "function") {
+              tree.setProps({ showInternalLabels });
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+      }
+
+      function openLogsModal() {
+        if (!els.logsModal) return;
+        if (els.logsModalContent) {
+          const logsValue = logs == null ? "" : String(logs).trim();
+          const hasLogs = logsValue.length > 0 && logsValue.toLowerCase() !== "null";
+          if (hasLogs) {
+            els.logsModalContent.classList.remove("hidden");
+            els.logsModalContent.textContent = logsValue;
+          } else {
+            els.logsModalContent.classList.add("hidden");
+            els.logsModalContent.textContent = "";
+          }
+        }
+        els.logsModal.classList.remove("hidden");
+        els.logsModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeLogsModal() {
+        if (!els.logsModal) return;
+        els.logsModal.classList.add("hidden");
+        els.logsModal.setAttribute("aria-hidden", "true");
+      }
+
+      function initLogsModal() {
+        if (!els.infoPanel || !els.logsModal) return;
+        els.infoPanel.addEventListener("click", openLogsModal);
+        if (els.logsModalClose) {
+          els.logsModalClose.addEventListener("click", closeLogsModal);
+        }
+        els.logsModal.addEventListener("click", (e) => {
+          const target = e.target;
+          if (
+            els.logsModalPanel &&
+            target instanceof Node &&
+            !els.logsModalPanel.contains(target)
+          ) {
+            closeLogsModal();
+          }
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeLogsModal();
+        });
+      }
+
+      // Initial render
+      renderNewick(treeData);
+      initMetadataTable(metadata);
+      initMapFromMetadata(metadata);
+      initLogsModal();
+      initRowResizer();
+      initColResizer();
+      initMetadataDropzone();
+      initKeyboardShortcuts();
+      initBackgroundSelectionClear();
+      initTreeModebar();
+      syncTopPanelLayout();
+    </script>
+  </body>
+</html>

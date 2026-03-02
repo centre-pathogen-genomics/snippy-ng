@@ -18,7 +18,7 @@ class MSAValidationError(StageExecutionError):
 
 
 class CombineFastaFileOutput(BaseOutput):
-    aln: Path
+    aln: Path = Field(..., description="Combined multi-sample alignment in FASTA format")
 
 
 class CombineFastaFile(BaseStage):
@@ -40,8 +40,7 @@ class CombineFastaFile(BaseStage):
     def output(self) -> CombineFastaFileOutput:
         return CombineFastaFileOutput(aln=Path(f"{self.prefix}.full.aln"))
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.python_cmd(
                 func=self.build_concatenated_alignment,
@@ -138,8 +137,8 @@ class CombineFastaFile(BaseStage):
 
 
 class SoftCoreFilterOutput(BaseOutput):
-    aln: Path
-    constant_sites: Path
+    soft_core: Path = Field(..., description="Filtered MSA containing only soft core positions")
+    constant_sites: Path = Field(..., description="File containing constant-site counts for phylogenetic model correction")
 
 
 class SoftCoreFilter(BaseStage):
@@ -159,12 +158,11 @@ class SoftCoreFilter(BaseStage):
     def output(self) -> SoftCoreFilterOutput:
         aln=Path(f"{self.prefix}.{round(self.core_threshold*100):03d}.aln")
         return SoftCoreFilterOutput(
-            aln=aln,
+            soft_core=aln,
             constant_sites=aln.with_suffix(".fconst")
         )
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.shell_cmd(
                 [
@@ -184,6 +182,6 @@ class SoftCoreFilter(BaseStage):
                     str(self.aln),
                 ],
                 description="Filter MSA to soft core positions",
-                output_file=self.output.aln,
+                output_file=self.output.soft_core,
             ),
         ]

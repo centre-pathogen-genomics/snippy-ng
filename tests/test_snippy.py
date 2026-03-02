@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from snippy_ng.pipelines import SnippyPipeline
-from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput, Context
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import DependencyError, MissingOutputError
 from pydantic import Field
@@ -21,8 +21,7 @@ class MockStage(BaseStage):
     def output(self):
         return MockOutput(test_file=Path(f"{self.prefix}.test"))
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return []
 
 
@@ -153,18 +152,20 @@ def test_snippy_validate_dependencies_skip_duplicate(mock_run, mock_which):
 def test_snippy_run_no_stages():
     """Test running Snippy with no stages."""
     snippy = SnippyPipeline()
+    ctx = Context()
     
     with pytest.raises(ValueError, match="No stages to run"):
-        snippy._execute_pipeline_stages_in_order()
+        snippy._execute_pipeline_stages_in_order(ctx)
 
 
 def test_snippy_run_missing_output(tmp_path):
     """Test that missing outputs raise an error."""
     stage = MockStage()
     snippy = SnippyPipeline(stages=[stage])
+    ctx = Context()
     
     with pytest.raises(MissingOutputError, match="snps.test"):
-        snippy._execute_pipeline_stages_in_order()
+        snippy._execute_pipeline_stages_in_order(ctx)
 
 
 def test_snippy_set_working_directory(tmp_path):

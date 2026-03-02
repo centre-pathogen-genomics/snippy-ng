@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
 from snippy_ng.dependencies import fastp, seqkit
 from pydantic import Field, field_validator
 
 
 class FastpCleanReadsOutput(BaseOutput):
-    cleaned_r1: Path
-    cleaned_r2: Optional[Path] = None
-    html_report: Path
-    json_report: Path
+    cleaned_r1: Path = Field(..., description="Cleaned R1 FASTQ file")
+    cleaned_r2: Optional[Path] = Field(None, description="Cleaned R2 FASTQ file (if paired-end)")
+    html_report: TempPath = Field(..., description="Temporary fastp HTML quality-control report")
+    json_report: TempPath = Field(..., description="Temporary fastp JSON quality-control report")
 
 
 class FastpCleanReads(BaseStage):
@@ -56,7 +56,7 @@ class FastpCleanReads(BaseStage):
             json_report=f"{self.prefix}.fastp.json"
         )
     
-    def build_fastp_command(self) -> ShellCommand:
+    def build_fastp_command(self, ctx) -> ShellCommand:
         """Constructs the fastp command for read cleaning."""
         cmd_parts = ["fastp"]
         
@@ -75,8 +75,8 @@ class FastpCleanReads(BaseStage):
         cmd_parts.extend(["-j", str(self.output.json_report)])
         
         # Threading
-        if self.cpus > 1:
-            cmd_parts.extend(["--thread", str(self.cpus)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["--thread", str(ctx.cpus)])
         
         # Quality filtering
         cmd_parts.extend(["--length_required", str(self.min_length)])
@@ -112,10 +112,9 @@ class FastpCleanReads(BaseStage):
             description=f"Clean and filter {read_type} reads using fastp"
         )
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the fastp cleaning command."""
-        return [self.build_fastp_command()]
+        return [self.build_fastp_command(ctx)]
 
 
 class FastpCleanReadsAggressive(FastpCleanReads):
@@ -143,7 +142,7 @@ class FastpCleanReadsConservative(FastpCleanReads):
 
 
 class SeqkitCleanReadsOutput(BaseOutput):
-    cleaned_reads: str
+    cleaned_reads: Path = Field(..., description="Cleaned long-read FASTQ file after seqkit length/quality filtering")
 
 class SeqkitCleanLongReads(BaseStage):
     """
@@ -166,8 +165,7 @@ class SeqkitCleanLongReads(BaseStage):
             cleaned_reads=cleaned_reads
         )
     
-    @property
-    def commands(self) -> List[ShellCommand]:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Constructs the seqkit command for long read cleaning."""
         cmd_parts = [
             "seqkit", "seq", "--remove-gaps",
@@ -177,8 +175,8 @@ class SeqkitCleanLongReads(BaseStage):
             str(self.reads)
         ]
         
-        if self.cpus > 1:
-            cmd_parts.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["-j", str(ctx.cpus)])
         
         return [self.shell_cmd(
             command=cmd_parts,

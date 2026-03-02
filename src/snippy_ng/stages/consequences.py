@@ -9,7 +9,7 @@ from pydantic import Field
 
 
 class BcftoolsConsequencesCallerOutput(BaseOutput):
-    annotated_vcf: Path
+    annotated_vcf: Path = Field(..., description="VCF file with functional consequence annotations from bcftools csq")
 
 class BcftoolsConsequencesCaller(BaseStage):
     """
@@ -29,8 +29,7 @@ class BcftoolsConsequencesCaller(BaseStage):
             annotated_vcf=Path(f"{self.prefix}.vcf")
         )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the bcftools csq command."""
         # check if features file exists and is not empty
         features_found = True

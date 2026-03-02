@@ -13,8 +13,8 @@ class RasusaDownsampleReadsOutput(BaseOutput):
         downsampled_r1: Path to downsampled R1 read file.
         downsampled_r2: Optional path to downsampled R2 read file (for paired-end reads).
     """
-    downsampled_r1: Path = Field(..., description="Path to downsampled R1 read file")
-    downsampled_r2: Optional[Path] = Field(None, description="Path to downsampled R2 read file (for paired-end reads)")
+    downsampled_r1: Path = Field(..., description="Downsampled R1 read file")
+    downsampled_r2: Optional[Path] = Field(None, description="Downsampled R2 read file (for paired-end reads)")
 
 
 class RasusaDownsampleReads(BaseStage):
@@ -215,8 +215,7 @@ class RasusaDownsampleReads(BaseStage):
             description=f"Downsample reads to {coverage_desc} using rasusa"
         )
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Get the list of commands to execute for this stage.
         
         Returns:

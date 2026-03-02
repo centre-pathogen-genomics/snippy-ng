@@ -2,16 +2,12 @@ from pathlib import Path
 from typing import List
 from snippy_ng.stages import BaseStage, ShellCommand, BaseOutput
 from snippy_ng.dependencies import seqkit
+from snippy_ng.context import Context 
 from pydantic import Field, field_validator
 
 
 class SeqKitReadStatsOutput(BaseOutput):
-    """Output model for SeqKitReadStats stages.
-    
-    Attributes:
-        stats_tsv: Path to the generated TSV file containing read statistics.
-    """
-    stats_tsv: Path = Field(..., description="Path to the generated TSV file containing read statistics")
+    stats_tsv: Path = Field(..., description="Tab Separated Values (TSV) file containing read statistics")
 
 
 class SeqKitReadStats(BaseStage):
@@ -110,7 +106,7 @@ class SeqKitReadStats(BaseStage):
             stats_tsv=f"{self.prefix}.stats.tsv"
         )
     
-    def build_seqkit_stats_command(self) -> ShellCommand:
+    def build_seqkit_stats_command(self, ctx: Context) -> ShellCommand:
         """Constructs the seqkit stats command.
         
         Builds the complete seqkit stats command with all specified options
@@ -126,8 +122,8 @@ class SeqKitReadStats(BaseStage):
         )
         
         # Threading
-        if self.cpus > 1:
-            shell_cmd.command.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            shell_cmd.command.extend(["-j", str(ctx.cpus)])
         
         # Output format options
         if self.tabular:
@@ -161,14 +157,13 @@ class SeqKitReadStats(BaseStage):
         # Create shell command with output file
         return shell_cmd
     
-    @property
-    def commands(self) -> List[ShellCommand]:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Get the list of commands to execute for this stage.
         
         Returns:
             List[ShellCommand]: List containing the seqkit stats command.
         """
-        return [self.build_seqkit_stats_command()]
+        return [self.build_seqkit_stats_command(ctx)]
 
 
 class SeqKitReadStatsBasic(SeqKitReadStats):
@@ -246,7 +241,7 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
                 raise ValueError(f"N-statistic values must be between 0 and 100, got: {stat}")
         return v
     
-    def build_seqkit_stats_command(self) -> ShellCommand:
+    def build_seqkit_stats_command(self, ctx) -> ShellCommand:
         """Constructs the seqkit stats command with additional N-statistics.
         
         Builds the complete seqkit stats command including any additional
@@ -262,8 +257,8 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         ) 
         
         # Threading
-        if self.cpus > 1:
-            shell_cmd.command.extend(["-j", str(self.cpus)])
+        if ctx.cpus > 1:
+            shell_cmd.command.extend(["-j", str(ctx.cpus)])
         
         # Output format options
         if self.tabular:

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
 from abc import abstractmethod
-from typing import ClassVar, Iterable, List, Callable, Optional
+from types import UnionType
+from typing import Annotated, Any, ClassVar, Iterable, List, Callable, Optional, Union, get_args, get_origin
 import subprocess
 import sys
-import tempfile
 from io import StringIO
 from pathlib import Path
 import signal
@@ -13,14 +13,90 @@ import signal
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
 from snippy_ng.exceptions import InvalidCommandTypeError, MissingOutputError, StageExecutionError, StageTestFailure
+from snippy_ng.context import Context
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from shlex import quote
+
+
+class TemporaryOutput:
+    """Marker metadata for temporary output fields."""
+
+
+TempPath = Annotated[Path, TemporaryOutput()]
 
 
 class BaseOutput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     _immutable: bool = False
+    _description_overrides: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def get_description(self, field_name: str) -> str:
+        """Get an output field description, honoring instance overrides."""
+        if field_name in self._description_overrides:
+            return self._description_overrides[field_name]
+        field_info = self.__class__.model_fields[field_name]
+        return field_info.description or ""
+
+    @classmethod
+    def _annotation_has_temporary_marker(cls, annotation: Any) -> bool:
+        """Recursively detect TemporaryOutput marker in nested type annotations."""
+        if annotation is None:
+            return False
+
+        origin = get_origin(annotation)
+
+        if origin is Annotated:
+            args = get_args(annotation)
+            if not args:
+                return False
+            base_type, *metadata = args
+            if any(isinstance(meta, TemporaryOutput) for meta in metadata):
+                return True
+            return cls._annotation_has_temporary_marker(base_type)
+
+        if origin in (Union, UnionType):
+            return any(cls._annotation_has_temporary_marker(arg) for arg in get_args(annotation))
+
+        return False
+
+    @classmethod
+    def _is_temporary_field(cls, field_name: str) -> bool:
+        field_info = cls.model_fields[field_name]
+        if any(isinstance(meta, TemporaryOutput) for meta in field_info.metadata):
+            return True
+        return cls._annotation_has_temporary_marker(field_info.annotation)
+
+    def temporary_outputs(self) -> List[tuple[str, Path]]:
+        """Return temporary output fields and their resolved path values."""
+        tmp_outputs = []
+        for name in self.__class__.model_fields:
+            if not self._is_temporary_field(name):
+                continue
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                tmp_outputs.append((name, value))
+        return tmp_outputs
+
+    def non_temporary_outputs(self) -> List[tuple[str, Path]]:
+        """Return non-temporary output fields and their resolved path values."""
+        outputs = []
+        for name in self.__class__.model_fields:
+            if self._is_temporary_field(name):
+                continue
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                outputs.append((name, value))
+        return outputs
+
+    def all_outputs(self) -> List[tuple[str, Path]]:
+        """Return all output fields and their resolved path values."""
+        outputs = []
+        for name in self.__class__.model_fields:
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                outputs.append((name, value))
+        return outputs
 
 class PythonCommand(BaseModel):
     func: Callable
@@ -41,8 +117,8 @@ class ShellCommand(BaseModel):
             output_file = f" > {self.output_file}"
         return f"{' '.join(quote(str(arg)) for arg in self.command)}{output_file}"
 
-class ShellCommandPipe(BaseModel):
-    commands: List[ShellCommand]
+class ShellProcessPipe(BaseModel):
+    processes: List[ShellCommand] # TODO rename to parts
     description: str
     output_file: Optional[Path] = None
 
@@ -50,36 +126,45 @@ class ShellCommandPipe(BaseModel):
         output_file = ''
         if self.output_file:
             output_file = f" > {self.output_file}"
-        return f"{' | '.join(str(cmd) for cmd in self.commands)}{output_file}"
+        return f"{' | '.join(str(cmd) for cmd in self.processes)}{output_file}"
     
     def __iter__(self):
-        return iter(self.commands)
+        return iter(self.processes)
 
 TestFn = Callable[["BaseStage"], None]
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
-    cpus: int = Field(1, description="Number of CPU cores to use")
-    ram: Optional[int] = Field(4, description="RAM in GB to use")
-    tmpdir: Optional[Path] = Field(default_factory=lambda: Path(tempfile.gettempdir()), description="Temporary directory")
-    prefix: str = Field("snps", description="Prefix for output files")
+    prefix: str = Field("snps", description="Prefix for output files") # TODO maybe this should be in the context instead?
 
     _dependencies: List[Dependency] = []
     _tests: ClassVar[List[TestFn]] = []
+    _output_description_overrides: dict[str, str] = PrivateAttr(default_factory=dict)
 
     @property
     def name(self) -> str:
         """Returns the name of the stage."""
         return self.__class__.__name__
-
+    
     @property
     @abstractmethod
     def output(self) -> BaseOutput:
         """Defines the output of the stage."""
         pass
 
-    @property
+    def update_output_description(self, field_name: str, description: str) -> None:
+        """Override an output field description for this stage instance."""
+        if field_name not in self.output.__class__.model_fields:
+            raise ValueError(f"Unknown output field '{field_name}' for {self.name}")
+        self._output_description_overrides[field_name] = description
+
+    def get_output_description(self, field_name: str) -> str:
+        """Get the effective output description for this stage instance."""
+        if field_name in self._output_description_overrides:
+            return self._output_description_overrides[field_name]
+        return self.output.get_description(field_name)
+
     @abstractmethod
-    def commands(self) -> List[ShellCommandPipe | ShellCommand | PythonCommand]:
+    def create_commands(self, ctx: Context) -> List[ShellProcessPipe | ShellCommand | PythonCommand]:
         """Constructs the commands."""
         pass
 
@@ -100,7 +185,7 @@ class BaseStage(BaseModel):
         assert isinstance(description, str), f"Description must be a string, got {description}"
         return ShellCommand(command=command, description=description, output_file=output_file)
     
-    def shell_pipeline(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellCommandPipe:
+    def shell_pipe(self, commands: List[ShellCommand], description: str, output_file: Optional[Path] = None) -> ShellProcessPipe:
         """Creates a shell pipeline."""
         # Validate that all commands are ShellCommand objects
         for i, cmd in enumerate(commands):
@@ -122,104 +207,155 @@ class BaseStage(BaseModel):
                 "Pipeline output_file conflicts with final command output_file. "
                 "Set output_file on the pipeline or the final command, not both."
             )
-        return ShellCommandPipe(commands=commands, description=description, output_file=output_file)
+        return ShellProcessPipe(processes=commands, description=description, output_file=output_file)
 
 
-    def run(self, quiet=False):
+    def run(self, ctx: Context):
         """Runs the commands in the shell or calls the function."""
-        for cmd in self.commands:
-            assert isinstance(cmd, (ShellCommand, PythonCommand, ShellCommandPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
-            logger.info(cmd.description)
-            logger.info(f" ❯ {cmd}") 
-            stdout = sys.stderr
-            stderr = sys.stderr
-            if quiet:
-                stdout = subprocess.DEVNULL
-                stderr = subprocess.DEVNULL
-            try:
-                if isinstance(cmd, PythonCommand):
-                    if quiet:
-                        # Capture output if quiet mode is enabled
-                        with StringIO() as out, StringIO() as err, \
-                                self.redirect_output(out), self.redirect_error(err):
-                            cmd.func(*cmd.args)
-                    else:
-                        with self.redirect_stdout_to_err():
-                            cmd.func(*cmd.args)
-                elif isinstance(cmd, ShellCommand):
-                    if cmd.output_file:
-                        with open(cmd.output_file, 'w') as out:
-                            subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
-                    else:
-                        subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
-                elif isinstance(cmd, ShellCommandPipe):
-                    if not cmd.commands:
-                        raise ValueError("No commands to run in the pipeline")
+        if ctx.create_missing:
+            # Only persistent outputs define whether a stage is "complete".
+            persistent_outputs = self.output.non_temporary_outputs()
+            if persistent_outputs:
+                try:
+                    self.error_if_outputs_missing()
+                    logger.info(f"{self.name} already completed, skipping...")
+                    return
+                except MissingOutputError:
+                    pass
+            else:
+                logger.debug(
+                    f"{self.name} has no persistent outputs (all temporary or none), rerunning with --create-missing."
+                )
+        if ctx.break_points:
+            self.breakpoint()
+        try:
+            for cmd in self.create_commands(ctx):
+                assert isinstance(cmd, (ShellCommand, PythonCommand, ShellProcessPipe)), f"Invalid command type: {type(cmd)} in stage {self.name}"
+                logger.info(cmd.description)
+                logger.info(f" ❯ {cmd}") 
+                stdout = sys.stderr
+                stderr = sys.stderr
+                if ctx.quiet:
+                    stdout = subprocess.DEVNULL
+                    stderr = subprocess.DEVNULL
+                try:
+                    if isinstance(cmd, PythonCommand):
+                        if ctx.quiet:
+                            # Capture output if quiet mode is enabled
+                            with StringIO() as out, StringIO() as err, \
+                                    self.redirect_output(out), self.redirect_error(err):
+                                cmd.func(*cmd.args)
+                        else:
+                            with self.redirect_stdout_to_err():
+                                cmd.func(*cmd.args)
+                    elif isinstance(cmd, ShellCommand):
+                        if cmd.output_file:
+                            with open(cmd.output_file, 'w') as out:
+                                subprocess.run(cmd.command, check=True, stdout=out, stderr=stderr, text=True)
+                        else:
+                            subprocess.run(cmd.command, check=True, stdout=stdout, stderr=stderr, text=True)
+                    elif isinstance(cmd, ShellProcessPipe):
+                        if not cmd.processes:
+                            raise ValueError("No commands to run in the pipeline")
 
-                    processes: List[subprocess.Popen] = []
-                    last_output_file = cmd.output_file or (cmd.commands[-1].output_file if cmd.commands else None)
+                        processes: List[subprocess.Popen] = []
+                        last_output_file = cmd.output_file or (cmd.processes[-1].output_file if cmd.processes else None)
 
-                    try:
-                        with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
-                            prev_proc: Optional[subprocess.Popen] = None
-                            for i, pipeline_part in enumerate(cmd.commands):
-                                is_last = i == len(cmd.commands) - 1
-                                process_stdout = final_stdout if is_last else subprocess.PIPE
-                                process_stdin = None if prev_proc is None else prev_proc.stdout
+                        try:
+                            with (open(last_output_file, 'wb') if last_output_file else nullcontext(stdout)) as final_stdout:
+                                prev_proc: Optional[subprocess.Popen] = None
+                                for i, pipeline_part in enumerate(cmd.processes):
+                                    is_last = i == len(cmd.processes) - 1
+                                    process_stdout = final_stdout if is_last else subprocess.PIPE
+                                    process_stdin = None if prev_proc is None else prev_proc.stdout
 
-                                p = subprocess.Popen(
-                                    pipeline_part.command,
-                                    stdin=process_stdin,
-                                    stdout=process_stdout,
-                                    stderr=stderr,
-                                    text=False, # pipes should be in binary mode
-                                )
-                                processes.append(p)
+                                    p = subprocess.Popen(
+                                        pipeline_part.command,
+                                        stdin=process_stdin,
+                                        stdout=process_stdout,
+                                        stderr=stderr,
+                                        text=False, # pipes should be in binary mode
+                                    )
+                                    processes.append(p)
 
-                                # Allow upstream processes to receive SIGPIPE if downstream exits.
-                                if prev_proc is not None and prev_proc.stdout is not None:
-                                    prev_proc.stdout.close()
+                                    # Allow upstream processes to receive SIGPIPE if downstream exits.
+                                    if prev_proc is not None and prev_proc.stdout is not None:
+                                        prev_proc.stdout.close()
 
-                                prev_proc = p
+                                    prev_proc = p
 
-                            # Wait for all processes to complete
+                                # Wait for all processes to complete
+                                for p in processes:
+                                    p.wait()
+
+                                failures = [p for p in processes if p.returncode not in (0, None)]
+                                if failures:
+                                    sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
+                                    non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
+                                    primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
+                                    raise subprocess.CalledProcessError(
+                                        returncode=primary.returncode,
+                                        cmd=primary.args,
+                                    )
+                        except Exception:
+                            # Ensure we don't leave a half-running pipeline behind.
                             for p in processes:
-                                p.wait()
-
-                            failures = [p for p in processes if p.returncode not in (0, None)]
-                            if failures:
-                                sigpipe_rc = -int(getattr(signal, "SIGPIPE", 13))
-                                non_sigpipe = [p for p in failures if p.returncode != sigpipe_rc]
-                                primary = (non_sigpipe[-1] if non_sigpipe else failures[0])
-                                raise subprocess.CalledProcessError(
-                                    returncode=primary.returncode,
-                                    cmd=primary.args,
-                                )
-                    except Exception:
-                        # Ensure we don't leave a half-running pipeline behind.
-                        for p in processes:
-                            try:
-                                if p.poll() is None:
-                                    p.terminate()
-                            except Exception:
-                                # Ignore errors during best-effort process termination in cleanup.
-                                pass
-                        for p in processes:
-                            try:
-                                p.wait(timeout=2)
-                            except Exception:
-                                # Ignore errors while waiting during best-effort cleanup.
-                                # Ignore errors while waiting for processes to exit during cleanup.
-                                pass
-                        raise
-                else:
-                    raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Command failed with exit code {e.returncode}")
-                cmd = " ".join(quote(arg) for arg in e.cmd) 
-                raise StageExecutionError(f"Failed to run command: {cmd}")
-            except InvalidCommandTypeError as e:
+                                try:
+                                    if p.poll() is None:
+                                        p.terminate()
+                                except Exception:
+                                    # Ignore errors during best-effort process termination in cleanup.
+                                    pass
+                            for p in processes:
+                                try:
+                                    p.wait(timeout=2)
+                                except Exception:
+                                    # Ignore errors while waiting during best-effort cleanup.
+                                    # Ignore errors while waiting for processes to exit during cleanup.
+                                    pass
+                            raise
+                    else:
+                        raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Command failed with exit code {e.returncode}")
+                    cmd = " ".join(quote(arg) for arg in e.cmd) 
+                    raise StageExecutionError(f"Failed to run command: {cmd}")
+                except InvalidCommandTypeError as e:
+                    raise e
+        except (Exception, KeyboardInterrupt) as e:
+                # remove outputs if stage fails
+                if ctx.keep_incomplete:
+                    raise e 
+                if self.output._immutable:
+                    raise e
+                output_removed = False
+                for name, path in self.output:
+                    if path and Path(path).exists():
+                        output_removed = True
+                        logger.warning(f"Removing incomplete output '{name}' ({path}).")
+                        Path(path).unlink()
+                if output_removed:
+                    logger.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
+
+    def cleanup_tmp_outputs(self):
+        """Delete temporary outputs."""
+        dirs_to_remove = set()
+        for name, path in self.output.temporary_outputs():
+            if path and Path(path).exists():
+                if path.is_dir():
+                    dirs_to_remove.add(path)
+                else:   
+                    logger.debug(f"Removing temporary output '{name}' ({path}).")
+                    Path(path).unlink()
+        for d in sorted(dirs_to_remove, reverse=True):
+            if d.exists():
+                logger.debug(f"Removing temporary output directory ({d}).")
+                try:
+                    d.rmdir()
+                except OSError:
+                    logger.warning(f"Could not remove temporary directory {d} (not empty).")
+                    continue
 
     def _discover_test_methods(self) -> Iterable[Callable[[], None]]:
         """
@@ -253,10 +389,11 @@ class BaseStage(BaseModel):
                 name = getattr(t, "__name__", repr(t))
                 raise StageTestFailure(f"{name.upper()}: {e}") from e
 
-    def error_if_outputs_missing(self):
+    def error_if_outputs_missing(self, include_temporary: bool = False):
         """Raises an error if any expected output files are missing."""
         missing = []
-        for name, path in self.output:
+        outputs = self.output if include_temporary else self.output.non_temporary_outputs()
+        for name, path in outputs:
             if not path:
                 continue
             if not Path(path).exists():
@@ -264,6 +401,9 @@ class BaseStage(BaseModel):
         if missing:
             missing_str = ", ".join(f"{name} ({path})" for name, path in missing)
             raise MissingOutputError(f"Expected output files are missing: {missing_str}")
+
+    def breakpoint(self):
+        input("Press Enter to continue...")
 
     @contextmanager
     def redirect_stdout_to_err(self):

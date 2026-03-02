@@ -3,7 +3,7 @@ from typing import List
 
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.metadata import ReferenceMetadata
-from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.stages import BaseStage, BaseOutput, TempPath
 from snippy_ng.dependencies import bcftools
 
 from pydantic import Field
@@ -15,7 +15,8 @@ class PseudoAlignment(BaseStage):
     reference: Path = Field(..., description="Reference file")
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
-    fasta: Path
+    fasta: Path = Field(..., description="Pseudo-alignment consensus FASTA generated from reference + variants")
+    vcf_index: TempPath = Field(..., description="Index file for the input VCF.gz")
 
 class BcftoolsPseudoAlignment(PseudoAlignment):
     """
@@ -23,6 +24,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     """
     vcf_gz: Path = Field(..., description="Input VCF.gz file")
     no_insertions: bool = Field(True, description="Do not apply insertions to the consensus sequence")
+    iupac_ambiguity_codes: bool = Field(True, description="Use IUPAC ambiguity codes for heterozygous sites")
     ref_metadata: ReferenceMetadata = Field(..., description="Metadata for the run")
 
     _dependencies = [
@@ -32,7 +34,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.pseudo.raw.fna")
+            fasta=Path(f"{self.prefix}.pseudo.raw.fna"),
+            vcf_index=Path(f"{self.vcf_gz}.csi")
         )
     
     def test_output_matches_reference(self):
@@ -55,8 +58,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         if num_contigs != ref_contigs:
             raise ConsensusValidationError(f"FASTA file {fasta_file} contig count mismatch: expected {ref_contigs}, got {num_contigs}")
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the bcftools consensus command."""
 
         bcf_csq_args = ["bcftools", "consensus"]
@@ -64,6 +66,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         if self.no_insertions:
             # Ensure that only indels where ALT is shorter than REF are applied i.e. no insertions
             bcf_csq_args.extend(["-i", "strlen(ALT)<=strlen(REF)"])
+        if self.iupac_ambiguity_codes:
+            bcf_csq_args.append("--iupac-codes")
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),
@@ -73,5 +77,4 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         return [
             self.shell_cmd(["bcftools", "index", str(self.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
-            self.shell_cmd(["rm", f"{self.vcf_gz}.csi"], description="Removing VCF index file") 
         ]

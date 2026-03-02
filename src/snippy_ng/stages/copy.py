@@ -7,7 +7,7 @@ from snippy_ng.dependencies import seqkit
 
 
 class CopyFileOutput(BaseOutput):
-    copied_file: Path
+    copied_file: Path = Field(..., description="Copied output file")
 
 
 class CopyFile(BaseStage):
@@ -22,8 +22,7 @@ class CopyFile(BaseStage):
     def output(self) -> CopyFileOutput:
         return CopyFileOutput(copied_file=self.output_path)
 
-    @property
-    def commands(self):
+    def create_commands(self, ctx):
         return [
             self.shell_cmd(
                 ["cp", str(self.input), str(self.output_path)],
@@ -31,6 +30,8 @@ class CopyFile(BaseStage):
             )
         ]
 
+class CopyFastaOutput(BaseOutput):
+    fasta: Path = Field(..., description="Output FASTA file path")
 
 class CopyFasta(CopyFile):
     """
@@ -42,12 +43,15 @@ class CopyFasta(CopyFile):
     _dependencies = [seqkit]
 
     @property
-    def commands(self):
+    def output(self) -> CopyFastaOutput:
+        return CopyFastaOutput(fasta=self.output_path)
+
+    def create_commands(self, ctx):
         if self.header:
             cmd = self.shell_cmd(
                     ["seqkit", "replace", "-p", ".*", "-r", self.header, str(self.input)],
                     description=f"Copy and rename FASTA {self.input} to {self.output_path}",
-                    output_file=self.output.copied_file,
+                    output_file=self.output.fasta,
                 )
         else:
             cmd = self.shell_cmd(
@@ -55,3 +59,15 @@ class CopyFasta(CopyFile):
                 description=f"Copy {self.input} to {self.output_path}",
             )
         return [cmd]
+
+class FinaliseFastaOutput(BaseOutput):
+    fasta: Path = Field(..., description="Final masked pseudo-alignment FASTA file")
+
+class FinaliseFasta(CopyFasta):
+    """
+    Final stage to copy the final masked pseudo-alignment FASTA file to the standard output location.
+    """
+
+    @property
+    def output(self) -> FinaliseFastaOutput:
+        return FinaliseFastaOutput(fasta=self.output_path)

@@ -1,22 +1,20 @@
 import random
-from typing import List
+from typing import List, Optional
 import os
 from pathlib import Path
 import time
 
-from snippy_ng.exceptions import DependencyError, MissingOutputError
+from snippy_ng.exceptions import DependencyError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
-from snippy_ng.stages import BaseStage
+from snippy_ng.stages import BaseStage, Context
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
-    cpus: int = Field(default=1, description="Number of CPUs to use")
-    ram: int = Field(default=8, description="RAM in GB")
-    prefix: str = Field(default="tree", description="Output file prefix")
+    prefix: str = Field(default="snps", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""
@@ -26,37 +24,53 @@ class PipelineBuilder(BaseModel):
 class SnippyPipeline:
     """
     Main class for creating Snippy-NG Pipelines.
+
+    If outputs_to_keep is not specified, all stage outputs will be kept by default. If outputs_to_keep is provided, only the specified outputs will be kept and all other stage outputs will be deleted during cleanup (unless --no-cleanup is used).
     """
     stages: List[BaseStage]
+    outputs_to_keep: List[Path]
+    outdir: Optional[Path] = None
 
-    def __init__(self, stages: List[BaseStage] = None):
-        if stages is None:
-            stages = []
-        self.stages = stages
+    def __init__(self, stages: List[BaseStage] = None, outputs_to_keep: List[Path] = None):
+        self.stages = stages or []
+        if outputs_to_keep is None:
+            # keep all outputs by default if not specified
+            outputs_to_keep = []
+            for stage in self.stages:
+                for _, output in stage.output.non_temporary_outputs():
+                    if isinstance(output, Path):
+                        outputs_to_keep.append(output)
+        self.outputs_to_keep = outputs_to_keep
+        # check that outputs_to_keep are Paths else error
+        for output in self.outputs_to_keep:
+            if not isinstance(output, Path):
+                raise ValueError(f"All outputs to keep must be of type Path. Invalid output: {output} ({type(output)})")
 
-    def run(self, quiet=False, create_missing=False, keep_incomplete=False, skip_check=False, check=False, cwd=Path(".")):
+
+    def run(self, context: Context):
         self.welcome()
 
-        if not skip_check:
+        if not context.skip_check:
             try:
                 self.validate_dependencies()
             except DependencyError as e:
                 raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
         
-        if check:
+        if context.check:
             return None
 
         # Set working directory to output folder
         current_dir = Path.cwd()
+        self.outdir = context.outdir
         try:
-            self.set_working_directory(cwd)
+            self.set_working_directory(context.outdir)
             self._execute_pipeline_stages_in_order(
-                quiet=quiet,
-                create_missing=create_missing,
-                keep_incomplete=keep_incomplete
+                context,
             )
+            self.cleanup(context, outputs_to_keep=self.outputs_to_keep)
         finally:
-            self.cleanup(current_dir)
+            # Ensure we always return to the original working directory
+            os.chdir(current_dir)
         self.goodbye()
     
     def add_stage(self, stage):
@@ -79,6 +93,9 @@ class SnippyPipeline:
     def warning(self, msg):
         logger.warning(msg)
     
+    def is_debug(self):
+        return logger.is_debug()
+
     def debug(self, msg):
         logger.debug(msg)
 
@@ -112,7 +129,7 @@ class SnippyPipeline:
         self.log(f"Setting working directory to '{directory}'")
         os.chdir(directory)
 
-    def _execute_pipeline_stages_in_order(self, quiet=False, create_missing=False, keep_incomplete=False):
+    def _execute_pipeline_stages_in_order(self, run_ctx: Context):
         if not self.stages:
             raise ValueError("No stages to run in the pipeline!")
         # Run pipeline sequentially
@@ -120,49 +137,73 @@ class SnippyPipeline:
         for stage in self.stages:
             self.hr(f"{stage.name}")
             self.debug(stage)
-
-            if create_missing:
-                try:
-                    stage.error_if_outputs_missing()
-                    self.log(f"{stage.name} already completed, skipping...")
-                    continue
-                except MissingOutputError:
-                    pass
-            try:
-                start = time.perf_counter()
-                stage.run(quiet)
-                end = time.perf_counter()
-                self.debug(f"Runtime: {(end - start):.2f} seconds")
-                # After running each stage,
-                # check all expected outputs were produced
-                stage.error_if_outputs_missing()
-                # run any tests defined for the stage
-                stage.run_tests()
-            except (Exception, KeyboardInterrupt) as e:
-                # remove outputs if stage fails
-                if keep_incomplete:
-                    raise e 
-                if stage.output._immutable:
-                    raise e
-                output_removed = False
-                for name, path in stage.output:
-                    if path and Path(path).exists():
-                        output_removed = True
-                        self.warning(f"Removing incomplete output '{name}' ({path}).")
-                        Path(path).unlink()
-                if output_removed:
-                    self.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
-                raise e
-          
+            start = time.perf_counter()
+            stage.run(run_ctx)
+            end = time.perf_counter()
+            self.debug(f"Runtime: {(end - start):.2f} seconds")
+            # After running each stage,
+            # check all expected outputs were produced
+            stage.error_if_outputs_missing()
+            # run any tests defined for the stage
+            stage.run_tests()
+            # Clean up stage tmp outputs
+            stage.cleanup_tmp_outputs()
         self.end_time = time.perf_counter()
 
-    
-    def cleanup(self, directory: Path = None):
-        # reset working directory
-        if directory:
-            os.chdir(directory)
-        # Clean up unnecessary files
-        pass
+    def cleanup(self, context: Context = None, outputs_to_keep: List[Path] | None = None):
+        """Delete all declared stage outputs except those explicitly kept."""
+        if context and context.no_cleanup:
+            self.debug("Skipping output cleanup (--no-cleanup).")
+            return
+
+        keep_keys = {os.path.abspath(str(p)) for p in (outputs_to_keep or [])}
+        if not keep_keys:
+            self.debug("No outputs specified to keep, skipping cleanup.")
+            return
+        self.debug(f"Keeping {len(keep_keys)} output file(s) from cleanup.")
+        self.debug(f"Keep list: {outputs_to_keep}")
+        removed = 0
+        seen = set()
+        dirs_to_remove = set()
+
+        for stage in self.stages:
+            if stage.output._immutable:
+                self.debug(f"Skipping cleanup for stage '{stage.name}' with immutable output.")
+                continue
+            # Assume temporary outputs are already cleaned up by the stage
+            for _, output in stage.output.non_temporary_outputs():
+                key = os.path.abspath(str(output))
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                if key in keep_keys:
+                    continue
+
+                if output.exists():
+                    if output.is_dir():
+                        dirs_to_remove.add(output)
+                    else:
+                        self.debug(f"Removing output file: {output}")
+                        output.unlink()
+                        removed += 1
+
+        # Remove directories only if they are empty, after files are deleted.
+        for output_dir in sorted(dirs_to_remove, reverse=True):
+            key = os.path.abspath(str(output_dir))
+            if key in keep_keys:
+                continue
+            if output_dir.exists() and output_dir.is_dir():
+                try:
+                    output_dir.rmdir()
+                    self.debug(f"Removed empty output directory: {output_dir}")
+                    removed += 1
+                except OSError:
+                    self.warning(f"Could not remove output directory {output_dir} (not empty).")
+                    continue
+
+        if removed:
+            self.debug(f"Removed {removed} output file(s) not in keep list.")
     
     @property
     def citations(self):
@@ -172,6 +213,38 @@ class SnippyPipeline:
                 if dependency.citation:
                     citations.append(dependency.citation)
         return sorted(set(citations))
+    
+    def output_descriptions(self) -> List[str]:
+        """Return kept outputs formatted as: name (path): description."""
+        keep_keys = {os.path.abspath(str(p)) for p in self.outputs_to_keep}
+        lines: List[str] = []
+        seen = set()
+
+        for stage in self.stages:
+            output_model = stage.output
+            if output_model._immutable:
+                continue
+            for field_name in output_model.__class__.model_fields:
+                output_value = getattr(output_model, field_name, None)
+                if not isinstance(output_value, Path):
+                    continue
+
+                key = os.path.abspath(str(output_value))
+                if key not in keep_keys or key in seen:
+                    continue
+                seen.add(key)
+
+                description = stage.get_output_description(field_name)
+                # join outdir with output path if outdir is set and output path is not absolute
+                path_with_outdir = output_value
+                if self.outdir and not output_value.is_absolute():
+                    path_with_outdir = self.outdir / output_value
+                # make the path relative to the current working directory for display
+                path_with_outdir = path_with_outdir.absolute().relative_to(Path.cwd())
+                description_formatted = f"\n ∟ {description}" if description else ""
+                lines.append(f"{path_with_outdir}{description_formatted}")
+
+        return lines
 
     def welcome(self):
         self.hr()
@@ -216,6 +289,9 @@ class SnippyPipeline:
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
+        self.hr("Output files")
+        descriptions = self.output_descriptions()
+        self.echo("\n".join(descriptions) if descriptions else "No kept output files. Use --no-cleanup to keep all outputs.")
         self.hr("Citations")
         self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
         self.hr()

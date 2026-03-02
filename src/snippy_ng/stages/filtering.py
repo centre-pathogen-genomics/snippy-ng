@@ -7,7 +7,7 @@ from pydantic import Field, field_validator
 
 
 class SamtoolsFilterOutput(BaseOutput):
-    cram: Path
+    cram: Path = Field(..., description="Filtered alignment file in CRAM format")
     stats: Path = Field(..., description="Flagstat output file for the CRAM file")
 
 
@@ -34,7 +34,7 @@ class SamtoolsFilter(BaseStage):
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
-    def build_filter_command(self) -> ShellCommand:
+    def build_filter_command(self, ctx) -> ShellCommand:
         """Constructs the samtools view command for filtering."""
         cmd_parts = [
             "samtools",
@@ -47,8 +47,8 @@ class SamtoolsFilter(BaseStage):
         ]
         
         # Add threading
-        if self.cpus > 1:
-            cmd_parts.extend(["--threads", str(self.cpus - 1)])
+        if ctx.cpus > 1:
+            cmd_parts.extend(["--threads", str(ctx.cpus - 1)])
         
         # Add mapping quality filter
         if self.min_mapq > 0:
@@ -116,10 +116,9 @@ class SamtoolsFilter(BaseStage):
                         )
                     break
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the filtering commands."""
-        filter_cmd = self.build_filter_command()
+        filter_cmd = self.build_filter_command(ctx)
         index_cmd = self.build_index_command()
         stats_cmd = self.build_flagstat_command()
         return [filter_cmd, index_cmd, stats_cmd]
@@ -159,13 +158,12 @@ class SamtoolsFilterProperPairs(SamtoolsFilter):
 
 
 class VcfFilterOutput(BaseOutput):
-    vcf: Path
+    vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
     min_qual: int = Field(100, description="Minimum QUAL score")
-    min_depth: int = Field(1, description="Minimum site depth for calling alleles")
 
     _dependencies = [bcftools]
 
@@ -188,23 +186,19 @@ class VcfFilterShort(VcfFilter):
     """
     Filter VCF files using Samtools to remove unwanted variants.
     """
-    min_frac: float = Field(0, description="Minimum proportion for calling alt allele")
-    
     # Keep only the tags you want; everything else is dropped.
     _keep_vcf_tags = ",".join(
-        [f"INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-        + [f"FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
+        [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
+        + [f"^FORMAT/{tag}" for tag in ["GT", "GQ", "DP", "RO", "AO", "QR", "QA", "GL"]]
     )
 
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
-        base_filter = (
-            f'FMT/GT="1/1" && QUAL>={self.min_qual} && FMT/DP>={self.min_depth} '
-            f'&& (FMT/AO)/(FMT/DP)>={self.min_frac} && N_ALT=1 && ALT!="*"'
-        )
+        base_filter = " && ".join([
+            f'QUAL>={self.min_qual}','ALT!="*"', 'FMT/GT="1/1"'
+        ])
         commands = [
                 self.shell_cmd(
                     ["cat", str(self.vcf)],
@@ -230,6 +224,10 @@ class VcfFilterShort(VcfFilter):
                     ["bcftools", "view", "--include", base_filter, "-"],
                     description="Filter variants after normalization and TYPE recomputation",
                 ),
+                self.shell_cmd(
+                    ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
+                    description="Make genotypes haploid (e.g., 1/1 -> 1)"
+                ),
             ]
         if self._keep_vcf_tags:
             commands.append(
@@ -238,7 +236,7 @@ class VcfFilterShort(VcfFilter):
                     description="Remove unnecessary VCF annotations",
                 ),
             )
-        bcftools_pipeline = self.shell_pipeline(
+        bcftools_pipeline = self.shell_pipe(
             commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
             output_file=Path(self.output.vcf),
@@ -268,8 +266,7 @@ class VcfFilterLong(VcfFilter):
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
-    @property
-    def commands(self) -> List:
+    def create_commands(self, ctx) -> List:
         """Constructs the bcftools pipeline for long-read variant filtering."""
         
         # Create temp files for contigs and header
@@ -285,7 +282,7 @@ class VcfFilterLong(VcfFilter):
         
         # Create new header with all contigs
         # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
-        create_header_pipeline = self.shell_pipeline(
+        create_header_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     ["bcftools", "view", "-h", str(self.vcf)],
@@ -333,7 +330,7 @@ class VcfFilterLong(VcfFilter):
                 description="Remove duplicates after normalization"
             ),
             self.shell_cmd(
-                ["bcftools", "view", "--include", f'QUAL>={self.min_qual} && FMT/DP>={self.min_depth}'],
+                ["bcftools", "view", "--include", f'QUAL>={self.min_qual}'],
                 description="Filter variants based on QUAL, depth, and allele fraction"
             ),
             self.shell_cmd(
@@ -362,7 +359,7 @@ class VcfFilterLong(VcfFilter):
             ),
         ])
         
-        main_pipeline = self.shell_pipeline(
+        main_pipeline = self.shell_pipe(
             commands=pipeline_commands,
             description="Long-read variant filtering pipeline",
             output_file=Path(self.output.vcf)
