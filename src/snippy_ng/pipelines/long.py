@@ -198,7 +198,7 @@ class LongPipelineBuilder(PipelineBuilder):
 
         # Apply zero-depth deletion masking
         del_mask = DelMask(
-            bam=aligned_reads,
+            cram=aligned_reads,
             fasta=current_fasta,
             **globals
         )
