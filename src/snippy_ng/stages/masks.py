@@ -97,7 +97,7 @@ class DelMask(BaseStage):
 
     This stage masks regions with depth equal to zero using `-`.
     """
-    bam: Path = Field(..., description="Input BAM file")
+    cram: Path = Field(..., description="Input BAM file")
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     mask_char: str = Field("-", description="Character to use for masking")
 
@@ -121,8 +121,11 @@ class DelMask(BaseStage):
 
     def _generate_zero_depth_mask_commands(self) -> List:
         """Generate commands to create a zero-depth BED mask file."""
+        view_cram = self.shell_cmd([
+            "samtools", "view", "-b", str(self.cram)
+        ], description="Convert CRAM to BAM for depth calculation")
         genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            ["bedtools", "genomecov", "-ibam", '-', "-bga"],
             description="Generate genome coverage in BED format"
         )
         awk_cmd = self.shell_cmd(
@@ -131,7 +134,7 @@ class DelMask(BaseStage):
         )
 
         return [self.shell_pipe(
-            [genomecov_cmd, awk_cmd],
+            [view_cram, genomecov_cmd, awk_cmd],
             output_file=self.output.zero_depth_bed,
             description="Generate zero-depth mask"
         )]
