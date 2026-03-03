@@ -29,7 +29,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
-    depth_mask: int = Field(default=0, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+    depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=100, description="Minimum variant quality")
 
     def build(self) -> SnippyPipeline:
@@ -178,7 +178,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Apply zero-depth deletion masking
         del_mask = DelMask(
-            bam=aligned_reads,
+            cram=aligned_reads,
             fasta=current_fasta,
             **globals
         )
