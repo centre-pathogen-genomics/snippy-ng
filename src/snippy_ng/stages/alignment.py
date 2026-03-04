@@ -7,7 +7,7 @@ from pydantic import Field
 
 
 class AlignerOutput(BaseOutput):
-    cram: Path = Field(..., description="Coordinate-sorted, deduplicated alignment file in CRAM format")
+    bam: Path = Field(..., description="Coordinate-sorted, deduplicated alignment file in BAM format")
 
 class Aligner(BaseStage):
     """
@@ -20,7 +20,7 @@ class Aligner(BaseStage):
     @property
     def output(self) -> AlignerOutput:
         return AlignerOutput(
-            cram=self.prefix + ".cram",
+            bam=self.prefix + ".bam",
         )
 
 class ShortReadAligner(Aligner):
@@ -107,7 +107,7 @@ class ShortReadAligner(Aligner):
                 "samtools",
                 "markdup",
                 "-O",
-                "cram,embed_ref=1",
+                "bam",
                 "--reference",
                 str(self.reference),
                 "--threads",
@@ -132,7 +132,7 @@ class ShortReadAligner(Aligner):
         return self.shell_pipe(
             commands=pipeline_commands,
             description="Alignment pipeline: align, filter, fix mates, sort, mark duplicates",
-            output_file=Path(self.output.cram),
+            output_file=Path(self.output.bam),
         )
 
 
@@ -243,15 +243,15 @@ class Minimap2LongReadAligner(Aligner):
                         "--threads",
                         str(ctx.cpus),
                         "-O",
-                        "cram,embed_ref=1",
+                        "bam",
                         "--reference",
                         str(self.reference),
                     ],
-                    description="Sort and convert to CRAM",
+                    description="Sort and convert to BAM",
                 ),
             ],
             description="Minimap2 alignment pipeline",
-            output_file=self.output.cram,
+            output_file=self.output.bam,
         )
 
         return [minimap_pipeline]

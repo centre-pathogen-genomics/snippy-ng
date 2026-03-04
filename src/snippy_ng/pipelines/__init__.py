@@ -300,8 +300,9 @@ class SnippyPipeline:
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
-        self.write_output_descriptions(Path(self.outdir) / "FILES.tsv")
-        self.write_output_citations(Path(self.outdir) / "CITATIONS.txt")
+        outdir = Path.cwd() if self.outdir is None else Path(self.outdir)
+        self.write_output_descriptions(outdir / "FILES.tsv")
+        self.write_output_citations(outdir / "CITATIONS.txt")
         self.hr()
         # Print a random goodbye message
         self.hr(f"{random.choice(messages)}", style=" ", color='green')

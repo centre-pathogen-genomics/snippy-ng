@@ -120,7 +120,7 @@ def stub_long_stages(monkeypatch, tmp_path):
     """Stub out long-read-specific stages."""
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.Minimap2LongReadAligner",
-        stage_factory({"cram": tmp_path / "align.cram"}),
+        stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.calling.FreebayesCallerLong",
@@ -141,7 +141,7 @@ def stub_short_stages(monkeypatch, tmp_path):
     """Stub out short-read-specific stages."""
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.BWAMEMShortReadAligner",
-        stage_factory({"cram": tmp_path / "align.cram"}),
+        stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.calling.FreebayesCaller",
