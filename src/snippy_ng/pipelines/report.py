@@ -26,6 +26,7 @@ class ReportPipelineBuilder(PipelineBuilder):
             }
         report_stage = EpiReport(
             context=context,
+            prefix=self.prefix,
             mid_point_root=self.mid_point_root,
             ladderize=self.ladderize,
         )
