@@ -215,7 +215,7 @@ class SnippyPipeline:
         return sorted(set(citations))
     
     def output_descriptions(self) -> List[str]:
-        """Return kept outputs formatted as: name (path): description."""
+        """Return kept outputs formatted as TSV rows: name, path, description."""
         keep_keys = {os.path.abspath(str(p)) for p in self.outputs_to_keep}
         lines: List[str] = []
         seen = set()
@@ -235,16 +235,27 @@ class SnippyPipeline:
                 seen.add(key)
 
                 description = stage.get_output_description(field_name)
-                # join outdir with output path if outdir is set and output path is not absolute
-                path_with_outdir = output_value
-                if self.outdir and not output_value.is_absolute():
-                    path_with_outdir = self.outdir / output_value
-                # make the path relative to the current working directory for display
-                path_with_outdir = path_with_outdir.absolute().relative_to(Path.cwd())
-                description_formatted = f"\n ∟ {description}" if description else ""
-                lines.append(f"{path_with_outdir}{description_formatted}")
+                description_formatted = f"{description}" if description else ""
+                lines.append(f"{field_name}\t{output_value}\t{description_formatted}")
 
         return lines
+
+    def write_output_descriptions(self, output_file: Path):
+        descriptions = self.output_descriptions()
+        if descriptions:
+            header = "output\tpath\tdescription"
+            output_file.write_text("\n".join([header, *descriptions]))
+            self.debug(f"Wrote output descriptions to {output_file}")
+        else:
+            self.debug("No output descriptions to write.")
+     
+    def write_output_citations(self, output_file: Path):
+        citations = self.citations
+        if citations:
+            output_file.write_text("\n".join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
+            self.debug(f"Wrote {len(citations)} citations to {output_file}")
+        else:
+            self.debug("No citations to write.")
 
     def welcome(self):
         self.hr()
@@ -289,11 +300,8 @@ class SnippyPipeline:
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
-        self.hr("Output files")
-        descriptions = self.output_descriptions()
-        self.echo("\n".join(descriptions) if descriptions else "No kept output files. Use --no-cleanup to keep all outputs.")
-        self.hr("Citations")
-        self.echo('\n'.join(f"{i}. {cite}" for i, cite in enumerate(self.citations, 1)))
+        self.write_output_descriptions(Path(self.outdir) / "FILES.tsv")
+        self.write_output_citations(Path(self.outdir) / "CITATIONS.txt")
         self.hr()
         # Print a random goodbye message
         self.hr(f"{random.choice(messages)}", style=" ", color='green')
