@@ -484,18 +484,18 @@ class EpiReport(FormatHTMLReportTemplate):
                 metadata = json.loads(metadata_json_str)
             except Exception as e:
                 raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for EpiReport: {e}")
-            # check all the metadata entries have an "id" field that matches a tip in the tree
+            # check all the metadata entries have an id_column that matches a tip in the tree
             tree_tips = {tip.name for tip in tree.get_terminals()}
             id_column = None
             for entry in metadata:
                 if "id" in entry:
                     id_column = "id"
-                elif "ID" in entry:
-                    id_column = "ID"
+                elif "sample_id" in entry:
+                    id_column = "sample_id"
                 elif "sample" in entry:
                     id_column = "sample"
-                elif "SAMPLE" in entry:
-                    id_column = "SAMPLE"
+                elif "name" in entry:
+                    id_column = "name"
                 else:
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
                 if entry[id_column] not in tree_tips:
