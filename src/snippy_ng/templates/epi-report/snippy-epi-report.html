@@ -33,9 +33,25 @@
         overflow: hidden;
       }
 
-      #metadata-table .tabulator-row.component-selected .tabulator-cell {
+      #metadata-table .tabulator-row.tabulator-selected {
         background-color: #e74c3c63 !important; 
       }
+
+      #metadata-table .tabulator-row.tabulator-row-odd.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: #ffffff !important;
+      }
+
+      #metadata-table .tabulator-row.tabulator-row-even.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: rgb(239, 239, 239) !important;
+      }
+
+      #metadata-table .tabulator-cell.tabulator-row-header,
+      #metadata-table .tabulator-col.tabulator-row-header {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      
 
       #metadata-table .tabulator-cell.cell-updated {
         background-color: #b4d3fb66 !important;
@@ -194,7 +210,7 @@
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and page through rows.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Resize panels:</b> Drag the row and column handles between panels to adjust layout.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Shortcuts:</b> Press <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">t</kbd> (tree), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">m</kbd> (map), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">d</kbd> (data table).</li>
-                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched by column <code>id</code> so you must include an <code>id</code> column that corresponds to tree tip labels (e.g. sample names) for linking to work.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched using one of <code>id</code>, <code>sample_id</code>, <code>sample</code>, or <code>name</code>. The chosen column values must correspond to tree tip labels (e.g. sample names) for linking to work.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Find changed metadata:</b> Newly inserted rows and updated cells are highlighted in <span class="rounded-lg px-1.5 py-0.5  bg-blue-100">blue</span>.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>ISO subdivision mapping:</b> If metadata includes an ISO 3166-2 column (e.g. <code>iso3166-2</code>), missing <code>latitude</code>/<code>longitude</code> values are auto-filled from built-in mapping.</li>
               </ul>
@@ -287,8 +303,8 @@
               id="tree-reroot-btn"
               type="button"
               class="tree-modebar-btn"
-              title="Reroot on first selected tip"
-              aria-label="Reroot on first selected tip"
+              title="Reroot on last selected tip"
+              aria-label="Reroot on last selected tip"
               disabled
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
@@ -440,6 +456,7 @@
       );
       let metadataRows = [];
       let metadataDataTable = null;
+      let isSyncingTableSelection = false;
       const MIN_PANEL_SIZE = 200;
       const DEFAULT_TREE_WIDTH_PCT = 66;
       const MIN_TREE_WIDTH_PCT = 10;
@@ -449,6 +466,7 @@
       let alignLabels = false;
       let showInternalLabels = false;
       let selectedMetadataIds = new Set();
+      let lastSelectedMetadataId = null;
       let insertedRowIds = new Set();
       let updatedCellKeys = new Set();
       let mapHasData = false;
@@ -501,17 +519,22 @@
 
       function applyLinkedSelectionToTableRows() {
         if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
+        isSyncingTableSelection = true;
         metadataDataTable.getRows().forEach((row) => {
-          const rowEl = typeof row.getElement === "function" ? row.getElement() : null;
-          if (!rowEl) return;
-          const rowId = findLinkValueInObject(
-            typeof row.getData === "function" ? row.getData() : null,
-          );
-          rowEl.classList.toggle(
-            "component-selected",
-            !!rowId && selectedMetadataIds.has(rowId),
-          );
+          const rowData = typeof row.getData === "function" ? row.getData() : null;
+          const rowId = findLinkValueInObject(rowData);
+          const shouldBeSelected = !!rowId && selectedMetadataIds.has(rowId);
+
+          if (typeof row.isSelected === "function") {
+            const isRowSelected = row.isSelected();
+            if (shouldBeSelected && !isRowSelected && typeof row.select === "function") {
+              row.select();
+            } else if (!shouldBeSelected && isRowSelected && typeof row.deselect === "function") {
+              row.deselect();
+            }
+          }
         });
+        isSyncingTableSelection = false;
       }
 
       function applyLinkedSelectionToMapMarkers() {
@@ -539,14 +562,21 @@
         const normalized = normalizeId(id);
         if (!normalized) {
           selectedMetadataIds.clear();
+          lastSelectedMetadataId = null;
         } else if (toggle) {
           if (selectedMetadataIds.has(normalized)) {
             selectedMetadataIds.delete(normalized);
+            if (lastSelectedMetadataId === normalized) {
+              const fallbackId = Array.from(selectedMetadataIds).at(-1) || null;
+              lastSelectedMetadataId = fallbackId;
+            }
           } else {
             selectedMetadataIds.add(normalized);
+            lastSelectedMetadataId = normalized;
           }
         } else {
           selectedMetadataIds = new Set([normalized]);
+          lastSelectedMetadataId = normalized;
         }
         applyLinkedSelectionToTableRows();
         applyLinkedSelectionToMapMarkers();
@@ -594,7 +624,6 @@
           typeof canvas.render === "function"
         ) {
           canvas.setProps({
-            source: treeData,
             size: computeCanvasSize(els.treeContainer || els.tree),
             alignLabels,
             showInternalLabels,
@@ -820,13 +849,13 @@
           const key = String(k).trim();
           out[key] = v === null || v === undefined ? "" : String(v).trim();
         });
-        const idKey = Object.keys(out).find((k) => k.toLowerCase() === "id");
-        if (idKey && idKey !== "id") {
-          out.id = out[idKey];
-          delete out[idKey];
-        }
-        if ("id" in out) {
-          out.id = normalizeId(out.id);
+        const lowerToOriginal = new Map(
+          Object.keys(out).map((k) => [k.toLowerCase(), k]),
+        );
+        const linkKey = LINK_ID_KEYS.find((k) => lowerToOriginal.has(k));
+        if (linkKey) {
+          const originalKey = lowerToOriginal.get(linkKey);
+          out.id = normalizeId(out[originalKey]);
         }
         return out;
       }
@@ -868,7 +897,7 @@
           const lon = parseCoordinate(mapped[1]);
           if (lat === null || lon === null) return row;
 
-          const rowId = normalizeId(row.id);
+          const rowId = findLinkValueInObject(row);
           if (rowId) {
             updatedCellKeys.add(makeCellKey(rowId, targetLatKey));
             updatedCellKeys.add(makeCellKey(rowId, targetLonKey));
@@ -952,7 +981,7 @@
       function upsertMetadataRows(incomingRows) {
         const rowById = new Map();
         metadataRows.forEach((row) => {
-          const id = normalizeId(row.id);
+          const id = findLinkValueInObject(row);
           if (id) rowById.set(id, row);
         });
 
@@ -962,7 +991,7 @@
         const newRows = [];
 
         incomingRows.forEach((row) => {
-          const id = normalizeId(row.id);
+          const id = findLinkValueInObject(row);
           if (!id || !tipLabelSet.has(id)) {
             skipped += 1;
             return;
@@ -1011,9 +1040,7 @@
         for (const file of files) {
           try {
             const rows = await parseFileRows(file);
-            const rowsWithIdColumn = rows.filter((row) =>
-              Object.keys(row).some((k) => k.toLowerCase() === "id"),
-            );
+            const rowsWithIdColumn = rows.filter((row) => !!findLinkValueInObject(row));
             const result = upsertMetadataRows(rowsWithIdColumn);
             summaryInserted += result.inserted;
             summaryUpdated += result.updated;
@@ -1082,7 +1109,7 @@
           headerFilter: "input",
           formatter: (cell) => {
             const rowData = cell.getData() || {};
-            const rowId = normalizeId(rowData.id);
+            const rowId = findLinkValueInObject(rowData);
             const isUpdated =
               (rowId && insertedRowIds.has(rowId)) ||
               (rowId && updatedCellKeys.has(makeCellKey(rowId, cell.getField())));
@@ -1095,10 +1122,70 @@
           },
         }));
 
+        const updateSelectFilteredHeaderCheckbox = () => {
+          const checkbox = els.metadataTable?.querySelector(
+            ".tabulator-select-visible-checkbox",
+          );
+          if (!checkbox || !metadataDataTable) return;
+
+          const filteredRows = metadataDataTable.getRows("active") || [];
+          const selectedFilteredCount = filteredRows.filter((row) =>
+            typeof row.isSelected === "function" ? row.isSelected() : false,
+          ).length;
+
+          checkbox.indeterminate =
+            selectedFilteredCount > 0 && selectedFilteredCount < filteredRows.length;
+          checkbox.checked =
+            filteredRows.length > 0 && selectedFilteredCount === filteredRows.length;
+        };
+
         metadataDataTable = new Tabulator(els.metadataTable, {
           data: rows,
+          rowHeader: {
+            headerSort: false,
+            resizable: false,
+            width: 28,
+            minWidth: 28,
+            maxWidth: 28,
+            frozen: true,
+            headerHozAlign: "center",
+            hozAlign: "center",
+            formatter: "rowSelection",
+            titleFormatter: () =>
+              '<input type="checkbox" class="tabulator-select-visible-checkbox" aria-label="Select filtered rows" />',
+            headerClick: (e, cell) => {
+              const table =
+                cell && typeof cell.getTable === "function"
+                  ? cell.getTable()
+                  : metadataDataTable;
+              if (!table) return;
+
+              const filteredRows = table.getRows("active") || [];
+              if (!filteredRows.length) return;
+
+              const allFilteredSelected = filteredRows.every((row) =>
+                typeof row.isSelected === "function" ? row.isSelected() : false,
+              );
+
+              filteredRows.forEach((row) => {
+                if (allFilteredSelected) {
+                  if (typeof row.deselect === "function") row.deselect();
+                } else if (typeof row.select === "function") {
+                  row.select();
+                }
+              });
+
+              e.stopPropagation();
+            },
+            cellClick: (e, cell) => {
+              e.stopPropagation();
+              const row = cell.getRow();
+              row.toggleSelect();
+            },
+          },
           columns,
           layout: "fitColumns",
+          selectableRows: true,
           pagination: true,
           paginationSize: 5,
           paginationSizeSelector: [5, 10, 25, 50, 100],
@@ -1135,6 +1222,14 @@
         metadataDataTable.on("renderComplete", bindFooterExportButtons);
         requestAnimationFrame(bindFooterExportButtons);
 
+        metadataDataTable.on("tableBuilt", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("renderComplete", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("dataFiltered", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("dataSorted", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("pageLoaded", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("rowSelectionChanged", updateSelectFilteredHeaderCheckbox);
+        requestAnimationFrame(updateSelectFilteredHeaderCheckbox);
+
         const syncLinkedSelection = () => {
           requestAnimationFrame(() => {
             applyLinkedSelectionToTableRows();
@@ -1147,10 +1242,61 @@
           },
         );
 
+        metadataDataTable.on("rowSelectionChanged", (_data, selectedRows) => {
+          if (isSyncingTableSelection) return;
+
+          selectedMetadataIds = new Set(
+            (selectedRows || [])
+              .map((row) =>
+                findLinkValueInObject(
+                  typeof row.getData === "function" ? row.getData() : null,
+                ),
+              )
+              .filter(Boolean),
+          );
+
+          if (!selectedMetadataIds.has(lastSelectedMetadataId)) {
+            lastSelectedMetadataId = Array.from(selectedMetadataIds).at(-1) || null;
+          }
+
+          applyLinkedSelectionToTableRows();
+          applyLinkedSelectionToMapMarkers();
+
+          if (canvas && typeof canvas.setProps === "function") {
+            const selectedTreeIds = Array.from(selectedMetadataIds)
+              .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
+              .filter(Boolean);
+            canvas.setProps({ selectedIds: selectedTreeIds });
+            if (typeof canvas.render === "function") {
+              canvas.render();
+            }
+          }
+
+          const rerootBtn = $("tree-reroot-btn");
+          if (rerootBtn) {
+            rerootBtn.disabled = selectedMetadataIds.size === 0;
+          }
+
+          updateSelectFilteredHeaderCheckbox();
+        });
+
         metadataDataTable.on("rowClick", (_e, row) => {
-          const linkId = findLinkValueInObject(row.getData());
-          if (linkId) {
-            setLinkedSelection(linkId, true);
+          row.toggleSelect();
+        });
+
+        metadataDataTable.on("rowSelected", (row) => {
+          const selectedId = findLinkValueInObject(
+            typeof row?.getData === "function" ? row.getData() : null,
+          );
+          if (selectedId) lastSelectedMetadataId = selectedId;
+        });
+
+        metadataDataTable.on("rowDeselected", (row) => {
+          const deselectedId = findLinkValueInObject(
+            typeof row?.getData === "function" ? row.getData() : null,
+          );
+          if (deselectedId && deselectedId === lastSelectedMetadataId) {
+            lastSelectedMetadataId = Array.from(selectedMetadataIds).at(-1) || null;
           }
         });
 
@@ -1581,12 +1727,13 @@
             e.preventDefault();
             e.stopPropagation();
 
-            const firstSelectedId = Array.from(selectedMetadataIds)[0];
-            if (!firstSelectedId) return;
+            const selectedId =
+              lastSelectedMetadataId || Array.from(selectedMetadataIds).at(-1);
+            if (!selectedId) return;
 
             const tree = canvas;
             const rerootNode =
-              phyloJSTree.getNodeByLabel(firstSelectedId);
+              phyloJSTree.getNodeByLabel(selectedId);
 
             if (tree && typeof tree.setProps === "function") {
               phyloJSTree.reroot(rerootNode);
