@@ -157,7 +157,7 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
     from snippy_ng.pipelines.tree import TreePipelineBuilder
 
     tree_pipeline = TreePipelineBuilder(
-        aln=core_outdir / aln_pipeline.stages[-1].output.aln,
+        aln=core_outdir / aln_pipeline.stages[-1].output.soft_core,
         fconst=(core_outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
         fast_mode=False,
     ).build()
