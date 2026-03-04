@@ -397,7 +397,7 @@ class FormatHTMLReportTemplate(BaseStage):
 
     @property
     def output(self) -> FormatHTMLReportTemplateOutput:
-        return FormatHTMLReportTemplateOutput(rendered="report.html")
+        return FormatHTMLReportTemplateOutput(rendered=f"{self.prefix}.html")
 
     def create_commands(self, ctx) -> List[PythonCommand]:
         return [
@@ -484,14 +484,22 @@ class EpiReport(FormatHTMLReportTemplate):
                 metadata = json.loads(metadata_json_str)
             except Exception as e:
                 raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for EpiReport: {e}")
-            # check all the metadata entries have an "id" field that matches a tip in the tree
+            # check all the metadata entries have an id_column that matches a tip in the tree
             tree_tips = {tip.name for tip in tree.get_terminals()}
+            id_column = None
             for entry in metadata:
-                if "id" not in entry:
+                if "id" in entry:
+                    id_column = "id"
+                elif "sample_id" in entry:
+                    id_column = "sample_id"
+                elif "sample" in entry:
+                    id_column = "sample"
+                elif "name" in entry:
+                    id_column = "name"
+                else:
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
-                if entry["id"] not in tree_tips:
+                if entry[id_column] not in tree_tips:
                     raise PipelineExecutionError(f"Metadata entry id '{entry['id']}' does not match any tip in the NEWICK tree for EpiReport context")
-
         # add iso3166-2 country code mapping to context for use in the template
         iso3166_mapping = {}
         with open(self.iso3166_2, "r", newline="", encoding="utf-8") as f:

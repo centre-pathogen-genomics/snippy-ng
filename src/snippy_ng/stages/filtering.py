@@ -7,8 +7,8 @@ from pydantic import Field, field_validator
 
 
 class SamtoolsFilterOutput(BaseOutput):
-    cram: Path = Field(..., description="Filtered alignment file in CRAM format")
-    stats: Path = Field(..., description="Flagstat output file for the CRAM file")
+    bam: Path = Field(..., description="Filtered alignment file in BAM format")
+    stats: Path = Field(..., description="Flagstat output file for the BAM file")
 
 
 class SamtoolsFilter(BaseStage):
@@ -16,8 +16,8 @@ class SamtoolsFilter(BaseStage):
     Filter BAM files using Samtools to remove unwanted alignments.
     """
     
-    cram: Path = Field(..., description="Input BAM file to filter")
-    reference: Path = Field(..., description="Reference FASTA file for CRAM output")
+    bam: Path = Field(..., description="Input BAM file to filter")
+    reference: Path = Field(..., description="Reference FASTA file for BAM output")
     min_mapq: int = Field(20, description="Minimum mapping quality")
     exclude_flags: int = Field(1796, description="SAM flags to exclude (default: unmapped, secondary, qcfail, duplicate)")
     include_flags: Optional[int] = Field(None, description="SAM flags to include")
@@ -28,9 +28,9 @@ class SamtoolsFilter(BaseStage):
     
     @property
     def output(self) -> SamtoolsFilterOutput:
-        filtered_bam = f"{self.prefix}.filtered.cram"
+        filtered_bam = f"{self.prefix}.filtered.bam"
         return SamtoolsFilterOutput(
-            cram=filtered_bam,
+            bam=filtered_bam,
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
@@ -40,10 +40,10 @@ class SamtoolsFilter(BaseStage):
             "samtools",
             "view",
             "-O",
-            "cram,embed_ref=1",
+            "bam",
             "--reference", str(self.reference),
             "-o",
-            str(self.output.cram),
+            str(self.output.bam),
         ]
         
         # Add threading
@@ -71,7 +71,7 @@ class SamtoolsFilter(BaseStage):
             cmd_parts.extend(shlex.split(self.additional_filters))
         
         # Add input file
-        cmd_parts.append(str(self.cram))
+        cmd_parts.append(str(self.bam))
         
         # Add region string if not a file
         if self.regions and not Path(self.regions).exists():
@@ -79,7 +79,7 @@ class SamtoolsFilter(BaseStage):
         
         filter_cmd = self.shell_cmd(
             command=cmd_parts,
-            description=f"Filter CRAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}",
+            description=f"Filter BAM file with MAPQ>={self.min_mapq}, flags={self.exclude_flags}",
         )
         
         return filter_cmd
@@ -87,14 +87,14 @@ class SamtoolsFilter(BaseStage):
     def build_index_command(self):
         """Returns the samtools index command."""
         return self.shell_cmd([
-            "samtools", "index", str(self.output.cram)
-        ], description=f"Index filtered CRAM file: {self.output.cram}")
+            "samtools", "index", str(self.output.bam)
+        ], description=f"Index filtered BAM file: {self.output.bam}")
     
     def build_flagstat_command(self):
         """Returns the samtools flagstat command."""
         return self.shell_cmd(
-            ["samtools", "flagstat", str(self.output.cram)],
-            description=f"Generate alignment statistics for {self.output.cram}",
+            ["samtools", "flagstat", str(self.output.bam)],
+            description=f"Generate alignment statistics for {self.output.bam}",
             output_file=Path(self.output.stats),
         )
 

@@ -20,7 +20,7 @@ class DepthMask(BaseStage):
 
     This stage masks regions with depth strictly below `min_depth` using `N`.
     """
-    cram: Path = Field(..., description="Input CRAM file")
+    bam: Path = Field(..., description="Input BAM file")
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     min_depth: int = Field(..., description="Minimum depth threshold")
     mask_char: str = Field("N", description="Character to use for masking")
@@ -55,11 +55,8 @@ class DepthMask(BaseStage):
     
     def _generate_depth_mask_commands(self, filter_condition: str, output_bed: Path, description: str) -> List:
         """Generate commands to create a depth-based mask BED file using bedtools genomecov"""
-        view_cram = self.shell_cmd([
-            "samtools", "view", "-b", str(self.cram)
-        ], description="Convert CRAM to BAM for depth calculation")
         genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", '-', "-bga"],
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
             description="Generate genome coverage in BED format"
         )
         awk_cmd = self.shell_cmd(
@@ -68,7 +65,7 @@ class DepthMask(BaseStage):
         )
         
         return [self.shell_pipe(
-            [view_cram, genomecov_cmd, awk_cmd], 
+            [genomecov_cmd, awk_cmd], 
             output_file=output_bed, 
             description=description
         )]
@@ -97,7 +94,7 @@ class DelMask(BaseStage):
 
     This stage masks regions with depth equal to zero using `-`.
     """
-    cram: Path = Field(..., description="Input BAM file")
+    bam: Path = Field(..., description="Input BAM file")
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     mask_char: str = Field("-", description="Character to use for masking")
 
@@ -121,11 +118,8 @@ class DelMask(BaseStage):
 
     def _generate_zero_depth_mask_commands(self) -> List:
         """Generate commands to create a zero-depth BED mask file."""
-        view_cram = self.shell_cmd([
-            "samtools", "view", "-b", str(self.cram)
-        ], description="Convert CRAM to BAM for depth calculation")
         genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", '-', "-bga"],
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
             description="Generate genome coverage in BED format"
         )
         awk_cmd = self.shell_cmd(
@@ -134,7 +128,7 @@ class DelMask(BaseStage):
         )
 
         return [self.shell_pipe(
-            [view_cram, genomecov_cmd, awk_cmd],
+            [genomecov_cmd, awk_cmd],
             output_file=self.output.zero_depth_bed,
             description="Generate zero-depth mask"
         )]
