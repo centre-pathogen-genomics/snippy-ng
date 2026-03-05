@@ -109,6 +109,9 @@ class SnippyPipeline:
         for stage in self.stages:
             self.debug(f"Checking dependencies for {stage.name}...")
             for dependency in stage._dependencies:
+                if dependency.citation_only:
+                    self.debug(f"Skipping {dependency.name}, citation only.")
+                    continue
                 if dependency.name in checked:
                     self.debug(f"Skipping {dependency.name}, already checked.")
                     continue

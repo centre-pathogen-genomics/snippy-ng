@@ -10,7 +10,7 @@ from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.stages import PythonCommand
 from snippy_ng.logging import logger
 from snippy_ng.exceptions import PipelineExecutionError
-from snippy_ng.dependencies import biopython
+from snippy_ng.dependencies import biopython, phylocanvas, phylojs
 from snippy_ng.__about__ import __version__
 from pydantic import Field
 
@@ -455,7 +455,7 @@ class EpiReport(FormatHTMLReportTemplate):
     ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
 
-    _dependencies = [biopython]
+    _dependencies = [biopython, phylocanvas, phylojs]
 
     def validate_context(self, context: Dict[str, Union[str, int, float, Callable]]) -> None:
         required_keys = {"NEWICK", "REPORT_NAME", "METADATA_JSON", "LOGS"}
