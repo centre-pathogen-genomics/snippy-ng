@@ -1216,24 +1216,7 @@
           })
           .filter(Boolean);
 
-        selectedMetadataIds = new Set(selectedIds);
-        applyLinkedSelectionToTableRows();
-        applyLinkedSelectionToMapMarkers();
-
-        if (canvas && typeof canvas.setProps === "function") {
-          const selectedTreeIds = Array.from(selectedMetadataIds)
-            .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
-            .filter(Boolean);
-          canvas.setProps({ selectedIds: selectedTreeIds });
-          if (typeof canvas.render === "function") {
-            canvas.render();
-          }
-        }
-
-        const rerootBtn = $("tree-reroot-btn");
-        if (rerootBtn) {
-          rerootBtn.disabled = selectedMetadataIds.size === 0;
-        }
+        selectionModule.replace(selectedIds);
       }
 
       function applyTreeColourPreset(presetKey) {
@@ -1251,8 +1234,8 @@
           controls.divergingInputs.classList.toggle("hidden", treeColourGradientMode !== "diverging");
         }
 
-        refreshTreeColourPreview();
-        applyTreeLeafColours();
+        colourModule.refreshPreview();
+        colourModule.applyLeafColours();
       }
 
       /**
@@ -1262,10 +1245,10 @@
        */
       function applyTreeLeafColours() {
         ensureTreeColourColumnDefault();
-        const assignments = computeTreeAndMapColourAssignments();
+        const assignments = colourModule.computeAssignments();
         const tipValuePairs = assignments.tipValuePairs || [];
-        refreshTreeColourLegend(tipValuePairs);
-        applyMapMarkerColours(assignments.mapColoursById || new Map());
+        colourModule.refreshLegend(tipValuePairs);
+        colourModule.applyMapMarkerColours(assignments.mapColoursById || new Map());
 
         if (!canvas || typeof canvas.setProps !== "function") return;
         if (!treeColourByColumn) {
@@ -1306,8 +1289,8 @@
           button.addEventListener("click", () => {
             treeColourByColumn = column;
             treeColourCleared = false;
-            refreshTreeColourColumnList();
-            applyTreeLeafColours();
+            colourModule.refreshColumnList();
+            colourModule.applyLeafColours();
           });
           controls.columnList.appendChild(button);
         });
@@ -1324,7 +1307,7 @@
         const open = () => {
           controls.dropdown.classList.remove("hidden");
           controls.button.setAttribute("aria-expanded", "true");
-          refreshTreeColourColumnList();
+          colourModule.refreshColumnList();
         };
 
         controls.button.addEventListener("click", (e) => {
@@ -1342,7 +1325,7 @@
           controls.scaleType.value = treeColourScaleType;
           controls.scaleType.addEventListener("change", () => {
             treeColourScaleType = controls.scaleType.value || "auto";
-            applyTreeLeafColours();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1356,14 +1339,14 @@
                 treeColourGradientMode !== "diverging",
               );
             }
-            refreshTreeColourPreview();
-            applyTreeLeafColours();
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
           });
         }
 
         if (controls.presetApply && controls.preset) {
           controls.presetApply.addEventListener("click", () => {
-            applyTreeColourPreset(controls.preset.value);
+            colourModule.applyPreset(controls.preset.value);
           });
         }
 
@@ -1371,8 +1354,8 @@
           controls.sequentialInput.value = treeColourSequentialInput;
           controls.sequentialInput.addEventListener("input", () => {
             treeColourSequentialInput = controls.sequentialInput.value || "";
-            refreshTreeColourPreview();
-            applyTreeLeafColours();
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1380,8 +1363,8 @@
           controls.divergingBInput.value = treeColourDivergingBInput;
           controls.divergingBInput.addEventListener("input", () => {
             treeColourDivergingBInput = controls.divergingBInput.value || "";
-            refreshTreeColourPreview();
-            applyTreeLeafColours();
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1400,8 +1383,8 @@
               treeColourSequentialInput = reverseList(treeColourSequentialInput);
               if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
             }
-            refreshTreeColourPreview();
-            applyTreeLeafColours();
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1412,8 +1395,8 @@
             treeColourDivergingBInput = tmp;
             if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
             if (controls.divergingBInput) controls.divergingBInput.value = treeColourDivergingBInput;
-            refreshTreeColourPreview();
-            applyTreeLeafColours();
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1421,8 +1404,8 @@
           controls.clear.addEventListener("click", () => {
             treeColourByColumn = "";
             treeColourCleared = true;
-            refreshTreeColourColumnList();
-            applyTreeLeafColours();
+            colourModule.refreshColumnList();
+            colourModule.applyLeafColours();
           });
         }
 
@@ -1434,9 +1417,36 @@
           controls.divergingInputs.classList.toggle("hidden", treeColourGradientMode !== "diverging");
         }
 
-        refreshTreeColourColumnList();
-        refreshTreeColourPreview();
+        colourModule.refreshColumnList();
+        colourModule.refreshPreview();
       }
+
+      const colourModule = {
+        refreshPreview() {
+          refreshTreeColourPreview();
+        },
+        refreshColumnList() {
+          refreshTreeColourColumnList();
+        },
+        refreshLegend(tipValuePairs = null) {
+          refreshTreeColourLegend(tipValuePairs);
+        },
+        applyPreset(presetKey) {
+          applyTreeColourPreset(presetKey);
+        },
+        applyLeafColours() {
+          applyTreeLeafColours();
+        },
+        computeAssignments() {
+          return computeTreeAndMapColourAssignments();
+        },
+        applyMapMarkerColours(mapColoursById = new Map()) {
+          applyMapMarkerColours(mapColoursById);
+        },
+        initControls() {
+          initTreeColourControls();
+        },
+      };
 
       function makeCellKey(id, field) {
         return `${normalizeId(id)}::${String(field)}`;
@@ -1483,45 +1493,110 @@
         return normalizeId(row[originalKey]);
       }
 
-      function applyLinkedSelectionToTableRows() {
-        if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
-        isSyncingTableSelection = true;
-        metadataDataTable.getRows().forEach((row) => {
-          const rowData = typeof row.getData === "function" ? row.getData() : null;
-          const rowId = findLinkValueInObject(rowData);
-          const shouldBeSelected = !!rowId && selectedMetadataIds.has(rowId);
+      const selectionModule = {
+        applyToTable() {
+          if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
+          isSyncingTableSelection = true;
+          metadataDataTable.getRows().forEach((row) => {
+            const rowData = typeof row.getData === "function" ? row.getData() : null;
+            const rowId = findLinkValueInObject(rowData);
+            const shouldBeSelected = !!rowId && selectedMetadataIds.has(rowId);
 
-          if (typeof row.isSelected === "function") {
-            const isRowSelected = row.isSelected();
-            if (shouldBeSelected && !isRowSelected && typeof row.select === "function") {
-              row.select();
-            } else if (!shouldBeSelected && isRowSelected && typeof row.deselect === "function") {
-              row.deselect();
+            if (typeof row.isSelected === "function") {
+              const isRowSelected = row.isSelected();
+              if (shouldBeSelected && !isRowSelected && typeof row.select === "function") {
+                row.select();
+              } else if (!shouldBeSelected && isRowSelected && typeof row.deselect === "function") {
+                row.deselect();
+              }
             }
+          });
+          isSyncingTableSelection = false;
+        },
+        applyToMap() {
+          const selectedOrder = Array.from(selectedMetadataIds);
+          const selectedRankById = new Map(
+            selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
+          );
+          mapMarkersById.forEach((marker, id) => {
+            const markerEl =
+              marker && typeof marker.getElement === "function"
+                ? marker.getElement()
+                : null;
+            const isSelected = selectedMetadataIds.has(id);
+            if (markerEl) {
+              markerEl.classList.toggle("component-selected", isSelected);
+            }
+            if (marker && typeof marker.setZIndexOffset === "function") {
+              const rank = selectedRankById.get(id) || 0;
+              marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
+            }
+          });
+        },
+        applyToTree() {
+          if (!canvas || typeof canvas.setProps !== "function") return;
+          const selectedTreeIds = Array.from(selectedMetadataIds)
+            .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
+            .filter(Boolean);
+          canvas.setProps({ selectedIds: selectedTreeIds });
+          if (typeof canvas.render === "function") {
+            canvas.render();
           }
-        });
-        isSyncingTableSelection = false;
+        },
+        updateRerootButton() {
+          const rerootBtn = $("tree-reroot-btn");
+          if (rerootBtn) {
+            rerootBtn.disabled = selectedMetadataIds.size === 0;
+          }
+        },
+        syncAll() {
+          this.applyToTable();
+          this.applyToMap();
+          this.applyToTree();
+          this.updateRerootButton();
+        },
+        replace(ids) {
+          selectedMetadataIds = new Set(
+            (Array.isArray(ids) ? ids : [])
+              .map((id) => normalizeId(id))
+              .filter(Boolean),
+          );
+          this.syncAll();
+        },
+        addMany(ids) {
+          const values = Array.isArray(ids) ? ids : [];
+          values.forEach((id) => {
+            const normalized = normalizeId(id);
+            if (normalized) selectedMetadataIds.add(normalized);
+          });
+          this.syncAll();
+        },
+        setLinked(id, toggle = false) {
+          const normalized = normalizeId(id);
+          if (!normalized) {
+            selectedMetadataIds.clear();
+          } else if (toggle) {
+            if (selectedMetadataIds.has(normalized)) {
+              selectedMetadataIds.delete(normalized);
+            } else {
+              selectedMetadataIds.add(normalized);
+            }
+          } else if (selectedMetadataIds.has(normalized)) {
+            selectedMetadataIds.delete(normalized);
+            selectedMetadataIds.add(normalized);
+          } else {
+            selectedMetadataIds.add(normalized);
+          }
+          this.syncAll();
+        },
+      };
+
+      function applyLinkedSelectionToTableRows() {
+        selectionModule.applyToTable();
       }
 
       function applyLinkedSelectionToMapMarkers() {
-        const selectedOrder = Array.from(selectedMetadataIds);
-        const selectedRankById = new Map(
-          selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
-        );
-        mapMarkersById.forEach((marker, id) => {
-          const markerEl =
-            marker && typeof marker.getElement === "function"
-              ? marker.getElement()
-              : null;
-          const isSelected = selectedMetadataIds.has(id);
-          if (markerEl) {
-            markerEl.classList.toggle("component-selected", isSelected);
-          }
-          if (marker && typeof marker.setZIndexOffset === "function") {
-            const rank = selectedRankById.get(id) || 0;
-            marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
-          }
-        });
+        selectionModule.applyToMap();
       }
 
       /**
@@ -1531,42 +1606,7 @@
        * @returns {void}
        */
       function setLinkedSelection(id, toggle = false) {
-        const normalized = normalizeId(id);
-        if (!normalized) {
-          selectedMetadataIds.clear();
-        } else if (toggle) {
-          if (selectedMetadataIds.has(normalized)) {
-            selectedMetadataIds.delete(normalized);
-          } else {
-            selectedMetadataIds.add(normalized);
-          }
-        } else {
-          if (selectedMetadataIds.has(normalized)) {
-            // re-selecting to update order
-            selectedMetadataIds.delete(normalized); 
-            selectedMetadataIds.add(normalized);
-          } else {
-            selectedMetadataIds.add(normalized);
-          }
-        }
-        applyLinkedSelectionToTableRows();
-        applyLinkedSelectionToMapMarkers();
-        if (canvas && typeof canvas.setProps === "function") {
-          const selectedTreeIds = Array.from(selectedMetadataIds)
-            .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
-            .filter(Boolean);
-          canvas.setProps({
-            selectedIds: selectedTreeIds,
-          });
-          if (typeof canvas.render === "function") {
-            canvas.render();
-          }
-        }
-
-        const rerootBtn = $("tree-reroot-btn");
-        if (rerootBtn) {
-          rerootBtn.disabled = selectedMetadataIds.size === 0;
-        }
+        selectionModule.setLinked(id, toggle);
       }
 
       function getPhylocanvasCtor() {
@@ -1674,7 +1714,7 @@
         window.addEventListener("resize", () => {
           setTreeMapWidths(currentTreeWidthPct);
           if (hasLegendMetadata()) {
-            refreshTreeColourLegend();
+            colourModule.refreshLegend();
           }
           refreshVisualSizes();
         });
@@ -1765,26 +1805,7 @@
             };
             collectDescendantTips(node);
             if (labelsToSelect.length > 0) {
-              selectedMetadataIds = new Set([
-                ...Array.from(selectedMetadataIds),
-                ...labelsToSelect,
-              ]);
-              applyLinkedSelectionToTableRows();
-              applyLinkedSelectionToMapMarkers();
-              if (canvas && typeof canvas.setProps === "function") {
-                const selectedTreeIds = Array.from(selectedMetadataIds)
-                  .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
-                  .filter(Boolean);
-                canvas.setProps({ selectedIds: selectedTreeIds });
-                if (typeof canvas.render === "function") {
-                  canvas.render();
-                }
-              }
-
-              const rerootBtn = $("tree-reroot-btn");
-              if (rerootBtn) {
-                rerootBtn.disabled = selectedMetadataIds.size === 0;
-              }
+              selectionModule.addMany(labelsToSelect);
             }
             return;
           }
@@ -1873,7 +1894,7 @@
           alignLabels,
           showInternalLabels,
         });
-        applyTreeLeafColours();
+        colourModule.applyLeafColours();
         c.render();
         if (typeof c.fitInCanvas === "function") c.fitInCanvas();
       }
@@ -2084,19 +2105,12 @@
         updatedCellKeys.clear();
 
         let changed = false;
-        let summaryInserted = 0;
-        let summaryUpdated = 0;
-        let summarySkipped = 0;
 
         for (const file of files) {
           try {
             const rows = await parseFileRows(file);
             const rowsWithIdColumn = rows.filter((row) => !!findLinkValueInObject(row));
             const result = upsertMetadataRows(rowsWithIdColumn);
-            summaryInserted += result.inserted;
-            summaryUpdated += result.updated;
-            summarySkipped +=
-              result.skipped + (rows.length - rowsWithIdColumn.length);
             if (result.inserted || result.updated) changed = true;
           } catch (err) {
             console.error(`Failed to parse dropped file ${file.name}:`, err);
@@ -2109,10 +2123,6 @@
           initMapFromMetadata(metadataRows);
           refreshVisualSizes();
         }
-
-        console.info(
-          `Metadata import complete: inserted=${summaryInserted}, updated=${summaryUpdated}, skipped=${summarySkipped}`,
-        );
       }
 
       function initMetadataTable(rawMetadata) {
@@ -2300,33 +2310,14 @@
         metadataDataTable.on("rowSelectionChanged", (_data, selectedRows) => {
           if (isSyncingTableSelection) return;
 
-          selectedMetadataIds = new Set(
-            (selectedRows || [])
-              .map((row) =>
-                findLinkValueInObject(
-                  typeof row.getData === "function" ? row.getData() : null,
-                ),
-              )
-              .filter(Boolean),
-          );
-
-          applyLinkedSelectionToTableRows();
-          applyLinkedSelectionToMapMarkers();
-
-          if (canvas && typeof canvas.setProps === "function") {
-            const selectedTreeIds = Array.from(selectedMetadataIds)
-              .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
-              .filter(Boolean);
-            canvas.setProps({ selectedIds: selectedTreeIds });
-            if (typeof canvas.render === "function") {
-              canvas.render();
-            }
-          }
-
-          const rerootBtn = $("tree-reroot-btn");
-          if (rerootBtn) {
-            rerootBtn.disabled = selectedMetadataIds.size === 0;
-          }
+          const nextSelectedIds = (selectedRows || [])
+            .map((row) =>
+              findLinkValueInObject(
+                typeof row.getData === "function" ? row.getData() : null,
+              ),
+            )
+            .filter(Boolean);
+          selectionModule.replace(nextSelectedIds);
 
           updateSelectFilteredHeaderCheckbox();
         });
@@ -2336,8 +2327,8 @@
         });
 
         applyLinkedSelectionToTableRows();
-        refreshTreeColourColumnList();
-        applyTreeLeafColours();
+        colourModule.refreshColumnList();
+        colourModule.applyLeafColours();
       }
 
       function initMetadataDropzone() {
@@ -2479,9 +2470,6 @@
        */
       function initMapFromMetadata(rawMetadata) {
         if (!els.mapPanel || !els.map || typeof L === "undefined") {
-          console.warn(
-            "Leaflet library not found. Map cannot be initialized.",
-          );
           return;
         }
 
@@ -2501,9 +2489,6 @@
           if (els.treeContainer) {
             els.treeContainer.style.width = "";
           }
-          console.info(
-            "No valid latitude/longitude keys found in metadata. Map will be hidden.",
-          );
           return;
         }
 
@@ -2595,8 +2580,8 @@
 
         // Ensure final sizes are correct after DOM/layout settles.
         requestAnimationFrame(() => {
-          const assignments = computeTreeAndMapColourAssignments();
-          applyMapMarkerColours(assignments.mapColoursById || new Map());
+          const assignments = colourModule.computeAssignments();
+          colourModule.applyMapMarkerColours(assignments.mapColoursById || new Map());
           refreshVisualSizes();
           applyLinkedSelectionToMapMarkers();
         });
@@ -2963,19 +2948,26 @@
         });
       }
 
-      // Initial render
-      renderNewick(treeData);
-      initMetadataTable(metadata);
-      initMapFromMetadata(metadata);
-      initLogsModal();
-      initRowResizer();
-      initColResizer();
-      initMetadataDropzone();
-      initKeyboardShortcuts();
-      initBackgroundSelectionClear();
-      initTreeModebar();
-      initTreeColourControls();
-      syncTopPanelLayout();
+      /**
+       * Bootstraps the report UI and wires all modules.
+       * @returns {void}
+       */
+      function initReport() {
+        renderNewick(treeData);
+        initMetadataTable(metadata);
+        initMapFromMetadata(metadata);
+        initLogsModal();
+        initRowResizer();
+        initColResizer();
+        initMetadataDropzone();
+        initKeyboardShortcuts();
+        initBackgroundSelectionClear();
+        initTreeModebar();
+        colourModule.initControls();
+        syncTopPanelLayout();
+      }
+
+      initReport();
     </script>
   </body>
 </html>
