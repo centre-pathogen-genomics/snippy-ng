@@ -1,5 +1,6 @@
 import random
-from typing import List, Optional
+from collections import OrderedDict
+from typing import Dict, List, Optional
 import os
 from pathlib import Path
 import time
@@ -8,6 +9,7 @@ from snippy_ng.exceptions import DependencyError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage, Context
+from snippy_ng.utils.files import human_readable_size
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -217,10 +219,10 @@ class SnippyPipeline:
                     citations.append(dependency.citation)
         return sorted(set(citations))
     
-    def output_descriptions(self) -> List[str]:
-        """Return kept outputs formatted as TSV rows: name, path, description."""
+    def output_descriptions(self) -> OrderedDict[str, Dict[str, str]]:
+        """Return kept outputs as a dict keyed by path with output metadata."""
         keep_keys = {os.path.abspath(str(p)) for p in self.outputs_to_keep}
-        lines: List[str] = []
+        descriptions: OrderedDict[str, Dict[str, str]] = OrderedDict()
         seen = set()
 
         for stage in self.stages:
@@ -239,15 +241,25 @@ class SnippyPipeline:
 
                 description = stage.get_output_description(field_name)
                 description_formatted = f"{description}" if description else ""
-                lines.append(f"{field_name}\t{output_value}\t{description_formatted}")
+                size_formatted = human_readable_size(Path(self.outdir) / output_value if self.outdir else output_value)
+                descriptions[str(output_value)] = {
+                    "output": field_name,
+                    "path": str(output_value),
+                    "size": size_formatted,
+                    "description": description_formatted,
+                }
 
-        return lines
+        return descriptions
 
     def write_output_descriptions(self, output_file: Path):
         descriptions = self.output_descriptions()
         if descriptions:
-            header = "output\tpath\tdescription"
-            output_file.write_text("\n".join([header, *descriptions]))
+            header = "output\tpath\tsize\tdescription"
+            rows = [
+                f"{d['output']}\t{d['path']}\t{d['size']}\t{d['description']}"
+                for d in descriptions.values()
+            ]
+            output_file.write_text("\n".join([header, *rows]))
             self.debug(f"Wrote output descriptions to {output_file}")
         else:
             self.debug("No output descriptions to write.")

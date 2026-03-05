@@ -222,4 +222,20 @@ def test_snippy_goodbye():
     snippy.goodbye()
 
 
+def test_output_descriptions_includes_human_readable_size(tmp_path):
+    """Test output descriptions include a human-readable size column."""
+    stage = MockStage(prefix=str(tmp_path / "sample"))
+    output_path = stage.output.test_file
+    output_path.write_text("x" * 1536)  # 1.5 KB
+
+    snippy = SnippyPipeline(stages=[stage], outputs_to_keep=[output_path])
+    descriptions = snippy.output_descriptions()
+
+    assert len(descriptions) == 1
+    row = descriptions[str(output_path)]
+    assert row["output"] == "test_file"
+    assert row["path"] == str(output_path)
+    assert row["size"] == "1.5 KB"
+
+
 
