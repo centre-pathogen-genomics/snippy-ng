@@ -718,7 +718,6 @@
         metadataDropOverlay: $("metadata-drop-overlay"),
         infoPanel: $("info-panel"),
         logsModal: $("logs-modal"),
-        logsModalBackdrop: $("logs-modal-backdrop"),
         logsModalPanel: $("logs-modal-panel"),
         logsModalClose: $("logs-modal-close"),
         logsModalContent: $("logs-modal-content"),
@@ -736,8 +735,7 @@
       let isResizingRows = false;
       let isResizingCols = false;
       let phyloJSTree = phylojs.readNewick(treeData);
-      let tipNodes = phyloJSTree.leafList || [];
-      let tipLabels = tipNodes.map((node) => node.label);
+      let tipLabels = (phyloJSTree.leafList || []).map((node) => node.label);
       const normalizeId = (value) =>
         String(value ?? "")
           .trim()
@@ -797,6 +795,25 @@
         },
       };
 
+      /**
+       * Returns cached DOM handles for tree-colour UI controls.
+       * @returns {{
+       *   button: HTMLElement|null,
+       *   dropdown: HTMLElement|null,
+       *   scaleType: HTMLSelectElement|null,
+       *   gradientMode: HTMLSelectElement|null,
+       *   preset: HTMLSelectElement|null,
+       *   presetApply: HTMLElement|null,
+       *   sequentialInput: HTMLInputElement|null,
+       *   divergingBInput: HTMLInputElement|null,
+       *   divergingInputs: HTMLElement|null,
+       *   preview: HTMLElement|null,
+       *   reverse: HTMLElement|null,
+       *   swapDiverging: HTMLElement|null,
+       *   clear: HTMLElement|null,
+       *   columnList: HTMLElement|null
+       * }}
+       */
       function getTreeColourControls() {
         return {
           button: $("tree-colour-btn"),
@@ -816,12 +833,22 @@
         };
       }
 
+      /**
+       * Resolves a metadata id to its original tree tip label.
+       * @param {unknown} value
+       * @returns {string}
+       */
       function valueToTipLabel(value) {
         const normalized = normalizeId(value);
         if (!normalized) return "";
         return tipLabelByNormalized.get(normalized) || "";
       }
 
+      /**
+       * Determines whether all provided values are finite numbers.
+       * @param {Array<unknown>} values
+       * @returns {boolean}
+       */
       function inferNumeric(values) {
         return values.every((value) => {
           if (value === null || value === undefined) return false;
@@ -830,6 +857,11 @@
         });
       }
 
+      /**
+       * Parses and validates comma-separated CSS colour stops.
+       * @param {string} rawValue
+       * @returns {string[]}
+       */
       function parseColourStops(rawValue) {
         const cleaned = String(rawValue || "").trim();
         const candidates = cleaned
@@ -851,6 +883,10 @@
         return sequential;
       }
 
+      /**
+       * Builds a chroma scale for active colour settings.
+       * @returns {chroma.Scale}
+       */
       function createGradientScale() {
         const stops = getActiveColourStops();
         const safeStops = stops.length >= 2 ? stops : ["#00429d", "#96ffea", "lightyellow"];
@@ -897,6 +933,14 @@
           .map(({ id, value }) => ({ id, value: String(value).trim() }));
       }
 
+      /**
+       * Computes shared colour assignments for tree tips and map markers.
+       * @returns {{
+       *   tipValuePairs: Array<{label: string, value: string}>,
+       *   treeStyles: Record<string, {fillColour: string}>,
+       *   mapColoursById: Map<string, string>
+       * }}
+       */
       function computeTreeAndMapColourAssignments() {
         const idValuePairs = getTreeColourIdValuePairs();
         const tipValuePairs = idValuePairs
@@ -960,6 +1004,11 @@
         };
       }
 
+      /**
+       * Applies colour styles to map marker labels.
+       * @param {Map<string, string>} [mapColoursById]
+       * @returns {void}
+       */
       function applyMapMarkerColours(mapColoursById = new Map()) {
         mapMarkersById.forEach((marker, id) => {
           const markerEl =
@@ -1011,6 +1060,10 @@
         return getTreeColourMetadataColumns().length > 0;
       }
 
+      /**
+       * Ensures a valid default metadata column is selected for colouring.
+       * @returns {boolean} True if selected column changed.
+       */
       function ensureTreeColourColumnDefault() {
         const columns = getTreeColourMetadataColumns();
         if (!columns.length) {
@@ -1046,6 +1099,11 @@
         return window.matchMedia("(max-width: 767px)").matches ? "to right" : "to top";
       }
 
+      /**
+       * Rebuilds the legend for the active colouring mode.
+       * @param {Array<{label: string, value: string}>|null} [tipValuePairs]
+       * @returns {void}
+       */
       function refreshTreeColourLegend(tipValuePairs = null) {
         const panel = $("tree-legend-panel");
         const title = $("tree-legend-title");
@@ -1197,6 +1255,11 @@
         applyTreeLeafColours();
       }
 
+      /**
+       * Applies computed colours to tree tips and map markers.
+       * Missing tree tip values are rendered as transparent.
+       * @returns {void}
+       */
       function applyTreeLeafColours() {
         ensureTreeColourColumnDefault();
         const assignments = computeTreeAndMapColourAssignments();
@@ -1215,7 +1278,6 @@
         const stylesWithMissingTransparent = { ...styles };
         tipLabels.forEach((label) => {
           if (!Object.prototype.hasOwnProperty.call(stylesWithMissingTransparent, label)) {
-            console.warn(`No colour assigned for tip "${label}" based on column "${treeColourByColumn}". Applying transparent colour to ensure it is rendered in the tree (otherwise it may be missing from the legend and not rendered at all).`);
             stylesWithMissingTransparent[label] = { fillColour: "rgba(255, 255, 255, 0)" };
           }
         });
@@ -1462,6 +1524,12 @@
         });
       }
 
+      /**
+       * Updates linked sample selection across table, map, and tree.
+       * @param {string|null|undefined} id
+       * @param {boolean} [toggle=false]
+       * @returns {void}
+       */
       function setLinkedSelection(id, toggle = false) {
         const normalized = normalizeId(id);
         if (!normalized) {
@@ -1665,6 +1733,11 @@
         return normalizeId(rawLabel);
       }
 
+      /**
+       * Binds tree click handlers to sync selection with other views.
+       * @param {any} c Phylocanvas instance.
+       * @returns {void}
+       */
       function bindTreeClickSelection(c) {
         if (!c || c.__snippyTreeClickBound) return;
         c.__snippyTreeClickBound = true;
@@ -1734,6 +1807,11 @@
         }
       }
 
+      /**
+       * Creates and configures the Phylocanvas instance once.
+       * @param {string} newickStr
+       * @returns {any}
+       */
       function ensureCanvas(newickStr) {
         if (canvas) return canvas;
 
@@ -1774,6 +1852,11 @@
         return canvas;
       }
 
+      /**
+       * Renders or re-renders the tree from Newick input.
+       * @param {string} newickStr
+       * @returns {void}
+       */
       function renderNewick(newickStr) {
         const c = ensureCanvas(newickStr);
         if (
@@ -2041,6 +2124,10 @@
         renderMetadataTable();
       }
 
+      /**
+       * Builds/rebuilds the Tabulator metadata table and binds interactions.
+       * @returns {void}
+       */
       function renderMetadataTable() {
         if (!els.metadataTableContainer || typeof window.Tabulator === "undefined") return;
 
@@ -2385,6 +2472,11 @@
         return new L.LayerGroup();
       }
 
+      /**
+       * Initializes or refreshes map markers from metadata rows.
+       * @param {Array<Record<string, unknown>>|Record<string, unknown>|null|undefined} rawMetadata
+       * @returns {void}
+       */
       function initMapFromMetadata(rawMetadata) {
         if (!els.mapPanel || !els.map || typeof L === "undefined") {
           console.warn(
@@ -2545,6 +2637,10 @@
         refreshVisualSizes();
       }
 
+      /**
+       * Registers global keyboard shortcuts for panel visibility.
+       * @returns {void}
+       */
       function initKeyboardShortcuts() {
         document.addEventListener("keydown", (e) => {
           if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -2598,6 +2694,10 @@
         });
       }
 
+      /**
+       * Wires tree modebar controls (view, reroot, exports, toggles).
+       * @returns {void}
+       */
       function initTreeModebar() {
         const resetBtn = $("tree-reset-view-btn");
         const rerootBtn = $("tree-reroot-btn");
