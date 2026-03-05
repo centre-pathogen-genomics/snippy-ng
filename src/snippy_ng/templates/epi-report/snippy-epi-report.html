@@ -37,7 +37,7 @@
       }
 
       #metadata-table .tabulator-row.tabulator-selected {
-        background-color: #e74c3c63 !important; 
+        background-color: #3C738363 !important; 
       }
 
       #metadata-table .tabulator-row.tabulator-row-odd.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
@@ -328,12 +328,13 @@
       }
 
       .map-marker-label-icon .map-marker-label {
-        transition: border-color 120ms ease, border-width 120ms ease;
+        transition: border-color 120ms ease, border-width 120ms ease, box-shadow 120ms ease, transform 120ms ease;
       }
 
       .map-marker-label-icon.component-selected .map-marker-label {
-        border-color: #e74c3c !important;
-        border-width: 2px !important;
+        border-color: #3C7383 !important;
+        border-width: 3px !important;
+        transform: scale(1.06);
       }
     </style>
 
@@ -1211,13 +1212,14 @@
         }
 
         const styles = assignments.treeStyles || {};
-        if (!tipValuePairs.length) {
-          canvas.setProps({ styles });
-          if (typeof canvas.render === "function") canvas.render();
-          return;
-        }
-
-        canvas.setProps({ styles });
+        const stylesWithMissingTransparent = { ...styles };
+        tipLabels.forEach((label) => {
+          if (!Object.prototype.hasOwnProperty.call(stylesWithMissingTransparent, label)) {
+            console.warn(`No colour assigned for tip "${label}" based on column "${treeColourByColumn}". Applying transparent colour to ensure it is rendered in the tree (otherwise it may be missing from the legend and not rendered at all).`);
+            stylesWithMissingTransparent[label] = { fillColour: "rgba(255, 255, 255, 0)" };
+          }
+        });
+        canvas.setProps({ styles: stylesWithMissingTransparent });
         if (typeof canvas.render === "function") canvas.render();
       }
 
@@ -1758,7 +1760,7 @@
             showInternalLabels,
             showLabels: true,
             showLeafLabels: true,
-            highlightColour: "#e74c3c",
+            fillColour: null,
             interactive: true,
           },
           [window.phylocanvas.plugins.scalebar],
