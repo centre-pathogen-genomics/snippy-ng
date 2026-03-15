@@ -398,6 +398,8 @@ class BaseStage(BaseModel):
                 continue
             if not Path(path).exists():
                 missing.append((name, path))
+            else:
+                logger.debug(f"Output '{name}' exists at {path}.")
         if missing:
             missing_str = ", ".join(f"{name} ({path})" for name, path in missing)
             raise MissingOutputError(f"Expected output files are missing: {missing_str}")
