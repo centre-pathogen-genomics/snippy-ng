@@ -152,7 +152,8 @@ class SnippyPipeline:
             # run any tests defined for the stage
             stage.run_tests()
             # Clean up stage tmp outputs
-            stage.cleanup_tmp_outputs()
+            if not run_ctx.no_cleanup:
+                stage.cleanup_tmp_outputs()
         self.end_time = time.perf_counter()
 
     def cleanup(self, context: Context = None, outputs_to_keep: List[Path] | None = None):
