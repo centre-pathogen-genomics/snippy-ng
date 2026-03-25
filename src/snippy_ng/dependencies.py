@@ -155,8 +155,9 @@ bcftools = Dependency(
 clair3 = Dependency(
     "clair3",
     command="run_clair3.sh",
-    citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797–803. https://doi.org/10.1038/s43588-022-00387-x",
+    citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797-803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
+    less_then="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
 
