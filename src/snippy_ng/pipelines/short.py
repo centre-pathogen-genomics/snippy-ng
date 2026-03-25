@@ -7,12 +7,13 @@ from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
-from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
+from snippy_ng.stages.filtering import SamtoolsFilter
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import DelMask, ApplyMask, DepthMask, HetMask
+from snippy_ng.stages.masks import ApplyMask, DepthMask, QualMask
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -30,7 +31,8 @@ class ShortPipelineBuilder(PipelineBuilder):
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
-    min_qual: float = Field(default=100, description="Minimum variant quality")
+    # min_qual_mask is set very high by default as short read SNP calls are generally very reliable. However it may be caller dependent..
+    min_qual_mask: float = Field(default=100, description="Mask variants below this QUAL threshold in the output fasta as 'n'")
 
     def build(self) -> SnippyPipeline:
         """Build and return the short-read pipeline."""
@@ -131,11 +133,20 @@ class ShortPipelineBuilder(PipelineBuilder):
         variant_filter = VcfFilterShort(
             vcf=caller.output.vcf,
             reference=reference_file,
-            min_qual=self.min_qual,
             **globals
         )
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
+
+        # Add zero-depth regions to VCF as symbolic deletion blocks
+        add_deletions = AddDeletionstoVCF(
+            bam=aligned_reads,
+            vcf=variants_file,
+            reference=reference_file,
+            **globals
+        )
+        stages.append(add_deletions)
+        variants_file = add_deletions.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -176,20 +187,11 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(depth_mask)
             current_fasta = depth_mask.output.masked_fasta
         
-        # Apply zero-depth deletion masking
-        del_mask = DelMask(
-            bam=aligned_reads,
-            fasta=current_fasta,
-            **globals
-        )
-        stages.append(del_mask)
-        current_fasta = del_mask.output.masked_fasta
-
         # Apply heterozygous and low quality sites masking
-        het_mask = HetMask(
+        het_mask = QualMask(
             vcf=caller.output.vcf,  # Use raw VCF for complete site information
             fasta=current_fasta,
-            min_qual=self.min_qual,
+            min_qual=self.min_qual_mask,
             **globals
         )
         stages.append(het_mask)

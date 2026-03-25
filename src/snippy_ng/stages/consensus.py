@@ -64,8 +64,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
         bcf_csq_args = ["bcftools", "consensus"]
 
         if self.no_insertions:
-            # Ensure that only indels where ALT is shorter than REF are applied i.e. no insertions
-            bcf_csq_args.extend(["-i", "strlen(ALT)<=strlen(REF)"])
+            # Exclude insertions while retaining deletions, including symbolic DEL blocks.
+            bcf_csq_args.extend(["-i", 'strlen(ALT)<=strlen(REF) || ALT="<DEL>"'])
         if self.iupac_ambiguity_codes:
             bcf_csq_args.append("--iupac-codes")
         bcf_csq_args.extend([

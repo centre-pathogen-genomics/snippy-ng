@@ -35,6 +35,7 @@ class BgzipCompressor(Compressor):
         )
         return [bgzip_cmd]
 
+
 class VcfCompressorOutput(BaseOutput):
     compressed: Path = Field(..., description="Compressed VCF file")
 
