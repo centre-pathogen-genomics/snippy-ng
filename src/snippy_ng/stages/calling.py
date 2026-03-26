@@ -150,20 +150,7 @@ class FreebayesCallerLong(FreebayesCaller):
             output_file=Path(self.output.vcf),
         )
         
-        return [
-            generate_regions_cmd,
-            self.python_cmd(
-                func=self._ensure_bam_index_exists,
-                args=[self.bam],
-                description="Check BAM index exists before running FreeBayes",
-            ),
-            freebayes_cmd,
-            self.python_cmd(
-                func=self._validate_freebayes_vcf,
-                args=[self.output.vcf],
-                description="Validate FreeBayes output VCF headers",
-            ),
-        ]
+        return [generate_regions_cmd, freebayes_cmd]
 
 class PAFCallerOutput(BaseCallerOutput):
     vcf: Path = Field(..., description="VCF file with raw PAF-derived variant calls and annotations")
