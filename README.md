@@ -62,7 +62,7 @@ snippy-ng asm --ref tests/data/wildtype.gbk --asm tests/data/wildtype.contigs.fa
 ```
 
 ```bash
-snippy-ng short --ref tests/data/wildtype.gbk --R1 tests/data/mutant_R1.fastq --R2 tests/data/mutant_R2.fastq
+snippy-ng short --ref tests/data/wildtype.gbk --R1 tests/data/mutant_R1.fastq.gz --R2 tests/data/mutant_R2.fastq.gz
 ```
 
 ```bash

@@ -2,9 +2,47 @@ from pathlib import Path
 from typing import List
 
 from snippy_ng.stages import BaseStage, BaseOutput, TempPath
-from snippy_ng.dependencies import bedtools, bcftools 
+from snippy_ng.dependencies import bedtools, bcftools
 
 from pydantic import Field
+
+
+class ZeroDepthBedFromBamOutput(BaseOutput):
+    """Output from zero-depth BED generation stage."""
+    zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
+
+
+class ZeroDepthBedFromBam(BaseStage):
+    """Generate zero-depth BED blocks from a BAM alignment."""
+
+    bam: Path = Field(..., description="Input BAM file")
+
+    _dependencies = [
+        bedtools
+    ]
+
+    @property
+    def output(self) -> ZeroDepthBedFromBamOutput:
+        return ZeroDepthBedFromBamOutput(
+            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
+        )
+
+    def create_commands(self, ctx) -> List:
+        """Generate commands to create a zero-depth BED file."""
+        genomecov_cmd = self.shell_cmd(
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            description="Generate genome coverage in BED format"
+        )
+        awk_cmd = self.shell_cmd(
+            ["awk", '$4==0 {print $1"\\t"$2"\\t"$3}'],
+            description="Filter for regions with depth == 0"
+        )
+
+        return [self.shell_pipe(
+            [genomecov_cmd, awk_cmd],
+            output_file=self.output.zero_depth_bed,
+            description="Generate zero-depth BED blocks"
+        )]
 
 
 
@@ -40,28 +78,28 @@ class DepthMask(BaseStage):
         """Generate commands to create and apply a minimum-depth mask."""
         return [
             *self._generate_depth_mask_commands(
-                filter_condition=f"<{self.min_depth}",
+                filter_expression=f'$4>0 && $4<{self.min_depth}',
                 output_bed=self.output.min_depth_bed,
-                description=f"Generate min-depth mask (depth < {self.min_depth})",
+                description=f"Generate min-depth mask (0 < depth < {self.min_depth})",
             ),
             self._apply_mask_command(
                 input_fasta=self.fasta,
                 mask_bed=self.output.min_depth_bed,
                 output_fasta=self.output.masked_fasta,
                 mask_char=self.mask_char,
-                description=f"Apply min-depth mask (< {self.min_depth})",
+                description=f"Apply min-depth mask (0 < depth < {self.min_depth})",
             ),
         ]
     
-    def _generate_depth_mask_commands(self, filter_condition: str, output_bed: Path, description: str) -> List:
+    def _generate_depth_mask_commands(self, filter_expression: str, output_bed: Path, description: str) -> List:
         """Generate commands to create a depth-based mask BED file using bedtools genomecov"""
         genomecov_cmd = self.shell_cmd(
             ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
             description="Generate genome coverage in BED format"
         )
         awk_cmd = self.shell_cmd(
-            ["awk", f'$4{filter_condition} {{print $1"\\t"$2"\\t"$3}}'],
-            description=f"Filter for regions with depth {filter_condition}"
+            ["awk", f'{filter_expression} {{print $1"\\t"$2"\\t"$3}}'],
+            description=f"Filter for regions with expression: {filter_expression}"
         )
         
         return [self.shell_pipe(
@@ -80,69 +118,6 @@ class DepthMask(BaseStage):
             "-fullHeader",
             "-mc", mask_char
         ], description=description)
-
-
-class DelMaskOutput(BaseOutput):
-    """Output from the deletion (zero-depth) masking stage."""
-    masked_fasta: Path = Field(..., description="FASTA with zero-depth regions masked using the deletion character")
-    zero_depth_bed: TempPath = Field(..., description="BED file with zero-depth regions")
-
-
-class DelMask(BaseStage):
-    """
-    Zero-depth masking stage.
-
-    This stage masks regions with depth equal to zero using `-`.
-    """
-    bam: Path = Field(..., description="Input BAM file")
-    fasta: Path = Field(..., description="Input FASTA file to be masked")
-    mask_char: str = Field("-", description="Character to use for masking")
-
-    _dependencies = [
-        bedtools
-    ]
-
-    @property
-    def output(self) -> DelMaskOutput:
-        return DelMaskOutput(
-            masked_fasta=Path(f"{self.prefix}.del_masked.fasta"),
-            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
-        )
-
-    def create_commands(self, ctx) -> List:
-        """Generate commands to create and apply a zero-depth mask."""
-        return [
-            *self._generate_zero_depth_mask_commands(),
-            self._apply_zero_depth_mask(),
-        ]
-
-    def _generate_zero_depth_mask_commands(self) -> List:
-        """Generate commands to create a zero-depth BED mask file."""
-        genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
-            description="Generate genome coverage in BED format"
-        )
-        awk_cmd = self.shell_cmd(
-            ["awk", '$4==0 {print $1"\\t"$2"\\t"$3}'],
-            description="Filter for regions with depth == 0"
-        )
-
-        return [self.shell_pipe(
-            [genomecov_cmd, awk_cmd],
-            output_file=self.output.zero_depth_bed,
-            description="Generate zero-depth mask"
-        )]
-
-    def _apply_zero_depth_mask(self):
-        """Apply zero-depth mask to FASTA file."""
-        return self.shell_cmd([
-            "bedtools", "maskfasta",
-            "-fi", str(self.fasta),
-            "-bed", str(self.output.zero_depth_bed),
-            "-fo", str(self.output.masked_fasta),
-            "-fullHeader",
-            "-mc", self.mask_char
-        ], description="Apply zero-depth mask")
 
 
 class ApplyMaskOutput(BaseOutput):
@@ -200,14 +175,11 @@ class HetMaskOutput(BaseOutput):
     het_sites_bed: TempPath = Field(..., description="BED file of heterozygous and low-quality variant sites")
 
 
-class HetMask(BaseStage):
+class QualMask(BaseStage):
     """
-    Heterozygous and low quality sites masking stage.
+    Low quality sites masking stage.
     
-    This stage masks heterozygous sites and low QUAL sites with 'n' characters.
-    It identifies sites where:
-    - GT="het" (any heterozygous genotype like 0/1, 1/2, etc.)
-    - QUAL < min_qual threshold
+    This stage masks low QUAL sites with 'n' characters.
     """
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     vcf: Path = Field(..., description="Input VCF file (raw VCF recommended)")
@@ -243,7 +215,7 @@ class HetMask(BaseStage):
         # Query for het sites and low quality sites
         bcftools_query = self.shell_cmd([
                 "bcftools", "query", 
-                "-i", f'GT="het" || QUAL<{self.min_qual}',
+                "-i", f'QUAL<{self.min_qual}',
                 "-f", "%CHROM\\t%POS0\\t%POS\\n",
                 str(self.vcf)
             ], 

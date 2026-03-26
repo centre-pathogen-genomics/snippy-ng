@@ -53,6 +53,7 @@ class FreebayesCaller(Caller):
     """
 
     bam: Path = Field(..., description="Input BAM file")
+    bam_index: Path = Field(..., description="Index file for the input BAM")
     fbopt: str = Field("", description="Additional Freebayes options")
     ploidy: int = Field(2, description="Ploidy for variant calling")
     exclude_insertions: bool = Field(
@@ -68,7 +69,7 @@ class FreebayesCaller(Caller):
             vcf=self.prefix + ".raw.vcf",
             regions=self.prefix + ".regions.txt",
         )
-
+    
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
@@ -114,6 +115,8 @@ class FreebayesCallerLong(FreebayesCaller):
     """
     Call variants using Freebayes for long-read data.
     """
+    # def test_freebayes_ran_successfully(self):
+        
 
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
@@ -337,7 +340,6 @@ class Clair3Caller(Caller):
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",
-                "--haploid_precise", # Only 1/1 is considered as a variant
                 "--no_phasing_for_fa",
                 "--enable_long_indel",
             ],

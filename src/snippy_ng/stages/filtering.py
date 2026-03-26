@@ -1,13 +1,13 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
-from snippy_ng.dependencies import samtools, bcftools
-from snippy_ng.logging import logger
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
+from snippy_ng.dependencies import samtools
 from pydantic import Field, field_validator
 
 
 class SamtoolsFilterOutput(BaseOutput):
     bam: Path = Field(..., description="Filtered alignment file in BAM format")
+    bai: Path = Field(..., description="Index file for the filtered BAM")
     stats: Path = Field(..., description="Flagstat output file for the BAM file")
 
 
@@ -31,6 +31,7 @@ class SamtoolsFilter(BaseStage):
         filtered_bam = f"{self.prefix}.filtered.bam"
         return SamtoolsFilterOutput(
             bam=filtered_bam,
+            bai=f"{filtered_bam}.bai",
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
@@ -155,222 +156,3 @@ class SamtoolsFilterProperPairs(SamtoolsFilter):
     
     include_flags: int = Field(2, description="Include only properly paired reads")
     exclude_flags: int = Field(1796, description="Exclude unmapped, secondary, qcfail, duplicate")
-
-
-class VcfFilterOutput(BaseOutput):
-    vcf: Path = Field(..., description="Filtered and normalized VCF file")
-
-class VcfFilter(BaseStage):
-    vcf: Path = Field(..., description="Input VCF file to filter")
-    reference: Path = Field(..., description="Reference FASTA file")
-    min_qual: int = Field(100, description="Minimum QUAL score")
-
-    _dependencies = [bcftools]
-
-    @property
-    def output(self) -> VcfFilterOutput:
-        filtered_vcf = f"{self.prefix}.filtered.vcf"
-        return VcfFilterOutput(vcf=filtered_vcf)
-    
-    def test_check_if_vcf_has_variants(self):
-        """Test that the output VCF file is not empty."""
-        vcf_path = self.output.vcf
-        with open(vcf_path, "r") as f:
-            for line in f:
-                if not line.startswith("#"):
-                    return  # Found a non-header line, VCF is not empty
-        # give warning instead of error as some callers may produce empty VCFs if no variants are found
-        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
-
-class VcfFilterShort(VcfFilter):
-    """
-    Filter VCF files using Samtools to remove unwanted variants.
-    """
-    # Keep only the tags you want; everything else is dropped.
-    _keep_vcf_tags = ",".join(
-        [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-        + [f"^FORMAT/{tag}" for tag in ["GT", "GQ", "DP", "RO", "AO", "QR", "QA", "GL"]]
-    )
-
-    def create_commands(self, ctx) -> List:
-        """Constructs the samtools view command for filtering."""
-
-        # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
-        base_filter = " && ".join([
-            f'QUAL>={self.min_qual}','ALT!="*"', 'FMT/GT="1/1"'
-        ])
-        commands = [
-                self.shell_cmd(
-                    ["cat", str(self.vcf)],
-                    description="Read input VCF file",
-                ),
-                self.shell_cmd(
-                    [
-                        "bcftools",
-                        "norm",
-                        "-f",
-                        str(self.reference),
-                        "-m",
-                        "-both",
-                        "-Ob",
-                    ],
-                    description="Normalize and split multiallelic variants",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-Ob", "-", "--", "-t", "TYPE"],
-                    description="Recompute TYPE from REF/ALT",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "view", "--include", base_filter, "-"],
-                    description="Filter variants after normalization and TYPE recomputation",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
-                    description="Make genotypes haploid (e.g., 1/1 -> 1)"
-                ),
-            ]
-        if self._keep_vcf_tags:
-            commands.append(
-                self.shell_cmd(
-                    ["bcftools", "annotate", "--remove", self._keep_vcf_tags, "-"],
-                    description="Remove unnecessary VCF annotations",
-                ),
-            )
-        bcftools_pipeline = self.shell_pipe(
-            commands=commands,
-            description="Normalize, recompute TYPE, filter, and annotate variants",
-            output_file=Path(self.output.vcf),
-        )
-        return [bcftools_pipeline]
-
-class VcfFilterAsm(VcfFilterShort):
-    """
-    Filter VCF files for assemblies using bcftools to remove unwanted variants.
-    """
-    # Keep only the tags you want; everything else is dropped.
-    _keep_vcf_tags = None # keep all tags for assembly-based calling
-
-
-class VcfFilterLong(VcfFilter):
-    """
-    Filter VCF files for long-read variant calling using bcftools to remove unwanted variants.
-    
-    This pipeline handles long-read specific filtering including:
-    - Reheadering with all reference contigs
-    - Making heterozygous calls homozygous for the allele with most depth
-    - Filtering out non-alt alleles and missing alleles
-    - Normalizing and left-aligning indels
-    - Removing long indels and duplicates
-    - Converting to haploid genotypes
-    """
-    reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
-    max_indel: int = Field(10000, description="Maximum indel length to keep")
-    
-    def create_commands(self, ctx) -> List:
-        """Constructs the bcftools pipeline for long-read variant filtering."""
-        
-        # Create temp files for contigs and header
-        contigs_file = f"{self.prefix}.contigs.txt"
-        header_file = f"{self.prefix}.header.txt"
-        
-        # Generate contig lines from faidx
-        create_contigs_cmd = self.shell_cmd(
-            ["awk", '{print "##contig=<ID="$1",length="$2">"}', str(self.reference_index)],
-            description="Generate contig lines from reference index",
-            output_file=Path(contigs_file)
-        )
-        
-        # Create new header with all contigs
-        # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
-        create_header_pipeline = self.shell_pipe(
-            commands=[
-                self.shell_cmd(
-                    ["bcftools", "view", "-h", str(self.vcf)],
-                    description="Extract VCF header"
-                ),
-                self.shell_cmd(
-                    ["grep", "-v", "^##contig="],
-                    description="Drop existing contig headers"
-                ),
-                self.shell_cmd(
-                    ["sed", "-e", f"3r {contigs_file}"],
-                    description="Insert all reference contigs into header"
-                ),
-            ],
-            description="Create VCF header with all contigs",
-            output_file=Path(header_file),
-        )
-        
-        # Build the main filtering pipeline
-        pipeline_commands = [
-            self.shell_cmd(
-                ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
-                description="Replace VCF header with new header containing all contigs"
-            ),
-        ]
-        
-        # Keep only the tags you want; everything else is dropped.
-        keep_vcf_tags = ",".join(
-            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
-        ) 
-        
-        # Continue with the filtering pipeline
-        pipeline_commands.extend([
-            self.shell_cmd(
-                ["bcftools", "view", "-i", 'GT="alt"'],
-                description="Remove non-alt alleles"
-            ),
-            self.shell_cmd(
-                ["bcftools", "norm", "-f", str(self.reference), "-a", "-c", "e", "-m", "-"],
-                description="Normalize and left-align indels"
-            ),
-            self.shell_cmd(
-                ["bcftools", "norm", "-aD"],
-                description="Remove duplicates after normalization"
-            ),
-            self.shell_cmd(
-                ["bcftools", "view", "--include", f'QUAL>={self.min_qual}'],
-                description="Filter variants based on QUAL, depth, and allele fraction"
-            ),
-            self.shell_cmd(
-                ["bcftools", "filter", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
-                description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles"
-            ),
-            self.shell_cmd(
-                ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
-                description="Make genotypes haploid (e.g., 1/1 -> 1)"
-            ),
-            self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
-                    description="Recompute TYPE from REF/ALT",
-            ),
-            self.shell_cmd(
-                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
-                    description="Remove unnecessary VCF annotations",
-            ),
-            self.shell_cmd(
-                ["bcftools", "sort"],
-                description="Sort VCF"
-            ),
-            self.shell_cmd(
-                ["bcftools", "view", "-i", 'GT="A"'],
-                description="Remove non-alt alleles and output final VCF"
-            ),
-        ])
-        
-        main_pipeline = self.shell_pipe(
-            commands=pipeline_commands,
-            description="Long-read variant filtering pipeline",
-            output_file=Path(self.output.vcf)
-        )
-        
-        # Step 4: Cleanup temp files
-        cleanup_cmd = self.shell_cmd(
-            ["rm", "-f", contigs_file, header_file],
-            description="Remove temporary files"
-        )
-        
-        return [create_contigs_cmd, create_header_pipeline, main_pipeline, cleanup_cmd]
-
-    

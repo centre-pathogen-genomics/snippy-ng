@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 from snippy_ng.pipelines import SnippyPipeline
 from snippy_ng.stages import BaseStage, BaseOutput, Context
-from snippy_ng.dependencies import Dependency
+from snippy_ng.dependencies import Citation, Dependency
 from snippy_ng.exceptions import DependencyError, MissingOutputError
 from pydantic import Field
 
@@ -149,6 +149,22 @@ def test_snippy_validate_dependencies_skip_duplicate(mock_run, mock_which):
     assert mock_run.call_count == 1
 
 
+def test_citation_dependency_defaults_to_citation_only_true():
+    """Test citation dependencies default to citation-only at instance level."""
+    dep = Citation("phylocanvas", citation="Some citation")
+    assert dep.citation_only is True
+
+
+def test_snippy_validate_dependencies_skips_citation_only_dependency():
+    """Test citation-only dependencies are skipped in validation and do not raise."""
+    stage = MockStage()
+    stage._dependencies = [Citation("phylocanvas", citation="Some citation")]
+    snippy = SnippyPipeline(stages=[stage])
+
+    # Should not raise NotImplementedError from Citation.check()
+    snippy.validate_dependencies()
+
+
 def test_snippy_run_no_stages():
     """Test running Snippy with no stages."""
     snippy = SnippyPipeline()
@@ -204,6 +220,22 @@ def test_snippy_goodbye():
     
     # Should not raise an exception
     snippy.goodbye()
+
+
+def test_output_descriptions_includes_human_readable_size(tmp_path):
+    """Test output descriptions include a human-readable size column."""
+    stage = MockStage(prefix=str(tmp_path / "sample"))
+    output_path = stage.output.test_file
+    output_path.write_text("x" * 1536)  # 1.5 KB
+
+    snippy = SnippyPipeline(stages=[stage], outputs_to_keep=[output_path])
+    descriptions = snippy.output_descriptions()
+
+    assert len(descriptions) == 1
+    row = descriptions[str(output_path)]
+    assert row["output"] == "test_file"
+    assert row["path"] == str(output_path)
+    assert row["size"] == "1.5 KB"
 
 
 

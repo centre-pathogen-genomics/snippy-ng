@@ -3,11 +3,11 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.filtering import VcfFilterAsm
+from snippy_ng.stages.vcf import AddDeletionstoVCF, VcfFilterAsm
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import ApplyMask, HetMask
+from snippy_ng.stages.masks import ApplyMask, QualMask
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner
@@ -64,7 +64,17 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
-        
+
+        # Add zero-depth regions to VCF as symbolic deletion blocks
+        add_deletions = AddDeletionstoVCF(
+            zero_depth_bed=caller.output.missing_bed,
+            vcf=variants_file,
+            reference=reference_file,
+            prefix=self.prefix
+        )
+        stages.append(add_deletions)
+        variants_file = add_deletions.output.vcf
+
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
             variants=variants_file,
@@ -84,7 +94,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.compressed,
+            vcf_gz=gzip.output.gz,
             reference=reference_file,
             prefix=self.prefix
         )
@@ -92,19 +102,9 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
-        
-        # Apply depth masking
-        missing_mask = ApplyMask(
-            fasta=current_fasta,
-            mask_bed=caller.output.missing_bed,
-            mask_char="-",
-            prefix=self.prefix
-        )
-        stages.append(missing_mask)
-        current_fasta = missing_mask.output.masked_fasta
 
         # Apply heterozygous and low quality sites masking
-        het_mask = HetMask(
+        het_mask = QualMask(
             vcf=caller.output.vcf,  # Use raw VCF for complete site information
             fasta=current_fasta,
             prefix=self.prefix
@@ -137,4 +137,8 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
         
-        return SnippyPipeline(stages=stages)
+        keep_files = [
+            copy_final.output.fasta, 
+            gzip.output.gz,
+        ]
+        return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

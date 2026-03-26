@@ -58,9 +58,8 @@ class IQTreeBuildTree(BaseStage):
                 "-s", str(self.aln),
                 "-pre", str(self.prefix),
                 "-m", self.model, 
-                "-T", "AUTO",
+                "-T", str(ctx.cpus),
                 "--threads-max", str(ctx.cpus),
-                "-nt", "AUTO",
                 "-st", "DNA",
                 "-redo"
             ], 

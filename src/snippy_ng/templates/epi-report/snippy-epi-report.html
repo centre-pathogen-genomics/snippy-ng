@@ -16,6 +16,9 @@
     <!-- PhyloJS -->
     <script src="https://unpkg.com/phylojs@latest/lib/dist/phylojs.min.js"></script>
 
+    <!-- Chroma.js -->
+    <script src="https://unpkg.com/chroma-js@2.4.2/chroma.min.js"></script>
+
     <!-- Tabulator -->
     <link href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css" rel="stylesheet">
     <script type="text/javascript" src="https://unpkg.com/tabulator-tables/dist/js/tabulator.min.js"></script>
@@ -33,9 +36,25 @@
         overflow: hidden;
       }
 
-      #metadata-table .tabulator-row.component-selected .tabulator-cell {
-        background-color: #e74c3c63 !important; 
+      #metadata-table .tabulator-row.tabulator-selected {
+        background-color: #3C738363 !important; 
       }
+
+      #metadata-table .tabulator-row.tabulator-row-odd.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: #ffffff !important;
+      }
+
+      #metadata-table .tabulator-row.tabulator-row-even.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: rgb(239, 239, 239) !important;
+      }
+
+      #metadata-table .tabulator-cell.tabulator-row-header,
+      #metadata-table .tabulator-col.tabulator-row-header {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      
 
       #metadata-table .tabulator-cell.cell-updated {
         background-color: #b4d3fb66 !important;
@@ -43,6 +62,12 @@
 
       #tree-container {
         position: relative;
+        overflow: hidden !important;
+      }
+
+      #tree {
+        border-radius: 0.5rem;
+        overflow: hidden;
       }
 
       #tree-modebar {
@@ -94,13 +119,222 @@
         cursor: not-allowed;
       }
 
+      .tree-colour-dropdown {
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        left: 0;
+        right: auto;
+        width: 20rem;
+        max-width: min(20rem, calc(100vw - 1rem));
+        max-height: min(60vh, 28rem);
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        background: #ffffff;
+        box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15);
+        z-index: 2400;
+        padding: 0.65rem;
+      }
+
+      .tree-colour-dropdown.hidden {
+        display: none;
+      }
+
+      .tree-colour-option {
+        width: 100%;
+        text-align: left;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.4rem;
+        background: #fff;
+        padding: 0.35rem 0.45rem;
+        font-size: 0.8rem;
+        color: #334155;
+      }
+
+      .tree-colour-option:hover {
+        background: #f8fafc;
+      }
+
+      .tree-colour-option.active {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+
+      #tree-legend-panel {
+        background: #ffffff;
+        padding: 0.6rem;
+        overflow: visible;
+        min-width: 0;
+        max-width: 100%;
+        max-height: 100%;
+        box-sizing: border-box;
+      }
+
+      #tree-legend-panel:not(.hidden) {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #tree-legend-body {
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+        max-width: 100%;
+        overflow: auto;
+      }
+
+      .tree-legend-title {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #ffffff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+      }
+
+      .tree-legend-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .tree-legend-header .tree-legend-title {
+        margin-bottom: 0;
+      }
+
+      .tree-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.75rem;
+        color: #334155;
+        margin-bottom: 0.3rem;
+      }
+
+      .tree-legend-item.clickable {
+        cursor: pointer;
+      }
+
+      .tree-legend-item.clickable:hover {
+        background: #f8fafc;
+      }
+
+      .tree-legend-swatch {
+        width: 0.75rem;
+        height: 0.75rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.15rem;
+        flex-shrink: 0;
+      }
+
+      .tree-legend-value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .tree-legend-continuous {
+        display: grid;
+        grid-template-columns: 0.55rem 1fr;
+        column-gap: 0.45rem;
+        align-items: stretch;
+        height: 100%;
+      }
+
+      .tree-legend-gradient {
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        height: 100%;
+        min-width: 0.55rem;
+        min-height: 0;
+      }
+
+      .tree-legend-extrema {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #334155;
+        height: 100%;
+        min-height: 0;
+      }
+
+      .tree-legend-continuous-horizontal {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        column-gap: 0.45rem;
+      }
+
+      .tree-legend-bound {
+        font-size: 0.75rem;
+        color: #334155;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 767px) {
+        #tree-legend-panel:not(.hidden) {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.5rem;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        #tree-legend-title {
+          position: static;
+          margin-bottom: 0;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .tree-legend-header {
+          margin-bottom: 0;
+        }
+
+        #tree-legend-body {
+          display: flex;
+          align-items: center;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+
+        .tree-legend-item {
+          margin-bottom: 0;
+          margin-right: 0.6rem;
+          flex: 0 0 auto;
+        }
+
+        .tree-legend-continuous {
+          grid-template-columns: auto 1fr auto;
+          grid-template-rows: 1fr;
+          column-gap: 0.35rem;
+          height: auto;
+          min-width: 10rem;
+        }
+
+        .tree-legend-gradient {
+          height: 0.55rem;
+          min-width: 6rem;
+        }
+
+        .tree-legend-extrema { display: none; }
+      }
+
       .map-marker-label-icon .map-marker-label {
-        transition: border-color 120ms ease, border-width 120ms ease;
+        transition: border-color 120ms ease, border-width 120ms ease, box-shadow 120ms ease, transform 120ms ease;
       }
 
       .map-marker-label-icon.component-selected .map-marker-label {
-        border-color: #e74c3c !important;
-        border-width: 2px !important;
+        border-color: #3C7383 !important;
+        border-width: 3px !important;
+        transform: scale(1.06);
       }
     </style>
 
@@ -110,13 +344,14 @@
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       crossorigin=""
     />
-    <script src="https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet-global.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- DATA -->
     <script>
       const treeData = `{{NEWICK}}`;
       const metadata = {{METADATA_JSON}};
       const logs = `{{LOGS}}`;
+      let treeColourByColumn = String(`{{COLOR_BY_COLUMN}}` || "").trim();
       // Parse the ISO3166-2 mapping subdivision_code: lat, long e.g. "US-CA": [37.7749, -122.4194]
       const iso3166Mapping = JSON.parse(`{{ISO3166_MAPPING_JSON}}`);
     </script>
@@ -193,8 +428,9 @@
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Clear selection quickly:</b> Click the page background (outside the tree, map, and metadata panels) to clear all selected samples.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and page through rows.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Resize panels:</b> Drag the row and column handles between panels to adjust layout.</li>
-                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Shortcuts:</b> Press <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">t</kbd> (tree), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">m</kbd> (map), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">d</kbd> (data table).</li>
-                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched by column <code>id</code> so you must include an <code>id</code> column that corresponds to tree tip labels (e.g. sample names) for linking to work.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Shortcuts:</b> Press <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">t</kbd> (tree), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">m</kbd> (map), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">d</kbd> (data table), <kbd class="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-xs">l</kbd> (legend).</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Colour by column legend:</b> Use the palette button in the legend panel to choose a metadata column. The tree tips and map markers use the same colours. Click legend categories to select matching samples, and use <b>Clear</b> in the colour menu to reset colouring.</li>
+                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Add/merge metadata:</b> Drag and drop CSV/TSV/JSON files onto the page (or use the load link). Rows are matched using one of <code>id</code>, <code>sample_id</code>, <code>sample</code>, or <code>name</code>. The chosen column values must correspond to tree tip labels (e.g. sample names) for linking to work.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Find changed metadata:</b> Newly inserted rows and updated cells are highlighted in <span class="rounded-lg px-1.5 py-0.5  bg-blue-100">blue</span>.</li>
                 <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>ISO subdivision mapping:</b> If metadata includes an ISO 3166-2 column (e.g. <code>iso3166-2</code>), missing <code>latitude</code>/<code>longitude</code> values are auto-filled from built-in mapping.</li>
               </ul>
@@ -243,9 +479,81 @@
         id="top-row"
         class="flex flex-col md:flex-row gap-2 items-stretch h-[40vh] min-h-[200px]"
       >
+        <div id="tree-legend-panel" class="hidden border rounded-lg bg-white shadow" aria-label="Tree colour legend">
+          <div class="tree-legend-header">
+            <div id="tree-legend-title" class="tree-legend-title"></div>
+            <div class="relative">
+              <button
+                id="tree-colour-btn"
+                type="button"
+                class="tree-modebar-btn"
+                title="Colour leaves by metadata"
+                aria-label="Colour leaves by metadata"
+                aria-expanded="false"
+                aria-controls="tree-colour-dropdown"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
+                </svg>
+              </button>
+              <div id="tree-colour-dropdown" class="tree-colour-dropdown hidden" role="menu" aria-label="Leaf colouring options">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-xs font-semibold text-slate-700">Colour by column</div>
+                  <button id="tree-colour-clear" type="button" class="text-xs text-blue-600 hover:underline">Clear</button>
+                </div>
+                <div id="tree-colour-column-list" class="flex flex-col gap-1 mb-3"></div>
+                <div class="text-xs font-semibold text-slate-700 mb-2">Scale</div>
+                <div class="grid grid-cols-1 gap-2 mb-3">
+                  <div class="grid grid-cols-[1fr_auto] gap-2 items-end">
+                    <label class="text-xs text-slate-600">Preset gradients
+                      <select id="tree-colour-preset" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 mt-1">
+                        <option value="viridis">Viridis</option>
+                        <option value="ocean">Ocean</option>
+                        <option value="magma">Magma</option>
+                        <option value="coolwarm">Cool-Warm</option>
+                        <option value="teal_orange">Teal-Orange</option>
+                      </select>
+                    </label>
+                    <button id="tree-colour-preset-apply" type="button" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Apply</button>
+                  </div>
+                  <label class="text-xs text-slate-600">Type
+                    <select id="tree-colour-scale-type" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 mt-1">
+                      <option value="auto">Auto</option>
+                      <option value="categorical">Categorical</option>
+                      <option value="continuous">Continuous</option>
+                    </select>
+                  </label>
+                  <label class="text-xs text-slate-600">Gradient mode
+                    <select id="tree-colour-gradient-mode" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 mt-1">
+                      <option value="sequential">Sequential</option>
+                      <option value="diverging">Diverging</option>
+                    </select>
+                  </label>
+                  <label class="text-xs text-slate-600">Sequential colours
+                    <input id="tree-colour-sequential-input" type="text" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 mt-1" value="#440154, #21908d, #fde725" />
+                  </label>
+                  <div id="tree-colour-diverging-inputs" class="grid grid-cols-1 gap-2 hidden">
+                    <label class="text-xs text-slate-600">Diverging (side B)
+                      <input id="tree-colour-diverging-b-input" type="text" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 mt-1" value="#f7f7f7, #f6b48f, #b40426" />
+                    </label>
+                  </div>
+                  <p class="text-[11px] text-slate-500">Use comma-separated CSS colours.</p>
+                </div>
+                <div class="mb-3">
+                  <div id="tree-colour-preview" class="h-2 rounded border border-slate-200"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                  <button id="tree-colour-reverse" type="button" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Reverse</button>
+                  <button id="tree-colour-swap-diverging" type="button" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Swap sides</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="tree-legend-body"></div>
+        </div>
         <div
           id="tree-container"
-          class="w-full h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+          class="flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
         >
           <div id="tree-modebar" aria-label="Tree controls">
             <!-- Tree navigation -->
@@ -287,8 +595,8 @@
               id="tree-reroot-btn"
               type="button"
               class="tree-modebar-btn"
-              title="Reroot on first selected tip"
-              aria-label="Reroot on first selected tip"
+              title="Reroot on selected tip(s)"
+              aria-label="Reroot on selected tip(s)"
               disabled
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
@@ -367,7 +675,7 @@
         ></div>
         <div
           id="map-panel"
-          class="hidden w-full h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+          class="hidden flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
         >
           <div id="map" class="w-full h-full min-h-0 rounded"></div>
         </div>
@@ -410,7 +718,6 @@
         metadataDropOverlay: $("metadata-drop-overlay"),
         infoPanel: $("info-panel"),
         logsModal: $("logs-modal"),
-        logsModalBackdrop: $("logs-modal-backdrop"),
         logsModalPanel: $("logs-modal-panel"),
         logsModalClose: $("logs-modal-close"),
         logsModalContent: $("logs-modal-content"),
@@ -428,8 +735,7 @@
       let isResizingRows = false;
       let isResizingCols = false;
       let phyloJSTree = phylojs.readNewick(treeData);
-      let tipNodes = phyloJSTree.leafList || [];
-      let tipLabels = tipNodes.map((node) => node.label);
+      let tipLabels = (phyloJSTree.leafList || []).map((node) => node.label);
       const normalizeId = (value) =>
         String(value ?? "")
           .trim()
@@ -440,6 +746,7 @@
       );
       let metadataRows = [];
       let metadataDataTable = null;
+      let isSyncingTableSelection = false;
       const MIN_PANEL_SIZE = 200;
       const DEFAULT_TREE_WIDTH_PCT = 66;
       const MIN_TREE_WIDTH_PCT = 10;
@@ -452,7 +759,694 @@
       let insertedRowIds = new Set();
       let updatedCellKeys = new Set();
       let mapHasData = false;
+      let treeColourCleared = false;
+      let legendManuallyHidden = false;
+      let treeColourScaleType = "auto";
+      let treeColourGradientMode = "sequential";
+      let treeColourSequentialInput = "#440154, #21908d, #fde725";
+      let treeColourDivergingBInput = "#f7f7f7, #f6b48f, #b40426";
       const LINK_ID_KEYS = ["id", "sample_id", "sample", "name"];
+
+      const TREE_COLOUR_PRESETS = {
+        ocean: {
+          mode: "sequential",
+          sequential: "#0b3c5d, #328cc1, #d9f0ff",
+          divergingB: "#d9f0ff, #328cc1, #0b3c5d",
+        },
+        viridis: {
+          mode: "sequential",
+          sequential: "#440154, #21908d, #fde725",
+          divergingB: "#fde725, #21908d, #440154",
+        },
+        magma: {
+          mode: "sequential",
+          sequential: "#000004, #b73779, #fcfdbf",
+          divergingB: "#fcfdbf, #b73779, #000004",
+        },
+        coolwarm: {
+          mode: "diverging",
+          sequential: "#3b4cc0, #aac7fd, #f7f7f7",
+          divergingB: "#f7f7f7, #f6b48f, #b40426",
+        },
+        teal_orange: {
+          mode: "diverging",
+          sequential: "#01665e, #5ab4ac, #f5f5f5",
+          divergingB: "#f5f5f5, #f6a146, #8c510a",
+        },
+      };
+
+      /**
+       * Returns cached DOM handles for tree-colour UI controls.
+       * @returns {{
+       *   button: HTMLElement|null,
+       *   dropdown: HTMLElement|null,
+       *   scaleType: HTMLSelectElement|null,
+       *   gradientMode: HTMLSelectElement|null,
+       *   preset: HTMLSelectElement|null,
+       *   presetApply: HTMLElement|null,
+       *   sequentialInput: HTMLInputElement|null,
+       *   divergingBInput: HTMLInputElement|null,
+       *   divergingInputs: HTMLElement|null,
+       *   preview: HTMLElement|null,
+       *   reverse: HTMLElement|null,
+       *   swapDiverging: HTMLElement|null,
+       *   clear: HTMLElement|null,
+       *   columnList: HTMLElement|null
+       * }}
+       */
+      function getTreeColourControls() {
+        return {
+          button: $("tree-colour-btn"),
+          dropdown: $("tree-colour-dropdown"),
+          scaleType: $("tree-colour-scale-type"),
+          gradientMode: $("tree-colour-gradient-mode"),
+          preset: $("tree-colour-preset"),
+          presetApply: $("tree-colour-preset-apply"),
+          sequentialInput: $("tree-colour-sequential-input"),
+          divergingBInput: $("tree-colour-diverging-b-input"),
+          divergingInputs: $("tree-colour-diverging-inputs"),
+          preview: $("tree-colour-preview"),
+          reverse: $("tree-colour-reverse"),
+          swapDiverging: $("tree-colour-swap-diverging"),
+          clear: $("tree-colour-clear"),
+          columnList: $("tree-colour-column-list"),
+        };
+      }
+
+      /**
+       * Resolves a metadata id to its original tree tip label.
+       * @param {unknown} value
+       * @returns {string}
+       */
+      function valueToTipLabel(value) {
+        const normalized = normalizeId(value);
+        if (!normalized) return "";
+        return tipLabelByNormalized.get(normalized) || "";
+      }
+
+      /**
+       * Determines whether all provided values are finite numbers.
+       * @param {Array<unknown>} values
+       * @returns {boolean}
+       */
+      function inferNumeric(values) {
+        return values.every((value) => {
+          if (value === null || value === undefined) return false;
+          const n = Number(String(value).trim());
+          return Number.isFinite(n);
+        });
+      }
+
+      /**
+       * Parses and validates comma-separated CSS colour stops.
+       * @param {string} rawValue
+       * @returns {string[]}
+       */
+      function parseColourStops(rawValue) {
+        const cleaned = String(rawValue || "").trim();
+        const candidates = cleaned
+          .split(",")
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        const valid = candidates.filter((value) => chroma.valid(value));
+        return valid;
+      }
+
+      function getActiveColourStops() {
+        const sequential = parseColourStops(treeColourSequentialInput);
+        if (treeColourGradientMode === "diverging") {
+          const left = sequential;
+          const right = parseColourStops(treeColourDivergingBInput);
+          const merged = [...left, ...right.slice(1)];
+          return merged.length >= 2 ? merged : sequential;
+        }
+        return sequential;
+      }
+
+      /**
+       * Builds a chroma scale for active colour settings.
+       * @returns {chroma.Scale}
+       */
+      function createGradientScale() {
+        const stops = getActiveColourStops();
+        const safeStops = stops.length >= 2 ? stops : ["#00429d", "#96ffea", "lightyellow"];
+        return chroma.scale(safeStops).mode("lab");
+      }
+
+      function buildCategoryColourMap(categories, scale) {
+        const colours = scale.colors(Math.max(categories.length, 1));
+        return new Map(categories.map((cat, idx) => [cat, colours[idx % colours.length]]));
+      }
+
+      function getSortedUniqueValues(values) {
+        return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+      }
+
+      function refreshTreeColourPreview() {
+        const controls = getTreeColourControls();
+        if (!controls.preview) return;
+        const scale = createGradientScale();
+        const stops = scale.colors(12);
+        controls.preview.style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function getTreeColourTipValuePairs() {
+        return getTreeColourIdValuePairs()
+          .map(({ id, value }) => ({ label: valueToTipLabel(id), value }))
+          .filter(({ label }) => !!label);
+      }
+
+      function getTreeColourIdValuePairs() {
+        if (!treeColourByColumn) return [];
+        return metadataRows
+          .map((row) => ({ id: findLinkValueInObject(row), value: row?.[treeColourByColumn] }))
+          .filter(({ id, value }) => !!id && value !== null && value !== undefined && String(value).trim() !== "")
+          .map(({ id, value }) => ({ id, value: String(value).trim() }));
+      }
+
+      /**
+       * Computes shared colour assignments for tree tips and map markers.
+       * @returns {{
+       *   tipValuePairs: Array<{label: string, value: string}>,
+       *   treeStyles: Record<string, {fillColour: string}>,
+       *   mapColoursById: Map<string, string>
+       * }}
+       */
+      function computeTreeAndMapColourAssignments() {
+        const idValuePairs = getTreeColourIdValuePairs();
+        const tipValuePairs = idValuePairs
+          .map(({ id, value }) => ({ id, label: valueToTipLabel(id), value }))
+          .filter(({ label }) => !!label);
+
+        const treeStyles = {};
+        const mapColoursById = new Map();
+
+        if (!idValuePairs.length) {
+          return { tipValuePairs: tipValuePairs.map(({ label, value }) => ({ label, value })), treeStyles, mapColoursById };
+        }
+
+        const values = idValuePairs.map(({ value }) => value);
+        const shouldUseContinuous =
+          treeColourScaleType === "continuous" ||
+          (treeColourScaleType === "auto" && inferNumeric(values));
+        const gradientScale = createGradientScale();
+
+        if (shouldUseContinuous) {
+          const numericValues = Array.from(
+            new Set(
+              values
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value)),
+            ),
+          ).sort((a, b) => a - b);
+          const sampled = gradientScale.colors(Math.max(numericValues.length, 1));
+          const numericColourMap = new Map(
+            numericValues.map((value, idx) => [value, sampled[idx] || sampled[sampled.length - 1]]),
+          );
+
+          idValuePairs.forEach(({ id, value }) => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return;
+            mapColoursById.set(id, numericColourMap.get(n) || "#64748b");
+          });
+
+          tipValuePairs.forEach(({ label, value }) => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return;
+            treeStyles[label] = { fillColour: numericColourMap.get(n) || "#64748b" };
+          });
+        } else {
+          const categories = getSortedUniqueValues(values);
+          const categoryMap = buildCategoryColourMap(categories, gradientScale);
+
+          idValuePairs.forEach(({ id, value }) => {
+            mapColoursById.set(id, categoryMap.get(value) || "#64748b");
+          });
+
+          tipValuePairs.forEach(({ label, value }) => {
+            treeStyles[label] = { fillColour: categoryMap.get(value) || "#64748b" };
+          });
+        }
+
+        return {
+          tipValuePairs: tipValuePairs.map(({ label, value }) => ({ label, value })),
+          treeStyles,
+          mapColoursById,
+        };
+      }
+
+      /**
+       * Applies colour styles to map marker labels.
+       * @param {Map<string, string>} [mapColoursById]
+       * @returns {void}
+       */
+      function applyMapMarkerColours(mapColoursById = new Map()) {
+        mapMarkersById.forEach((marker, id) => {
+          const markerEl =
+            marker && typeof marker.getElement === "function"
+              ? marker.getElement()
+              : null;
+          const labelEl = markerEl ? markerEl.querySelector(".map-marker-label") : null;
+          if (!labelEl) return;
+
+          const colour = mapColoursById.get(id);
+          if (!colour || !chroma.valid(colour)) {
+            labelEl.style.backgroundColor = "";
+            labelEl.style.borderColor = "";
+            labelEl.style.color = "";
+            return;
+          }
+
+          const base = chroma(colour);
+          const background = base.css();
+          const border = base.darken(0.35).hex();
+          const text = base.luminance() > 0.45 ? "#0f172a" : "#f8fafc";
+
+          labelEl.style.backgroundColor = background;
+          labelEl.style.borderColor = border;
+          labelEl.style.color = text;
+        });
+      }
+
+      function hasSelectedTreeColourColumn() {
+        if (!treeColourByColumn) return false;
+        return metadataRows.some((row) =>
+          Object.prototype.hasOwnProperty.call(row || {}, treeColourByColumn),
+        );
+      }
+
+      function getTreeColourMetadataColumns() {
+        return Array.from(
+          metadataRows.reduce((acc, row) => {
+            Object.keys(row || {}).forEach((key) => {
+              const lower = String(key).toLowerCase();
+              if (!LINK_ID_KEYS.includes(lower)) acc.add(key);
+            });
+            return acc;
+          }, new Set()),
+        ).sort((a, b) => a.localeCompare(b));
+      }
+
+      function hasLegendMetadata() {
+        return getTreeColourMetadataColumns().length > 0;
+      }
+
+      /**
+       * Ensures a valid default metadata column is selected for colouring.
+       * @returns {boolean} True if selected column changed.
+       */
+      function ensureTreeColourColumnDefault() {
+        const columns = getTreeColourMetadataColumns();
+        if (!columns.length) {
+          // Keep any preconfigured default (e.g. --color-by-column) until metadata is loaded.
+          return false;
+        }
+
+        const preferred = String(treeColourByColumn || "").trim();
+        if (preferred.length > 0) {
+          const exactMatch = columns.find((column) => column === preferred);
+          const matchedColumn =
+            exactMatch ||
+            columns.find((column) => String(column).toLowerCase() === preferred.toLowerCase());
+          if (matchedColumn) {
+            const changed = treeColourByColumn !== matchedColumn;
+            treeColourByColumn = matchedColumn;
+            return changed;
+          }
+        }
+
+        if (treeColourCleared && !treeColourByColumn) {
+          return false;
+        }
+        if (!treeColourByColumn || !columns.includes(treeColourByColumn)) {
+          treeColourByColumn = columns[0];
+          treeColourCleared = false;
+          return true;
+        }
+        return false;
+      }
+
+      function getLegendGradientDirection() {
+        return window.matchMedia("(max-width: 767px)").matches ? "to right" : "to top";
+      }
+
+      /**
+       * Rebuilds the legend for the active colouring mode.
+       * @param {Array<{label: string, value: string}>|null} [tipValuePairs]
+       * @returns {void}
+       */
+      function refreshTreeColourLegend(tipValuePairs = null) {
+        const panel = $("tree-legend-panel");
+        const title = $("tree-legend-title");
+        const body = $("tree-legend-body");
+        if (!panel || !title || !body) return;
+
+        if (!hasLegendMetadata()) {
+          panel.classList.add("hidden");
+          title.textContent = "";
+          body.innerHTML = "";
+          refreshVisualSizes();
+          return;
+        }
+
+        ensureTreeColourColumnDefault();
+
+        if (!hasSelectedTreeColourColumn()) {
+          title.textContent = "";
+          body.innerHTML = "";
+          panel.classList.toggle("hidden", legendManuallyHidden);
+          refreshVisualSizes();
+          return;
+        }
+
+        const pairs = Array.isArray(tipValuePairs) ? tipValuePairs : getTreeColourTipValuePairs();
+        title.textContent = treeColourByColumn;
+
+        const values = pairs.map(({ value }) => value);
+        const shouldUseContinuous =
+          treeColourScaleType === "continuous" ||
+          (treeColourScaleType === "auto" && inferNumeric(values));
+        const gradientScale = createGradientScale();
+
+        if (shouldUseContinuous) {
+          const numericValues = pairs
+            .map(({ value }) => Number(value))
+            .filter((value) => Number.isFinite(value));
+
+          if (!numericValues.length) {
+            body.innerHTML = '<div class="text-xs text-slate-500">No numeric values available</div>';
+            panel.classList.remove("hidden");
+            return;
+          }
+
+          const min = Math.min(...numericValues);
+          const max = Math.max(...numericValues);
+          const stops = gradientScale.colors(14);
+          const gradientDirection = getLegendGradientDirection();
+          if (gradientDirection === "to right") {
+            body.innerHTML =
+              '<div class="tree-legend-continuous tree-legend-continuous-horizontal">' +
+              `<div class="tree-legend-bound">${escapeHtml(min)}</div>` +
+              `<div class="tree-legend-gradient" style="background: linear-gradient(${gradientDirection}, ${stops.join(", ")});"></div>` +
+              `<div class="tree-legend-bound">${escapeHtml(max)}</div>` +
+              "</div>";
+          } else {
+            body.innerHTML =
+              '<div class="tree-legend-continuous">' +
+              `<div class="tree-legend-gradient" style="background: linear-gradient(${gradientDirection}, ${stops.join(", ")});"></div>` +
+              '<div class="tree-legend-extrema">' +
+              `<div>${escapeHtml(max)}</div>` +
+              '<div></div>' +
+              `<div>${escapeHtml(min)}</div>` +
+              "</div>" +
+              "</div>";
+          }
+        } else {
+          const categories = getSortedUniqueValues(values);
+          if (!categories.length) {
+            body.innerHTML = '<div class="text-xs text-slate-500">No values available</div>';
+            panel.classList.remove("hidden");
+            return;
+          }
+
+          const categoryMap = buildCategoryColourMap(categories, gradientScale);
+          body.innerHTML = categories
+            .map((category) => {
+              const colour = categoryMap.get(category) || "#64748b";
+              return (
+                `<div class="tree-legend-item clickable" data-legend-value="${escapeHtml(category)}">` +
+                `<span class="tree-legend-swatch" style="background:${escapeHtml(colour)};"></span>` +
+                `<span class="tree-legend-value" title="${escapeHtml(category)}">${escapeHtml(category)}</span>` +
+                "</div>"
+              );
+            })
+            .join("");
+
+          body.querySelectorAll(".tree-legend-item.clickable[data-legend-value]").forEach((item) => {
+            item.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const value = item.getAttribute("data-legend-value") || "";
+              selectSamplesByTreeLegendValue(value);
+            });
+          });
+        }
+
+        panel.classList.toggle("hidden", legendManuallyHidden);
+        refreshVisualSizes();
+      }
+
+      function selectSamplesByTreeLegendValue(legendValue) {
+        const selectedIds = metadataRows
+          .map((row) => {
+            const rowValue = row?.[treeColourByColumn];
+            if (rowValue === null || rowValue === undefined) return "";
+            if (String(rowValue).trim() !== String(legendValue).trim()) return "";
+            const id = findLinkValueInObject(row);
+            return id && tipLabelSet.has(id) ? id : "";
+          })
+          .filter(Boolean);
+
+        selectionModule.replace(selectedIds);
+      }
+
+      function applyTreeColourPreset(presetKey) {
+        const preset = TREE_COLOUR_PRESETS[presetKey];
+        if (!preset) return;
+        treeColourGradientMode = preset.mode || "sequential";
+        treeColourSequentialInput = preset.sequential || treeColourSequentialInput;
+        treeColourDivergingBInput = preset.divergingB || treeColourDivergingBInput;
+
+        const controls = getTreeColourControls();
+        if (controls.gradientMode) controls.gradientMode.value = treeColourGradientMode;
+        if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
+        if (controls.divergingBInput) controls.divergingBInput.value = treeColourDivergingBInput;
+        if (controls.divergingInputs) {
+          controls.divergingInputs.classList.toggle("hidden", treeColourGradientMode !== "diverging");
+        }
+
+        colourModule.refreshPreview();
+        colourModule.applyLeafColours();
+      }
+
+      /**
+       * Applies computed colours to tree tips and map markers.
+       * Missing tree tip values are rendered as transparent.
+       * @returns {void}
+       */
+      function applyTreeLeafColours() {
+        ensureTreeColourColumnDefault();
+        const assignments = colourModule.computeAssignments();
+        const tipValuePairs = assignments.tipValuePairs || [];
+        colourModule.refreshLegend(tipValuePairs);
+        colourModule.applyMapMarkerColours(assignments.mapColoursById || new Map());
+
+        if (!canvas || typeof canvas.setProps !== "function") return;
+        if (!treeColourByColumn) {
+          canvas.setProps({ styles: {} });
+          if (typeof canvas.render === "function") canvas.render();
+          return;
+        }
+
+        const styles = assignments.treeStyles || {};
+        const stylesWithMissingTransparent = { ...styles };
+        tipLabels.forEach((label) => {
+          if (!Object.prototype.hasOwnProperty.call(stylesWithMissingTransparent, label)) {
+            stylesWithMissingTransparent[label] = { fillColour: "rgba(255, 255, 255, 0)" };
+          }
+        });
+        canvas.setProps({ styles: stylesWithMissingTransparent });
+        if (typeof canvas.render === "function") canvas.render();
+      }
+
+      function refreshTreeColourColumnList() {
+        const controls = getTreeColourControls();
+        if (!controls.columnList) return;
+
+        ensureTreeColourColumnDefault();
+        const columns = getTreeColourMetadataColumns();
+
+        if (!columns.length) {
+          controls.columnList.innerHTML = '<div class="text-xs text-slate-500">No metadata columns available</div>';
+          return;
+        }
+
+        controls.columnList.innerHTML = "";
+        columns.forEach((column) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `tree-colour-option${treeColourByColumn === column ? " active" : ""}`;
+          button.textContent = column;
+          button.addEventListener("click", () => {
+            treeColourByColumn = column;
+            treeColourCleared = false;
+            colourModule.refreshColumnList();
+            colourModule.applyLeafColours();
+          });
+          controls.columnList.appendChild(button);
+        });
+      }
+
+      function initTreeColourControls() {
+        const controls = getTreeColourControls();
+        if (!controls.button || !controls.dropdown) return;
+
+        const close = () => {
+          controls.dropdown.classList.add("hidden");
+          controls.button.setAttribute("aria-expanded", "false");
+        };
+        const open = () => {
+          controls.dropdown.classList.remove("hidden");
+          controls.button.setAttribute("aria-expanded", "true");
+          colourModule.refreshColumnList();
+        };
+
+        controls.button.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (controls.dropdown.classList.contains("hidden")) open();
+          else close();
+        });
+
+        controls.dropdown.addEventListener("click", (e) => {
+          e.stopPropagation();
+        });
+
+        if (controls.scaleType) {
+          controls.scaleType.value = treeColourScaleType;
+          controls.scaleType.addEventListener("change", () => {
+            treeColourScaleType = controls.scaleType.value || "auto";
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.gradientMode) {
+          controls.gradientMode.value = treeColourGradientMode;
+          controls.gradientMode.addEventListener("change", () => {
+            treeColourGradientMode = controls.gradientMode.value || "sequential";
+            if (controls.divergingInputs) {
+              controls.divergingInputs.classList.toggle(
+                "hidden",
+                treeColourGradientMode !== "diverging",
+              );
+            }
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.presetApply && controls.preset) {
+          controls.presetApply.addEventListener("click", () => {
+            colourModule.applyPreset(controls.preset.value);
+          });
+        }
+
+        if (controls.sequentialInput) {
+          controls.sequentialInput.value = treeColourSequentialInput;
+          controls.sequentialInput.addEventListener("input", () => {
+            treeColourSequentialInput = controls.sequentialInput.value || "";
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.divergingBInput) {
+          controls.divergingBInput.value = treeColourDivergingBInput;
+          controls.divergingBInput.addEventListener("input", () => {
+            treeColourDivergingBInput = controls.divergingBInput.value || "";
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.reverse) {
+          controls.reverse.addEventListener("click", () => {
+            const reverseList = (raw) => {
+              const arr = parseColourStops(raw).reverse();
+              return arr.join(", ");
+            };
+            if (treeColourGradientMode === "diverging") {
+              treeColourSequentialInput = reverseList(treeColourSequentialInput);
+              treeColourDivergingBInput = reverseList(treeColourDivergingBInput);
+              if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
+              if (controls.divergingBInput) controls.divergingBInput.value = treeColourDivergingBInput;
+            } else {
+              treeColourSequentialInput = reverseList(treeColourSequentialInput);
+              if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
+            }
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.swapDiverging) {
+          controls.swapDiverging.addEventListener("click", () => {
+            const tmp = treeColourSequentialInput;
+            treeColourSequentialInput = treeColourDivergingBInput;
+            treeColourDivergingBInput = tmp;
+            if (controls.sequentialInput) controls.sequentialInput.value = treeColourSequentialInput;
+            if (controls.divergingBInput) controls.divergingBInput.value = treeColourDivergingBInput;
+            colourModule.refreshPreview();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        if (controls.clear) {
+          controls.clear.addEventListener("click", () => {
+            treeColourByColumn = "";
+            treeColourCleared = true;
+            colourModule.refreshColumnList();
+            colourModule.applyLeafColours();
+          });
+        }
+
+        document.addEventListener("click", () => {
+          close();
+        });
+
+        if (controls.divergingInputs) {
+          controls.divergingInputs.classList.toggle("hidden", treeColourGradientMode !== "diverging");
+        }
+
+        colourModule.refreshColumnList();
+        colourModule.refreshPreview();
+      }
+
+      const colourModule = {
+        refreshPreview() {
+          refreshTreeColourPreview();
+        },
+        refreshColumnList() {
+          refreshTreeColourColumnList();
+        },
+        refreshLegend(tipValuePairs = null) {
+          refreshTreeColourLegend(tipValuePairs);
+        },
+        applyPreset(presetKey) {
+          applyTreeColourPreset(presetKey);
+        },
+        applyLeafColours() {
+          applyTreeLeafColours();
+        },
+        computeAssignments() {
+          return computeTreeAndMapColourAssignments();
+        },
+        applyMapMarkerColours(mapColoursById = new Map()) {
+          applyMapMarkerColours(mapColoursById);
+        },
+        initControls() {
+          initTreeColourControls();
+        },
+      };
 
       function makeCellKey(id, field) {
         return `${normalizeId(id)}::${String(field)}`;
@@ -499,73 +1493,120 @@
         return normalizeId(row[originalKey]);
       }
 
-      function applyLinkedSelectionToTableRows() {
-        if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
-        metadataDataTable.getRows().forEach((row) => {
-          const rowEl = typeof row.getElement === "function" ? row.getElement() : null;
-          if (!rowEl) return;
-          const rowId = findLinkValueInObject(
-            typeof row.getData === "function" ? row.getData() : null,
-          );
-          rowEl.classList.toggle(
-            "component-selected",
-            !!rowId && selectedMetadataIds.has(rowId),
-          );
-        });
-      }
+      const selectionModule = {
+        applyToTable() {
+          if (!metadataDataTable || typeof metadataDataTable.getRows !== "function") return;
+          isSyncingTableSelection = true;
+          metadataDataTable.getRows().forEach((row) => {
+            const rowData = typeof row.getData === "function" ? row.getData() : null;
+            const rowId = findLinkValueInObject(rowData);
+            const shouldBeSelected = !!rowId && selectedMetadataIds.has(rowId);
 
-      function applyLinkedSelectionToMapMarkers() {
-        const selectedOrder = Array.from(selectedMetadataIds);
-        const selectedRankById = new Map(
-          selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
-        );
-        mapMarkersById.forEach((marker, id) => {
-          const markerEl =
-            marker && typeof marker.getElement === "function"
-              ? marker.getElement()
-              : null;
-          const isSelected = selectedMetadataIds.has(id);
-          if (markerEl) {
-            markerEl.classList.toggle("component-selected", isSelected);
-          }
-          if (marker && typeof marker.setZIndexOffset === "function") {
-            const rank = selectedRankById.get(id) || 0;
-            marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
-          }
-        });
-      }
-
-      function setLinkedSelection(id, toggle = false) {
-        const normalized = normalizeId(id);
-        if (!normalized) {
-          selectedMetadataIds.clear();
-        } else if (toggle) {
-          if (selectedMetadataIds.has(normalized)) {
-            selectedMetadataIds.delete(normalized);
-          } else {
-            selectedMetadataIds.add(normalized);
-          }
-        } else {
-          selectedMetadataIds = new Set([normalized]);
-        }
-        applyLinkedSelectionToTableRows();
-        applyLinkedSelectionToMapMarkers();
-        if (canvas && typeof canvas.setProps === "function") {
+            if (typeof row.isSelected === "function") {
+              const isRowSelected = row.isSelected();
+              if (shouldBeSelected && !isRowSelected && typeof row.select === "function") {
+                row.select();
+              } else if (!shouldBeSelected && isRowSelected && typeof row.deselect === "function") {
+                row.deselect();
+              }
+            }
+          });
+          isSyncingTableSelection = false;
+        },
+        applyToMap() {
+          const selectedOrder = Array.from(selectedMetadataIds);
+          const selectedRankById = new Map(
+            selectedOrder.map((selectedId, idx) => [selectedId, idx + 1]),
+          );
+          mapMarkersById.forEach((marker, id) => {
+            const markerEl =
+              marker && typeof marker.getElement === "function"
+                ? marker.getElement()
+                : null;
+            const isSelected = selectedMetadataIds.has(id);
+            if (markerEl) {
+              markerEl.classList.toggle("component-selected", isSelected);
+            }
+            if (marker && typeof marker.setZIndexOffset === "function") {
+              const rank = selectedRankById.get(id) || 0;
+              marker.setZIndexOffset(isSelected ? 1000 + rank : 0);
+            }
+          });
+        },
+        applyToTree() {
+          if (!canvas || typeof canvas.setProps !== "function") return;
           const selectedTreeIds = Array.from(selectedMetadataIds)
             .map((selectedId) => tipLabelByNormalized.get(selectedId) ?? selectedId)
             .filter(Boolean);
-          canvas.setProps({
-            selectedIds: selectedTreeIds,
-          });
+          canvas.setProps({ selectedIds: selectedTreeIds });
           if (typeof canvas.render === "function") {
             canvas.render();
           }
-        }
+        },
+        updateRerootButton() {
+          const rerootBtn = $("tree-reroot-btn");
+          if (rerootBtn) {
+            rerootBtn.disabled = selectedMetadataIds.size === 0;
+          }
+        },
+        syncAll() {
+          this.applyToTable();
+          this.applyToMap();
+          this.applyToTree();
+          this.updateRerootButton();
+        },
+        replace(ids) {
+          selectedMetadataIds = new Set(
+            (Array.isArray(ids) ? ids : [])
+              .map((id) => normalizeId(id))
+              .filter(Boolean),
+          );
+          this.syncAll();
+        },
+        addMany(ids) {
+          const values = Array.isArray(ids) ? ids : [];
+          values.forEach((id) => {
+            const normalized = normalizeId(id);
+            if (normalized) selectedMetadataIds.add(normalized);
+          });
+          this.syncAll();
+        },
+        setLinked(id, toggle = false) {
+          const normalized = normalizeId(id);
+          if (!normalized) {
+            selectedMetadataIds.clear();
+          } else if (toggle) {
+            if (selectedMetadataIds.has(normalized)) {
+              selectedMetadataIds.delete(normalized);
+            } else {
+              selectedMetadataIds.add(normalized);
+            }
+          } else if (selectedMetadataIds.has(normalized)) {
+            selectedMetadataIds.delete(normalized);
+            selectedMetadataIds.add(normalized);
+          } else {
+            selectedMetadataIds.add(normalized);
+          }
+          this.syncAll();
+        },
+      };
 
-        const rerootBtn = $("tree-reroot-btn");
-        if (rerootBtn) {
-          rerootBtn.disabled = selectedMetadataIds.size === 0;
-        }
+      function applyLinkedSelectionToTableRows() {
+        selectionModule.applyToTable();
+      }
+
+      function applyLinkedSelectionToMapMarkers() {
+        selectionModule.applyToMap();
+      }
+
+      /**
+       * Updates linked sample selection across table, map, and tree.
+       * @param {string|null|undefined} id
+       * @param {boolean} [toggle=false]
+       * @returns {void}
+       */
+      function setLinkedSelection(id, toggle = false) {
+        selectionModule.setLinked(id, toggle);
       }
 
       function getPhylocanvasCtor() {
@@ -582,7 +1623,7 @@
         const rect = container.getBoundingClientRect();
         const height = Math.max(MIN_PANEL_SIZE, Math.floor(rect.height || 0));
         return {
-          width: Math.max(MIN_PANEL_SIZE, Math.floor(rect.width || 0)),
+          width: Math.max(1, Math.floor(rect.width || 0)),
           height,
         };
       }
@@ -594,7 +1635,6 @@
           typeof canvas.render === "function"
         ) {
           canvas.setProps({
-            source: treeData,
             size: computeCanvasSize(els.treeContainer || els.tree),
             alignLabels,
             showInternalLabels,
@@ -614,6 +1654,8 @@
         if (window.innerWidth < 768 || mapIsHidden || treeIsHidden) {
           els.treeContainer.style.width = "";
           els.mapPanel.style.width = "";
+          els.treeContainer.style.flex = treeIsHidden ? "" : "1 1 0px";
+          els.mapPanel.style.flex = "";
           return;
         }
         const clamped = Math.max(
@@ -621,8 +1663,12 @@
           Math.min(MAX_TREE_WIDTH_PCT, treePercent),
         );
         currentTreeWidthPct = clamped;
-        els.treeContainer.style.width = `${clamped}%`;
-        els.mapPanel.style.width = `${100 - clamped}%`;
+
+        // Use flex-grow proportions so fixed-width siblings (legend, resizer) are accounted for.
+        els.treeContainer.style.width = "";
+        els.mapPanel.style.width = "";
+        els.treeContainer.style.flex = `${clamped} 1 0px`;
+        els.mapPanel.style.flex = `${100 - clamped} 1 0px`;
       }
 
       function initColResizer() {
@@ -630,8 +1676,13 @@
 
         const onPointerMove = (e) => {
           if (!isResizingCols) return;
-          const rect = els.topRow.getBoundingClientRect();
-          const nextPercent = ((e.clientX - rect.left) / rect.width) * 100;
+          if (!els.treeContainer || !els.mapPanel) return;
+          const treeRect = els.treeContainer.getBoundingClientRect();
+          const mapRect = els.mapPanel.getBoundingClientRect();
+          const spanLeft = treeRect.left;
+          const spanRight = mapRect.right;
+          const spanWidth = Math.max(1, spanRight - spanLeft);
+          const nextPercent = ((e.clientX - spanLeft) / spanWidth) * 100;
           setTreeMapWidths(nextPercent);
           refreshVisualSizes();
         };
@@ -662,6 +1713,9 @@
         window.addEventListener("pointercancel", stopResize);
         window.addEventListener("resize", () => {
           setTreeMapWidths(currentTreeWidthPct);
+          if (hasLegendMetadata()) {
+            colourModule.refreshLegend();
+          }
           refreshVisualSizes();
         });
       }
@@ -700,31 +1754,64 @@
         window.addEventListener("pointercancel", stopResize);
       }
 
-      function getTreeClickLabel(info) {
+      function getTreeClickNode(info) {
         const node =
           info?.object?.node ??
           info?.object ??
           info?.picked?.node ??
           info?.node ??
           null;
+        return node;
+      }
+
+      function getTreeClickTipLabel(node) {
+        if (!node || !node?.isLeaf) return null;
         const rawLabel =
           node?.label ??
           node?.name ??
-          node?.id ??
-          info?.label ??
-          info?.id ??
-          info?.object?.id;
+          node?.id;
         return normalizeId(rawLabel);
       }
 
+      /**
+       * Binds tree click handlers to sync selection with other views.
+       * @param {any} c Phylocanvas instance.
+       * @returns {void}
+       */
       function bindTreeClickSelection(c) {
         if (!c || c.__snippyTreeClickBound) return;
         c.__snippyTreeClickBound = true;
 
         const onTreeClick = (info) => {
-          const label = getTreeClickLabel(info);
-          if (!label || !tipLabelSet.has(label)) return;
-          setLinkedSelection(label, true);
+          const node = getTreeClickNode(info);
+          const label = getTreeClickTipLabel(node);
+          if (!node) {
+            // Clicked on empty space, clear selection
+            setLinkedSelection(null);
+            return;
+          }
+          if (node.children && node.children.length > 0) {
+            // Clicked on internal node, select all descendant tips
+            let labelsToSelect = [];
+            const collectDescendantTips = (n) => {
+              if (!n.children || n.children.length === 0) {
+                const tipLabel = getTreeClickTipLabel(n);
+                if (tipLabel && tipLabelSet.has(tipLabel)) {
+                  labelsToSelect.push(tipLabel);
+                }
+              } else {
+                n.children.forEach(collectDescendantTips);
+              }
+            };
+            collectDescendantTips(node);
+            if (labelsToSelect.length > 0) {
+              selectionModule.addMany(labelsToSelect);
+            }
+            return;
+          }
+          if (tipLabelSet.has(label)) {
+            setLinkedSelection(label, true);
+          }
         };
 
         if (typeof c.addClickHandler === "function") {
@@ -741,6 +1828,11 @@
         }
       }
 
+      /**
+       * Creates and configures the Phylocanvas instance once.
+       * @param {string} newickStr
+       * @returns {any}
+       */
       function ensureCanvas(newickStr) {
         if (canvas) return canvas;
 
@@ -767,17 +1859,25 @@
             showInternalLabels,
             showLabels: true,
             showLeafLabels: true,
-            highlightColour: "#e74c3c",
+            fillColour: null,
             interactive: true,
           },
           [window.phylocanvas.plugins.scalebar],
         );
 
         bindTreeClickSelection(canvas);
+        
+        // set useDevicePixels
+        canvas.deck.props.useDevicePixels = 2;
 
         return canvas;
       }
 
+      /**
+       * Renders or re-renders the tree from Newick input.
+       * @param {string} newickStr
+       * @returns {void}
+       */
       function renderNewick(newickStr) {
         const c = ensureCanvas(newickStr);
         if (
@@ -794,6 +1894,7 @@
           alignLabels,
           showInternalLabels,
         });
+        colourModule.applyLeafColours();
         c.render();
         if (typeof c.fitInCanvas === "function") c.fitInCanvas();
       }
@@ -820,13 +1921,13 @@
           const key = String(k).trim();
           out[key] = v === null || v === undefined ? "" : String(v).trim();
         });
-        const idKey = Object.keys(out).find((k) => k.toLowerCase() === "id");
-        if (idKey && idKey !== "id") {
-          out.id = out[idKey];
-          delete out[idKey];
-        }
-        if ("id" in out) {
-          out.id = normalizeId(out.id);
+        const lowerToOriginal = new Map(
+          Object.keys(out).map((k) => [k.toLowerCase(), k]),
+        );
+        const linkKey = LINK_ID_KEYS.find((k) => lowerToOriginal.has(k));
+        if (linkKey) {
+          const originalKey = lowerToOriginal.get(linkKey);
+          out.id = normalizeId(out[originalKey]);
         }
         return out;
       }
@@ -868,7 +1969,7 @@
           const lon = parseCoordinate(mapped[1]);
           if (lat === null || lon === null) return row;
 
-          const rowId = normalizeId(row.id);
+          const rowId = findLinkValueInObject(row);
           if (rowId) {
             updatedCellKeys.add(makeCellKey(rowId, targetLatKey));
             updatedCellKeys.add(makeCellKey(rowId, targetLonKey));
@@ -952,7 +2053,7 @@
       function upsertMetadataRows(incomingRows) {
         const rowById = new Map();
         metadataRows.forEach((row) => {
-          const id = normalizeId(row.id);
+          const id = findLinkValueInObject(row);
           if (id) rowById.set(id, row);
         });
 
@@ -962,7 +2063,7 @@
         const newRows = [];
 
         incomingRows.forEach((row) => {
-          const id = normalizeId(row.id);
+          const id = findLinkValueInObject(row);
           if (!id || !tipLabelSet.has(id)) {
             skipped += 1;
             return;
@@ -1004,21 +2105,12 @@
         updatedCellKeys.clear();
 
         let changed = false;
-        let summaryInserted = 0;
-        let summaryUpdated = 0;
-        let summarySkipped = 0;
 
         for (const file of files) {
           try {
             const rows = await parseFileRows(file);
-            const rowsWithIdColumn = rows.filter((row) =>
-              Object.keys(row).some((k) => k.toLowerCase() === "id"),
-            );
+            const rowsWithIdColumn = rows.filter((row) => !!findLinkValueInObject(row));
             const result = upsertMetadataRows(rowsWithIdColumn);
-            summaryInserted += result.inserted;
-            summaryUpdated += result.updated;
-            summarySkipped +=
-              result.skipped + (rows.length - rowsWithIdColumn.length);
             if (result.inserted || result.updated) changed = true;
           } catch (err) {
             console.error(`Failed to parse dropped file ${file.name}:`, err);
@@ -1031,10 +2123,6 @@
           initMapFromMetadata(metadataRows);
           refreshVisualSizes();
         }
-
-        console.info(
-          `Metadata import complete: inserted=${summaryInserted}, updated=${summaryUpdated}, skipped=${summarySkipped}`,
-        );
       }
 
       function initMetadataTable(rawMetadata) {
@@ -1046,6 +2134,10 @@
         renderMetadataTable();
       }
 
+      /**
+       * Builds/rebuilds the Tabulator metadata table and binds interactions.
+       * @returns {void}
+       */
       function renderMetadataTable() {
         if (!els.metadataTableContainer || typeof window.Tabulator === "undefined") return;
 
@@ -1082,7 +2174,7 @@
           headerFilter: "input",
           formatter: (cell) => {
             const rowData = cell.getData() || {};
-            const rowId = normalizeId(rowData.id);
+            const rowId = findLinkValueInObject(rowData);
             const isUpdated =
               (rowId && insertedRowIds.has(rowId)) ||
               (rowId && updatedCellKeys.has(makeCellKey(rowId, cell.getField())));
@@ -1095,10 +2187,70 @@
           },
         }));
 
+        const updateSelectFilteredHeaderCheckbox = () => {
+          const checkbox = els.metadataTable?.querySelector(
+            ".tabulator-select-visible-checkbox",
+          );
+          if (!checkbox || !metadataDataTable) return;
+
+          const filteredRows = metadataDataTable.getRows("active") || [];
+          const selectedFilteredCount = filteredRows.filter((row) =>
+            typeof row.isSelected === "function" ? row.isSelected() : false,
+          ).length;
+
+          checkbox.indeterminate =
+            selectedFilteredCount > 0 && selectedFilteredCount < filteredRows.length;
+          checkbox.checked =
+            filteredRows.length > 0 && selectedFilteredCount === filteredRows.length;
+        };
+
         metadataDataTable = new Tabulator(els.metadataTable, {
           data: rows,
+          rowHeader: {
+            headerSort: false,
+            resizable: false,
+            width: 28,
+            minWidth: 28,
+            maxWidth: 28,
+            frozen: true,
+            headerHozAlign: "center",
+            hozAlign: "center",
+            formatter: "rowSelection",
+            titleFormatter: () =>
+              '<input type="checkbox" class="tabulator-select-visible-checkbox" aria-label="Select filtered rows" />',
+            headerClick: (e, cell) => {
+              const table =
+                cell && typeof cell.getTable === "function"
+                  ? cell.getTable()
+                  : metadataDataTable;
+              if (!table) return;
+
+              const filteredRows = table.getRows("active") || [];
+              if (!filteredRows.length) return;
+
+              const allFilteredSelected = filteredRows.every((row) =>
+                typeof row.isSelected === "function" ? row.isSelected() : false,
+              );
+
+              filteredRows.forEach((row) => {
+                if (allFilteredSelected) {
+                  if (typeof row.deselect === "function") row.deselect();
+                } else if (typeof row.select === "function") {
+                  row.select();
+                }
+              });
+
+              e.stopPropagation();
+            },
+            cellClick: (e, cell) => {
+              e.stopPropagation();
+              const row = cell.getRow();
+              row.toggleSelect();
+            },
+          },
           columns,
           layout: "fitColumns",
+          selectableRows: true,
           pagination: true,
           paginationSize: 5,
           paginationSizeSelector: [5, 10, 25, 50, 100],
@@ -1135,6 +2287,14 @@
         metadataDataTable.on("renderComplete", bindFooterExportButtons);
         requestAnimationFrame(bindFooterExportButtons);
 
+        metadataDataTable.on("tableBuilt", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("renderComplete", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("dataFiltered", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("dataSorted", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("pageLoaded", updateSelectFilteredHeaderCheckbox);
+        metadataDataTable.on("rowSelectionChanged", updateSelectFilteredHeaderCheckbox);
+        requestAnimationFrame(updateSelectFilteredHeaderCheckbox);
+
         const syncLinkedSelection = () => {
           requestAnimationFrame(() => {
             applyLinkedSelectionToTableRows();
@@ -1147,14 +2307,28 @@
           },
         );
 
+        metadataDataTable.on("rowSelectionChanged", (_data, selectedRows) => {
+          if (isSyncingTableSelection) return;
+
+          const nextSelectedIds = (selectedRows || [])
+            .map((row) =>
+              findLinkValueInObject(
+                typeof row.getData === "function" ? row.getData() : null,
+              ),
+            )
+            .filter(Boolean);
+          selectionModule.replace(nextSelectedIds);
+
+          updateSelectFilteredHeaderCheckbox();
+        });
+
         metadataDataTable.on("rowClick", (_e, row) => {
-          const linkId = findLinkValueInObject(row.getData());
-          if (linkId) {
-            setLinkedSelection(linkId, true);
-          }
+          row.toggleSelect();
         });
 
         applyLinkedSelectionToTableRows();
+        colourModule.refreshColumnList();
+        colourModule.applyLeafColours();
       }
 
       function initMetadataDropzone() {
@@ -1289,11 +2463,13 @@
         return new L.LayerGroup();
       }
 
+      /**
+       * Initializes or refreshes map markers from metadata rows.
+       * @param {Array<Record<string, unknown>>|Record<string, unknown>|null|undefined} rawMetadata
+       * @returns {void}
+       */
       function initMapFromMetadata(rawMetadata) {
         if (!els.mapPanel || !els.map || typeof L === "undefined") {
-          console.warn(
-            "Leaflet library not found. Map cannot be initialized.",
-          );
           return;
         }
 
@@ -1313,9 +2489,6 @@
           if (els.treeContainer) {
             els.treeContainer.style.width = "";
           }
-          console.info(
-            "No valid latitude/longitude keys found in metadata. Map will be hidden.",
-          );
           return;
         }
 
@@ -1363,9 +2536,7 @@
           createLeafletTileLayer(
             "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
-              maxZoom: 19,
-              attribution:
-                '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+              maxZoom: 19
             },
           ).addTo(leafletMap);
         }
@@ -1409,6 +2580,8 @@
 
         // Ensure final sizes are correct after DOM/layout settles.
         requestAnimationFrame(() => {
+          const assignments = colourModule.computeAssignments();
+          colourModule.applyMapMarkerColours(assignments.mapColoursById || new Map());
           refreshVisualSizes();
           applyLinkedSelectionToMapMarkers();
         });
@@ -1449,6 +2622,10 @@
         refreshVisualSizes();
       }
 
+      /**
+       * Registers global keyboard shortcuts for panel visibility.
+       * @returns {void}
+       */
       function initKeyboardShortcuts() {
         document.addEventListener("keydown", (e) => {
           if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1468,6 +2645,15 @@
             e.preventDefault();
             els.metadataTableContainer.classList.toggle("hidden");
             refreshVisualSizes();
+          } else if (key === "l") {
+            e.preventDefault();
+            if (!hasLegendMetadata()) return;
+            legendManuallyHidden = !legendManuallyHidden;
+            const panel = $("tree-legend-panel");
+            if (panel) {
+              panel.classList.toggle("hidden", legendManuallyHidden);
+            }
+            refreshVisualSizes();
           }
         });
       }
@@ -1481,6 +2667,7 @@
             els.treeContainer,
             els.mapPanel,
             els.metadataTableContainer,
+            $("tree-legend-panel"),
           ].filter(Boolean);
 
           const clickedInsidePanel = panelElements.some((panel) =>
@@ -1492,6 +2679,10 @@
         });
       }
 
+      /**
+       * Wires tree modebar controls (view, reroot, exports, toggles).
+       * @returns {void}
+       */
       function initTreeModebar() {
         const resetBtn = $("tree-reset-view-btn");
         const rerootBtn = $("tree-reroot-btn");
@@ -1524,6 +2715,7 @@
             const tree = canvas;
             if (tree && typeof tree.fitInCanvas === "function") {
               tree.setProps({ source:  treeData });
+              phyloJSTree = phylojs.readNewick(treeData);
               tree.fitInCanvas();
               if (typeof tree.render === "function") {
                 tree.render();
@@ -1581,18 +2773,36 @@
             e.preventDefault();
             e.stopPropagation();
 
-            const firstSelectedId = Array.from(selectedMetadataIds)[0];
-            if (!firstSelectedId) return;
-
             const tree = canvas;
-            const rerootNode =
-              phyloJSTree.getNodeByLabel(firstSelectedId);
+            const selectedIds = Array.from(selectedMetadataIds);
+            const rerootNodes = selectedIds.map((id) => {
+              const treeLabel = tipLabelByNormalized.get(id) ?? id;
+              const node = phyloJSTree.getNodeByLabel(treeLabel);
+              if (!node) {
+                throw new Error(`Cannot find node in tree with label "${treeLabel}" for rerooting`);
+              }
+              return node;
+            });
+
+            if (!rerootNodes.length) return;
+
+            let rerootNode = null;
+            if (rerootNodes.length > 1) {
+              rerootNode = phyloJSTree.getMRCA(rerootNodes);
+            } else {
+              rerootNode = rerootNodes[0];
+            }
+
+            if (!rerootNode) {
+              throw new Error("Failed to determine reroot node from current selection.");
+            }
 
             if (tree && typeof tree.setProps === "function") {
               phyloJSTree.reroot(rerootNode);
-              tree.setProps({ source:  phylojs.writeNewick(phyloJSTree) });
+              const nextNewick = phylojs.writeNewick(phyloJSTree);
+              tree.setProps({ source: nextNewick });
               // Re-parse the tree to reset internal state after rerooting
-              phyloJSTree = phylojs.readNewick(treeData);
+              phyloJSTree = phylojs.readNewick(nextNewick);
               if (typeof tree.render === "function") {
                 tree.render();
               }
@@ -1738,18 +2948,26 @@
         });
       }
 
-      // Initial render
-      renderNewick(treeData);
-      initMetadataTable(metadata);
-      initMapFromMetadata(metadata);
-      initLogsModal();
-      initRowResizer();
-      initColResizer();
-      initMetadataDropzone();
-      initKeyboardShortcuts();
-      initBackgroundSelectionClear();
-      initTreeModebar();
-      syncTopPanelLayout();
+      /**
+       * Bootstraps the report UI and wires all modules.
+       * @returns {void}
+       */
+      function initReport() {
+        renderNewick(treeData);
+        initMetadataTable(metadata);
+        initMapFromMetadata(metadata);
+        initLogsModal();
+        initRowResizer();
+        initColResizer();
+        initMetadataDropzone();
+        initKeyboardShortcuts();
+        initBackgroundSelectionClear();
+        initTreeModebar();
+        colourModule.initControls();
+        syncTopPanelLayout();
+      }
+
+      initReport();
     </script>
   </body>
 </html>

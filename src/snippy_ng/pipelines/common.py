@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
-from snippy_ng.stages.filtering import VcfFilterShort
+from snippy_ng.stages.vcf import VcfFilterShort
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import ApplyMask, HetMask
+from snippy_ng.stages.masks import ApplyMask, QualMask
 from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
@@ -170,7 +170,7 @@ def apply_consensus_masking(
     current_fasta = fasta
     
     # Apply heterozygous and low quality sites masking
-    het_mask = HetMask(
+    het_mask = QualMask(
         vcf=vcf,  # Use raw VCF for complete site information
         fasta=current_fasta,
         reference=reference,

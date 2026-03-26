@@ -6,13 +6,14 @@ from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
-from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterLong
+from snippy_ng.stages.filtering import SamtoolsFilter
+from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionstoVCF
+from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import DepthMask, DelMask, ApplyMask, HetMask
+from snippy_ng.stages.masks import DepthMask, ApplyMask, ZeroDepthBedFromBam
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -34,14 +35,15 @@ class LongPipelineBuilder(PipelineBuilder):
     clair3_fast_mode: bool = Field(default=False, description="Use Clair3 fast mode")
     min_read_len: int = Field(default=1000, description="Minimum read length")
     min_read_qual: float = Field(default=10, description="Minimum read quality")
-    min_qual: float = Field(default=100, description="Minimum variant quality")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+    min_qual: float = Field(default=2, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
         stages = []
         globals = {'prefix': self.prefix}
+        stats_tsv = None
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -95,6 +97,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 **globals
             )
             stages.append(stats_stage)
+            stats_tsv = getattr(stats_stage.output, "stats_tsv", None)
             # Minimap2
             if self.aligner == "minimap2":
                 aligner_stage = Minimap2LongReadAligner(
@@ -138,6 +141,7 @@ class LongPipelineBuilder(PipelineBuilder):
         else:
             caller_stage = FreebayesCallerLong(
                 bam=aligned_reads,
+                bam_index=align_filter.output.bai,
                 reference=reference_file,
                 reference_index=reference_index,
                 fbopt=self.caller_opts,
@@ -155,6 +159,22 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
+
+        zero_depth_bed = ZeroDepthBedFromBam(
+            bam=aligned_reads,
+            **globals
+        )
+        stages.append(zero_depth_bed)
+
+        # Add zero-depth regions to VCF as symbolic deletion blocks
+        add_deletions = AddDeletionstoVCF(
+            zero_depth_bed=zero_depth_bed.output.zero_depth_bed,
+            vcf=variants_file,
+            reference=reference_file,
+            **globals
+        )
+        stages.append(add_deletions)
+        variants_file = add_deletions.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -175,7 +195,7 @@ class LongPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.compressed,
+            vcf_gz=gzip.output.gz,
             reference=reference_file,
             **globals
         )
@@ -195,26 +215,6 @@ class LongPipelineBuilder(PipelineBuilder):
             stages.append(depth_mask)
             current_fasta = depth_mask.output.masked_fasta
         
-
-        # Apply zero-depth deletion masking
-        del_mask = DelMask(
-            bam=aligned_reads,
-            fasta=current_fasta,
-            **globals
-        )
-        stages.append(del_mask)
-        current_fasta = del_mask.output.masked_fasta
-
-        # Apply heterozygous and low quality sites masking
-        het_mask = HetMask(
-            vcf=caller_stage.output.vcf,  # Use raw VCF for complete site information
-            fasta=current_fasta,
-            min_qual=self.min_qual,
-            **globals
-        )
-        stages.append(het_mask)
-        current_fasta = het_mask.output.masked_fasta
-        
         # Apply user mask if provided
         if self.mask:
             user_mask = ApplyMask(
@@ -233,6 +233,13 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        # Compress BAM to CRAM with embedded reference
+        cram_compressor = CramCompressor(
+            input=aligned_reads,
+            reference=reference_file,
+        )
+        stages.append(cram_compressor)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -240,4 +247,11 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
 
-        return SnippyPipeline(stages=stages)
+        keep_files = [
+            copy_final.output.fasta, 
+            gzip.output.gz, 
+            cram_compressor.output.cram,
+        ]
+        if stats_tsv is not None:
+            keep_files.append(stats_tsv)
+        return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

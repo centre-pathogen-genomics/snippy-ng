@@ -13,12 +13,12 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--depth-mask", default=10, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
-@click.option("--min-qual", default=100, type=click.FLOAT, help="Minimum QUAL threshold for heterozygous/low quality site masking")
+@click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
+@click.option("--depth-mask", default=10, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+@click.option("--min-qual", default=100, type=click.FLOAT, help="Mark variants below this QUAL threshold as LowQual in the output VCF")
 def short(
     reference: Path,
     r1: Optional[Path],

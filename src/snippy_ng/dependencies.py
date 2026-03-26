@@ -18,6 +18,7 @@ class Dependency:
     name: str
     command: Optional[str] = None
     citation: Optional[str] = None
+    citation_only: bool = False
     version_pattern: str = r"(\d+\.\d+\.\d+)"  # Regex pattern to extract version
     version_arg: Optional[str] = "--version"
     version: Optional[str] = None
@@ -154,8 +155,9 @@ bcftools = Dependency(
 clair3 = Dependency(
     "clair3",
     command="run_clair3.sh",
-    citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797–803. https://doi.org/10.1038/s43588-022-00387-x",
+    citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797-803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
+    less_then="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
 
@@ -205,4 +207,22 @@ iqtree = Dependency(
     citation="Bui Quang Minh, Heiko A. Schmidt, Olga Chernomor, Dominik Schrempf, Michael D. Woodhams, Arndt von Haeseler, Robert Lanfear, IQ-TREE 2: New Models and Efficient Methods for Phylogenetic Inference in the Genomic Era, Molecular Biology and Evolution, Volume 37, Issue 5, May 2020, Pages 1530–1534, https://doi.org/10.1093/molbev/msaa015",
     min_version="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
+)
+
+# Citations 
+@dataclass
+class Citation(Dependency):
+    citation_only: bool = True
+
+    def check(self):
+        raise NotImplementedError(f"{self.name} is a citation-only dependency and cannot be checked for installation or version.")
+    
+phylocanvas = Citation(
+    "phylocanvas",
+    citation="Abudahab, K., Underwood, A., Taylor, B., Yeats, C., & Aanensen, D. M. (2021, July 2). Phylocanvas.gl: A WebGL-powered JavaScript library for large tree visualisation. https://doi.org/10.31219/osf.io/nfv6m",
+)
+
+phylojs = Citation(
+    "phylojs",
+    citation="Featherstone LA, Wirth W. PhyloJS: Bridging phylogenetics and web development with a JavaScript utility library. Ecol Evol. 2024 Jun 26;14(6):e11603. doi: 10.1002/ece3.11603. PMID: 38932954; PMCID: PMC11199911",
 )

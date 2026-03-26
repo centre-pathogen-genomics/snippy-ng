@@ -7,12 +7,13 @@ from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
-from snippy_ng.stages.filtering import SamtoolsFilter, VcfFilterShort
+from snippy_ng.stages.filtering import SamtoolsFilter
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import DelMask, ApplyMask, DepthMask, HetMask
+from snippy_ng.stages.compression import CramCompressor, VcfCompressor
+from snippy_ng.stages.masks import ApplyMask, DepthMask, ZeroDepthBedFromBam
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -30,12 +31,14 @@ class ShortPipelineBuilder(PipelineBuilder):
     caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
-    min_qual: float = Field(default=100, description="Minimum variant quality")
+    min_qual: float = Field(default=100, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
+
 
     def build(self) -> SnippyPipeline:
         """Build and return the short-read pipeline."""
         stages = []
         globals = {'prefix': self.prefix}
+        stats_tsv = None
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -87,6 +90,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 **globals
             )
             stages.append(stats_stage)
+            stats_tsv = stats_stage.output.stats_tsv
             # Aligner
             if self.aligner == "bwamem":
                 aligner_stage = BWAMEMShortReadAligner(
@@ -120,6 +124,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # SNP calling
         caller = FreebayesCaller(
             bam=aligned_reads,
+            bam_index=align_filter.output.bai,
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
@@ -136,6 +141,22 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
+
+        zero_depth_bed = ZeroDepthBedFromBam(
+            bam=aligned_reads,
+            **globals
+        )
+        stages.append(zero_depth_bed)
+
+        # Add zero-depth regions to VCF as symbolic deletion blocks
+        add_deletions = AddDeletionstoVCF(
+            zero_depth_bed=zero_depth_bed.output.zero_depth_bed,
+            vcf=variants_file,
+            reference=reference_file,
+            **globals
+        )
+        stages.append(add_deletions)
+        variants_file = add_deletions.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -156,7 +177,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.compressed,
+            vcf_gz=gzip.output.gz,
             reference=reference_file,
             **globals
         )
@@ -176,25 +197,6 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(depth_mask)
             current_fasta = depth_mask.output.masked_fasta
         
-        # Apply zero-depth deletion masking
-        del_mask = DelMask(
-            bam=aligned_reads,
-            fasta=current_fasta,
-            **globals
-        )
-        stages.append(del_mask)
-        current_fasta = del_mask.output.masked_fasta
-
-        # Apply heterozygous and low quality sites masking
-        het_mask = HetMask(
-            vcf=caller.output.vcf,  # Use raw VCF for complete site information
-            fasta=current_fasta,
-            min_qual=self.min_qual,
-            **globals
-        )
-        stages.append(het_mask)
-        current_fasta = het_mask.output.masked_fasta
-        
         # Apply user mask if provided
         if self.mask:
             user_mask = ApplyMask(
@@ -213,6 +215,13 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        # Compress BAM to CRAM with embedded reference
+        cram_compressor = CramCompressor(
+            input=aligned_reads,
+            reference=reference_file,
+        )
+        stages.append(cram_compressor)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -220,4 +229,11 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
 
-        return SnippyPipeline(stages=stages)
+        keep_files = [
+            copy_final.output.fasta, 
+            gzip.output.gz, 
+            cram_compressor.output.cram,
+        ]
+        if stats_tsv is not None:
+            keep_files.append(stats_tsv)
+        return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

@@ -6,11 +6,12 @@ from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default=None, required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="report", help="Prefix for html report", cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.option("--tree", required=True, type=AbsolutePath(exists=True, readable=True), help="Newick tree file to include in the report")
 @click.option("--metadata", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional metadata file (JSON or CSV) to include in the report")
+@click.option("--color-by-column", required=False, type=click.STRING, help="Column name in the metadata to color the tree by")
 @click.option("--logs", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional log file to include in the report")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
 @click.option("--mid-point-root", is_flag=True, default=False, help="Mid-point root the tree in the report")
@@ -18,6 +19,7 @@ from pathlib import Path
 def report(
     tree: Path,
     metadata: Optional[Path],
+    color_by_column: Optional[str],
     logs: Optional[Path],
     title: str,
     outdir: Optional[Path],
@@ -64,6 +66,7 @@ def report(
         ladderize=ladderize,
         title=title,
         metadata=metadata,
+        color_by_column=color_by_column,
         logs=logs,
         prefix=prefix,
     ).build()
