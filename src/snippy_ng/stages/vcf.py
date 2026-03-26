@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import List
 import re
 
-from snippy_ng.stages import BaseStage, BaseOutput, TempPath
-from snippy_ng.dependencies import bcftools, bedtools
+from snippy_ng.stages import BaseStage, BaseOutput
+from snippy_ng.dependencies import bcftools
 from snippy_ng.logging import logger
 from pydantic import Field
 
@@ -181,10 +181,6 @@ class VcfFilterLong(VcfFilter):
                 description="Remove duplicates after normalization"
             ),
             self.shell_cmd(
-                ["bcftools", "view", "--apply-filters", "PASS"],
-                description="Keep only PASS variants"
-            ),
-            self.shell_cmd(
                 ["bcftools", "filter", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
                 description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles"
             ),
@@ -232,7 +228,6 @@ class VcfFilterLong(VcfFilter):
 class AddDeletionstoVCFOutput(BaseOutput):
     """Output from the zero-depth deletion annotation stage."""
     vcf: Path = Field(..., description="VCF with zero-depth regions added as <DEL> blocks")
-    zero_depth_bed: TempPath = Field(..., description="BED file with zero-depth regions")
 
 
 class AddDeletionstoVCF(BaseStage):
@@ -242,48 +237,25 @@ class AddDeletionstoVCF(BaseStage):
     This stage detects contiguous depth==0 blocks from the BAM and appends
     `<DEL>` records to the input VCF with valid ALT/INFO headers.
     """
-    bam: Path = Field(..., description="Input BAM file")
+    zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
     vcf: Path = Field(..., description="Input VCF file")
     reference: Path = Field(..., description="Reference FASTA file")
-
-    _dependencies = [
-        bedtools
-    ]
 
     @property
     def output(self) -> AddDeletionstoVCFOutput:
         return AddDeletionstoVCFOutput(
-            vcf=Path(f"{self.prefix}.with_del.vcf"),
-            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
+            vcf=Path(f"{self.prefix}.with_del.vcf")
         )
 
     def create_commands(self, ctx) -> List:
         """Generate zero-depth BED and merge symbolic deletion blocks into VCF."""
         return [
-            *self._generate_zero_depth_mask_commands(),
             self.python_cmd(
                 func=self._merge_zero_depth_deletions_into_vcf,
-                args=[self.vcf, self.output.zero_depth_bed, self.output.vcf, self.reference],
+                args=[self.vcf, self.zero_depth_bed, self.output.vcf, self.reference],
                 description="Add zero-depth <DEL> blocks to VCF",
             ),
         ]
-
-    def _generate_zero_depth_mask_commands(self) -> List:
-        """Generate commands to create a zero-depth BED file."""
-        genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
-            description="Generate genome coverage in BED format"
-        )
-        awk_cmd = self.shell_cmd(
-            ["awk", '$4==0 {print $1"\\t"$2"\\t"$3}'],
-            description="Filter for regions with depth == 0"
-        )
-
-        return [self.shell_pipe(
-            [genomecov_cmd, awk_cmd],
-            output_file=self.output.zero_depth_bed,
-            description="Generate zero-depth BED blocks"
-        )]
 
     @staticmethod
     def _extract_info_int(info_field: str, key: str):

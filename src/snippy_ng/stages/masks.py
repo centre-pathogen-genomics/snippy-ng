@@ -7,6 +7,44 @@ from snippy_ng.dependencies import bedtools, bcftools
 from pydantic import Field
 
 
+class ZeroDepthBedFromBamOutput(BaseOutput):
+    """Output from zero-depth BED generation stage."""
+    zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
+
+
+class ZeroDepthBedFromBam(BaseStage):
+    """Generate zero-depth BED blocks from a BAM alignment."""
+
+    bam: Path = Field(..., description="Input BAM file")
+
+    _dependencies = [
+        bedtools
+    ]
+
+    @property
+    def output(self) -> ZeroDepthBedFromBamOutput:
+        return ZeroDepthBedFromBamOutput(
+            zero_depth_bed=Path(f"{self.prefix}.zerodepth.bed")
+        )
+
+    def create_commands(self, ctx) -> List:
+        """Generate commands to create a zero-depth BED file."""
+        genomecov_cmd = self.shell_cmd(
+            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
+            description="Generate genome coverage in BED format"
+        )
+        awk_cmd = self.shell_cmd(
+            ["awk", '$4==0 {print $1"\\t"$2"\\t"$3}'],
+            description="Filter for regions with depth == 0"
+        )
+
+        return [self.shell_pipe(
+            [genomecov_cmd, awk_cmd],
+            output_file=self.output.zero_depth_bed,
+            description="Generate zero-depth BED blocks"
+        )]
+
+
 
 class DepthMaskOutput(BaseOutput):
     """Output from the minimum-depth masking stage."""
