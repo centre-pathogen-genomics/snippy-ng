@@ -53,6 +53,7 @@ class FreebayesCaller(Caller):
     """
 
     bam: Path = Field(..., description="Input BAM file")
+    bam_index: Path = Field(..., description="Index file for the input BAM")
     fbopt: str = Field("", description="Additional Freebayes options")
     ploidy: int = Field(2, description="Ploidy for variant calling")
     exclude_insertions: bool = Field(
@@ -68,7 +69,7 @@ class FreebayesCaller(Caller):
             vcf=self.prefix + ".raw.vcf",
             regions=self.prefix + ".regions.txt",
         )
-
+    
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
 
@@ -114,6 +115,8 @@ class FreebayesCallerLong(FreebayesCaller):
     """
     Call variants using Freebayes for long-read data.
     """
+    # def test_freebayes_ran_successfully(self):
+        
 
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
@@ -147,7 +150,20 @@ class FreebayesCallerLong(FreebayesCaller):
             output_file=Path(self.output.vcf),
         )
         
-        return [generate_regions_cmd, freebayes_cmd]
+        return [
+            generate_regions_cmd,
+            self.python_cmd(
+                func=self._ensure_bam_index_exists,
+                args=[self.bam],
+                description="Check BAM index exists before running FreeBayes",
+            ),
+            freebayes_cmd,
+            self.python_cmd(
+                func=self._validate_freebayes_vcf,
+                args=[self.output.vcf],
+                description="Validate FreeBayes output VCF headers",
+            ),
+        ]
 
 class PAFCallerOutput(BaseCallerOutput):
     vcf: Path = Field(..., description="VCF file with raw PAF-derived variant calls and annotations")

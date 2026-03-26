@@ -8,7 +8,7 @@ from snippy_ng.stages.stats import SeqKitReadStatsBasic
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionstoVCF
-from snippy_ng.stages.compression import VcfCompressor
+from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -185,7 +185,7 @@ class LongPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.compressed,
+            vcf_gz=gzip.output.gz,
             reference=reference_file,
             **globals
         )
@@ -233,6 +233,13 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        # Compress BAM to CRAM with embedded reference
+        cram_compressor = CramCompressor(
+            input=aligned_reads,
+            reference=reference_file,
+        )
+        stages.append(cram_compressor)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -240,4 +247,10 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
 
-        return SnippyPipeline(stages=stages)
+        keep_files = [
+            copy_final.output.fasta, 
+            gzip.output.gz, 
+            cram_compressor.output.cram,
+            stats_stage.output.stats_tsv
+        ]
+        return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

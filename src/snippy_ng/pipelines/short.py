@@ -12,7 +12,7 @@ from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import VcfCompressor
+from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthMask, QualMask
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
@@ -122,6 +122,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # SNP calling
         caller = FreebayesCaller(
             bam=aligned_reads,
+            bam_index=align_filter.output.bai,
             reference=reference_file,
             reference_index=reference_index,
             fbopt=self.caller_opts,
@@ -167,7 +168,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.compressed,
+            vcf_gz=gzip.output.gz,
             reference=reference_file,
             **globals
         )
@@ -215,6 +216,13 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        # Compress BAM to CRAM with embedded reference
+        cram_compressor = CramCompressor(
+            input=aligned_reads,
+            reference=reference_file,
+        )
+        stages.append(cram_compressor)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -222,4 +230,10 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_histogram)
 
-        return SnippyPipeline(stages=stages)
+        keep_files = [
+            copy_final.output.fasta, 
+            gzip.output.gz, 
+            cram_compressor.output.cram,
+            stats_stage.output.stats_tsv
+        ]
+        return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

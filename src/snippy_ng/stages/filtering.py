@@ -1,12 +1,13 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
 from snippy_ng.dependencies import samtools
 from pydantic import Field, field_validator
 
 
 class SamtoolsFilterOutput(BaseOutput):
     bam: Path = Field(..., description="Filtered alignment file in BAM format")
+    bai: Path = Field(..., description="Index file for the filtered BAM")
     stats: Path = Field(..., description="Flagstat output file for the BAM file")
 
 
@@ -30,6 +31,7 @@ class SamtoolsFilter(BaseStage):
         filtered_bam = f"{self.prefix}.filtered.bam"
         return SamtoolsFilterOutput(
             bam=filtered_bam,
+            bai=f"{filtered_bam}.bai",
             stats=f"{filtered_bam}.flagstat.txt"
         )
     
