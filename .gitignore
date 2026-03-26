@@ -20,3 +20,4 @@ __pycache__/
 tests/data/samples.csv
 samples.csv
 report/
+samples.json

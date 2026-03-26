@@ -70,8 +70,8 @@ snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --ref test
 ```
 
 ```bash
-snippy-ng utils gather --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > samples.csv 
-snippy-ng multi samples.csv --ref tests/data/wildtype.gbk --cpus 6 -o multi
+snippy-ng utils gather --json --ref tests/data/wildtype.gbk tests/data/{wildtype,mutant}* > samples.json 
+snippy-ng multi samples.json --cpus 6 -o multi
 snippy-ng tree multi/core/core.095.aln -o multi/tree
 snippy-ng utils report --tree multi/tree/tree.treefile --metadata samples.csv -o multi/report
 ```
