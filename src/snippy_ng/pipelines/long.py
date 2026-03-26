@@ -13,7 +13,7 @@ from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.masks import DepthMask, ApplyMask, QualMask
+from snippy_ng.stages.masks import DepthMask, ApplyMask, QualMask, ZeroDepthBedFromBam
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -37,7 +37,7 @@ class LongPipelineBuilder(PipelineBuilder):
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
-    min_qual: float = Field(default=5, description="Mask variants below this QUAL threshold in the output fasta as 'n'")
+    min_qual: float = Field(default=2, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
@@ -139,6 +139,7 @@ class LongPipelineBuilder(PipelineBuilder):
         else:
             caller_stage = FreebayesCallerLong(
                 bam=aligned_reads,
+                bam_index=align_filter.output.bai,
                 reference=reference_file,
                 reference_index=reference_index,
                 fbopt=self.caller_opts,
@@ -156,9 +157,15 @@ class LongPipelineBuilder(PipelineBuilder):
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
 
+        zero_depth_bed = ZeroDepthBedFromBam(
+            bam=aligned_reads,
+            **globals
+        )
+        stages.append(zero_depth_bed)
+
         # Add zero-depth regions to VCF as symbolic deletion blocks
         add_deletions = AddDeletionstoVCF(
-            bam=aligned_reads,
+            zero_depth_bed=zero_depth_bed.output.zero_depth_bed,
             vcf=variants_file,
             reference=reference_file,
             **globals
