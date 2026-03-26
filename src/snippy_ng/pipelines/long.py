@@ -13,7 +13,7 @@ from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.masks import DepthMask, ApplyMask, QualMask, ZeroDepthBedFromBam
+from snippy_ng.stages.masks import DepthMask, ApplyMask, ZeroDepthBedFromBam
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 
@@ -43,6 +43,7 @@ class LongPipelineBuilder(PipelineBuilder):
         """Build and return the long-read pipeline."""
         stages = []
         globals = {'prefix': self.prefix}
+        stats_tsv = None
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -96,6 +97,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 **globals
             )
             stages.append(stats_stage)
+            stats_tsv = getattr(stats_stage.output, "stats_tsv", None)
             # Minimap2
             if self.aligner == "minimap2":
                 aligner_stage = Minimap2LongReadAligner(
@@ -152,6 +154,7 @@ class LongPipelineBuilder(PipelineBuilder):
             vcf=caller_stage.output.vcf,
             reference=reference_file,
             reference_index=reference_index,
+            min_qual=self.min_qual,
             **globals
         )
         stages.append(variant_filter)
@@ -212,16 +215,6 @@ class LongPipelineBuilder(PipelineBuilder):
             stages.append(depth_mask)
             current_fasta = depth_mask.output.masked_fasta
         
-        # Apply heterozygous and low quality sites masking
-        het_mask = QualMask(
-            vcf=caller_stage.output.vcf,  # Use raw VCF for complete site information
-            fasta=current_fasta,
-            min_qual=self.min_qual,
-            **globals
-        )
-        stages.append(het_mask)
-        current_fasta = het_mask.output.masked_fasta
-        
         # Apply user mask if provided
         if self.mask:
             user_mask = ApplyMask(
@@ -258,6 +251,7 @@ class LongPipelineBuilder(PipelineBuilder):
             copy_final.output.fasta, 
             gzip.output.gz, 
             cram_compressor.output.cram,
-            stats_stage.output.stats_tsv
         ]
+        if stats_tsv is not None:
+            keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

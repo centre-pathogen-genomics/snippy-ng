@@ -340,7 +340,6 @@ class Clair3Caller(Caller):
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 "--include_all_ctgs",
-                "--haploid_precise", # Only 1/1 is considered as a variant
                 "--no_phasing_for_fa",
                 "--enable_long_indel",
             ],

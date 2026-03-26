@@ -36,23 +36,19 @@ class VcfFilterShort(VcfFilter):
     Filter VCF files using Samtools to remove unwanted variants.
     """
 
-    # Keep only the tags you want; everything else is dropped.
-    _keep_vcf_tags = ",".join(
-        [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-        + [f"^FORMAT/{tag}" for tag in ["GT", "GQ", "DP", "RO", "AO", "QR", "QA", "GL"]]
-    )
+    min_qual: float = Field(100.0, description="Mark variants below this QUAL threshold as LowQual")
 
     def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
         base_filter = " && ".join([
-            'ALT!="*"', 'FMT/GT="1/1"'
+            'ALT!="*"'
         ])
         commands = [
                 self.shell_cmd(
-                    ["cat", str(self.vcf)],
-                    description="Read input VCF file",
+                    ["bcftools", "view", "-Ou", "-i", 'GT="alt"', str(self.vcf)],
+                    description="Remove non-alt alleles"
                 ),
                 self.shell_cmd(
                     [
@@ -62,30 +58,30 @@ class VcfFilterShort(VcfFilter):
                         str(self.reference),
                         "-m",
                         "-both",
-                        "-Ob",
+                        "--atomize",
+                        "--check-ref", "e",
+                        "--remove-duplicates",
+                        "-Ou",
                     ],
                     description="Normalize and split multiallelic variants",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-Ob", "-", "--", "-t", "TYPE"],
+                    ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
                     description="Recompute TYPE from REF/ALT",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "view", "--include", base_filter, "-"],
+                    ["bcftools", "sort", "-Ou", "-m", f"{ctx.ram}G"],
+                    description="Sort VCF"
+                ),
+                self.shell_cmd(
+                    ["bcftools", "view", "-Ou", "--include", base_filter, "-"],
                     description="Filter variants after normalization and TYPE recomputation",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
-                    description="Make genotypes haploid (e.g., 1/1 -> 1)"
+                    ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
+                    description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
                 ),
             ]
-        if self._keep_vcf_tags:
-            commands.append(
-                self.shell_cmd(
-                    ["bcftools", "annotate", "--remove", self._keep_vcf_tags, "-"],
-                    description="Remove unnecessary VCF annotations",
-                ),
-            )
         bcftools_pipeline = self.shell_pipe(
             commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
@@ -98,8 +94,6 @@ class VcfFilterAsm(VcfFilterShort):
     Filter VCF files for assemblies using bcftools to remove unwanted variants.
     """
     min_qual: int = Field(60, description="Minimum QUAL score for assembly-based calling")
-    # Keep only the tags you want; everything else is dropped.
-    _keep_vcf_tags = None # keep all tags for assembly-based calling
 
 
 class VcfFilterLong(VcfFilter):
@@ -115,6 +109,7 @@ class VcfFilterLong(VcfFilter):
     - Converting to haploid genotypes
     """
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
+    min_qual: int = Field(2, description="Mark variants below this QUAL threshold as LowQual")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
     def create_commands(self, ctx) -> List:
@@ -160,49 +155,46 @@ class VcfFilterLong(VcfFilter):
             ),
         ]
         
-        # Keep only the tags you want; everything else is dropped.
-        keep_vcf_tags = ",".join(
-            [f"^INFO/{tag}" for tag in ["TYPE", "DP", "RO", "AO", "AB"]]
-            + [f"^FORMAT/{tag}" for tag in ["GT", "DP", "RO", "AO", "QR", "QA", "GL"]]
-        ) 
-        
         # Continue with the filtering pipeline
         pipeline_commands.extend([
             self.shell_cmd(
-                ["bcftools", "view", "-i", 'GT="alt"'],
+                ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
                 description="Remove non-alt alleles"
             ),
             self.shell_cmd(
-                ["bcftools", "norm", "-f", str(self.reference), "-a", "-c", "e", "-m", "-"],
-                description="Normalize and left-align indels"
+                [
+                    "bcftools",
+                    "norm",
+                    "-f",
+                    str(self.reference),
+                    "-m",
+                    "-both",
+                    "--atomize",
+                    "--check-ref", "e",
+                    "--remove-duplicates",
+                    "-Ou",
+                ],
+                description="Normalize and split multiallelic variants",
             ),
             self.shell_cmd(
-                ["bcftools", "norm", "-aD"],
-                description="Remove duplicates after normalization"
-            ),
-            self.shell_cmd(
-                ["bcftools", "filter", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
+                ["bcftools", "filter", "-Ou", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
                 description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles"
             ),
             self.shell_cmd(
-                ["bcftools", "+setGT", "-", "--", "-t", "a", "-n", "c:M"],
-                description="Make genotypes haploid (e.g., 1/1 -> 1)"
-            ),
-            self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-", "--", "-t", "TYPE"],
+                    ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
                     description="Recompute TYPE from REF/ALT",
             ),
             self.shell_cmd(
-                    ["bcftools", "annotate", "--remove", keep_vcf_tags, "-"],
-                    description="Remove unnecessary VCF annotations",
-            ),
-            self.shell_cmd(
-                ["bcftools", "sort"],
+                ["bcftools", "sort", "-Ou", "-m", str(ctx.ram)],
                 description="Sort VCF"
             ),
             self.shell_cmd(
-                ["bcftools", "view", "-i", 'GT="A"'],
+                ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
                 description="Remove non-alt alleles and output final VCF"
+            ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
+                description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
             ),
         ])
         
@@ -299,6 +291,37 @@ class AddDeletionstoVCF(BaseStage):
         return keys
 
     @staticmethod
+    def _variant_interval(pos: int, ref: str, info_field: str, alt: str) -> tuple[int, int]:
+        start = pos
+        end = pos
+
+        if ref and ref != ".":
+            end = pos + max(len(ref), 1) - 1
+
+        if alt == "<DEL>" or "SVTYPE=DEL" in info_field:
+            info_end = AddDeletionstoVCF._extract_info_int(info_field, "END")
+            if info_end is not None:
+                end = max(end, info_end)
+
+        return (start, end)
+
+    @staticmethod
+    def _intervals_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:
+        return start_a <= end_b and start_b <= end_a
+
+    @staticmethod
+    def _overlaps_any_interval(
+        chrom: str,
+        start: int,
+        end: int,
+        occupied_intervals: dict[str, list[tuple[int, int]]],
+    ) -> bool:
+        for existing_start, existing_end in occupied_intervals.get(chrom, []):
+            if AddDeletionstoVCF._intervals_overlap(start, end, existing_start, existing_end):
+                return True
+        return False
+
+    @staticmethod
     def _load_reference_sequences(reference_fasta: Path) -> dict[str, str]:
         sequences: dict[str, str] = {}
         current_name: str | None = None
@@ -340,6 +363,7 @@ class AddDeletionstoVCF(BaseStage):
         reference_sequences = AddDeletionstoVCF._load_reference_sequences(reference_fasta)
 
         existing_del_keys: set[tuple[str, int, int]] = set()
+        occupied_intervals: dict[str, list[tuple[int, int]]] = {}
 
         with open(input_vcf, "r") as handle:
             record_index = 0
@@ -391,6 +415,8 @@ class AddDeletionstoVCF(BaseStage):
                 existing_del_keys.update(
                     AddDeletionstoVCF._existing_deletion_keys(chrom, pos, ref, alt, info_field)
                 )
+                interval_start, interval_end = AddDeletionstoVCF._variant_interval(pos, ref, info_field, alt)
+                occupied_intervals.setdefault(chrom, []).append((interval_start, interval_end))
 
                 variant_rows.append((chrom, pos, record_index, stripped))
                 record_index += 1
@@ -444,9 +470,14 @@ class AddDeletionstoVCF(BaseStage):
                     anchor_base = ref_seq[end]
                     ref_allele = f"{deleted_seq}{anchor_base}"
                     # TODO: This is a hack to get bcftools consensus to properly apply the deletion
-                    alt_allele = "N"
+                    alt_allele = "-"
                     end_pos = end
                     svlen = -end
+                    logger.warning(
+                        f"Encoding contig-start deletion for '{chrom}' with right anchor: "
+                        f"POS={pos}, REF={ref_allele}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                        f"Please ensure your downstream tools can handle this encoding."
+                    )
                 else:
                     # BED is 0-based half-open [start, end).
                     # Symbolic DEL uses left-anchor POS with deleted region (POS, END].
@@ -459,7 +490,13 @@ class AddDeletionstoVCF(BaseStage):
                 key = (chrom, pos, end_pos)
                 if key in existing_del_keys:
                     continue
+                if AddDeletionstoVCF._overlaps_any_interval(chrom, pos, end_pos, occupied_intervals):
+                    logger.debug(
+                        f"Skipping synthetic zero-depth DEL at {chrom}:{pos}-{end_pos} because it overlaps an existing VCF variant"
+                    )
+                    continue
                 existing_del_keys.add(key)
+                occupied_intervals.setdefault(chrom, []).append((pos, end_pos))
 
                 info = (
                     "TYPE=INDEL;"
@@ -468,7 +505,7 @@ class AddDeletionstoVCF(BaseStage):
                 base_cols = [chrom, str(pos), f"DEL_{i}", ref_allele, alt_allele, ".", "PASS", info]
 
                 if sample_count > 0:
-                    base_cols.extend(["GT", *(["1"] * sample_count)])
+                    base_cols.extend(["GT", *(["1/1"] * sample_count)])
 
                 line = "\t".join(base_cols)
                 variant_rows.append((chrom, pos, added_index, line))

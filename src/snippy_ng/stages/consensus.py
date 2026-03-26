@@ -75,6 +75,6 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
             str(self.vcf_gz),
         ])
         return [
-            self.shell_cmd(["bcftools", "index", str(self.vcf_gz)], description="Indexing VCF file"),
+            self.shell_cmd(["bcftools", "index", "-f", str(self.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
         ]

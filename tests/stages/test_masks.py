@@ -52,7 +52,7 @@ def test_add_deletions_to_vcf_symbolic_len_standard_interval(tmp_path: Path):
     assert "END=103380" in info
     assert "SVLEN=-1" in info
     assert fmt == "GT"
-    assert sample == "1"
+    assert sample == "1/1"
 
 
 def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(tmp_path: Path):
@@ -74,12 +74,12 @@ def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(tmp_pa
     assert chrom == "Wildtype"
     assert pos == "1"
     assert len(ref) == 21
-    assert alt == "N"
+    assert alt == "-"
     assert "ZERODEPTH" in info
     assert "END=20" in info
     assert "SVLEN=-20" in info
     assert fmt == "GT"
-    assert sample == "1"
+    assert sample == "1/1"
 
     # Ensure expected INFO headers are auto-added
     header_text = out_vcf.read_text()
@@ -113,4 +113,30 @@ def test_add_deletions_to_vcf_skips_existing_explicit_deletion(tmp_path: Path):
     assert chrom == "Wildtype"
     assert pos == "103379"
     assert ref == "GA"
+    assert alt == "G"
+
+
+def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_variant(tmp_path: Path):
+    input_vcf = tmp_path / "input.vcf"
+    bed = tmp_path / "zero.bed"
+    out_vcf = tmp_path / "out.vcf"
+    reference = tmp_path / "reference.fa"
+
+    input_vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=Wildtype,length=500000>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tunknown\n"
+        "Wildtype\t565\t.\tA\tG\t15.83\tPASS\tF\tGT:GQ:DP:AD:AF\t0/1:15:4:3,1:0.2500\n"
+    )
+    _write_reference_fasta(reference)
+    bed.write_text("Wildtype\t560\t570\n")
+
+    AddDeletionstoVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+
+    rows = _get_variant_rows(out_vcf)
+    assert len(rows) == 1
+    chrom, pos, _id, ref, alt, *_ = rows[0]
+    assert chrom == "Wildtype"
+    assert pos == "565"
+    assert ref == "A"
     assert alt == "G"

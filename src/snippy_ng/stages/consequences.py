@@ -51,6 +51,7 @@ class BcftoolsConsequencesCaller(BaseStage):
             "-f", str(self.reference),
             "-g", str(self.features),
             "-o", str(self.output.annotated_vcf),
+            "--phase", "m", # m: merge *all* GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)
             str(self.variants)
         ], description="Annotate variants with consequences using bcftools csq")
         return [bcf_csq_cmd]
