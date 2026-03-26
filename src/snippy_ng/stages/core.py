@@ -33,6 +33,7 @@ class CombineFastaFile(BaseStage):
     reference: Path = Field(
         ..., description="Reference FASTA used to define contig order"
     )
+    reference_id: str = Field(default="reference", description="ID to use for reference sequence in output MSA")
 
     _dependencies = [biopython]
 
@@ -80,8 +81,8 @@ class CombineFastaFile(BaseStage):
         expected_length = len(ref_str)
         ref_record = SeqRecord(
             Seq(ref_str),
-            id="reference",
-            name="reference",
+            id=self.reference_id,
+            name=self.reference_id,
             description="",
         )
         with msa_out.open("w") as msa_handle:
