@@ -28,7 +28,8 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     Example usage:
 
         $ snippy-ng multi samples.csv --ref reference.fasta
-        $ snippy-ng gather | snippy-ng multi --ref reference.fasta - 
+
+        $ snippy-ng gather --ref reference.fasta --json | snippy-ng multi -
 
     """
     from snippy_ng.context import Context
