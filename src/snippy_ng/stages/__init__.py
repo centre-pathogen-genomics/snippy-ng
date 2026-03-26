@@ -9,6 +9,7 @@ import sys
 from io import StringIO
 from pathlib import Path
 import signal
+import shutil
 
 from snippy_ng.logging import logger
 from snippy_ng.dependencies import Dependency
@@ -330,10 +331,14 @@ class BaseStage(BaseModel):
                     raise e
                 output_removed = False
                 for name, path in self.output:
-                    if path and Path(path).exists():
+                    output_path = Path(path)
+                    if path and output_path.exists():
                         output_removed = True
                         logger.warning(f"Removing incomplete output '{name}' ({path}).")
-                        Path(path).unlink()
+                        if output_path.is_dir() and not output_path.is_symlink():
+                            shutil.rmtree(output_path)
+                        else:
+                            output_path.unlink()
                 if output_removed:
                     logger.warning("Set `keep_incomplete=True` to retain incomplete outputs on error.")
                 raise e
