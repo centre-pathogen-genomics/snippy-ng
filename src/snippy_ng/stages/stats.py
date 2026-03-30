@@ -1,10 +1,76 @@
+import csv
 from pathlib import Path
 from typing import List
+
+from Bio import AlignIO
 from snippy_ng.stages import BaseStage, ShellCommand, BaseOutput
+from snippy_ng.stages import PythonCommand
 from snippy_ng.dependencies import seqkit
+from snippy_ng.dependencies import biopython
 from snippy_ng.context import Context 
 from pydantic import Field, field_validator
 
+
+def compute_aligned_percentage(seq: str) -> float:
+    seq = seq.upper()
+
+    a = seq.count("A")
+    c = seq.count("C")
+    g = seq.count("G")
+    t = seq.count("T")
+    gaps = seq.count("-")
+
+    nongap_length = len(seq) - gaps
+    denominator = gaps + nongap_length
+
+    if denominator == 0:
+        return 0.0
+
+    return (a + c + g + t) * 100.0 / denominator
+
+
+class AlignmentStatsOutput(BaseOutput):
+    aligned_tsv: Path = Field(..., description="TSV file containing per-sequence aligned percentages from a multiple sequence alignment")
+
+
+class AlignmentAlignedPercentage(BaseStage):
+    """Compute per-sequence aligned percentage from a multiple sequence alignment."""
+
+    alignment: Path = Field(..., description="Input multiple sequence alignment file")
+    alignment_format: str = Field("fasta", description="Alignment format understood by Biopython AlignIO")
+
+    _dependencies = [biopython]
+
+    @property
+    def output(self) -> AlignmentStatsOutput:
+        return AlignmentStatsOutput(
+            aligned_tsv=Path(f"{self.prefix}.aligned.tsv")
+        )
+
+    def create_commands(self, ctx) -> List[PythonCommand]:
+        return [
+            self.python_cmd(
+                func=self.write_aligned_percentages,
+                args=[self.alignment, self.output.aligned_tsv, self.alignment_format],
+                description="Compute per-sequence aligned percentages from MSA",
+            )
+        ]
+
+    @staticmethod
+    def write_aligned_percentages(
+        alignment_path: Path,
+        output_path: Path,
+        alignment_format: str = "fasta",
+    ) -> None:
+        alignment = AlignIO.read(str(alignment_path), alignment_format)
+
+        with output_path.open("w", newline="") as handle:
+            writer = csv.writer(handle, delimiter="\t")
+            writer.writerow(["sequence", "aligned"])
+            for record in alignment:
+                writer.writerow(
+                    [record.id, f"{compute_aligned_percentage(str(record.seq)):.2f}"]
+                )
 
 class SeqKitReadStatsOutput(BaseOutput):
     stats_tsv: Path = Field(..., description="Tab Separated Values (TSV) file containing read statistics")
