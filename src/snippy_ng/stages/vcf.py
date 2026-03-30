@@ -37,6 +37,7 @@ class VcfFilterShort(VcfFilter):
     """
 
     min_qual: float = Field(100.0, description="Mark variants below this QUAL threshold as LowQual")
+    min_depth: int = Field(10, description="Mark variants below this depth threshold as LowDepth")
 
     def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
@@ -58,7 +59,6 @@ class VcfFilterShort(VcfFilter):
                         str(self.reference),
                         "-m",
                         "-both",
-                        "--atomize",
                         "--check-ref", "e",
                         "--remove-duplicates",
                         "-Ou",
@@ -80,6 +80,10 @@ class VcfFilterShort(VcfFilter):
                 self.shell_cmd(
                     ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
                     description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
+                ),
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
+                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
                 ),
             ]
         bcftools_pipeline = self.shell_pipe(
@@ -110,6 +114,7 @@ class VcfFilterLong(VcfFilter):
     """
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
     min_qual: int = Field(2, description="Mark variants below this QUAL threshold as LowQual")
+    min_depth: int = Field(10, description="Mark variants below this depth threshold as LowDepth")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
     def create_commands(self, ctx) -> List:
@@ -169,7 +174,6 @@ class VcfFilterLong(VcfFilter):
                     str(self.reference),
                     "-m",
                     "-both",
-                    "--atomize",
                     "--check-ref", "e",
                     "--remove-duplicates",
                     "-Ou",
@@ -195,6 +199,10 @@ class VcfFilterLong(VcfFilter):
             self.shell_cmd(
                 ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
                 description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
+            ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
+                description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
             ),
         ])
         

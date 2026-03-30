@@ -5,7 +5,7 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram
-from snippy_ng.stages.stats import SeqKitReadStatsBasic
+from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF
@@ -16,13 +16,14 @@ from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthMask, ZeroDepthBedFromBam
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.utils.gather import guess_sample_id
 
 
 class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
     reference: Path = Field(..., description="Reference genome file path")
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
@@ -39,6 +40,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         stages = []
         globals = {'prefix': self.prefix}
         stats_tsv = None
+        sample_name = None
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -82,6 +84,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(clean_reads_stage)
 
         if self.bam:
+            sample_name = guess_sample_id(Path(self.bam).name)
             aligned_reads = Path(self.bam).absolute()  
         else:
             # SeqKit read statistics
@@ -109,6 +112,8 @@ class ShortPipelineBuilder(PipelineBuilder):
                     **globals
                 )
             
+            if current_reads:
+                sample_name = guess_sample_id(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
         
@@ -137,6 +142,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             vcf=caller.output.vcf,
             reference=reference_file,
             min_qual=self.min_qual,
+            min_depth=self.depth_mask,
             **globals
         )
         stages.append(variant_filter)
@@ -166,6 +172,13 @@ class ShortPipelineBuilder(PipelineBuilder):
             **globals
         )
         stages.append(consequences)
+
+        vcf_stats = VcfStats(
+            vcf=consequences.output.annotated_vcf,
+            sample_name=sample_name,
+            **globals
+        )
+        stages.append(vcf_stats)
         
         # Compress VCF
         gzip = VcfCompressor(
@@ -231,8 +244,10 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         keep_files = [
             copy_final.output.fasta, 
-            gzip.output.gz, 
+            consequences.output.annotated_vcf, 
             cram_compressor.output.cram,
+            vcf_stats.output.summary_tsv,
+            vcf_stats.output.breakdown_tsv,
         ]
         if stats_tsv is not None:
             keep_files.append(stats_tsv)

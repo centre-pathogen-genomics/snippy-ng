@@ -115,16 +115,8 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
-            outdir=outdir,
             prefix=prefix,
-            tmpdir=context["tmpdir"],
-            cpus=context["cpus"],
-            ram=context["ram"],
-            skip_check=context["skip_check"],
-            check=context["check"],
-            quiet=context["quiet"],
-            create_missing=context["create_missing"],
-            keep_incomplete=context["keep_incomplete"],
+            run_ctx=run_ctx,
             cpus_per_sample=cpus_per_sample,
         )
     except PipelineExecutionError as e:
@@ -145,7 +137,6 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         core=soft_core_threshold,
     ).build()
     core_outdir = Path(outdir) / "core"
-    core_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
@@ -162,7 +153,6 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         fast_mode=False,
     ).build()
     tree_outdir = Path(outdir) / "tree"
-    tree_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = tree_outdir
     tree_run_ctx = Context(**context)
     return tree_pipeline.run(tree_run_ctx)

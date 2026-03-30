@@ -2,6 +2,8 @@ import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Optional, TextIO, Tuple
+from collections import OrderedDict
+from snippy_ng.context import Context
 from snippy_ng.exceptions import PipelineExecutionError, SnippyError
 from snippy_ng.logging import logger
 import csv
@@ -13,23 +15,15 @@ def run_multi_pipeline(
     snippy_reference_dir: Path,
     samples: Dict[str, Any],
     *,
-    outdir: Path,
     prefix: str,
-    tmpdir: Path,
-    cpus: int,
+    run_ctx: Context,
     cpus_per_sample: int,
-    ram: int,
-    skip_check: bool,
-    check: bool,
-    quiet: bool,
-    create_missing: bool,
-    keep_incomplete: bool,
 ) -> None:
     """
     Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
     """
 
-    total_cpus = int(cpus)
+    total_cpus = int(run_ctx.cpus)
     # cap cpus_per_sample to total_cpus
     cpus_per_sample = min(int(cpus_per_sample), total_cpus)
     # Limit max parallelism to avoid oversubscription
@@ -39,16 +33,10 @@ def run_multi_pipeline(
     # Minimal picklable config
     global_config = {
         "reference": str(snippy_reference_dir),
-        "outdir": str(outdir),
+        "outdir": str(run_ctx.outdir),
         "prefix": prefix,
-        "tmpdir": tmpdir,
-        "ram": ram,
+        "run_ctx": run_ctx.model_dump(mode="python"),
         "cpus_per_sample": cpus_per_sample,
-        "skip_check": skip_check,
-        "check": check,
-        "quiet": quiet,
-        "create_missing": create_missing,
-        "keep_incomplete": keep_incomplete,
     }
 
     jobs = [
@@ -77,6 +65,13 @@ def run_multi_pipeline(
 
     if failures:
         raise PipelineExecutionError("Some samples failed (check logs for details):\n" + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures))
+
+    _combine_sample_stats(
+        samples_dir=Path(run_ctx.outdir) / "samples",
+        sample_names=list(samples.keys()),
+        prefix=prefix,
+        outdir=Path(run_ctx.outdir),
+    )
     
 
 def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
@@ -86,7 +81,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     from snippy_ng.pipelines.long import LongPipelineBuilder
     from snippy_ng.pipelines.short import ShortPipelineBuilder
-    from snippy_ng.context import Context
     import click
     
     sample_type = sample_cfg.get("type")
@@ -131,23 +125,70 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
 
     # Per-sample output directory to prevent collisions
     outdir = Path(config["outdir"]) / 'samples' / sample_name
-    outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
-    run_ctx = Context(
-        outdir=outdir,
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus_per_sample"],
-        ram=config["ram"],
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-        skip_check=config["skip_check"],
-        check=config["check"],
+    parent_run_ctx = Context(**config["run_ctx"])
+    run_ctx = parent_run_ctx.model_copy(
+        update={
+            "outdir": outdir,
+            "cpus": config["cpus_per_sample"],
+        }
     )
     pipeline.run(run_ctx)
 
     return sample_name
+
+
+def _combine_sample_stats(
+    samples_dir: Path,
+    sample_names: list[str],
+    prefix: str,
+    outdir: Path,
+) -> None:
+    tsv_outputs = OrderedDict({
+        f"{prefix}.reads.tsv": outdir / f"{prefix}.reads.tsv",
+        f"{prefix}.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
+        f"{prefix}.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
+    })
+
+    for filename, combined_path in tsv_outputs.items():
+        sample_files = [samples_dir / sample_name / filename for sample_name in sample_names]
+        _concat_tsv_files(sample_files=sample_files, output_path=combined_path)
+
+
+def _concat_tsv_files(sample_files: list[Path], output_path: Path) -> None:
+    header: list[str] | None = None
+    rows_written = 0
+
+    with output_path.open("w", newline="") as out_handle:
+        writer = csv.writer(out_handle, delimiter="\t")
+
+        for sample_file in sample_files:
+            if not sample_file.exists():
+                continue
+
+            with sample_file.open("r", newline="") as in_handle:
+                reader = csv.reader(in_handle, delimiter="\t")
+                file_header = next(reader, None)
+                if file_header is None:
+                    continue
+
+                if header is None:
+                    header = file_header
+                    writer.writerow(header)
+                elif file_header != header:
+                    raise PipelineExecutionError(
+                        f"Cannot combine TSVs with different headers: {sample_file} has {file_header}, expected {header}"
+                    )
+
+                for row in reader:
+                    writer.writerow(row)
+                    rows_written += 1
+
+    if header is None:
+        output_path.unlink(missing_ok=True)
+    elif rows_written == 0:
+        logger.warning(f"Combined TSV has no data rows: {output_path}")
 
 
 def load_multi_config(config_file: TextIO, reference: Optional[Path]) -> Dict[str, Any]:

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import time
 
-from snippy_ng.exceptions import DependencyError
+from snippy_ng.exceptions import DependencyError, PipelineExecutionError
 from snippy_ng.logging import logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage, Context
@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""
@@ -132,7 +132,13 @@ class SnippyPipeline:
         # Set the working directory
         self.hr("SetWorkingDirectory")
         self.log(f"Setting working directory to '{directory}'")
-        os.chdir(directory)
+        try:
+            Path(directory).mkdir(parents=True, exist_ok=True)
+            os.chdir(directory)
+        except PermissionError as e:
+            raise PipelineExecutionError(
+                f"Permission denied while creating or entering output directory '{directory}'"
+            ) from e
 
     def _execute_pipeline_stages_in_order(self, run_ctx: Context):
         if not self.stages:

@@ -74,7 +74,8 @@ class TestSeqKitReadStats:
         )
         
         output = stage.output
-        assert str(output.stats_tsv) == "test_stats.stats.tsv"
+        assert str(output.stats_tsv) == "test_stats.reads.tsv"
+        assert str(output.raw_tsv) == "test_stats.reads.raw.tsv"
         
     def test_basic_command(self, tmp_path):
         """Test basic seqkit stats command generation"""
@@ -87,7 +88,7 @@ class TestSeqKitReadStats:
         )
         ctx = Context(cpus=2)
         commands = stage.create_commands(ctx)
-        assert len(commands) == 1
+        assert len(commands) == 2
         
         cmd = str(commands[0])
         assert "seqkit stats" in cmd
@@ -96,7 +97,12 @@ class TestSeqKitReadStats:
         assert "-a" in cmd  # all stats
         assert "-e" in cmd  # skip errors
         assert str(read_file) in cmd
-        assert "> test_stats.stats.tsv" in cmd
+        assert "> test_stats.reads.raw.tsv" in cmd
+
+        postprocess_cmd = str(commands[1])
+        assert "add_sample_column" in postprocess_cmd
+        assert "test_stats.reads.raw.tsv" in postprocess_cmd
+        assert "test_stats.reads.tsv" in postprocess_cmd
         
     def test_command_with_custom_options(self, tmp_path):
         """Test command generation with custom options"""

@@ -1,14 +1,15 @@
 import click
 from typing import Any, Optional
 from snippy_ng.cli.utils import AbsolutePath
-from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
+from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, check_outdir_callback
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="tree", help="Prefix for output files", cls=GlobalOption)
-@add_snippy_global_options(exclude=['prefix', 'outdir'])
+@click.option("--ram", "-r", default=None, required=False, type=int, help="Try and keep RAM under this many GB", cls=GlobalOption)
+@add_snippy_global_options(exclude=['prefix', 'outdir', 'ram'])
 @click.argument("alignment", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction. Use 'TEST' to select the best model.")
 @click.option("--bootstrap", type=click.INT, default=1000, help="Number of bootstrap replicates to perform")

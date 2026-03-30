@@ -135,7 +135,7 @@ class ShellProcessPipe(BaseModel):
 TestFn = Callable[["BaseStage"], None]
 class BaseStage(BaseModel):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
-    prefix: str = Field("snps", description="Prefix for output files") # TODO maybe this should be in the context instead?
+    prefix: str = Field("snippy", description="Prefix for output files") # TODO maybe this should be in the context instead?
 
     _dependencies: List[Dependency] = []
     _tests: ClassVar[List[TestFn]] = []

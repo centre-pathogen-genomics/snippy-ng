@@ -33,6 +33,7 @@ class CombineFastaFile(BaseStage):
     reference: Path = Field(
         ..., description="Reference FASTA used to define contig order"
     )
+    reference_id: str = Field(default="reference", description="ID to use for reference sequence in output MSA")
 
     _dependencies = [biopython]
 
@@ -80,8 +81,8 @@ class CombineFastaFile(BaseStage):
         expected_length = len(ref_str)
         ref_record = SeqRecord(
             Seq(ref_str),
-            id="reference",
-            name="reference",
+            id=self.reference_id,
+            name=self.reference_id,
             description="",
         )
         with msa_out.open("w") as msa_handle:
@@ -161,6 +162,13 @@ class SoftCoreFilter(BaseStage):
             soft_core=aln,
             constant_sites=aln.with_suffix(".fconst")
         )
+
+    def test_soft_core_is_not_empty(self):
+        first_record = next(SeqIO.parse(str(self.output.soft_core), "fasta"), None)
+        if first_record is None or len(first_record.seq) == 0:
+            raise MSAValidationError(
+                f"Soft core MSA has no sites: {self.output.soft_core}. You likely have samples that are too divergent or have too much missing data. Check the % alignment for each sample to the reference."
+            )
 
     def create_commands(self, ctx):
         return [

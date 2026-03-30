@@ -29,7 +29,7 @@ def break_points_callback(ctx, param, value):
     os.environ["SNIPPY_NG_BREAK_POINTS"] = "1"
     return value
 
-def create_outdir_callback(ctx, param, value):
+def check_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
     if value is None:
@@ -37,8 +37,15 @@ def create_outdir_callback(ctx, param, value):
     value = absolute_path(value)
     if value.exists() and not ctx.params.get("force", False):
         raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
-    if not value.exists():
-        value.mkdir(parents=True, exist_ok=True)
+
+    probe = value if value.exists() else value.parent
+    while probe != probe.parent and not probe.exists():
+        probe = probe.parent
+
+    if not os.access(probe, os.W_OK | os.X_OK):
+        raise click.UsageError(
+            f"Output folder '{value}' is not writable. Check permissions for '{probe}'."
+        )
     return value
 
 def not_implemented_callback(ctx, param, value):
@@ -61,7 +68,7 @@ GLOBAL_DEFS = [
             "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True),
             "default": Path("out"),
             "help": "Where to put everything",
-            "callback": create_outdir_callback,
+            "callback": check_outdir_callback,
         },
     },
     {
@@ -76,7 +83,7 @@ GLOBAL_DEFS = [
         "param_decls": ("--prefix", "-p"),
         "attrs": {
             "type": click.STRING,
-            "default": "snps",
+            "default": "snippy",
             "help": "Prefix for output files",
         },
     },

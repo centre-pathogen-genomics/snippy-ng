@@ -105,8 +105,8 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
     name = filename
     # strip compression
     name = re.sub(r"\.(?:gz|xz|zstd)$", "", name, flags=re.I)
-    # strip seq format
-    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna)$", "", name, flags=re.I)
+    # strip common bioinformatics file formats
+    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna|bam|cram|sam|vcf|bcf)$", "", name, flags=re.I)
 
     # optional illumina lane / sample indices
     if aggressive:
@@ -448,4 +448,3 @@ def gather_samples_config(
         "reference": str(normalized_reference) if normalized_reference else None,
         "samples": samples,
     }
-

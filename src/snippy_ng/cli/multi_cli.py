@@ -28,7 +28,8 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     Example usage:
 
         $ snippy-ng multi samples.csv --ref reference.fasta
-        $ snippy-ng gather | snippy-ng multi --ref reference.fasta - 
+
+        $ snippy-ng gather --ref reference.fasta --json | snippy-ng multi -
 
     """
     from snippy_ng.context import Context
@@ -56,16 +57,8 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
-        outdir=outdir,
         prefix=prefix,
-        tmpdir=context["tmpdir"],
-        cpus=context["cpus"],
-        ram=context["ram"],
-        skip_check=context["skip_check"],
-        check=context["check"],
-        quiet=context["quiet"],
-        create_missing=context["create_missing"],
-        keep_incomplete=context["keep_incomplete"],
+        run_ctx=run_ctx,
         cpus_per_sample=cpus_per_sample,
     )
     
@@ -78,10 +71,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         core=core,
     ).build()
     core_outdir = Path(outdir) / 'core'
-    core_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     return aln_pipeline.run(core_run_ctx)
-
-
 

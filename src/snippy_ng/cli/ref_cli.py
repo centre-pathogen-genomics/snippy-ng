@@ -1,12 +1,12 @@
 import click
 from typing import Any
 from snippy_ng.cli.utils import AbsolutePath
-from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, create_outdir_callback, GlobalOption
+from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, check_outdir_callback, GlobalOption
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=check_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['outdir', 'prefix'])
 @click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank)")
 def ref(reference: Path, outdir: Path, **context: Any):

@@ -1,12 +1,12 @@
 import click
 from typing import Any, Optional
 from snippy_ng.cli.utils import AbsolutePath
-from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, create_outdir_callback
+from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options, check_outdir_callback
 from pathlib import Path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
-@click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=create_outdir_callback, cls=GlobalOption)
+@click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="report", help="Prefix for html report", cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.option("--tree", required=True, type=AbsolutePath(exists=True, readable=True), help="Newick tree file to include in the report")

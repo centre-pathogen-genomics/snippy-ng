@@ -2,6 +2,7 @@
 Shared fixtures and stubs for CLI tests.
 """
 import types
+from pathlib import Path
 
 import pytest
 
@@ -35,7 +36,8 @@ class DummyPipeline:
 
     def welcome(self):                 pass
     def validate_dependencies(self):   self.validated = True
-    def set_working_directory(self, *_): pass
+    def set_working_directory(self, outdir):
+        Path(outdir).mkdir(parents=True, exist_ok=True)
     def cleanup(self, dir):                 pass
     def goodbye(self):                 pass
     def error(self, *_):               pass
@@ -132,7 +134,7 @@ def stub_long_stages(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "snippy_ng.stages.stats.SeqKitReadStatsBasic",
-        stage_factory({"stats": tmp_path / "stats.txt"}),
+        stage_factory({"stats_tsv": tmp_path / "stats.tsv"}),
     )
 
 
