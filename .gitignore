@@ -22,3 +22,5 @@ tests/data/samples.csv
 samples.csv
 report/
 samples.json
+CITATIONS.txt
+FILES.tsv
