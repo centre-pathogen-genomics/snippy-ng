@@ -1,4 +1,4 @@
-All CLI commands follow a common structure. They are defined as Click commands that use the `CommandWithGlobals` class and included the `add_snippy_global_options` decorator to add the global options. The command function then imports the appropriate pipeline builder, constructs the pipeline with the necessary arguments, and runs it with a typed runtime context. For example:
+All CLI commands follow a common structure. They are defined as Click commands that use the `CommandWithGlobals` class and include the `add_snippy_global_options` decorator to add the global options. The command function then imports the appropriate pipeline builder, constructs the pipeline with the necessary arguments, and runs it with a typed runtime context. For example:
 ```python
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @add_snippy_global_options()
