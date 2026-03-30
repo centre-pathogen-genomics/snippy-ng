@@ -2,6 +2,7 @@ import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Optional, TextIO, Tuple
+from snippy_ng.context import Context
 from snippy_ng.exceptions import PipelineExecutionError, SnippyError
 from snippy_ng.logging import logger
 import csv
@@ -13,23 +14,15 @@ def run_multi_pipeline(
     snippy_reference_dir: Path,
     samples: Dict[str, Any],
     *,
-    outdir: Path,
     prefix: str,
-    tmpdir: Path,
-    cpus: int,
+    run_ctx: Context,
     cpus_per_sample: int,
-    ram: int,
-    skip_check: bool,
-    check: bool,
-    quiet: bool,
-    create_missing: bool,
-    keep_incomplete: bool,
 ) -> None:
     """
     Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
     """
 
-    total_cpus = int(cpus)
+    total_cpus = int(run_ctx.cpus)
     # cap cpus_per_sample to total_cpus
     cpus_per_sample = min(int(cpus_per_sample), total_cpus)
     # Limit max parallelism to avoid oversubscription
@@ -39,16 +32,10 @@ def run_multi_pipeline(
     # Minimal picklable config
     global_config = {
         "reference": str(snippy_reference_dir),
-        "outdir": str(outdir),
+        "outdir": str(run_ctx.outdir),
         "prefix": prefix,
-        "tmpdir": tmpdir,
-        "ram": ram,
+        "run_ctx": run_ctx.model_dump(mode="python"),
         "cpus_per_sample": cpus_per_sample,
-        "skip_check": skip_check,
-        "check": check,
-        "quiet": quiet,
-        "create_missing": create_missing,
-        "keep_incomplete": keep_incomplete,
     }
 
     jobs = [
@@ -86,7 +73,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     from snippy_ng.pipelines.long import LongPipelineBuilder
     from snippy_ng.pipelines.short import ShortPipelineBuilder
-    from snippy_ng.context import Context
     import click
     
     sample_type = sample_cfg.get("type")
@@ -134,16 +120,12 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
-    run_ctx = Context(
-        outdir=outdir,
-        tmpdir=config["tmpdir"],
-        cpus=config["cpus_per_sample"],
-        ram=config["ram"],
-        quiet=config["quiet"],
-        create_missing=config["create_missing"],
-        keep_incomplete=config["keep_incomplete"],
-        skip_check=config["skip_check"],
-        check=config["check"],
+    parent_run_ctx = Context(**config["run_ctx"])
+    run_ctx = parent_run_ctx.model_copy(
+        update={
+            "outdir": outdir,
+            "cpus": config["cpus_per_sample"],
+        }
     )
     pipeline.run(run_ctx)
 

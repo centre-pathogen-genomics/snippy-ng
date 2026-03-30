@@ -115,16 +115,8 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
-            outdir=outdir,
             prefix=prefix,
-            tmpdir=context["tmpdir"],
-            cpus=context["cpus"],
-            ram=context["ram"],
-            skip_check=context["skip_check"],
-            check=context["check"],
-            quiet=context["quiet"],
-            create_missing=context["create_missing"],
-            keep_incomplete=context["keep_incomplete"],
+            run_ctx=run_ctx,
             cpus_per_sample=cpus_per_sample,
         )
     except PipelineExecutionError as e:
