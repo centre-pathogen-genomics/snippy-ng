@@ -137,7 +137,6 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         core=soft_core_threshold,
     ).build()
     core_outdir = Path(outdir) / "core"
-    core_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
@@ -154,7 +153,6 @@ def yolo(directory: Iterable[Path], outdir: Path, prefix: str, **context: Any):
         fast_mode=False,
     ).build()
     tree_outdir = Path(outdir) / "tree"
-    tree_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = tree_outdir
     tree_run_ctx = Context(**context)
     return tree_pipeline.run(tree_run_ctx)

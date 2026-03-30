@@ -125,7 +125,6 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
 
     # Per-sample output directory to prevent collisions
     outdir = Path(config["outdir"]) / 'samples' / sample_name
-    outdir.mkdir(parents=True, exist_ok=True)
     
     # run_snippy_pipeline sets the working dir to outdir
     parent_run_ctx = Context(**config["run_ctx"])

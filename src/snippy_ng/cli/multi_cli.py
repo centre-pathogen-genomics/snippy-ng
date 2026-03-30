@@ -71,9 +71,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         core=core,
     ).build()
     core_outdir = Path(outdir) / 'core'
-    core_outdir.mkdir(parents=True, exist_ok=True)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     return aln_pipeline.run(core_run_ctx)
-
 
