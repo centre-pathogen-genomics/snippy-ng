@@ -164,9 +164,10 @@ class SoftCoreFilter(BaseStage):
         )
 
     def test_soft_core_is_not_empty(self):
-        if not self.output.soft_core.exists():
+        first_record = next(SeqIO.parse(str(self.output.soft_core), "fasta"), None)
+        if first_record is None or len(first_record.seq) == 0:
             raise MSAValidationError(
-                f"Soft core MSA is empty: {self.output.soft_core}. You likely have a samples that are too divergent or have too much missing data. Check the % alignment for each sample to the reference."
+                f"Soft core MSA has no sites: {self.output.soft_core}. You likely have samples that are too divergent or have too much missing data. Check the % alignment for each sample to the reference."
             )
 
     def create_commands(self, ctx):
