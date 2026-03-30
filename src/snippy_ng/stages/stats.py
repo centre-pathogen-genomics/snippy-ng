@@ -303,6 +303,8 @@ class VcfStats(BaseStage):
                 if "BCSQ" in info_map:
                     bcsq_annotated_records += 1
                     for annotation in info_map["BCSQ"].split(","):
+                        if annotation.startswith("@"):
+                            continue
                         term_field = annotation.split("|", 1)[0]
                         for term in term_field.split("&"):
                             if term:
