@@ -23,7 +23,7 @@ class CorePipelineBuilder(PipelineBuilder):
             reference_path=self.reference
         )
         reference_file = setup.output.reference
-        reference_id = ReferenceMetadata(setup.output.metadata).prefix
+        reference_id = ReferenceMetadata(setup.output.metadata).prefix or "reference"
         stages.append(setup)
 
         # Stage to combine FASTA files into a single alignment
