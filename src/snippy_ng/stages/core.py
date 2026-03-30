@@ -163,6 +163,12 @@ class SoftCoreFilter(BaseStage):
             constant_sites=aln.with_suffix(".fconst")
         )
 
+    def test_soft_core_is_not_empty(self):
+        if not self.output.soft_core.exists():
+            raise MSAValidationError(
+                f"Soft core MSA is empty: {self.output.soft_core}. You likely have a samples that are too divergent or have too much missing data. Check the % alignment for each sample to the reference."
+            )
+
     def create_commands(self, ctx):
         return [
             self.shell_cmd(
