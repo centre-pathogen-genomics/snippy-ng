@@ -13,6 +13,8 @@ from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner
 from snippy_ng.stages.calling import PAFCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram
+from snippy_ng.stages.stats import VcfStats
+from snippy_ng.utils.gather import guess_sample_id
 
 
 class AsmPipelineBuilder(PipelineBuilder):
@@ -25,6 +27,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
+        sample_name = guess_sample_id(Path(self.assembly).name)
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -83,6 +86,13 @@ class AsmPipelineBuilder(PipelineBuilder):
             prefix=self.prefix
         )
         stages.append(consequences)
+
+        vcf_stats = VcfStats(
+            vcf=consequences.output.annotated_vcf,
+            sample_name=sample_name,
+            prefix=self.prefix
+        )
+        stages.append(vcf_stats)
         
         # Compress VCF
         gzip = VcfCompressor(
@@ -140,5 +150,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         keep_files = [
             copy_final.output.fasta, 
             consequences.output.annotated_vcf,
+            vcf_stats.output.summary_tsv,
+            vcf_stats.output.breakdown_tsv,
         ]
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)
