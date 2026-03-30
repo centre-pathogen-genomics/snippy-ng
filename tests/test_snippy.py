@@ -180,7 +180,7 @@ def test_snippy_run_missing_output(tmp_path):
     snippy = SnippyPipeline(stages=[stage])
     ctx = Context()
     
-    with pytest.raises(MissingOutputError, match="snps.test"):
+    with pytest.raises(MissingOutputError, match="snippy.test"):
         snippy._execute_pipeline_stages_in_order(ctx)
 
 

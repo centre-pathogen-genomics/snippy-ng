@@ -21,7 +21,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
     reference: Path = Field(..., description="Reference genome file path")
     assembly: Path = Field(..., description="Assembly file path")
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
 
     def build(self) -> SnippyPipeline:

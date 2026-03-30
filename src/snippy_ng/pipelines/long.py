@@ -24,7 +24,7 @@ class LongPipelineBuilder(PipelineBuilder):
     reference: Path = Field(..., description="Reference genome file path")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
     aligner: str = Field(default="minimap2", description="Aligner to use")

@@ -23,7 +23,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
     reference: Path = Field(..., description="Reference genome file path")
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")

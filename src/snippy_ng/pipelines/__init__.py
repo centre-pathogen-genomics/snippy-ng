@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class PipelineBuilder(BaseModel):
     """Base class for building Snippy pipelines."""
     model_config = ConfigDict(extra='forbid')
-    prefix: str = Field(default="snps", description="Output file prefix")
+    prefix: str = Field(default="snippy", description="Output file prefix")
 
     def build(self) -> 'SnippyPipeline':
         """Build and return the SnippyPipeline."""

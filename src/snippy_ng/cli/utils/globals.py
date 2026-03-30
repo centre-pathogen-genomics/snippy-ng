@@ -83,7 +83,7 @@ GLOBAL_DEFS = [
         "param_decls": ("--prefix", "-p"),
         "attrs": {
             "type": click.STRING,
-            "default": "snps",
+            "default": "snippy",
             "help": "Prefix for output files",
         },
     },
