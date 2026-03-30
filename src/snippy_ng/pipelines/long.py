@@ -155,6 +155,7 @@ class LongPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             min_qual=self.min_qual,
+            min_depth=self.depth_mask,
             **globals
         )
         stages.append(variant_filter)
@@ -249,7 +250,7 @@ class LongPipelineBuilder(PipelineBuilder):
 
         keep_files = [
             copy_final.output.fasta, 
-            gzip.output.gz, 
+            consequences.output.annotated_vcf, 
             cram_compressor.output.cram,
         ]
         if stats_tsv is not None:

@@ -139,6 +139,6 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         keep_files = [
             copy_final.output.fasta, 
-            gzip.output.gz,
+            consequences.output.annotated_vcf,
         ]
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)
