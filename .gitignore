@@ -10,6 +10,7 @@ long
 *.egg-info
 output
 multi
+og/
 env
 activate.sh
 environment.sh
