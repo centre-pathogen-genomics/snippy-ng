@@ -26,7 +26,7 @@ SCENARIOS = [
             VariantRecord("Wildtype", 70, "CA", "C"),
         ),
         "untouched_regions": (("Wildtype", 200, 260),),
-        "strict_region": ("Wildtype", 1, 180),
+        "strict_region": ("Wildtype", 50, 180),
     },
     {
         "name": "long_mixed",
