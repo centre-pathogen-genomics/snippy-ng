@@ -1,0 +1,26 @@
+name: Integration Tests
+
+on:
+  workflow_call:
+
+jobs:
+  integration-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set-up pixi environment
+        uses: prefix-dev/setup-pixi@v0.8.3
+
+      - name: Restore simulation cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/integration-sim
+          key: ${{ runner.os }}-integration-sim-${{ hashFiles('pixi.lock', 'pyproject.toml', 'tests/integration/**', 'tests/data/wildtype.fasta') }}
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Run simulation-backed integration tests
+        run: pixi run -e integration hatch run pytest -m integration_sim tests/integration

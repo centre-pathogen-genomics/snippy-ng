@@ -14,12 +14,15 @@ jobs:
       publish: true
     secrets: inherit                     # pass all secrets down
 
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yaml
+
   benchmark:
     uses: ./.github/workflows/benchmark.yaml
     secrets: inherit
 
   release:
-    needs: [test-and-coverage, benchmark]
+    needs: [test-and-coverage, integration-tests, benchmark]
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
