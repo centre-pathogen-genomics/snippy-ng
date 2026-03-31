@@ -64,8 +64,9 @@ dependencies = [
   "glasscandle",
 ]
 [tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+test = "pytest -m 'not integration_sim' {args:tests}"
+test-cov = "coverage run -m pytest -m 'not integration_sim' {args:tests}"
+integration = "pytest -m integration_sim {args:tests/integration}"
 cov-report = [
   "- coverage combine",
   "coverage xml",
@@ -74,6 +75,11 @@ cov-report = [
 cov = [
   "test-cov",
   "cov-report",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "integration_sim: end-to-end tests that generate simulated datasets and run real pipelines",
 ]
 
 [[tool.hatch.envs.all.matrix]]
@@ -119,6 +125,10 @@ ignore_token_for_push = true
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64"]
 
+[tool.pixi.environments]
+default = { solve-group = "default" }
+integration = { features = ["integration-test"], solve-group = "integration" }
+
 [tool.pixi.tasks]
 
 [tool.pixi.dependencies]
@@ -139,3 +149,7 @@ rasusa = { version = ">=2.1.1,<3", channel = "bioconda"}
 bedtools = {version = ">=2.31.1,<3", channel = "bioconda"}
 core-snp-filter = {version = ">=0.2.0,<0.3" , channel = "bioconda"}
 iqtree = {version = ">=3.0.1,<4", channel = "bioconda"}
+
+[tool.pixi.feature.integration-test.dependencies]
+art = {version = "*", channel = "bioconda"}
+badread = {version = "*", channel = "bioconda"}

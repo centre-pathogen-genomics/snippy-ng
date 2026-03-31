@@ -55,6 +55,22 @@ hatch shell
 snippy-ng --help
 ```
 
+## Testing
+
+Run the default fast test suite with:
+
+```console
+pixi run hatch run test
+```
+
+Run the simulation-backed integration tests with:
+
+```console
+pixi run -e integration hatch run pytest tests/integration
+```
+
+Simulated inputs are generated at test time and cached under `.cache/integration-sim/`.
+
 ## Examples 
 
 ```bash
