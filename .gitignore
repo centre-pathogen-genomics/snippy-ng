@@ -7,6 +7,7 @@ asm_out
 long
 # pixi environments
 .pixi
+.cache/
 *.egg-info
 output
 multi
