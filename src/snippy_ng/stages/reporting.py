@@ -14,6 +14,8 @@ from snippy_ng.dependencies import biopython, phylocanvas, phylojs
 from snippy_ng.__about__ import __version__
 from pydantic import Field
 
+NEWICK_BRANCH_LENGTH_FORMAT = "%1.10f"
+
 
 class PrintVcfSummary(BaseStage):
     vcf_files: List[Path] = Field(..., description="Input VCF files to summarize")
@@ -473,7 +475,10 @@ class EpiReport(FormatHTMLReportTemplate):
             if self.ladderize:
                 tree.ladderize()
             handle = StringIO()
-            Phylo.write(tree, handle, "newick")
+            # Biopython defaults to fixed-point formatting for branch lengths, which can
+            # round very small branches to zero when we rewrite the Newick string.
+            Phylo.write(tree, handle, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
+            print(handle.getvalue())
             context["NEWICK"] = handle.getvalue().strip()
         except Exception as e:
             raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
