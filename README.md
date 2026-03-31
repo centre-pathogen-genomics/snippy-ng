@@ -70,6 +70,7 @@ pixi run -e integration hatch run pytest tests/integration
 ```
 
 Simulated inputs are generated at test time and cached under `.cache/integration-sim/`.
+See [docs/integration-tests.md](/Users/wwirth/programming/snippy-ng/docs/integration-tests.md) for the scenario format and harness contract.
 
 ## Examples 
 
@@ -89,7 +90,7 @@ snippy-ng long --clair3-model "/opt/models/r1041_e82_400bps_sup_v500" --ref test
 snippy-ng utils gather --json --ref tests/data/reference.gbk tests/data/{wildtype,mutant}* > samples.json 
 snippy-ng multi samples.json --cpus 6 -o multi
 snippy-ng tree multi/core/core.095.aln -o multi/tree
-snippy-ng utils report --tree multi/tree/tree.treefile --metadata samples.csv -o multi/report
+snippy-ng utils report --tree multi/tree/tree.treefile --metadata multi/snippy.vcf.summary.tsv -o multi/report
 ```
 
 ## License

@@ -11,6 +11,7 @@ title: Home
 **Table of Contents**
 
 - [Installation](#installation)
+- [Integration Tests](integration-tests.md)
 - [License](#license)
 
 ## Installation
