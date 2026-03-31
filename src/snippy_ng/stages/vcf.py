@@ -468,24 +468,33 @@ class AddDeletionstoVCF(BaseStage):
                     if ref_seq is None:
                         raise ValueError(f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}")
                     if end >= len(ref_seq):
-                        raise ValueError(
-                            f"Cannot encode start-of-contig deletion [{start},{end}) for '{chrom}': "
-                            f"requires right anchor at 1-based position {end + 1}, but contig length is {len(ref_seq)}"
+                        # A complete contig deletion has no valid left or right anchor in VCF.
+                        # Emit a non-standard explicit deletion over the whole contig so downstream
+                        # consensus generation can still remove the sequence instead of aborting.
+                        pos = 1
+                        ref_allele = ref_seq
+                        alt_allele = "-"
+                        end_pos = len(ref_seq)
+                        svlen = -len(ref_seq)
+                        logger.warning(
+                            f"Encoding whole-contig deletion for '{chrom}' without an anchor: "
+                            f"POS={pos}, REF=<len {len(ref_allele)}>, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                            f"This is not strict VCF, but preserves deletion semantics for consensus generation."
                         )
-
-                    pos = 1
-                    deleted_seq = ref_seq[:end]
-                    anchor_base = ref_seq[end]
-                    ref_allele = f"{deleted_seq}{anchor_base}"
-                    # TODO: This is a hack to get bcftools consensus to properly apply the deletion
-                    alt_allele = "-"
-                    end_pos = end
-                    svlen = -end
-                    logger.warning(
-                        f"Encoding contig-start deletion for '{chrom}' with right anchor: "
-                        f"POS={pos}, REF={ref_allele}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
-                        f"Please ensure your downstream tools can handle this encoding."
-                    )
+                    else:
+                        pos = 1
+                        deleted_seq = ref_seq[:end]
+                        anchor_base = ref_seq[end]
+                        ref_allele = f"{deleted_seq}{anchor_base}"
+                        # TODO: This is a hack to get bcftools consensus to properly apply the deletion
+                        alt_allele = "-"
+                        end_pos = end
+                        svlen = -end
+                        logger.warning(
+                            f"Encoding contig-start deletion for '{chrom}' with right anchor: "
+                            f"POS={pos}, REF={ref_allele}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                            f"Please ensure your downstream tools can handle this encoding."
+                        )
                 else:
                     # BED is 0-based half-open [start, end).
                     # Symbolic DEL uses left-anchor POS with deleted region (POS, END].

@@ -1,6 +1,9 @@
+import subprocess
+import sys
+
 import pytest
 
-from tests.integration.simulation import VariantRecord
+from tests.integration.simulation import PROJECT_ROOT, VariantRecord
 
 
 pytestmark = pytest.mark.integration_sim
@@ -110,3 +113,67 @@ def test_simulated_pipeline_scenarios(
             end,
             expected=variants,
         )
+
+
+def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
+    reference = tmp_path / "reference.fasta"
+    assembly = tmp_path / "assembly.fasta"
+    outdir = tmp_path / "whole-contig-delete"
+
+    missing_contig = "GATTACA" * 30
+    reference.write_text(
+        ">contig_1\n"
+        + ("ACGT" * 50)
+        + "\n>contig_10\n"
+        + missing_contig
+        + "\n"
+    )
+    assembly.write_text(">contig_1\n" + ("ACGT" * 50) + "\n")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "asm",
+            "--reference",
+            str(reference),
+            "--assembly",
+            str(assembly),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
+            "--skip-check",
+            "--cpus",
+            "1",
+            "--ram",
+            "4",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    deletion_records = []
+    with open(outdir / "snippy.vcf", "r") as handle:
+        for line in handle:
+            if line.startswith("#"):
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if cols[0] != "contig_10":
+                continue
+            deletion_records.append(cols)
+
+    assert deletion_records, "Expected a deletion record for the missing contig"
+    assert any(
+        record[1] == "1"
+        and record[4] == "-"
+        and f"END={len(missing_contig)}" in record[7]
+        and "SVTYPE=DEL" in record[7]
+        and "ZERODEPTH" in record[7]
+        for record in deletion_records
+    ), deletion_records
