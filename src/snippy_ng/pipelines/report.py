@@ -11,7 +11,7 @@ class ReportPipelineBuilder(PipelineBuilder):
     mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
     ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     title: str = Field(default="Snippy-NG Report", description="Title for the report")
-    metadata: Optional[Union[Path, str]] = Field(default=None, description="Metadata file in JSON format or a JSON string")
+    metadata: Optional[Union[Path,str]] = Field(default=None, description="Metadata JSON string or file path to include in the report")
     color_by_column: Optional[str] = Field(default=None, description="Column name in the metadata to color the tree by")
     logs: Optional[Path] = Field(default=None, description="Log file to include in the report")
     
@@ -22,7 +22,7 @@ class ReportPipelineBuilder(PipelineBuilder):
         context: Context = {
                 "NEWICK": self.tree, 
                 "REPORT_NAME": self.title, 
-                "METADATA_JSON": self.metadata if self.metadata else None,
+                "METADATA": self.metadata if self.metadata else None,
                 "COLOR_BY_COLUMN": self.color_by_column if self.color_by_column else "",
                 "LOGS": self.logs if self.logs else None,
             }
