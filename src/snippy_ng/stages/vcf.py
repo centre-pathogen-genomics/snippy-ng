@@ -46,6 +46,7 @@ class VcfFilterShort(VcfFilter):
         base_filter = " && ".join([
             'ALT!="*"'
         ])
+        ram_gb_param = ["-m", f"{ctx.ram}G"] if ctx.ram else []
         commands = [
                 self.shell_cmd(
                     ["bcftools", "view", "-Ou", "-i", 'GT="alt"', str(self.vcf)],
@@ -70,7 +71,7 @@ class VcfFilterShort(VcfFilter):
                     description="Recompute TYPE from REF/ALT",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "sort", "-Ou", "-m", f"{ctx.ram}G"],
+                    ["bcftools", "sort", "-Ou", *ram_gb_param],
                     description="Sort VCF"
                 ),
                 self.shell_cmd(
@@ -98,6 +99,7 @@ class VcfFilterAsm(VcfFilterShort):
     Filter VCF files for assemblies using bcftools to remove unwanted variants.
     """
     min_qual: int = Field(60, description="Minimum QUAL score for assembly-based calling")
+    min_depth: int = Field(1, description="Minimum depth for assembly-based calling")
 
 
 class VcfFilterLong(VcfFilter):
