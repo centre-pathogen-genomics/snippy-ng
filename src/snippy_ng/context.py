@@ -9,7 +9,7 @@ class Context(BaseModel):
     outdir: Optional[Path] = Field(None, description="Output directory for the pipeline run")
     tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
     cpus: int = Field(default=1, description="Max number of CPUs to use")
-    ram: Optional[int] = Field(default=8, description="RAM in GB")
+    ram: Optional[int] = Field(default=None, description="RAM in GB")
     quiet: bool = Field(False, description="Suppress command stdout/stderr output during stage execution")
     create_missing: bool = Field(False, description="Skip stages whose expected outputs already exist")
     keep_incomplete: bool = Field(False, description="Keep partially generated outputs if a stage fails")
