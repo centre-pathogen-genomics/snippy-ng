@@ -22,7 +22,7 @@ class ReportPipelineBuilder(PipelineBuilder):
         context: Context = {
                 "NEWICK": self.tree, 
                 "REPORT_NAME": self.title, 
-                "METADATA": self.metadata if self.metadata else None,
+                "METADATA": lambda: self.metadata if self.metadata else None,
                 "COLOR_BY_COLUMN": self.color_by_column if self.color_by_column else "",
                 "LOGS": self.logs if self.logs else None,
             }

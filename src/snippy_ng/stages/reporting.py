@@ -391,7 +391,7 @@ class PrintVcfHistogram(BaseStage):
 class FormatHTMLReportTemplateOutput(BaseOutput):
     rendered: Path = Field(..., description="Rendered HTML report file")
 
-ContextValue = Optional[Union[str, int, float, Path, ]]
+ContextValue = Optional[Union[str, int, float, Path, Callable]]
 Context = Dict[str, ContextValue]
 
 class FormatHTMLReportTemplate(BaseStage):
@@ -430,6 +430,8 @@ class FormatHTMLReportTemplate(BaseStage):
         for k, v in context.items():
             if callable(v):
                 context[k] = v()
+            elif isinstance(context[k], Path):
+                context[k] = v.read_text().strip()
         # Custom validation logic
         self.validate_context(context)
         # load template
@@ -497,8 +499,9 @@ class EpiReport(FormatHTMLReportTemplate):
                     raise PipelineExecutionError(f"Error loading metadata file provided in context for EpiReport: {e}")
             else:
                 raise PipelineExecutionError("METADATA context variable for EpiReport must be either a JSON string or a Path to a metadata file")
-
-        if context.get("METADATA_JSON") is not None:
+        if "METADATA_JSON" not in context:
+            context["METADATA_JSON"] = None
+        if context["METADATA_JSON"] is not None:
             try:
                 metadata_json_str = context["METADATA_JSON"]
                 metadata = json.loads(metadata_json_str)
