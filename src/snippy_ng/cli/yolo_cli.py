@@ -77,7 +77,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
                 break
     if not reference:
         raise InvalidReferenceError(
-            "No reference file found! Please proved `--reference` or ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk"
+            "No reference file found! Please provide `--reference` or ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk"
         )
 
     # find all samples in the directory and create config
