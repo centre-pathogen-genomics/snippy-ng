@@ -478,7 +478,6 @@ class EpiReport(FormatHTMLReportTemplate):
             # Biopython defaults to fixed-point formatting for branch lengths, which can
             # round very small branches to zero when we rewrite the Newick string.
             Phylo.write(tree, handle, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
-            print(handle.getvalue())
             context["NEWICK"] = handle.getvalue().strip()
         except Exception as e:
             raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
