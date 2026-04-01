@@ -89,6 +89,9 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         reference=reference,
     )
     samples = gathered["samples"]
+    if not samples:
+        logger.error("No samples found. Please ensure you have at least one sample with reads in the input directory.")
+        return 1
     logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}")
     # use freebayes for long read samples in YOLO mode
     # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
