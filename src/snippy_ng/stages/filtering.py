@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
 from snippy_ng.dependencies import samtools
 from pydantic import Field, field_validator
 

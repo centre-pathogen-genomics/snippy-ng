@@ -62,7 +62,7 @@
 
       #tree-container {
         position: relative;
-        overflow: hidden !important;
+        overflow: visible !important;
       }
 
       #tree {
@@ -159,6 +159,135 @@
         background: #eff6ff;
         border-color: #93c5fd;
         color: #1e3a8a;
+      }
+
+      .tree-export-dropdown {
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        right: 0;
+        min-width: 8rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        background: #ffffff;
+        box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15);
+        z-index: 2400;
+        padding: 0.35rem;
+      }
+
+      .tree-export-dropdown.hidden {
+        display: none;
+      }
+
+      .tree-export-option {
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-radius: 0.4rem;
+        background: #fff;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.8rem;
+        color: #334155;
+        text-transform: uppercase;
+      }
+
+      .tree-export-option:hover {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      .tree-config-dropdown {
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        right: 0;
+        min-width: 12rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        background: #ffffff;
+        box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15);
+        z-index: 2400;
+        padding: 0.35rem;
+      }
+
+      .tree-config-dropdown.hidden {
+        display: none;
+      }
+
+      .tree-config-option {
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-radius: 0.4rem;
+        background: #fff;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.8rem;
+        color: #334155;
+      }
+
+      .tree-config-option:hover {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      .tree-config-option.active {
+        background: #f1f5f9;
+        color: #0f172a;
+        font-weight: 600;
+      }
+
+      .tree-config-section {
+        padding: 0.25rem 0;
+      }
+
+      .tree-config-section + .tree-config-section {
+        border-top: 1px solid #e2e8f0;
+        margin-top: 0.2rem;
+        padding-top: 0.45rem;
+      }
+
+      .tree-config-label {
+        display: block;
+        margin: 0 0 0.25rem;
+        padding: 0 0.55rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #475569;
+        text-transform: uppercase;
+      }
+
+      .tree-config-select {
+        width: calc(100% - 1.1rem);
+        margin: 0 0.55rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.4rem;
+        background: #fff;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.8rem;
+        color: #334155;
+      }
+
+      .tree-config-number-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0.55rem;
+        padding: 0.35rem 0;
+      }
+
+      .tree-config-number-label {
+        font-size: 0.8rem;
+        color: #334155;
+      }
+
+      .tree-config-number-input {
+        width: 4.5rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.4rem;
+        background: #fff;
+        padding: 0.35rem 0.45rem;
+        font-size: 0.8rem;
+        color: #334155;
       }
 
       #tree-legend-panel {
@@ -553,7 +682,7 @@
         </div>
         <div
           id="tree-container"
-          class="flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+          class="flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow"
         >
           <div id="tree-modebar" aria-label="Tree controls">
             <!-- Tree navigation -->
@@ -603,66 +732,98 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.49 12 3.75 3.75m0 0-3.75 3.75m3.75-3.75H3.74V4.499" />
               </svg>
             </button>
-            <button
-              id="tree-toggle-align-labels-btn"
-              type="button"
-              class="tree-modebar-btn"
-              title="Toggle aligned labels"
-              aria-label="Toggle aligned labels"
-              aria-pressed="false"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
-              </svg>
-            </button>
-            <button
-              id="tree-toggle-internal-labels-btn"
-              type="button"
-              class="tree-modebar-btn"
-              title="Toggle internal labels"
-              aria-label="Toggle internal labels"
-              aria-pressed="false"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
-              </svg>
-            </button>
-            <!-- Download buttons -->
-            <button
-              id="tree-export-newick-btn"
-              type="button"
-              class="tree-modebar-btn"
-              title="Export Newick"
-              aria-label="Export Newick"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-            </button>
-            <button
-              id="tree-export-png-btn"
-              type="button"
-              class="tree-modebar-btn"
-              title="Export PNG"
-              aria-label="Export PNG"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-              </svg>
-            </button>
-            <button
-              id="tree-export-svg-btn"
-              type="button"
-              class="tree-modebar-btn"
-              title="Export SVG"
-              aria-label="Export SVG"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
-              </svg>
-            </button>
+            <div class="relative">
+              <button
+                id="tree-config-btn"
+                type="button"
+                class="tree-modebar-btn"
+                title="Tree settings"
+                aria-label="Tree settings"
+                aria-expanded="false"
+                aria-controls="tree-config-dropdown"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              </button>
+              <div id="tree-config-dropdown" class="tree-config-dropdown hidden" role="menu" aria-label="Tree settings">
+                <div class="tree-config-section">
+                  <div class="tree-config-label">Tree type</div>
+                  <select id="tree-type-select" class="tree-config-select" aria-label="Tree type">
+                    <option value="Rectangular">Rectangular</option>
+                    <option value="Radial">Radial</option>
+                    <option value="Circular">Circular</option>
+                    <option value="Diagonal">Diagonal</option>
+                    <option value="Hierarchical">Hierarchical</option>
+                  </select>
+                </div>
+                <div class="tree-config-section">
+                  <div class="tree-config-label">Labels</div>
+                  <button
+                    id="tree-toggle-leaf-labels-btn"
+                    type="button"
+                    class="tree-config-option"
+                    role="menuitemcheckbox"
+                    aria-label="Toggle leaf labels"
+                    aria-checked="true"
+                  >
+                    Leaf labels
+                  </button>
+                  <button
+                    id="tree-toggle-align-labels-btn"
+                    type="button"
+                    class="tree-config-option"
+                    role="menuitemcheckbox"
+                    aria-label="Toggle aligned labels"
+                    aria-checked="false"
+                  >
+                    Aligned labels
+                  </button>
+                  <button
+                    id="tree-toggle-internal-labels-btn"
+                    type="button"
+                    class="tree-config-option"
+                    role="menuitemcheckbox"
+                    aria-label="Toggle internal labels"
+                    aria-checked="false"
+                  >
+                    Internal labels
+                  </button>
+                </div>
+                <div class="tree-config-section">
+                  <div class="tree-config-label">Appearance</div>
+                  <label class="tree-config-number-row">
+                    <span class="tree-config-number-label">Font size</span>
+                    <input id="tree-font-size-input" class="tree-config-number-input" type="number" min="6" max="48" step="1" inputmode="numeric" value="16" />
+                  </label>
+                  <label class="tree-config-number-row">
+                    <span class="tree-config-number-label">Node size</span>
+                    <input id="tree-node-size-input" class="tree-config-number-input" type="number" min="1" max="24" step="1" inputmode="numeric" value="14" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="relative">
+              <button
+                id="tree-export-btn"
+                type="button"
+                class="tree-modebar-btn"
+                title="Download tree"
+                aria-label="Download tree"
+                aria-expanded="false"
+                aria-controls="tree-export-dropdown"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+              </button>
+              <div id="tree-export-dropdown" class="tree-export-dropdown hidden" role="menu" aria-label="Download tree">
+                <button id="tree-export-newick-btn" type="button" class="tree-export-option" role="menuitem">Newick</button>
+                <button id="tree-export-png-btn" type="button" class="tree-export-option" role="menuitem">PNG</button>
+                <button id="tree-export-svg-btn" type="button" class="tree-export-option" role="menuitem">SVG</button>
+              </div>
+            </div>
           </div>
           <div id="tree" class="w-full h-full min-h-0"></div>
         </div>
@@ -753,8 +914,12 @@
       const MAX_TREE_WIDTH_PCT = 90;
       const ROW_RESIZER_OFFSET_PX = 8;
       let currentTreeWidthPct = DEFAULT_TREE_WIDTH_PCT;
+      let treeTypeKey = "Rectangular";
+      let showLeafLabels = true;
       let alignLabels = false;
       let showInternalLabels = false;
+      let treeFontSize = 16;
+      let treeNodeSize = 14;
       let selectedMetadataIds = new Set();
       let insertedRowIds = new Set();
       let updatedCellKeys = new Set();
@@ -766,6 +931,7 @@
       let treeColourSequentialInput = "#440154, #21908d, #fde725";
       let treeColourDivergingBInput = "#f7f7f7, #f6b48f, #b40426";
       const LINK_ID_KEYS = ["id", "sample_id", "sample", "name"];
+      const TREE_CONFIG_STORAGE_KEY = "snippy-ng:epi-report:tree-config";
 
       const TREE_COLOUR_PRESETS = {
         ocean: {
@@ -794,6 +960,59 @@
           divergingB: "#f5f5f5, #f6a146, #8c510a",
         },
       };
+
+      function persistTreeConfigState() {
+        try {
+          window.localStorage.setItem(
+            TREE_CONFIG_STORAGE_KEY,
+            JSON.stringify({
+              treeTypeKey,
+              showLeafLabels,
+              alignLabels,
+              showInternalLabels,
+              treeFontSize,
+              treeNodeSize,
+            }),
+          );
+        } catch (_err) {
+          // Ignore localStorage failures.
+        }
+      }
+
+      function loadTreeConfigState() {
+        try {
+          const raw = window.localStorage.getItem(TREE_CONFIG_STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const validTreeTypes = new Set([
+            "Rectangular",
+            "Radial",
+            "Circular",
+            "Diagonal",
+            "Hierarchical",
+          ]);
+          if (validTreeTypes.has(parsed.treeTypeKey)) {
+            treeTypeKey = parsed.treeTypeKey;
+          }
+          if (typeof parsed.showLeafLabels === "boolean") {
+            showLeafLabels = parsed.showLeafLabels;
+          }
+          if (typeof parsed.alignLabels === "boolean") {
+            alignLabels = parsed.alignLabels;
+          }
+          if (typeof parsed.showInternalLabels === "boolean") {
+            showInternalLabels = parsed.showInternalLabels;
+          }
+          if (Number.isFinite(parsed.treeFontSize)) {
+            treeFontSize = Math.max(6, Math.min(48, Math.round(parsed.treeFontSize)));
+          }
+          if (Number.isFinite(parsed.treeNodeSize)) {
+            treeNodeSize = Math.max(1, Math.min(24, Math.round(parsed.treeNodeSize)));
+          }
+        } catch (_err) {
+          // Ignore invalid persisted state.
+        }
+      }
 
       /**
        * Returns cached DOM handles for tree-colour UI controls.
@@ -1617,7 +1836,8 @@
       }
       function getTreeType() {
         const tt = window.phylocanvas && window.phylocanvas.TreeTypes;
-        return tt ? tt.Rectangular : undefined;
+        if (!tt) return undefined;
+        return tt[treeTypeKey] || tt.Rectangular;
       }
       function computeCanvasSize(container) {
         const rect = container.getBoundingClientRect();
@@ -1636,6 +1856,8 @@
         ) {
           canvas.setProps({
             size: computeCanvasSize(els.treeContainer || els.tree),
+            type: getTreeType(),
+            showLeafLabels,
             alignLabels,
             showInternalLabels,
           });
@@ -1858,7 +2080,9 @@
             alignLabels,
             showInternalLabels,
             showLabels: true,
-            showLeafLabels: true,
+            showLeafLabels,
+            ...(Number.isFinite(treeFontSize) ? { fontSize: treeFontSize } : {}),
+            ...(Number.isFinite(treeNodeSize) ? { nodeSize: treeNodeSize } : {}),
             fillColour: null,
             interactive: true,
           },
@@ -1891,8 +2115,12 @@
         c.setProps({
           source: newickStr,
           size: computeCanvasSize(els.treeContainer || els.tree),
+          type: getTreeType(),
+          showLeafLabels,
           alignLabels,
           showInternalLabels,
+          ...(Number.isFinite(treeFontSize) ? { fontSize: treeFontSize } : {}),
+          ...(Number.isFinite(treeNodeSize) ? { nodeSize: treeNodeSize } : {}),
         });
         colourModule.applyLeafColours();
         c.render();
@@ -2688,23 +2916,124 @@
         const rerootBtn = $("tree-reroot-btn");
         const branchZoomInBtn = $("tree-branch-zoom-in-btn");
         const stepZoomBtn = $("tree-step-zoom-btn");
+        const configMenuBtn = $("tree-config-btn");
+        const configDropdown = $("tree-config-dropdown");
+        const exportMenuBtn = $("tree-export-btn");
+        const exportDropdown = $("tree-export-dropdown");
         const exportBtn = $("tree-export-newick-btn");
         const exportPngBtn = $("tree-export-png-btn");
         const exportSvgBtn = $("tree-export-svg-btn");
+        const treeTypeSelect = $("tree-type-select");
+        const toggleLeafLabelsBtn = $("tree-toggle-leaf-labels-btn");
         const toggleAlignBtn = $("tree-toggle-align-labels-btn");
         const toggleInternalBtn = $("tree-toggle-internal-labels-btn");
-        if (!resetBtn && !rerootBtn && !branchZoomInBtn && !stepZoomBtn && !exportBtn && !exportPngBtn && !exportSvgBtn && !toggleAlignBtn && !toggleInternalBtn) return;
+        const fontSizeInput = $("tree-font-size-input");
+        const nodeSizeInput = $("tree-node-size-input");
+        if (!resetBtn && !rerootBtn && !branchZoomInBtn && !stepZoomBtn && !configMenuBtn && !exportMenuBtn && !exportBtn && !exportPngBtn && !exportSvgBtn && !toggleAlignBtn && !toggleInternalBtn) return;
 
         const syncToggleButtonState = (btn, isActive) => {
           if (!btn) return;
-          btn.setAttribute("aria-pressed", isActive ? "true" : "false");
-          btn.classList.toggle("bg-slate-100", isActive);
-          btn.classList.toggle("text-slate-900", isActive);
+          btn.setAttribute("aria-checked", isActive ? "true" : "false");
+          btn.classList.toggle("active", isActive);
         };
+        const syncTreeTypeInputState = () => {
+          if (!treeTypeSelect) return;
+          treeTypeSelect.value = treeTypeKey;
+        };
+        const syncNumberInputValues = () => {
+          if (fontSizeInput) {
+            fontSizeInput.value = Number.isFinite(treeFontSize) ? String(treeFontSize) : "";
+          }
+          if (nodeSizeInput) {
+            nodeSizeInput.value = Number.isFinite(treeNodeSize) ? String(treeNodeSize) : "";
+          }
+        };
+        const syncTreeControlStateFromCanvas = () => {
+          const tree = canvas;
+          if (!tree) return;
+          syncNumberInputValues();
+        };
+        const applyTreeAppearance = () => {
+          const tree = canvas;
+          if (!tree || typeof tree.setProps !== "function") return;
+          tree.setProps({
+            ...(Number.isFinite(treeFontSize) ? { fontSize: treeFontSize } : {}),
+            ...(Number.isFinite(treeNodeSize) ? { nodeSize: treeNodeSize } : {}),
+          });
+          if (typeof tree.render === "function") {
+            tree.render();
+          }
+          syncNumberInputValues();
+          persistTreeConfigState();
+        };
+        const updateTreeAppearanceFromInput = (kind, rawValue) => {
+          const min = kind === "font" ? 6 : 1;
+          const max = kind === "font" ? 48 : 24;
+          const next = Number(rawValue);
+          if (!Number.isFinite(next)) return;
+          const clamped = Math.max(min, Math.min(max, Math.round(next)));
+          if (kind === "font") treeFontSize = clamped;
+          else treeNodeSize = clamped;
+          applyTreeAppearance();
+        };
+        const closeConfigDropdown = () => {
+          if (!configDropdown || !configMenuBtn) return;
+          configDropdown.classList.add("hidden");
+          configMenuBtn.setAttribute("aria-expanded", "false");
+        };
+        const closeExportDropdown = () => {
+          if (!exportDropdown || !exportMenuBtn) return;
+          exportDropdown.classList.add("hidden");
+          exportMenuBtn.setAttribute("aria-expanded", "false");
+        };
+        const safeName = () =>
+          String(document.title || "tree")
+            .trim()
+            .replace(/[^a-z0-9._-]+/gi, "_")
+            .replace(/^_+|_+$/g, "") || "tree";
+        syncTreeTypeInputState();
+        syncTreeControlStateFromCanvas();
+        syncToggleButtonState(toggleLeafLabelsBtn, showLeafLabels);
         syncToggleButtonState(toggleAlignBtn, alignLabels);
         syncToggleButtonState(toggleInternalBtn, showInternalLabels);
         if (rerootBtn) {
           rerootBtn.disabled = selectedMetadataIds.size === 0;
+        }
+        if (configMenuBtn && configDropdown) {
+          configMenuBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isHidden = configDropdown.classList.contains("hidden");
+            closeExportDropdown();
+            configDropdown.classList.toggle("hidden", !isHidden);
+            configMenuBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+          });
+
+          configDropdown.addEventListener("click", (e) => {
+            e.stopPropagation();
+          });
+
+          document.addEventListener("click", () => {
+            closeConfigDropdown();
+          });
+        }
+        if (exportMenuBtn && exportDropdown) {
+          exportMenuBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isHidden = exportDropdown.classList.contains("hidden");
+            closeConfigDropdown();
+            exportDropdown.classList.toggle("hidden", !isHidden);
+            exportMenuBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+          });
+
+          exportDropdown.addEventListener("click", (e) => {
+            e.stopPropagation();
+          });
+
+          document.addEventListener("click", () => {
+            closeExportDropdown();
+          });
         }
         // navigation 
         if (resetBtn) {
@@ -2714,9 +3043,58 @@
 
             const tree = canvas;
             if (tree && typeof tree.fitInCanvas === "function") {
-              tree.setProps({ source:  treeData });
+              tree.setProps({
+                source: treeData,
+                type: getTreeType(),
+                showLeafLabels,
+                alignLabels,
+                showInternalLabels,
+                ...(Number.isFinite(treeFontSize) ? { fontSize: treeFontSize } : {}),
+                ...(Number.isFinite(treeNodeSize) ? { nodeSize: treeNodeSize } : {}),
+              });
               phyloJSTree = phylojs.readNewick(treeData);
               tree.fitInCanvas();
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+            }
+          });
+        }
+
+        if (treeTypeSelect) {
+          treeTypeSelect.addEventListener("change", () => {
+            const nextTypeKey = treeTypeSelect.value;
+            if (!nextTypeKey || nextTypeKey === treeTypeKey) return;
+
+            treeTypeKey = nextTypeKey;
+            syncTreeTypeInputState();
+            persistTreeConfigState();
+
+            const tree = canvas;
+            if (tree && typeof tree.setProps === "function") {
+              tree.setProps({ type: getTreeType() });
+              if (typeof tree.render === "function") {
+                tree.render();
+              }
+              if (typeof tree.fitInCanvas === "function") {
+                tree.fitInCanvas();
+              }
+            }
+          });
+        }
+
+        if (toggleLeafLabelsBtn) {
+          toggleLeafLabelsBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const tree = canvas;
+            showLeafLabels = !showLeafLabels;
+            syncToggleButtonState(toggleLeafLabelsBtn, showLeafLabels);
+            persistTreeConfigState();
+
+            if (tree && typeof tree.setProps === "function") {
+              tree.setProps({ showLeafLabels });
               if (typeof tree.render === "function") {
                 tree.render();
               }
@@ -2819,12 +3197,8 @@
             if (tree && typeof tree.exportNewick === "function") {
               const newickText = tree.exportNewick();
               if (typeof newickText !== "string" || !newickText.trim()) return;
-
-              const safeName = String(document.title || "tree")
-                .trim()
-                .replace(/[^a-z0-9._-]+/gi, "_")
-                .replace(/^_+|_+$/g, "") || "tree";
-              downloadText(`${safeName}.nwk`, newickText);
+              downloadText(`${safeName()}.nwk`, newickText);
+              closeExportDropdown();
             }
           });
         }
@@ -2838,11 +3212,8 @@
             if (tree && typeof tree.exportPNG === "function") {
               const pngDataUri = tree.exportPNG();
               if (typeof pngDataUri === "string" && pngDataUri.startsWith("data:image/png")) {
-                const safeName = String(document.title || "tree")
-                  .trim()
-                  .replace(/[^a-z0-9._-]+/gi, "_")
-                  .replace(/^_+|_+$/g, "") || "tree";
-                downloadDataUri(`${safeName}.png`, pngDataUri);
+                downloadDataUri(`${safeName()}.png`, pngDataUri);
+                closeExportDropdown();
               }
             }
           });
@@ -2857,11 +3228,8 @@
             if (tree && typeof tree.exportSVG === "function") {
               const svgBlob = tree.exportSVG();
               if (svgBlob instanceof Blob) {
-                const safeName = String(document.title || "tree")
-                  .trim()
-                  .replace(/[^a-z0-9._-]+/gi, "_")
-                  .replace(/^_+|_+$/g, "") || "tree";
-                downloadBlob(`${safeName}.svg`, svgBlob);
+                downloadBlob(`${safeName()}.svg`, svgBlob);
+                closeExportDropdown();
               }
             }
           });
@@ -2875,6 +3243,7 @@
             const tree = canvas;
             alignLabels = !alignLabels;
             syncToggleButtonState(toggleAlignBtn, alignLabels);
+            persistTreeConfigState();
 
             if (tree && typeof tree.setProps === "function") {
               tree.setProps({ alignLabels });
@@ -2893,6 +3262,7 @@
             const tree = canvas;
             showInternalLabels = !showInternalLabels;
             syncToggleButtonState(toggleInternalBtn, showInternalLabels);
+            persistTreeConfigState();
 
             if (tree && typeof tree.setProps === "function") {
               tree.setProps({ showInternalLabels });
@@ -2900,6 +3270,18 @@
                 tree.render();
               }
             }
+          });
+        }
+
+        if (fontSizeInput) {
+          fontSizeInput.addEventListener("change", () => {
+            updateTreeAppearanceFromInput("font", fontSizeInput.value);
+          });
+        }
+
+        if (nodeSizeInput) {
+          nodeSizeInput.addEventListener("change", () => {
+            updateTreeAppearanceFromInput("node", nodeSizeInput.value);
           });
         }
       }
@@ -2953,6 +3335,7 @@
        * @returns {void}
        */
       function initReport() {
+        loadTreeConfigState();
         renderNewick(treeData);
         initMetadataTable(metadata);
         initMapFromMetadata(metadata);

@@ -11,6 +11,7 @@ from snippy_ng.stages import PythonCommand
 from snippy_ng.logging import logger
 from snippy_ng.exceptions import PipelineExecutionError
 from snippy_ng.dependencies import biopython, phylocanvas, phylojs
+from snippy_ng.utils.files import load_metadata_as_json_str
 from snippy_ng.__about__ import __version__
 from pydantic import Field
 
@@ -390,7 +391,7 @@ class PrintVcfHistogram(BaseStage):
 class FormatHTMLReportTemplateOutput(BaseOutput):
     rendered: Path = Field(..., description="Rendered HTML report file")
 
-ContextValue = Optional[Union[str, int, float, Path, ]]
+ContextValue = Optional[Union[str, int, float, Path, Callable]]
 Context = Dict[str, ContextValue]
 
 class FormatHTMLReportTemplate(BaseStage):
@@ -427,8 +428,9 @@ class FormatHTMLReportTemplate(BaseStage):
         context = {**self.default_context(), **self.context}
         # eval any callable context values (e.g. lambda functions) to get their actual value before rendering
         for k, v in context.items():
-            # check value is of type Path and read the file content
-            if isinstance(v, Path):
+            if callable(v):
+                context[k] = v()
+            elif isinstance(context[k], Path):
                 context[k] = v.read_text().strip()
         # Custom validation logic
         self.validate_context(context)
@@ -460,13 +462,17 @@ class EpiReport(FormatHTMLReportTemplate):
     _dependencies = [biopython, phylocanvas, phylojs]
 
     def validate_context(self, context: Dict[str, Union[str, int, float, Callable]]) -> None:
-        required_keys = {"NEWICK", "REPORT_NAME", "METADATA_JSON", "LOGS"}
+        required_keys = {"NEWICK", "REPORT_NAME", "METADATA", "LOGS"}
         missing_keys = [k for k in required_keys if k not in context]
         if missing_keys:
             raise ValueError(f"Context key(s) '{', '.join(missing_keys)}' are required for EpiReport but not found in context")
         
         from Bio import Phylo
         from io import StringIO
+
+        if isinstance(context["NEWICK"], Path):
+            # If NEWICK is a Path, read the content and replace
+            context["NEWICK"] = context["NEWICK"].read_text().strip()
         try:
             newick_str = context["NEWICK"]
             tree = Phylo.read(StringIO(newick_str), "newick")
@@ -478,11 +484,23 @@ class EpiReport(FormatHTMLReportTemplate):
             # Biopython defaults to fixed-point formatting for branch lengths, which can
             # round very small branches to zero when we rewrite the Newick string.
             Phylo.write(tree, handle, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
-            print(handle.getvalue())
             context["NEWICK"] = handle.getvalue().strip()
         except Exception as e:
             raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
         
+        if context.get("METADATA") is not None:
+            if isinstance(context["METADATA"], str):
+                # assume it's a JSON string 
+                context["METADATA_JSON"] = context["METADATA"]
+            elif isinstance(context["METADATA"], Path):
+                try:
+                    context["METADATA_JSON"] = load_metadata_as_json_str(context["METADATA"])
+                except Exception as e:
+                    raise PipelineExecutionError(f"Error loading metadata file provided in context for EpiReport: {e}")
+            else:
+                raise PipelineExecutionError("METADATA context variable for EpiReport must be either a JSON string or a Path to a metadata file")
+        if "METADATA_JSON" not in context:
+            context["METADATA_JSON"] = None
         if context["METADATA_JSON"] is not None:
             try:
                 metadata_json_str = context["METADATA_JSON"]
@@ -504,7 +522,7 @@ class EpiReport(FormatHTMLReportTemplate):
                 else:
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
                 if entry[id_column] not in tree_tips:
-                    raise PipelineExecutionError(f"Metadata entry id '{entry['id']}' does not match any tip in the NEWICK tree for EpiReport context")
+                    raise PipelineExecutionError(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context")
         # add iso3166-2 country code mapping to context for use in the template
         iso3166_mapping = {}
         with open(self.iso3166_2, "r", newline="", encoding="utf-8") as f:

@@ -87,7 +87,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
             captured["fast_mode"] = fast_mode
 
         def build(self):
-            return SimpleNamespace(run=lambda _ctx: 0)
+            return SimpleNamespace(run=lambda _ctx: 0, stages=[SimpleNamespace(output=SimpleNamespace(tree=Path("tree.newick")))])
 
     monkeypatch.setattr(
         "snippy_ng.pipelines.tree.TreePipelineBuilder",
@@ -156,7 +156,7 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
             pass
 
         def build(self):
-            return SimpleNamespace(run=lambda _ctx: 0)
+            return SimpleNamespace(run=lambda _ctx: 0, stages=[SimpleNamespace(output=SimpleNamespace(tree=Path("tree.newick")))])
 
     monkeypatch.setattr(
         "snippy_ng.pipelines.tree.TreePipelineBuilder",

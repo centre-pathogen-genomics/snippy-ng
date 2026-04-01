@@ -1,4 +1,5 @@
 import click
+from click.core import ParameterSource
 from typing import Any, Optional
 from pathlib import Path
 from snippy_ng.cli.utils import AbsolutePath
@@ -23,8 +24,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
-@click.option("--min-qual", default=2, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking")
+@click.option("--min-qual", default=2, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is 2 for Clair3 and 100 for FreeBayes")
+@click.pass_context
 def long(
+    ctx: click.Context,
     reference: Path,
     reads: Optional[Path],
     bam: Optional[Path],
@@ -61,6 +64,12 @@ def long(
 
     if caller == "clair3" and not clair3_model:
         raise click.UsageError("Please provide a Clair3 model file (--clair3-model) when using Clair3 as the variant caller!")
+
+    if (
+        caller == "freebayes"
+        and ctx.get_parameter_source("min_qual") == ParameterSource.DEFAULT
+    ):
+        min_qual = 100
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid

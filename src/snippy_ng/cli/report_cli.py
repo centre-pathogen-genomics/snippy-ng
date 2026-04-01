@@ -37,24 +37,9 @@ def report(
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.report import ReportPipelineBuilder
-    import json
-    import csv
-
-    if metadata:
-        if metadata.suffix.lower() == ".json":
-        # if metadata is a JSON file, read it and pass the content as a string to the pipeline
-            with open(metadata, "r") as f:
-                metadata = json.dumps(json.load(f))
-        elif metadata.suffix.lower() == ".csv" or metadata.suffix.lower() == ".tsv":
-            # if metadata is a CSV/TSV file, read it and convert to a list of dicts, then pass as a JSON string to the pipeline
-            with open(metadata, "r") as f:
-                if metadata.suffix.lower() == ".csv":
-                    reader = csv.DictReader(f)
-                else:
-                    reader = csv.DictReader(f, delimiter="\t")
-                metadata = json.dumps(list(reader))
-        else:
-            raise click.BadParameter("Metadata file must be in JSON, CSV, or TSV format", param_hint="--metadata")
+   
+    if metadata and metadata.suffix.lower() not in [".json", ".csv", ".tsv"]:
+        raise click.BadParameter("Metadata file must be in JSON, CSV, or TSV format", param_hint="--metadata")
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid

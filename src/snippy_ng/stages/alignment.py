@@ -39,7 +39,7 @@ class ShortReadAligner(Aligner):
     def common_commands(self, ctx) -> List:
         """Common commands for sorting, fixing mates, and marking duplicates."""
         sort_cpus = max(1, int(ctx.cpus / 2))
-        sort_ram = f"{1000 * ctx.ram // sort_cpus}M"
+        sort_ram_param = ["-m", f"{1000 * ctx.ram // sort_cpus}M"] if ctx.ram else []
         sort_threads = str(max(1, sort_cpus - 1))
         sort_temp = str(ctx.tmpdir or ".")
 
@@ -56,8 +56,7 @@ class ShortReadAligner(Aligner):
                 sort_temp,
                 "--threads",
                 sort_threads,
-                "-m",
-                sort_ram,
+                *sort_ram_param
             ],
             description="Sort BAM by read name",
         )
@@ -95,8 +94,7 @@ class ShortReadAligner(Aligner):
                 sort_temp,
                 "--threads",
                 sort_threads,
-                "-m",
-                sort_ram,
+                *sort_ram_param,
             ],
             description="Sort BAM by coordinates",
         )
@@ -175,11 +173,6 @@ class Minimap2ShortReadAligner(ShortReadAligner):
     Align reads to a reference using Minimap2.
     """
     _dependencies = [minimap2, samtools]
-
-    def ram_per_thread(self, ctx) -> int:
-        """Calculate RAM per thread in MB."""
-        return max(1, ctx.ram // ctx.cpus)
-
 
     def create_commands(self, ctx) -> List:
         """Constructs the Minimap2 alignment commands."""
