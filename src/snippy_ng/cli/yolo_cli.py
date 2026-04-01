@@ -174,7 +174,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     report_pipeline = ReportPipelineBuilder(
         tree=tree_outdir / tree_pipeline.stages[-1].output.tree,
         title="Snippy-NG Report",
-        metadata=Path(outdir) / "snippy.vcf.summary.tsv",
+        metadata=Path(outdir) / f"{prefix}.vcf.summary.tsv",
         prefix="report",
     ).build()
     report_outdir = Path(outdir) / "report"
