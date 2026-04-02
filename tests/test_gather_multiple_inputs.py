@@ -1,6 +1,9 @@
 """Test gathering samples from multiple input directories."""
 import gzip
+from pathlib import Path
+import pytest
 from snippy_ng.utils.gather import gather_samples_config
+from snippy_ng.utils.gather import guess_sample_id
 
 
 def test_gather_multiple_directories_with_same_basename(tmp_path):
@@ -212,3 +215,40 @@ def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
     assert "ref" not in samples
     assert "data-ref" in samples
     assert samples["data-ref"]["type"] == "asm"
+
+
+def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
+    """mutant_1.trim/mutant_2.trim FASTQs should be grouped as one short-read sample."""
+    source_dir = Path(__file__).resolve().parent / "data"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    for name in ("mutant_1.trim.fastq.gz", "mutant_2.trim.fastq.gz"):
+        (data_dir / name).write_bytes((source_dir / name).read_bytes())
+
+    cfg = gather_samples_config([data_dir])
+    samples = cfg["samples"]
+
+    assert "mutant" in samples
+    assert samples["mutant"]["type"] == "short"
+    assert samples["mutant"]["left"] == str(data_dir / "mutant_1.trim.fastq.gz")
+    assert samples["mutant"]["right"] == str(data_dir / "mutant_2.trim.fastq.gz")
+    assert "mutant_1.trim" not in samples
+    assert "mutant_2.trim" not in samples
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("sample_1.fastq.gz", "sample"),
+        ("sample_2.fastq.gz", "sample"),
+        ("sample_R1.fastq.gz", "sample"),
+        ("sample_R2.fastq.gz", "sample"),
+        ("sample_R1_001.fastq.gz", "sample"),
+        ("sample_1.trim.fastq.gz", "sample"),
+        ("sample_2.trimmed.fastq.gz", "sample"),
+        ("sample_R1.clean.fastq.gz", "sample"),
+    ],
+)
+def test_guess_sample_id_strips_common_read_suffix_variants(filename, expected):
+    assert guess_sample_id(filename) == expected
