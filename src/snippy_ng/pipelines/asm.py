@@ -23,11 +23,12 @@ class AsmPipelineBuilder(PipelineBuilder):
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snippy", description="Output file prefix")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = guess_sample_id(Path(self.assembly).name)
+        sample_name = self.sample_name or guess_sample_id(Path(self.assembly).name)
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(

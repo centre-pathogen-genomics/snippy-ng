@@ -98,7 +98,8 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             reads=reads,
             bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
-            **{k: v for k, v in sample_cfg.items() if k not in ["left", "right", "bam", "reads"]},
+            sample_name=sample_name,
+            **{k: v for k, v in sample_cfg.items() if k not in ["left", "right", "bam", "reads", "sample_name"]},
         ).build()
 
     elif sample_type == "long":
@@ -107,7 +108,8 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
             reads=str(sample_cfg.get("reads")) if sample_cfg.get("reads") else None,
             bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
             prefix=config["prefix"],
-            **{k: v for k, v in sample_cfg.items() if k not in ["reads", "bam"]},
+            sample_name=sample_name,
+            **{k: v for k, v in sample_cfg.items() if k not in ["reads", "bam", "sample_name"]},
         ).build()
 
     elif sample_type == "asm":
@@ -115,7 +117,8 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         pipeline = AsmPipelineBuilder(
             reference=config["reference"],
             prefix=config["prefix"],
-            **sample_cfg,
+            sample_name=sample_name,
+            **{k: v for k, v in sample_cfg.items() if k != "sample_name"},
         ).build()
 
     else:

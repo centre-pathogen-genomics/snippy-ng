@@ -442,6 +442,7 @@ def gather_samples_config(
     Scan inputs for sequence files, build config dict, and return it.
     """
     normalized_reference = _to_absolute_path(Path(reference)) if reference else None
+    assert normalized_reference is None or normalized_reference.is_file(), f"Reference {normalized_reference} is not a file"
     normalized_exclude_files: List[Path] = [_to_absolute_path(p) for p in exclude_files] if exclude_files else []
     if normalized_reference:
         normalized_exclude_files.append(normalized_reference)
