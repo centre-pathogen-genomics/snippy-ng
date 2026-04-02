@@ -25,7 +25,7 @@ def gather(**config):
     
     inputs = config["inputs"] if config.get("inputs") else [os.getcwd()]
     
-    logger.info(f"Gathering samples from input directories: {', '.join(str(d) for d in inputs)}")
+    logger.info(f"Gathering samples from: {', '.join(str(d) for d in inputs)}")
     gathered = gather_samples_config(
         inputs=inputs,
         max_depth=config["max_depth"],
