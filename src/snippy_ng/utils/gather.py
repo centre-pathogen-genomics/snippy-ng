@@ -220,7 +220,7 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
     return {
         "type": "short",
         "left": str(r1),
-        "right": str(r2),
+        "right": str(r2) if r2 is not None else None,
     }
 
 
