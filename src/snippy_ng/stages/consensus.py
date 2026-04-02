@@ -63,9 +63,11 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
 
         bcf_csq_args = ["bcftools", "consensus"]
 
+        include_expr = 'FILTER="PASS"'
         if self.no_insertions:
             # Exclude insertions while retaining deletions, including symbolic DEL blocks.
-            bcf_csq_args.extend(["-i", 'strlen(ALT)<=strlen(REF) || ALT="<DEL>"'])
+            include_expr = f'({include_expr}) && (strlen(ALT)<=strlen(REF) || ALT="<DEL>")'
+        bcf_csq_args.extend(["-i", include_expr])
         if self.iupac_ambiguity_codes:
             bcf_csq_args.append("--iupac-codes")
         bcf_csq_args.extend([
