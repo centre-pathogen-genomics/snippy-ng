@@ -45,6 +45,13 @@ def _to_absolute_path(path: Path) -> Path:
     return Path(path).absolute()
 
 
+def _strip_bio_filename_suffixes(name: str) -> str:
+    """Strip common compression and bioinformatics file suffixes from a filename."""
+    name = re.sub(r"\.(?:gz|xz|zstd)$", "", name, flags=re.I)
+    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna|bam|cram|sam|vcf|bcf)$", "", name, flags=re.I)
+    return name
+
+
 def _open_maybe_compressed(p: Path) -> io.TextIOBase:
     """
     Open text stream, handling gzip by extension.
@@ -103,10 +110,7 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
     If aggressive=True, also strip _S1 and _L001, leaving just Control-A1
     """
     name = filename
-    # strip compression
-    name = re.sub(r"\.(?:gz|xz|zstd)$", "", name, flags=re.I)
-    # strip common bioinformatics file formats
-    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna|bam|cram|sam|vcf|bcf)$", "", name, flags=re.I)
+    name = _strip_bio_filename_suffixes(name)
 
     # optional illumina lane / sample indices
     if aggressive:
@@ -183,17 +187,25 @@ def scan_sequence_files(
 
 
 def _find_r1_r2(files: List[Path]) -> Tuple[Optional[Path], Optional[Path]]:
+    def _pair_token(path: Path) -> Optional[str]:
+        name = _strip_bio_filename_suffixes(path.name)
+        match = re.search(r"(?:^|_)(R?[12])(?:_\d+)?(?:[._-][A-Za-z0-9]+)*$", name, flags=re.I)
+        if not match:
+            return None
+        token = match.group(1).upper()
+        return "R1" if token in {"1", "R1"} else "R2"
+
     r1 = None
     r2 = None
     for p in files:
-        n = p.name
-        if re.search(r"(?:R?1(?:_\d+)?)(?:\.\w+)*$", n):
+        pair = _pair_token(p)
+        if pair == "R1":
             if r1 is not None:
-                _raise_duplicate_candidate_error(n, "R1", r1, p)
+                _raise_duplicate_candidate_error(p.name, "R1", r1, p)
             r1 = p
-        elif re.search(r"(?:R?2(?:_\d+)?)(?:\.\w+)*$", n):
+        elif pair == "R2":
             if r2 is not None:
-                _raise_duplicate_candidate_error(n, "R2", r2, p)
+                _raise_duplicate_candidate_error(p.name, "R2", r2, p)
             r2 = p
     return r1, r2
 
