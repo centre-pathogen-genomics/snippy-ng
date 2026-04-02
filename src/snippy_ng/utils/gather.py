@@ -45,6 +45,13 @@ def _to_absolute_path(path: Path) -> Path:
     return Path(path).absolute()
 
 
+def _strip_bio_filename_suffixes(name: str) -> str:
+    """Strip common compression and bioinformatics file suffixes from a filename."""
+    name = re.sub(r"\.(?:gz|xz|zstd)$", "", name, flags=re.I)
+    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna|bam|cram|sam|vcf|bcf)$", "", name, flags=re.I)
+    return name
+
+
 def _open_maybe_compressed(p: Path) -> io.TextIOBase:
     """
     Open text stream, handling gzip by extension.
@@ -103,10 +110,7 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
     If aggressive=True, also strip _S1 and _L001, leaving just Control-A1
     """
     name = filename
-    # strip compression
-    name = re.sub(r"\.(?:gz|xz|zstd)$", "", name, flags=re.I)
-    # strip common bioinformatics file formats
-    name = re.sub(r"\.(?:fq|fastq|fa|fasta|fna|bam|cram|sam|vcf|bcf)$", "", name, flags=re.I)
+    name = _strip_bio_filename_suffixes(name)
 
     # optional illumina lane / sample indices
     if aggressive:
@@ -114,9 +118,10 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
         name = re.sub(r"_L\d{3}", "", name)
 
     # strip common read-direction suffixes
-    # examples: _R1, _R1_001, _1, _2, R1, R2 (with or without prefix)
-    # Match either: underscore prefix OR start of string (for files like R1.fastq)
-    name = re.sub(r"(?:_|^)(?:R?[12])(?:_\d+)?$", "", name)
+    # examples: _R1, _R1_001, _1, _2, _1.trim, _2.trimmed, _R1.clean, R1, R2
+    # Match either: underscore prefix OR start of string (for files like R1.fastq),
+    # then allow optional trailing dot/underscore/hyphen separated tags after the read token.
+    name = re.sub(r"(?:_|^)(?:R?[12])(?:(?:[._-][A-Za-z0-9]+)*)$", "", name, flags=re.I)
 
     return name
 
@@ -182,17 +187,25 @@ def scan_sequence_files(
 
 
 def _find_r1_r2(files: List[Path]) -> Tuple[Optional[Path], Optional[Path]]:
+    def _pair_token(path: Path) -> Optional[str]:
+        name = _strip_bio_filename_suffixes(path.name)
+        match = re.search(r"(?:^|_)(R?[12])(?:_\d+)?(?:[._-][A-Za-z0-9]+)*$", name, flags=re.I)
+        if not match:
+            return None
+        token = match.group(1).upper()
+        return "R1" if token in {"1", "R1"} else "R2"
+
     r1 = None
     r2 = None
     for p in files:
-        n = p.name
-        if re.search(r"(?:R?1(?:_\d+)?)(?:\.\w+)*$", n):
+        pair = _pair_token(p)
+        if pair == "R1":
             if r1 is not None:
-                _raise_duplicate_candidate_error(n, "R1", r1, p)
+                _raise_duplicate_candidate_error(p.name, "R1", r1, p)
             r1 = p
-        elif re.search(r"(?:R?2(?:_\d+)?)(?:\.\w+)*$", n):
+        elif pair == "R2":
             if r2 is not None:
-                _raise_duplicate_candidate_error(n, "R2", r2, p)
+                _raise_duplicate_candidate_error(p.name, "R2", r2, p)
             r2 = p
     return r1, r2
 
@@ -219,7 +232,7 @@ def handle_ILL(sample_id: str, items: List[SeqFile]) -> Dict:
     return {
         "type": "short",
         "left": str(r1),
-        "right": str(r2),
+        "right": str(r2) if r2 is not None else None,
     }
 
 
@@ -233,7 +246,7 @@ def handle_ONT(sample_id: str, items: List[SeqFile]) -> Dict:
         "type": "long",
         "reads": str(paths[0]),
         "caller": "clair3",
-        "clair3_model": "",
+        "clair3_model": None,
     }
     return entry
 
@@ -429,6 +442,8 @@ def gather_samples_config(
     Scan inputs for sequence files, build config dict, and return it.
     """
     normalized_reference = _to_absolute_path(Path(reference)) if reference else None
+    if normalized_reference and not normalized_reference.is_file():
+        raise GatherSamplesError(f"Reference path '{normalized_reference}' is not a file.")
     normalized_exclude_files: List[Path] = [_to_absolute_path(p) for p in exclude_files] if exclude_files else []
     if normalized_reference:
         normalized_exclude_files.append(normalized_reference)

@@ -1,9 +1,16 @@
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
-from tests.integration.simulation import PROJECT_ROOT, VariantRecord
+from tests.integration.simulation import (
+    DEFAULT_REFERENCE,
+    PROJECT_ROOT,
+    SimulationRequest,
+    VariantRecord,
+    materialize_scenario,
+)
 
 
 pytestmark = pytest.mark.integration_sim
@@ -177,3 +184,81 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
         and "ZERODEPTH" in record[7]
         for record in deletion_records
     ), deletion_records
+
+
+def _read_fasta_sequence(path: Path, contig: str) -> str:
+    current = None
+    chunks = []
+    with open(path, "r") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if current == contig:
+                    return "".join(chunks)
+                current = line[1:].split()[0]
+                chunks = []
+                continue
+            if current == contig:
+                chunks.append(line)
+    if current == contig:
+        return "".join(chunks)
+    raise AssertionError(f"Contig {contig!r} not found in {path}")
+
+
+def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_root):
+    variant = VariantRecord("Wildtype", 20, "A", "C")
+    request = SimulationRequest(
+        name="short_pass_only_consensus",
+        reference=DEFAULT_REFERENCE,
+        truth_variants=(variant,),
+        untouched_regions=(("Wildtype", 200, 260),),
+    )
+    materialized = materialize_scenario(
+        request=request,
+        input_type="short",
+        cache_root=integration_cache_root,
+    )
+    outdir = tmp_path / "short-pass-only-consensus"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "short",
+            "--reference", str(request.reference),
+            "--R1", str(materialized.reads_r1),
+            "--R2", str(materialized.reads_r2),
+            "--outdir", str(outdir),
+            "--prefix", "snippy",
+            "--skip-check",
+            "--cpus", "1",
+            "--ram", "4",
+            "--min-qual", "999999",
+            "--depth-mask", "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    variant_records = []
+    with open(outdir / "snippy.vcf", "r") as handle:
+        for line in handle:
+            if line.startswith("#"):
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if cols[0] == variant.chrom and cols[1] == str(variant.pos):
+                variant_records.append(cols)
+
+    assert variant_records, "Expected called variant record in output VCF"
+    assert any(record[6] != "PASS" for record in variant_records), variant_records
+
+    reference_seq = _read_fasta_sequence(request.reference, variant.chrom)
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.pseudo.fna", variant.chrom)
+    assert consensus_seq[variant.pos - 1] == reference_seq[variant.pos - 1]

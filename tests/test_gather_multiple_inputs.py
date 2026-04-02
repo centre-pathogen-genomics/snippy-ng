@@ -1,6 +1,8 @@
 """Test gathering samples from multiple input directories."""
 import gzip
+import pytest
 from snippy_ng.utils.gather import gather_samples_config
+from snippy_ng.utils.gather import guess_sample_id
 
 
 def test_gather_multiple_directories_with_same_basename(tmp_path):
@@ -212,3 +214,178 @@ def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
     assert "ref" not in samples
     assert "data-ref" in samples
     assert samples["data-ref"]["type"] == "asm"
+
+
+def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
+    """mutant_1.trim/mutant_2.trim FASTQs should be grouped as one short-read sample."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    for name in ("mutant_1.trim.fastq.gz", "mutant_2.trim.fastq.gz"):
+        with gzip.open(data_dir / name, "wt") as fh:
+            fh.write("@read\nACGT\n+\nIIII\n")
+
+    cfg = gather_samples_config([data_dir])
+    samples = cfg["samples"]
+
+    assert "mutant" in samples
+    assert samples["mutant"]["type"] == "short"
+    assert samples["mutant"]["left"] == str(data_dir / "mutant_1.trim.fastq.gz")
+    assert samples["mutant"]["right"] == str(data_dir / "mutant_2.trim.fastq.gz")
+    assert "mutant_1.trim" not in samples
+    assert "mutant_2.trim" not in samples
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("sample_1.fastq.gz", "sample"),
+        ("sample_2.fastq.gz", "sample"),
+        ("sample_R1.fastq.gz", "sample"),
+        ("sample_R2.fastq.gz", "sample"),
+        ("sample_R1_001.fastq.gz", "sample"),
+        ("sample_1.trim.fastq.gz", "sample"),
+        ("sample_2.trimmed.fastq.gz", "sample"),
+        ("sample_R1.clean.fastq.gz", "sample"),
+    ],
+)
+def test_guess_sample_id_strips_common_read_suffix_variants(filename, expected):
+    assert guess_sample_id(filename) == expected
+
+
+def test_gather_single_short_read_keeps_right_as_none(tmp_path):
+    """A single short-read file should not serialize missing R2 as the string 'None'."""
+    reads = tmp_path / "single.fastq"
+    reads.write_text("@read\nACGT\n+\nIIII\n")
+
+    cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
+
+    assert "single" in samples
+    assert samples["single"]["type"] == "short"
+    assert samples["single"]["left"] == str(reads)
+    assert samples["single"]["right"] is None
+
+
+def test_gather_srr_pair_with_numeric_sample_id_groups_r1_r2_correctly(tmp_path):
+    """SRR-style names ending in _1/_2 should not be misclassified as duplicate R1s."""
+    r1 = tmp_path / "SRR6171131_1.fastq"
+    r2 = tmp_path / "SRR6171131_2.fastq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
+
+    assert "SRR6171131" in samples
+    assert samples["SRR6171131"]["type"] == "short"
+    assert samples["SRR6171131"]["left"] == str(r1)
+    assert samples["SRR6171131"]["right"] == str(r2)
+
+
+def test_gather_kitchen_sink_mixed_layouts_and_naming_styles(tmp_path):
+    """Gather should handle a realistic mix of roots, file kinds, pair styles, and collisions."""
+    ref = tmp_path / "reference.fa"
+    ref.write_text(">ref\nACGT\n")
+
+    outbreak_a = tmp_path / "outbreak_a"
+    outbreak_b = tmp_path / "outbreak_b"
+    misc = tmp_path / "misc"
+    outbreak_a.mkdir()
+    outbreak_b.mkdir()
+    misc.mkdir()
+
+    # Paired short reads with explicit R1/R2 suffixes.
+    sample_alpha = outbreak_a / "sample_alpha"
+    sample_alpha.mkdir()
+    (sample_alpha / "alpha_R1.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    (sample_alpha / "alpha_R2.fastq").write_text("@read\nTGCA\n+\nIIII\n")
+
+    # Paired short reads using trimmed _1/_2 naming.
+    trimmed = outbreak_a / "trimmed"
+    trimmed.mkdir()
+    with gzip.open(trimmed / "mutant_1.trim.fastq.gz", "wt") as fh:
+        fh.write("@read\nACGT\n+\nIIII\n")
+    with gzip.open(trimmed / "mutant_2.trimmed.fastq.gz", "wt") as fh:
+        fh.write("@read\nTGCA\n+\nIIII\n")
+
+    # SRR-style numeric sample id pair.
+    with gzip.open(outbreak_a / "SRR6171131_1.fastq.gz", "wt") as fh:
+        fh.write("@read\nACGT\n+\nIIII\n")
+    with gzip.open(outbreak_a / "SRR6171131_2.fastq.gz", "wt") as fh:
+        fh.write("@read\nTGCA\n+\nIIII\n")
+
+    # Directory-based sample naming with plain R1/R2 filenames.
+    sample_1 = outbreak_b / "sample_1"
+    sample_2 = outbreak_b / "sample_2"
+    sample_1.mkdir()
+    sample_2.mkdir()
+    with gzip.open(sample_1 / "R1.fastq.gz", "wt") as fh:
+        fh.write("@read\nACGT\n+\nIIII\n")
+    with gzip.open(sample_1 / "R2.fastq.gz", "wt") as fh:
+        fh.write("@read\nTGCA\n+\nIIII\n")
+    with gzip.open(sample_2 / "R1.fastq.gz", "wt") as fh:
+        fh.write("@read\nACGT\n+\nIIII\n")
+    with gzip.open(sample_2 / "R2.fastq.gz", "wt") as fh:
+        fh.write("@read\nTGCA\n+\nIIII\n")
+
+    # Single short read should stay unpaired.
+    (misc / "single.clean.fastq").write_text("@read\nACGT\n+\nIIII\n")
+
+    # ONT-like long read.
+    with gzip.open(misc / "nanopore.fastq.gz", "wt") as fh:
+        fh.write("@550e8400-e29b-41d4-a716-446655440000\nACGT\n+\nIIII\n")
+
+    # Assemblies with same basename across roots should be prefixed.
+    (outbreak_a / "sample1.fasta").write_text(">contig1\nACGT\n")
+    (outbreak_b / "sample1.fasta").write_text(">contig2\nTGCA\n")
+
+    # Sample that would clash with reference id should be disambiguated.
+    (outbreak_b / "reference.fastq").write_text("@read\nACGT\n+\nIIII\n")
+
+    cfg = gather_samples_config([outbreak_a, outbreak_b, misc], reference=ref)
+    samples = cfg["samples"]
+
+    assert cfg["reference"] == str(ref.absolute())
+
+    assert "alpha" in samples
+    assert samples["alpha"]["type"] == "short"
+    assert samples["alpha"]["left"].endswith("alpha_R1.fastq")
+    assert samples["alpha"]["right"].endswith("alpha_R2.fastq")
+
+    assert "mutant" in samples
+    assert samples["mutant"]["type"] == "short"
+    assert samples["mutant"]["left"].endswith("mutant_1.trim.fastq.gz")
+    assert samples["mutant"]["right"].endswith("mutant_2.trimmed.fastq.gz")
+
+    assert "SRR6171131" in samples
+    assert samples["SRR6171131"]["type"] == "short"
+    assert samples["SRR6171131"]["left"].endswith("SRR6171131_1.fastq.gz")
+    assert samples["SRR6171131"]["right"].endswith("SRR6171131_2.fastq.gz")
+
+    assert "sample_1" in samples
+    assert samples["sample_1"]["type"] == "short"
+    assert samples["sample_1"]["left"].endswith("sample_1/R1.fastq.gz")
+    assert samples["sample_1"]["right"].endswith("sample_1/R2.fastq.gz")
+
+    assert "sample_2" in samples
+    assert samples["sample_2"]["type"] == "short"
+    assert samples["sample_2"]["left"].endswith("sample_2/R1.fastq.gz")
+    assert samples["sample_2"]["right"].endswith("sample_2/R2.fastq.gz")
+
+    assert "single.clean" in samples
+    assert samples["single.clean"]["type"] == "short"
+    assert samples["single.clean"]["right"] is None
+
+    assert "nanopore" in samples
+    assert samples["nanopore"]["type"] == "long"
+    assert samples["nanopore"]["reads"].endswith("nanopore.fastq.gz")
+
+    assert "outbreak_a-sample1" in samples
+    assert "outbreak_b-sample1" in samples
+    assert samples["outbreak_a-sample1"]["type"] == "asm"
+    assert samples["outbreak_b-sample1"]["type"] == "asm"
+
+    assert "outbreak_b-reference" in samples
+    assert samples["outbreak_b-reference"]["type"] == "short"
+    assert "reference" not in samples

@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines as _pl
+from snippy_ng.context import Context
+from snippy_ng.pipelines.multi import _run_one_sample
 
 
 @pytest.fixture(autouse=True)
@@ -321,3 +323,45 @@ def test_multi_cli_csv_without_reference(tmp_path):
     # Should fail with error about missing reference
     assert result.exit_code != 0
     assert "Reference must be provided" in result.output
+
+
+def test_run_one_sample_passes_disambiguated_sample_name_to_builder(monkeypatch, tmp_path):
+    captured = {}
+
+    class DummyPipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyShortPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            return DummyPipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.short.ShortPipelineBuilder", DummyShortPipelineBuilder)
+
+    job = (
+        "outbreak_b-JKD6159",
+        {
+            "type": "short",
+            "left": str(tmp_path / "JKD6159_R1.fastq.gz"),
+            "right": str(tmp_path / "JKD6159_R2.fastq.gz"),
+        },
+        {
+            "reference": str(tmp_path / "reference.fa"),
+            "outdir": str(tmp_path / "out"),
+            "prefix": "snippy",
+            "run_ctx": Context(outdir=tmp_path / "out", cpus=4).model_dump(mode="python"),
+            "cpus_per_sample": 2,
+        },
+    )
+
+    result = _run_one_sample(job)
+
+    assert result == "outbreak_b-JKD6159"
+    assert captured["sample_name"] == "outbreak_b-JKD6159"
+    assert captured["reads"] == [
+        str(tmp_path / "JKD6159_R1.fastq.gz"),
+        str(tmp_path / "JKD6159_R2.fastq.gz"),
+    ]

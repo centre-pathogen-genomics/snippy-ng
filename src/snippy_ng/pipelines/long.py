@@ -39,13 +39,14 @@ class LongPipelineBuilder(PipelineBuilder):
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=2, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
+    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
 
     def build(self) -> SnippyPipeline:
         """Build and return the long-read pipeline."""
         stages = []
         globals = {'prefix': self.prefix}
         stats_tsv = None
-        sample_name = None
+        sample_name = self.sample_name
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -91,12 +92,14 @@ class LongPipelineBuilder(PipelineBuilder):
 
         # Aligner
         if self.bam:
-            sample_name = guess_sample_id(Path(self.bam).name)
+            if sample_name is None:
+                sample_name = guess_sample_id(Path(self.bam).name)
             aligned_reads = self.bam
         else:
             # SeqKit read statistics
             stats_stage = SeqKitReadStatsBasic(
                 reads=current_reads,
+                sample_name=sample_name,
                 **globals
             )
             stages.append(stats_stage)
@@ -112,7 +115,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 )
             else:
                 raise ValueError(f"Unsupported aligner '{self.aligner}'")
-            if current_reads:
+            if current_reads and sample_name is None:
                 sample_name = guess_sample_id(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)

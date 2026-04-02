@@ -492,9 +492,11 @@ class AddDeletionstoVCF(BaseStage):
                         alt_allele = "-"
                         end_pos = end
                         svlen = -end
+                        log_ref_allele = ref_allele[:100]
+                        log_ref_suffix = "..." if len(ref_allele) > 100 else ""
                         logger.warning(
                             f"Encoding contig-start deletion for '{chrom}' with right anchor: "
-                            f"POS={pos}, REF={ref_allele}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                            f"POS={pos}, REF={log_ref_allele}{log_ref_suffix}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
                             f"Please ensure your downstream tools can handle this encoding."
                         )
                 else:

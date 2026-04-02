@@ -399,6 +399,7 @@ class SeqKitReadStats(BaseStage):
     """
     
     reads: List[Path] = Field(..., description="List of input read files (FASTQ or FASTA)")
+    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     all_stats: bool = Field(True, description="Output all statistics including quartiles and N50")
     tabular: bool = Field(True, description="Output in machine-friendly tabular format")
     basename_only: bool = Field(False, description="Only output basename of files")
@@ -532,7 +533,7 @@ class SeqKitReadStats(BaseStage):
         Returns:
             List[ShellCommand]: List containing the seqkit stats command.
         """
-        sample_name = guess_sample_id(Path(self.reads[0]).name)
+        sample_name = self.sample_name or guess_sample_id(Path(self.reads[0]).name)
         return [
             self.build_seqkit_stats_command(ctx),
             self.python_cmd(
