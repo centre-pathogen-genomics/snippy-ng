@@ -34,6 +34,8 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
 
         snippy-ng yolo
     """
+    import json
+    from collections import Counter
     from snippy_ng.context import Context
     from snippy_ng.logging import logger
     from snippy_ng.pipelines.common import load_or_prepare_reference
@@ -93,7 +95,14 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     if not samples:
         logger.error("No samples found. Please ensure you have at least one sample with reads in the input directory.")
         return 1
-    logger.info(f"Found {len(samples)} samples: {', '.join(samples.keys())}")
+    type_counts = Counter(sample_data.get("type", "unknown") for sample_data in samples.values())
+    type_summary = ", ".join(f"{sample_type}={count}" for sample_type, count in sorted(type_counts.items()))
+    logger.info(f"Found {len(samples)} samples ({type_summary})")
+    
+    # write config to output directory
+    with open(Path(outdir) / "samples.json", "w") as f:
+        f.write(json.dumps(gathered, indent=2))
+
     # use freebayes for long read samples in YOLO mode
     # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
     fb_samples = {}
