@@ -114,9 +114,10 @@ def guess_sample_id(filename: str, aggressive: bool = False) -> str:
         name = re.sub(r"_L\d{3}", "", name)
 
     # strip common read-direction suffixes
-    # examples: _R1, _R1_001, _1, _2, R1, R2 (with or without prefix)
-    # Match either: underscore prefix OR start of string (for files like R1.fastq)
-    name = re.sub(r"(?:_|^)(?:R?[12])(?:_\d+)?$", "", name)
+    # examples: _R1, _R1_001, _1, _2, _1.trim, _2.trimmed, _R1.clean, R1, R2
+    # Match either: underscore prefix OR start of string (for files like R1.fastq),
+    # then allow optional trailing dot/underscore/hyphen separated tags after the read token.
+    name = re.sub(r"(?:_|^)(?:R?[12])(?:(?:[._-][A-Za-z0-9]+)*)$", "", name, flags=re.I)
 
     return name
 
