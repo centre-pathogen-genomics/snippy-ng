@@ -219,12 +219,12 @@ def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
 
 def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
     """mutant_1.trim/mutant_2.trim FASTQs should be grouped as one short-read sample."""
-    source_dir = Path(__file__).resolve().parent / "data"
     data_dir = tmp_path / "data"
     data_dir.mkdir()
 
     for name in ("mutant_1.trim.fastq.gz", "mutant_2.trim.fastq.gz"):
-        (data_dir / name).write_bytes((source_dir / name).read_bytes())
+        with gzip.open(data_dir / name, "wt") as fh:
+            fh.write("@read\nACGT\n+\nIIII\n")
 
     cfg = gather_samples_config([data_dir])
     samples = cfg["samples"]
@@ -252,3 +252,17 @@ def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
 )
 def test_guess_sample_id_strips_common_read_suffix_variants(filename, expected):
     assert guess_sample_id(filename) == expected
+
+
+def test_gather_single_short_read_keeps_right_as_none(tmp_path):
+    """A single short-read file should not serialize missing R2 as the string 'None'."""
+    reads = tmp_path / "single.fastq"
+    reads.write_text("@read\nACGT\n+\nIIII\n")
+
+    cfg = gather_samples_config([tmp_path])
+    samples = cfg["samples"]
+
+    assert "single" in samples
+    assert samples["single"]["type"] == "short"
+    assert samples["single"]["left"] == str(reads)
+    assert samples["single"]["right"] is None
