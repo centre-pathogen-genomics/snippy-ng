@@ -100,6 +100,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     logger.info(f"Found {len(samples)} samples ({type_summary})")
     
     # write config to output directory
+    outdir.mkdir(parents=True, exist_ok=True)
     with open(Path(outdir) / "samples.json", "w") as f:
         f.write(json.dumps(gathered, indent=2))
 
