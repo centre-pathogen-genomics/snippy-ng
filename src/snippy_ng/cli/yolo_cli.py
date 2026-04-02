@@ -81,6 +81,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         )
 
     # find all samples in the directory and create config
+    logger.info(f"Gathering samples from input directories: {', '.join(str(d) for d in directories)}")
     gathered = gather_samples_config(
         inputs=directories,
         max_depth=4,

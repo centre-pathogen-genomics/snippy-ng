@@ -19,10 +19,14 @@ def gather(**config):
         $ snippy-ng utils gather > samples.csv
     """
     from snippy_ng.utils.gather import gather_samples_config
+    from snippy_ng.logging import logger
     import os
-
+    
+    inputs = config["inputs"] if config.get("inputs") else [os.getcwd()]
+    
+    logger.info(f"Gathering samples from input directories: {', '.join(str(d) for d in inputs)}")
     gathered = gather_samples_config(
-        inputs=config["inputs"] if config.get("inputs") else [os.getcwd()],
+        inputs=inputs,
         max_depth=config["max_depth"],
         aggressive_ids=config["aggressive_ids"],
         exclude_name_regex=config["exclude"],
