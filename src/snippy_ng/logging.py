@@ -60,9 +60,10 @@ class Logger():
             if not message.endswith("\n"):
                 handle.write("\n")
 
-    def echo(self, message='', err=False, **kwargs):
+    def echo(self, message='', err=False, console=True, **kwargs):
         """Echo a message to the console."""
-        click.echo(message, err=err, **kwargs)
+        if console:
+            click.echo(message, err=err, **kwargs)
         self._append_to_file(message)
 
     def info(self, msg):

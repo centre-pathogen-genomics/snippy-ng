@@ -443,6 +443,7 @@ def test_multi_cli_default_keeps_going_and_uses_only_successful_samples_for_core
 
     assert result.exit_code == 0, result.output
     assert captured_core["snippy_dirs"] == [str(outdir / "samples" / "sample1")]
+    assert captured_multi["run_ctx"].log_path == (outdir / "LOG.txt").absolute()
 
 
 def test_multi_cli_partial_success_exits_nonzero_after_core(monkeypatch, tmp_path):
@@ -558,3 +559,4 @@ def test_multi_cli_stop_on_failure_passes_fail_fast_mode_to_runner(monkeypatch, 
 
     assert result.exit_code == 0, result.output
     assert captured_multi["stop_on_failure"] is True
+    assert captured_multi["run_ctx"].log_path == (outdir / "LOG.txt").absolute()

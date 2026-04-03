@@ -10,6 +10,7 @@ import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options
+from snippy_ng.context import Context
 
 
 @click.command(
@@ -36,7 +37,6 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     """
     import json
     from collections import Counter
-    from snippy_ng.context import Context
     from snippy_ng.logging import logger, derive_log_path
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
@@ -122,7 +122,8 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     if context["cpus"] is None:
         context["cpus"] = os.cpu_count() or 1
-    context["log_path"] = derive_log_path(context.get("log_path"), outdir / "reference")
+    root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
+    context["log_path"] = derive_log_path(root_log_path, outdir / "reference")
     context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)

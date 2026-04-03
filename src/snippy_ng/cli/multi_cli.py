@@ -4,6 +4,7 @@ import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
+from snippy_ng.context import Context
 from snippy_ng.exceptions import PipelineExecutionError
 from snippy_ng.logging import derive_log_path
 
@@ -35,7 +36,6 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         $ snippy-ng gather --ref reference.fasta --json | snippy-ng multi -
 
     """
-    from snippy_ng.context import Context
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline
@@ -53,7 +53,8 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         reference_path=cfg["reference"],
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    context["log_path"] = derive_log_path(context.get("log_path"), outdir / "reference")
+    root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
+    context["log_path"] = derive_log_path(root_log_path, outdir / "reference")
     context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)

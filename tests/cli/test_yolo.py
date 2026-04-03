@@ -17,12 +17,14 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
 
     _, ref_file = make_prepared_reference(tmp_path)
     stub_load_or_prepare_reference(monkeypatch, ref_file)
+    captured = {}
 
     class DummySnippyPipeline:
         def __init__(self, stages=None, outputs_to_keep=None):
             self.stages = stages or []
 
         def run(self, _ctx):
+            captured.setdefault("run_contexts", []).append(_ctx.model_copy(deep=True))
             return 0
 
     monkeypatch.setattr("snippy_ng.pipelines.SnippyPipeline", DummySnippyPipeline)
@@ -56,6 +58,7 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
         "snippy_ng.pipelines.core.CorePipelineBuilder",
         DummyCorePipelineBuilder,
     )
+    return captured
 
 
 def _run_yolo(tmp_path, *extra_args):
@@ -74,7 +77,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
         "s2": {"type": "short"},
         "s3": {"type": "short"},
     }
-    _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
+    captured_pipeline = _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
@@ -102,6 +105,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     assert captured["aln"] == outdir / "core" / "core.095.aln"
     assert captured["fconst"] == "1,2,3,4"
     assert captured["fast_mode"] is False
+    assert captured_pipeline["run_contexts"][0].log_path == (outdir / "reference" / "LOG.txt").absolute()
 
 
 def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
@@ -109,7 +113,7 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
         "s1": {"type": "short"},
         "s2": {"type": "short"},
     }
-    _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
+    captured_pipeline = _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     class ShouldNotBeCalledTreePipelineBuilder:
@@ -124,6 +128,7 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
     _, result = _run_yolo(tmp_path)
 
     assert result.exit_code == 0, result.output
+    assert captured_pipeline["run_contexts"][0].log_path == ((tmp_path / "out") / "reference" / "LOG.txt").absolute()
 
 
 def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tmp_path):
