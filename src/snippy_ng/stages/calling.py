@@ -9,6 +9,35 @@ from snippy_ng.logging import logger
 from pydantic import Field, AfterValidator
 
 
+MIN_FREEBAYES_CHUNK_SIZE = 1000
+
+
+def estimate_reference_bases(reference: Path, reference_index: Path) -> int:
+    """Estimate reference size in bases, preferring the FASTA index if available."""
+    if reference_index.exists():
+        total = 0
+        with open(reference_index, "r", encoding="utf-8") as handle:
+            for line in handle:
+                fields = line.rstrip("\n").split("\t")
+                if len(fields) < 2:
+                    continue
+                try:
+                    total += int(fields[1])
+                except ValueError:
+                    continue
+        if total > 0:
+            return total
+    return max(1, reference.stat().st_size)
+
+
+def get_freebayes_chunk_size(reference: Path, reference_index: Path, cpus: int) -> tuple[int, int]:
+    """Choose a chunk size that oversamples slightly relative to the available CPUs."""
+    refsize = estimate_reference_bases(reference, reference_index)
+    num_chunks = 1 + 2 * (max(1, cpus) - 1)
+    chunk_size = max(MIN_FREEBAYES_CHUNK_SIZE, int(refsize / num_chunks))
+    return num_chunks, chunk_size
+
+
 def no_spaces(v: str) -> str:
     """Ensure that a string contains no spaces."""
     if " " in v:
@@ -72,10 +101,14 @@ class FreebayesCaller(Caller):
     
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
+        num_chunks, chunk_size = get_freebayes_chunk_size(self.reference, self.reference_index, ctx.cpus)
+        logger.info(
+            f"Freebayes will process {num_chunks} chunks of {chunk_size} bp, {ctx.cpus} chunks at a time."
+        )
 
         # 1) Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
-            ["fasta_generate_regions.py", str(self.reference_index), "202106"],
+            ["fasta_generate_regions.py", str(self.reference_index), str(chunk_size)],
             description="Generate genomic regions for parallel variant calling",
         )
         generate_regions_pipeline = self.shell_pipe(
@@ -120,10 +153,14 @@ class FreebayesCallerLong(FreebayesCaller):
 
     def create_commands(self, ctx) -> List:
         """Constructs the Freebayes variant calling and postprocessing commands."""
+        num_chunks, chunk_size = get_freebayes_chunk_size(self.reference, self.reference_index, ctx.cpus)
+        logger.info(
+            f"Freebayes will process {num_chunks} chunks of {chunk_size} bp, {ctx.cpus} chunks at a time."
+        )
 
         # Regions for parallel FreeBayes
         generate_regions_cmd = self.shell_cmd(
-            ["fasta_generate_regions.py", str(self.reference_index), "202106"],
+            ["fasta_generate_regions.py", str(self.reference_index), str(chunk_size)],
             description="Generate genomic regions for parallel variant calling",
             output_file=Path(self.output.regions),
         )
