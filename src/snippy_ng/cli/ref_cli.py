@@ -8,16 +8,16 @@ from pathlib import Path
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=check_outdir_callback, cls=GlobalOption)
 @add_snippy_global_options(exclude=['outdir', 'prefix'])
-@click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank)")
-def ref(reference: Path, outdir: Path, **context: Any):
+@click.argument("reference", required=True, type=AbsolutePath(exists=True, readable=True))
+def ref(reference: Path, **context: Any):
     """
-    Prepare a reference genome for use with snippy-ng. 
+    Prepare a reference genome for use with snippy-ng
     
     This includes converting gbk to gff, indexing the reference and creating any necessary auxiliary files.
 
     Examples:
 
-        $ snippy-ng utils ref --reference ref.fa --outdir output
+        $ snippy-ng utils ref my_reference.gbk
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.common import prepare_reference
@@ -25,10 +25,8 @@ def ref(reference: Path, outdir: Path, **context: Any):
 
     ref_stage = prepare_reference(
                 reference_path=reference,
-                output_directory=outdir
             )
     pipeline = SnippyPipeline(stages=[ref_stage])
 
-    context["outdir"] = Path(".")
     run_ctx = Context(**context)
     return pipeline.run(run_ctx)
