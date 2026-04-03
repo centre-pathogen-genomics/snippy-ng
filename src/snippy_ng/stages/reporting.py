@@ -101,6 +101,7 @@ class PrintVcfHistogram(BaseStage):
                     self.margin_cols,
                     self.min_cols_per_contig,
                     self.draw_separators,
+                    not ctx.debug,
                 ],
                 description="Print terminal genome-wide histogram for VCF files",
             )
@@ -114,6 +115,7 @@ class PrintVcfHistogram(BaseStage):
         margin_cols: int = 1,
         min_cols_per_contig: int = 1,
         draw_separators: bool = True,
+        pass_only: bool = True,
     ) -> None:
 
         # --- VCF parsing (contigs + records) ---
@@ -159,13 +161,15 @@ class PrintVcfHistogram(BaseStage):
 
             return contigs
 
-        def iter_vcf_records(vcf_path: Union[str, Path]) -> Iterable[Tuple[str, int]]:
+        def iter_vcf_records(vcf_path: Union[str, Path], pass_only: bool = True) -> Iterable[Tuple[str, int]]:
             with open_text_maybe_gzip(vcf_path) as f:
                 for line in f:
                     if not line or line[0] == "#":
                         continue
                     fields = line.rstrip("\n").split("\t")
-                    if len(fields) < 2:
+                    if len(fields) < 7:
+                        continue
+                    if pass_only and fields[6] != "PASS":
                         continue
                     chrom = fields[0]
                     try:
@@ -234,6 +238,7 @@ class PrintVcfHistogram(BaseStage):
             vcf_path: Union[str, Path],
             contigs: List[Tuple[str, int]],
             columns_per_contig: List[int],
+            pass_only: bool = True,
         ) -> List[int]:
             if len(contigs) != len(columns_per_contig):
                 raise ValueError("contigs and columns_per_contig must have the same length")
@@ -247,7 +252,7 @@ class PrintVcfHistogram(BaseStage):
                 if w > 0:
                     bins[cid] = [0] * w
 
-            for chrom, pos in iter_vcf_records(vcf_path):
+            for chrom, pos in iter_vcf_records(vcf_path, pass_only=pass_only):
                 if chrom not in bins:
                     continue
                 L = lengths.get(chrom)
@@ -342,6 +347,7 @@ class PrintVcfHistogram(BaseStage):
             margin_cols: int = 1,
             min_cols_per_contig: int = 1,
             draw_separators: bool = True,
+            pass_only: bool = True,
         ) -> None:
             contigs = parse_contigs_from_vcf_header(vcf_path)
             if contig_order == "alpha":
@@ -360,7 +366,12 @@ class PrintVcfHistogram(BaseStage):
                 contigs, usable_cols, min_cols_per_contig=min_cols_per_contig
             )
 
-            counts = genome_wide_binned_counts_variable_width(vcf_path, contigs, cols_per_contig)
+            counts = genome_wide_binned_counts_variable_width(
+                vcf_path,
+                contigs,
+                cols_per_contig,
+                pass_only=pass_only,
+            )
 
             separators_after: Optional[List[int]] = None
             if draw_separators:
@@ -373,7 +384,8 @@ class PrintVcfHistogram(BaseStage):
                 if separators_after and separators_after[-1] == len(counts) - 1:
                     separators_after.pop()
             if not sum(counts):
-                logger.warning(f"No variants found in VCF {vcf_path}, skipping histogram.")
+                filter_label = "PASS variants" if pass_only else "variants"
+                logger.warning(f"No {filter_label} found in VCF {vcf_path}, skipping histogram.")
                 return
             print_vertical_histogram(counts, height=height, separators_after=separators_after)
             print_contig_labels(contigs, cols_per_contig)
@@ -386,6 +398,7 @@ class PrintVcfHistogram(BaseStage):
             margin_cols=margin_cols,
             min_cols_per_contig=min_cols_per_contig,
             draw_separators=draw_separators,
+            pass_only=pass_only,
         )
 
 class FormatHTMLReportTemplateOutput(BaseOutput):
