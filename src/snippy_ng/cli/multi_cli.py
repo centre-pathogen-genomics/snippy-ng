@@ -5,6 +5,7 @@ import click
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 from snippy_ng.exceptions import PipelineExecutionError
+from snippy_ng.logging import derive_log_path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
@@ -52,10 +53,12 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         reference_path=cfg["reference"],
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
+    context["log_path"] = derive_log_path(context.get("log_path"), outdir / "reference")
     context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)
     run_ctx.outdir = outdir
+    run_ctx.log_path = derive_log_path(run_ctx.log_path, outdir)
 
     snippy_reference_dir = outdir / 'reference'
     successful_samples, failures = run_multi_pipeline(
@@ -81,6 +84,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         core=core,
     ).build()
     core_outdir = Path(outdir) / 'core'
+    context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     result = aln_pipeline.run(core_run_ctx)

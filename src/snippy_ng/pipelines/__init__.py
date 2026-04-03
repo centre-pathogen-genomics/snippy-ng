@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 
 from snippy_ng.exceptions import DependencyError, PipelineExecutionError
-from snippy_ng.logging import logger
+from snippy_ng.logging import derive_log_path, logger
 from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage, Context
 from snippy_ng.utils.files import human_readable_size
@@ -50,31 +50,39 @@ class SnippyPipeline:
 
 
     def run(self, context: Context):
+        previous_log_path = logger.get_log_path()
+        if context.log_path is not None:
+            logger.set_log_path(derive_log_path(context.log_path, context.outdir))
+            logger.reset_log_file()
+
         self.welcome()
 
-        if not context.skip_check:
-            try:
-                self.validate_dependencies()
-            except DependencyError as e:
-                raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
-        
-        if context.check:
-            return None
-
-        # Set working directory to output folder
-        current_dir = Path.cwd()
-        self.outdir = context.outdir
         try:
-            if self.outdir:    
-                self.set_working_directory(context.outdir)
-            self._execute_pipeline_stages_in_order(
-                context,
-            )
-            self.cleanup(context, outputs_to_keep=self.outputs_to_keep)
+            if not context.skip_check:
+                try:
+                    self.validate_dependencies()
+                except DependencyError as e:
+                    raise DependencyError(f"Invalid dependencies! Please install '{e}' or use --skip-check to ignore.") from e
+            
+            if context.check:
+                return None
+
+            # Set working directory to output folder
+            current_dir = Path.cwd()
+            self.outdir = context.outdir
+            try:
+                if self.outdir:    
+                    self.set_working_directory(context.outdir)
+                self._execute_pipeline_stages_in_order(
+                    context,
+                )
+                self.cleanup(context, outputs_to_keep=self.outputs_to_keep)
+            finally:
+                # Ensure we always return to the original working directory
+                os.chdir(current_dir)
+            self.goodbye()
         finally:
-            # Ensure we always return to the original working directory
-            os.chdir(current_dir)
-        self.goodbye()
+            logger.set_log_path(previous_log_path)
     
     def add_stage(self, stage):
         self.stages.append(stage)

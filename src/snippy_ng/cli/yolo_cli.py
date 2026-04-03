@@ -37,7 +37,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     import json
     from collections import Counter
     from snippy_ng.context import Context
-    from snippy_ng.logging import logger
+    from snippy_ng.logging import logger, derive_log_path
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
@@ -122,10 +122,12 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     if context["cpus"] is None:
         context["cpus"] = os.cpu_count() or 1
+    context["log_path"] = derive_log_path(context.get("log_path"), outdir / "reference")
     context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)
     run_ctx.outdir = outdir
+    run_ctx.log_path = derive_log_path(run_ctx.log_path, outdir)
 
     snippy_reference_dir = ref_stage.output.reference.parent
 
@@ -158,6 +160,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         core=soft_core_threshold,
     ).build()
     core_outdir = Path(outdir) / "core"
+    context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
@@ -182,6 +185,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         fast_mode=False,
     ).build()
     tree_outdir = Path(outdir) / "tree"
+    context["log_path"] = derive_log_path(run_ctx.log_path, tree_outdir)
     context["outdir"] = tree_outdir
     tree_run_ctx = Context(**context)
     tree_pipeline.run(tree_run_ctx)
@@ -196,6 +200,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         prefix="report",
     ).build()
     report_outdir = Path(outdir) / "report"
+    context["log_path"] = derive_log_path(run_ctx.log_path, report_outdir)
     context["outdir"] = report_outdir
     report_run_ctx = Context(**context)
     result = report_pipeline.run(report_run_ctx)

@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, TextIO, Tuple
 from collections import OrderedDict
 from snippy_ng.context import Context
 from snippy_ng.exceptions import PipelineExecutionError, SnippyError
-from snippy_ng.logging import logger
+from snippy_ng.logging import logger, derive_log_path
 import csv
 import json
 import io
@@ -162,6 +162,7 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         update={
             "outdir": outdir,
             "cpus": config["cpus_per_sample"],
+            "log_path": derive_log_path(parent_run_ctx.log_path, outdir),
         }
     )
     pipeline.run(run_ctx)
