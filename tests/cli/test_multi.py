@@ -25,6 +25,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages,
 def mock_multi_pipeline():
     """Mock the run_multi_pipeline function to avoid subprocess issues in tests."""
     with patch('snippy_ng.pipelines.multi.run_multi_pipeline') as mock:
+        mock.return_value = ([], [])
         yield mock
 
 
