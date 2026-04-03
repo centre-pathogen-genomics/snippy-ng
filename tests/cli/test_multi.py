@@ -9,6 +9,7 @@ from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines as _pl
 from snippy_ng.context import Context
 from snippy_ng.pipelines.multi import _run_one_sample
+from tests.cli.helpers import get_bad_reference_target, make_prepared_reference, stub_load_or_prepare_reference
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +28,62 @@ def mock_multi_pipeline():
     with patch('snippy_ng.pipelines.multi.run_multi_pipeline') as mock:
         mock.return_value = ([], [])
         yield mock
+
+
+def _write_multi_sample_inputs(tmp_path, samples_data):
+    if not isinstance(samples_data, dict):
+        return
+
+    for sample_cfg in samples_data.get("samples", {}).values():
+        sample_type = sample_cfg.get("type")
+        if sample_type == "short":
+            reads = sample_cfg.get("reads", [])
+            for read_file in reads:
+                (tmp_path / read_file).write_text(">read\nATCG")
+            if "left" in sample_cfg:
+                (tmp_path / sample_cfg["left"]).write_text(">read\nATCG")
+            if "right" in sample_cfg:
+                (tmp_path / sample_cfg["right"]).write_text(">read\nATCG")
+        elif sample_type == "long":
+            reads = sample_cfg.get("reads")
+            if reads:
+                (tmp_path / reads).write_text(">read\nATCG")
+        elif sample_type == "asm":
+            assembly = sample_cfg.get("assembly")
+            if assembly:
+                (tmp_path / assembly).write_text(">contig\nATCG")
+
+
+def _write_multi_config(tmp_path, config_type, samples_data):
+    config_file = tmp_path / f"config.{config_type}"
+    if config_type == "json":
+        if isinstance(samples_data, dict):
+            for sample_cfg in samples_data.get("samples", {}).values():
+                if "reads" in sample_cfg and isinstance(sample_cfg["reads"], list):
+                    sample_cfg["reads"] = [str(tmp_path / r) for r in sample_cfg["reads"]]
+                elif "reads" in sample_cfg and isinstance(sample_cfg["reads"], str):
+                    sample_cfg["reads"] = str(tmp_path / sample_cfg["reads"])
+                if "left" in sample_cfg:
+                    sample_cfg["left"] = str(tmp_path / sample_cfg["left"])
+                if "right" in sample_cfg:
+                    sample_cfg["right"] = str(tmp_path / sample_cfg["right"])
+                if "assembly" in sample_cfg:
+                    sample_cfg["assembly"] = str(tmp_path / sample_cfg["assembly"])
+            if "reference" in samples_data:
+                samples_data["reference"] = str(tmp_path / samples_data["reference"])
+        config_file.write_text(json.dumps(samples_data, indent=2))
+        return config_file
+
+    content = samples_data
+    for filename in ["reads1_R1.fq", "reads1_R2.fq", "reads2_R1.fq", "reads2_R2.fq"]:
+        content = content.replace(filename, str(tmp_path / filename))
+    config_file.write_text(content)
+    return config_file
+
+
+def _stub_multi_reference_loader(monkeypatch, tmp_path):
+    _, prepared_ref = make_prepared_reference(tmp_path, dirname="reference")
+    stub_load_or_prepare_reference(monkeypatch, prepared_ref)
 
 
 ##############################################################################
@@ -171,57 +228,8 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
     ref_file = tmp_path / "ref.fa"
     ref_file.write_text(">dummy\nATCG")
     
-    # Create sample files referenced in config
-    if isinstance(samples_data, dict):
-        for sample_name, sample_cfg in samples_data.get("samples", {}).items():
-            sample_type = sample_cfg.get("type")
-            
-            if sample_type == "short":
-                reads = sample_cfg.get("reads", [])
-                for read_file in reads:
-                    (tmp_path / read_file).write_text(">read\nATCG")
-                # Also create left/right if they exist
-                if "left" in sample_cfg:
-                    (tmp_path / sample_cfg["left"]).write_text(">read\nATCG")
-                if "right" in sample_cfg:
-                    (tmp_path / sample_cfg["right"]).write_text(">read\nATCG")
-                    
-            elif sample_type == "long":
-                reads = sample_cfg.get("reads")
-                if reads:
-                    (tmp_path / reads).write_text(">read\nATCG")
-                    
-            elif sample_type == "asm":
-                assembly = sample_cfg.get("assembly")
-                if assembly:
-                    (tmp_path / assembly).write_text(">contig\nATCG")
-    
-    # Create config file
-    config_file = tmp_path / f"config.{config_type}"
-    if config_type == "json":
-        # Update paths in JSON to be absolute
-        if isinstance(samples_data, dict):
-            for sample_name, sample_cfg in samples_data.get("samples", {}).items():
-                if "reads" in sample_cfg and isinstance(sample_cfg["reads"], list):
-                    sample_cfg["reads"] = [str(tmp_path / r) for r in sample_cfg["reads"]]
-                elif "reads" in sample_cfg and isinstance(sample_cfg["reads"], str):
-                    sample_cfg["reads"] = str(tmp_path / sample_cfg["reads"])
-                if "left" in sample_cfg:
-                    sample_cfg["left"] = str(tmp_path / sample_cfg["left"])
-                if "right" in sample_cfg:
-                    sample_cfg["right"] = str(tmp_path / sample_cfg["right"])
-                if "assembly" in sample_cfg:
-                    sample_cfg["assembly"] = str(tmp_path / sample_cfg["assembly"])
-            if "reference" in samples_data:
-                samples_data["reference"] = str(tmp_path / samples_data["reference"])
-        
-        config_file.write_text(json.dumps(samples_data, indent=2))
-    else:  # CSV or TSV
-        # Update paths in CSV/TSV content
-        content = samples_data
-        for filename in ["reads1_R1.fq", "reads1_R2.fq", "reads2_R1.fq", "reads2_R2.fq"]:
-            content = content.replace(filename, str(tmp_path / filename))
-        config_file.write_text(content)
+    _write_multi_sample_inputs(tmp_path, samples_data)
+    config_file = _write_multi_config(tmp_path, config_type, samples_data)
     
     outdir = tmp_path / "output"
     
@@ -231,6 +239,10 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
     
     if case_name == "bad_reference":
         monkeypatch.setattr("snippy_ng.pipelines.common.guess_reference_format", lambda _: None)
+        monkeypatch.setattr(
+            get_bad_reference_target("multi"),
+            lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("Could not determine reference format")),
+        )
     
     # Build command args
     args = ["multi", str(config_file)]
@@ -396,17 +408,7 @@ def test_multi_cli_default_keeps_going_and_uses_only_successful_samples_for_core
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 
-    def fake_load_or_prepare_reference(reference_path, output_directory):
-        ref_dir = Path(output_directory)
-        ref_dir.mkdir(parents=True, exist_ok=True)
-        prepared_ref = ref_dir / "genomic.fa"
-        prepared_ref.write_text(">ref\nACGT\n")
-        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
-
-    monkeypatch.setattr(
-        "snippy_ng.pipelines.common.load_or_prepare_reference",
-        fake_load_or_prepare_reference,
-    )
+    _stub_multi_reference_loader(monkeypatch, tmp_path)
 
     class DummyCorePipeline:
         def build(self):
@@ -465,17 +467,7 @@ def test_multi_cli_partial_success_exits_nonzero_after_core(monkeypatch, tmp_pat
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 
-    def fake_load_or_prepare_reference(reference_path, output_directory):
-        ref_dir = Path(output_directory)
-        ref_dir.mkdir(parents=True, exist_ok=True)
-        prepared_ref = ref_dir / "genomic.fa"
-        prepared_ref.write_text(">ref\nACGT\n")
-        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
-
-    monkeypatch.setattr(
-        "snippy_ng.pipelines.common.load_or_prepare_reference",
-        fake_load_or_prepare_reference,
-    )
+    _stub_multi_reference_loader(monkeypatch, tmp_path)
 
     class DummyCorePipeline:
         def run(self, _ctx):
@@ -533,17 +525,7 @@ def test_multi_cli_stop_on_failure_passes_fail_fast_mode_to_runner(monkeypatch, 
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 
-    def fake_load_or_prepare_reference(reference_path, output_directory):
-        ref_dir = Path(output_directory)
-        ref_dir.mkdir(parents=True, exist_ok=True)
-        prepared_ref = ref_dir / "genomic.fa"
-        prepared_ref.write_text(">ref\nACGT\n")
-        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
-
-    monkeypatch.setattr(
-        "snippy_ng.pipelines.common.load_or_prepare_reference",
-        fake_load_or_prepare_reference,
-    )
+    _stub_multi_reference_loader(monkeypatch, tmp_path)
 
     class DummyCorePipeline:
         def run(self, _ctx):

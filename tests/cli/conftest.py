@@ -1,6 +1,7 @@
 """
 Shared fixtures and stubs for CLI tests.
 """
+import json
 import types
 from pathlib import Path
 
@@ -89,15 +90,40 @@ def stub_reference_format(monkeypatch):
 @pytest.fixture
 def stub_common_stages(monkeypatch, tmp_path):
     """Stub out the common stages used across all pipelines."""
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps({
+        "reference": "ref.fa",
+        "format": "fasta",
+        "num_sequences": 1,
+        "total_length": 4,
+        "num_features": 0,
+        "prefix": "ref",
+        "datetime": "2026-01-01T00:00:00",
+        "version": "test",
+    }))
+    (tmp_path / "ref.fa").write_text(">ref\nATCG\n")
+    (tmp_path / "ref.gff").write_text("##gff-version 3\n")
+    (tmp_path / "ref.fa.fai").write_text("ref\t4\t5\t4\t5\n")
+    (tmp_path / "ref.dict").write_text("@SQ\tSN:ref\tLN:4\n")
+
+    prepare_reference_stage = stage_factory({
+        "reference": tmp_path / "ref.fa",
+        "gff": tmp_path / "ref.gff",
+        "reference_index": tmp_path / "ref.fa.fai",
+        "reference_dict": tmp_path / "ref.dict",
+        "metadata": tmp_path / "metadata.json"
+    })
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",
-        stage_factory({
-            "reference": tmp_path / "ref.fa",
-            "gff": tmp_path / "ref.gff",
-            "reference_index": tmp_path / "ref.fa.fai",
-            "reference_dict": tmp_path / "ref.dict",
-            "metadata": tmp_path / "metadata.json"
-        }),
+        prepare_reference_stage,
+    )
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.PrepareReference",
+        prepare_reference_stage,
+    )
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        lambda *args, **kwargs: prepare_reference_stage(),
     )
 
 
