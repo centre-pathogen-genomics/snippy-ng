@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 from unittest.mock import patch
@@ -365,3 +367,211 @@ def test_run_one_sample_passes_disambiguated_sample_name_to_builder(monkeypatch,
         str(tmp_path / "JKD6159_R1.fastq.gz"),
         str(tmp_path / "JKD6159_R2.fastq.gz"),
     ]
+
+
+def test_multi_cli_default_keeps_going_and_uses_only_successful_samples_for_core(monkeypatch, tmp_path):
+    ref_file = tmp_path / "ref.fa"
+    ref_file.write_text(">dummy\nATCG")
+
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "samples": {
+            "sample1": {"type": "short", "reads": [str(r1), str(r2)]},
+            "sample2": {"type": "short", "reads": [str(r1), str(r2)]},
+        }
+    }))
+
+    captured_multi = {}
+    captured_core = {}
+
+    def fake_run_multi_pipeline(**kwargs):
+        captured_multi.update(kwargs)
+        return ["sample1"], []
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
+
+    def fake_load_or_prepare_reference(reference_path, output_directory):
+        ref_dir = Path(output_directory)
+        ref_dir.mkdir(parents=True, exist_ok=True)
+        prepared_ref = ref_dir / "genomic.fa"
+        prepared_ref.write_text(">ref\nACGT\n")
+        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
+
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        fake_load_or_prepare_reference,
+    )
+
+    class DummyCorePipeline:
+        def build(self):
+            return self
+
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            captured_core.update(kwargs)
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    runner = CliRunner()
+    result = runner.invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            str(ref_file),
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured_core["snippy_dirs"] == [str(outdir / "samples" / "sample1")]
+
+
+def test_multi_cli_partial_success_exits_nonzero_after_core(monkeypatch, tmp_path):
+    ref_file = tmp_path / "ref.fa"
+    ref_file.write_text(">dummy\nATCG")
+
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "samples": {
+            "sample1": {"type": "short", "reads": [str(r1), str(r2)]},
+            "sample2": {"type": "short", "reads": [str(r1), str(r2)]},
+        }
+    }))
+
+    def fake_run_multi_pipeline(**kwargs):
+        return ["sample1"], [("sample2", "boom")]
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
+
+    def fake_load_or_prepare_reference(reference_path, output_directory):
+        ref_dir = Path(output_directory)
+        ref_dir.mkdir(parents=True, exist_ok=True)
+        prepared_ref = ref_dir / "genomic.fa"
+        prepared_ref.write_text(">ref\nACGT\n")
+        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
+
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        fake_load_or_prepare_reference,
+    )
+
+    class DummyCorePipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            pass
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    runner = CliRunner()
+    result = runner.invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            str(ref_file),
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Some samples failed" in result.output
+
+
+def test_multi_cli_stop_on_failure_passes_fail_fast_mode_to_runner(monkeypatch, tmp_path):
+    ref_file = tmp_path / "ref.fa"
+    ref_file.write_text(">dummy\nATCG")
+
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "samples": {
+            "sample1": {"type": "short", "reads": [str(r1), str(r2)]},
+        }
+    }))
+
+    captured_multi = {}
+
+    def fake_run_multi_pipeline(**kwargs):
+        captured_multi.update(kwargs)
+        return ["sample1"], []
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
+
+    def fake_load_or_prepare_reference(reference_path, output_directory):
+        ref_dir = Path(output_directory)
+        ref_dir.mkdir(parents=True, exist_ok=True)
+        prepared_ref = ref_dir / "genomic.fa"
+        prepared_ref.write_text(">ref\nACGT\n")
+        return SimpleNamespace(output=SimpleNamespace(reference=prepared_ref))
+
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        fake_load_or_prepare_reference,
+    )
+
+    class DummyCorePipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            pass
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    runner = CliRunner()
+    result = runner.invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            str(ref_file),
+            "--outdir",
+            str(outdir),
+            "--stop-on-failure",
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured_multi["stop_on_failure"] is True

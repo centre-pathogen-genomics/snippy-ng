@@ -4,6 +4,7 @@ import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
+from snippy_ng.exceptions import PipelineExecutionError
 
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
@@ -21,7 +22,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 )
 @click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
-def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, outdir: Path, prefix: str, **context: Any):
+@click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails")
+def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline
 
@@ -54,24 +56,35 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     ref_pipeline.run(run_ctx)
 
     snippy_reference_dir = ref_stage.output.reference.parent
-    run_multi_pipeline(
+    successful_samples, failures = run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
         prefix=prefix,
         run_ctx=run_ctx,
         cpus_per_sample=cpus_per_sample,
+        stop_on_failure=stop_on_failure,
     )
+    if failures and stop_on_failure:
+        raise PipelineExecutionError(
+            "Some samples failed:\n"
+            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+        )
     
     # core alignment
     from snippy_ng.pipelines.core import CorePipelineBuilder
 
     aln_pipeline = CorePipelineBuilder(
-        snippy_dirs=[str(outdir / 'samples' / sample) for sample in cfg["samples"]],
+        snippy_dirs=[str(outdir / 'samples' / sample) for sample in successful_samples],
         reference=snippy_reference_dir,
         core=core,
     ).build()
     core_outdir = Path(outdir) / 'core'
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
-    return aln_pipeline.run(core_run_ctx)
-
+    result = aln_pipeline.run(core_run_ctx)
+    if failures:
+        raise PipelineExecutionError(
+            "Some samples failed (outputs were produced for successful samples):\n"
+            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+        )
+    return result

@@ -76,7 +76,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     }
     _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
 
-    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: None)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     captured = {}
 
@@ -115,7 +115,7 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
         "s2": {"type": "short"},
     }
     _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
-    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: None)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     class ShouldNotBeCalledTreePipelineBuilder:
         def __init__(self, *args, **kwargs):
@@ -148,6 +148,7 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
 
     def fake_run_multi_pipeline(**kwargs):
         captured_multi.update(kwargs)
+        return list(samples.keys()), []
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 

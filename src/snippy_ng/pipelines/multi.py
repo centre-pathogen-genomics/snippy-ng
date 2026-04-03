@@ -10,6 +10,8 @@ import csv
 import json
 import io
 
+MultiPipelineResult = tuple[list[str], list[tuple[str, str]]]
+
 
 def run_multi_pipeline(
     snippy_reference_dir: Path,
@@ -18,7 +20,8 @@ def run_multi_pipeline(
     prefix: str,
     run_ctx: Context,
     cpus_per_sample: int,
-) -> None:
+    stop_on_failure: bool = False,
+) -> MultiPipelineResult:
     """
     Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
     """
@@ -46,32 +49,56 @@ def run_multi_pipeline(
 
     ctx = mp.get_context("spawn")  # safest cross-platform
     failures = []
+    successful_samples = []
 
-    with ProcessPoolExecutor(max_workers=max_parallel, mp_context=ctx) as executor:
+    executor = ProcessPoolExecutor(max_workers=max_parallel, mp_context=ctx)
+    fail_fast_shutdown = False
+    try:
         futures = {executor.submit(_run_one_sample, job): job[0] for job in jobs}
+        pending = set(futures)
 
-        for fut in as_completed(futures):
-            sample = futures[fut]
-            try:
-                fut.result()
-            except SnippyError as e:
-                failures.append((sample, str(e)))
-                logger.error(f"FAILED: {sample}: {e}")
-            except Exception as e:
-                # Catch any unexpected exception types so that multi-sample
-                # runs always complete with a consolidated failure summary.
-                failures.append((sample, str(e)))
-                logger.error(f"FAILED with unexpected error: {sample}: {e}")
+        while pending:
+            for fut in as_completed(pending):
+                pending.remove(fut)
+                sample = futures[fut]
+                try:
+                    fut.result()
+                    successful_samples.append(sample)
+                except SnippyError as e:
+                    failures.append((sample, str(e)))
+                    logger.error(f"FAILED: {sample}: {e}")
+                except Exception as e:
+                    # Catch any unexpected exception types so that multi-sample
+                    # runs always complete with a consolidated failure summary.
+                    failures.append((sample, str(e)))
+                    logger.error(f"FAILED with unexpected error: {sample}: {e}")
+
+                if failures and stop_on_failure:
+                    for pending_fut in pending:
+                        pending_fut.cancel()
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    fail_fast_shutdown = True
+                    pending.clear()
+                    break
+    finally:
+        if not fail_fast_shutdown:
+            executor.shutdown(wait=True)
 
     if failures:
-        raise PipelineExecutionError("Some samples failed (check logs for details):\n" + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures))
+        failed_samples_tsv = Path(run_ctx.outdir) / f"{prefix}.failed.tsv"
+        _write_failed_samples_tsv(failures=failures, output_path=failed_samples_tsv)
+        logger.warning(f"Skipping {len(failures)} failed samples; wrote {failed_samples_tsv}")
+
+    if not successful_samples:
+        raise PipelineExecutionError("No samples completed successfully.")
 
     _combine_sample_stats(
         samples_dir=Path(run_ctx.outdir) / "samples",
-        sample_names=list(samples.keys()),
+        sample_names=successful_samples,
         prefix=prefix,
         outdir=Path(run_ctx.outdir),
     )
+    return successful_samples, failures
     
 
 def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
@@ -192,6 +219,17 @@ def _concat_tsv_files(sample_files: list[Path], output_path: Path) -> None:
         output_path.unlink(missing_ok=True)
     elif rows_written == 0:
         logger.warning(f"Combined TSV has no data rows: {output_path}")
+
+
+def _write_failed_samples_tsv(
+    failures: list[tuple[str, str]],
+    output_path: Path,
+) -> None:
+    with output_path.open("w", newline="") as out_handle:
+        writer = csv.writer(out_handle, delimiter="\t")
+        writer.writerow(["sample", "error"])
+        for sample, error in failures:
+            writer.writerow([sample, error])
 
 
 def load_multi_config(config_file: TextIO, reference: Optional[Path]) -> Dict[str, Any]:

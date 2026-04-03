@@ -132,12 +132,13 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     # each sample gets 4 CPUs or total_cpus / num_samples, whichever is higher
     cpus_per_sample = max(4, context["cpus"] // len(samples))
     try:
-        run_multi_pipeline(
+        successful_samples, failures = run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=cfg["samples"],
             prefix=prefix,
             run_ctx=run_ctx,
             cpus_per_sample=cpus_per_sample,
+            stop_on_failure=False,
         )
     except PipelineExecutionError as e:
         logger.horizontal_rule(style="-")
@@ -148,7 +149,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
 
     snippy_dirs = [
         Path(outdir / "samples" / sample)
-        for sample in cfg["samples"]
+        for sample in successful_samples
     ]
     soft_core_threshold = 0.95
     aln_pipeline = CorePipelineBuilder(
@@ -161,8 +162,14 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
 
-    if len(samples) < 3:
+    if len(successful_samples) < 3:
         logger.warning("Less than 3 samples found, skipping tree construction.")
+        if failures:
+            logger.horizontal_rule(style="-")
+            raise PipelineExecutionError(
+                "Some samples failed (outputs were produced for successful samples):\n"
+                + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+            )
         return 0
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
@@ -191,4 +198,11 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     report_outdir = Path(outdir) / "report"
     context["outdir"] = report_outdir
     report_run_ctx = Context(**context)
-    return report_pipeline.run(report_run_ctx)
+    result = report_pipeline.run(report_run_ctx)
+    if failures:
+        logger.horizontal_rule(style="-")
+        raise PipelineExecutionError(
+            "Some samples failed (outputs were produced for successful samples):\n"
+            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+        )
+    return result
