@@ -20,7 +20,8 @@ class CorePipelineBuilder(PipelineBuilder):
 
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference
+            reference_path=self.reference,
+            output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
         reference_id = ReferenceMetadata(setup.output.metadata).prefix or "reference"

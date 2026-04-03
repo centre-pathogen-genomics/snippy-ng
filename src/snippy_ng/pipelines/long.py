@@ -51,6 +51,7 @@ class LongPipelineBuilder(PipelineBuilder):
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
             reference_path=self.reference,
+            output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
         features_file = setup.output.gff

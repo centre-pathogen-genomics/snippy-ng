@@ -65,7 +65,8 @@ class SnippyPipeline:
         current_dir = Path.cwd()
         self.outdir = context.outdir
         try:
-            self.set_working_directory(context.outdir)
+            if self.outdir:    
+                self.set_working_directory(context.outdir)
             self._execute_pipeline_stages_in_order(
                 context,
             )
@@ -128,7 +129,7 @@ class SnippyPipeline:
         if invalid:
             raise DependencyError(f"{', '.join([d.format_version_requirements() for d in invalid])}")
         
-    def set_working_directory(self, directory):
+    def set_working_directory(self, directory: Path):
         # Set the working directory
         self.hr("SetWorkingDirectory")
         self.log(f"Setting working directory to '{directory}'")

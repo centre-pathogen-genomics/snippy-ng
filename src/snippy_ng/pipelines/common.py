@@ -1,21 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
-from snippy_ng.stages.vcf import VcfFilterShort
-from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
-from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import ApplyMask, QualMask
-from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
 
 
 def load_or_prepare_reference(
         reference_path,
-        output_directory: Path = Path("reference"),
+        output_directory: Path | None = None,
         ) -> PrepareReference | LoadReferenceFromMetadataFile:
     """
     Load an existing reference directory or prepare a new reference from a FASTA/GenBank file.
@@ -42,12 +35,12 @@ def load_or_prepare_reference(
             metadata=Path(reference_path)
         )
     else:
-        setup = prepare_reference(reference_path, output_directory)
+        setup = prepare_reference(reference_path, output_directory=output_directory)
     
     return setup
 
 
-def prepare_reference(reference_path, output_directory) -> PrepareReference:
+def prepare_reference(reference_path, output_directory: Path | None = None) -> PrepareReference:
     """
     Prepare a new reference from a FASTA/GenBank file.
     
@@ -64,8 +57,7 @@ def prepare_reference(reference_path, output_directory) -> PrepareReference:
     setup = PrepareReference(
         input=reference_path,
         ref_fmt=reference_format,
-        directory=output_directory,
+        output_directory=output_directory,
     )
     
     return setup
-

@@ -118,14 +118,14 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
-        output_directory=Path(outdir) / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     if context["cpus"] is None:
         context["cpus"] = os.cpu_count() or 1
-    context["outdir"] = outdir
+    context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)
+    run_ctx.outdir = outdir
 
     snippy_reference_dir = ref_stage.output.reference.parent
 

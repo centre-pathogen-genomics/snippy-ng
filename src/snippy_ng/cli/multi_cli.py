@@ -45,17 +45,19 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         raise click.ClickException(e)
     if reference is not None:
         cfg["reference"] = str(reference)
+    if "reference" not in cfg or not cfg["reference"]:
+        raise click.ClickException("Reference genome must be specified either in the config file or as a command line option")
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
-        output_directory=Path(outdir) / 'reference',
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
-    context["outdir"] = outdir
+    context["outdir"] = outdir / 'reference'
     run_ctx = Context(**context)
     ref_pipeline.run(run_ctx)
+    run_ctx.outdir = outdir
 
-    snippy_reference_dir = ref_stage.output.reference.parent
+    snippy_reference_dir = outdir / 'reference'
     successful_samples, failures = run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
