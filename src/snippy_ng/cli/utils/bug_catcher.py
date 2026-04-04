@@ -45,6 +45,7 @@ class BugCatchingGroup(click.Group):
             # Known SnippyError exceptions
             import sys
             from snippy_ng.logging import logger
+            logger.horizontal_rule(style="=")
             logger.error(e)
             sys.exit(1)
         except Exception as e:
