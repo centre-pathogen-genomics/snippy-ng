@@ -2435,12 +2435,10 @@
 
         metadataDataTable = new Tabulator(els.metadataTable, {
           data: rows,
+          autoResize: false, 
           rowHeader: {
             headerSort: false,
-            resizable: false,
-            width: 28,
-            minWidth: 28,
-            maxWidth: 28,
+            resizable: true,
             frozen: true,
             headerHozAlign: "center",
             hozAlign: "center",
