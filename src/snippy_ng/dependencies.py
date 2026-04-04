@@ -161,8 +161,12 @@ clair3 = Dependency(
     command="run_clair3.sh",
     citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797-803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
-    less_then="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
+)
+longbow = Dependency(
+    "longbow",
+    citation="Chae H, Ruan Y, Chun S, et al. Restoring flowcell type and basecaller configuration from FASTQ files of nanopore sequencing data. Nat Commun. 2025;16:4198. https://doi.org/10.1038/s41467-025-59378-x",
+    min_version="2.3.1",
 )
 
 # Read cleaning
