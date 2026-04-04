@@ -104,7 +104,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     assert result.exit_code == 0, result.output
     assert captured["aln"] == outdir / "core" / "core.095.aln"
     assert captured["fconst"] == "1,2,3,4"
-    assert captured["fast_mode"] is False
+    assert captured["fast_mode"] is True
     assert captured_pipeline["run_contexts"][0].log_path == (outdir / "reference" / "LOG.txt").absolute()
     assert captured_pipeline["run_contexts"][0].outdir == outdir / "reference"
 
