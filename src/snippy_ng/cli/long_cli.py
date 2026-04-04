@@ -1,5 +1,4 @@
 import click
-from click.core import ParameterSource
 from typing import Any, Optional
 from pathlib import Path
 from snippy_ng.cli.utils import AbsolutePath
@@ -20,14 +19,12 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
-@click.option("--clair3-model", default=None, type=AbsolutePath(), help="Absolute path to Clair3 model file.")
+@click.option("--clair3-model", default=None, type=AbsolutePath(), envvar=["CLAIR3_MODEL_PATH", "CLAIR3_MODEL"], help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
-@click.option("--min-qual", default=2, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is 2 for Clair3 and 100 for FreeBayes")
-@click.pass_context
+@click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
 def long(
-    ctx: click.Context,
     reference: Path,
     reads: Optional[Path],
     bam: Optional[Path],
@@ -62,14 +59,11 @@ def long(
     if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
 
-    if caller == "clair3" and not clair3_model:
-        raise click.UsageError("Please provide a Clair3 model file (--clair3-model) when using Clair3 as the variant caller!")
-
-    if (
-        caller == "freebayes"
-        and ctx.get_parameter_source("min_qual") == ParameterSource.DEFAULT
-    ):
-        min_qual = 100
+    if caller == "clair3" and not clair3_model and not reads:
+        raise click.UsageError("Please provide --clair3-model when using Clair3 with BAM/CRAM input only.")
+    
+    if min_qual is None and caller == "freebayes":
+        min_qual = 2.0
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
