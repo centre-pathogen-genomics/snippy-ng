@@ -471,6 +471,7 @@ class EpiReport(FormatHTMLReportTemplate):
     iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "iso3166-2-export.csv"
     ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
+    remove_invalid_rows: bool = Field(default=True, description="Remove metadata rows that do not match any tip in the tree, instead of raising an error")
 
     _dependencies = [biopython, phylocanvas, phylojs]
 
@@ -517,13 +518,14 @@ class EpiReport(FormatHTMLReportTemplate):
         if context["METADATA_JSON"] is not None:
             try:
                 metadata_json_str = context["METADATA_JSON"]
-                metadata = json.loads(metadata_json_str)
+                metadata_json = json.loads(metadata_json_str)
             except Exception as e:
                 raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for EpiReport: {e}")
             # check all the metadata entries have an id_column that matches a tip in the tree
             tree_tips = {tip.name for tip in tree.get_terminals()}
             id_column = None
-            for entry in metadata:
+            metadata = []
+            for entry in metadata_json:
                 if "id" in entry:
                     id_column = "id"
                 elif "sample_id" in entry:
@@ -535,7 +537,12 @@ class EpiReport(FormatHTMLReportTemplate):
                 else:
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
                 if entry[id_column] not in tree_tips:
+                    if self.remove_invalid_rows:
+                        logger.warning(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context, skipping this metadata entry")
+                        continue
                     raise PipelineExecutionError(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context")
+                metadata.append(entry)
+            context["METADATA_JSON"] = json.dumps(metadata)
         # add iso3166-2 country code mapping to context for use in the template
         iso3166_mapping = {}
         with open(self.iso3166_2, "r", newline="", encoding="utf-8") as f:
