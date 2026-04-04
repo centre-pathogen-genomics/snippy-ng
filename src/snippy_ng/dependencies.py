@@ -114,6 +114,10 @@ biopython = PythonDependency(
     "biopython",
     citation="Peter J. A. Cock, Tiago Antao, Jeffrey T. Chang, Brad A. Chapman, Cymon J. Cox, Andrew Dalke, Iddo Friedberg, Thomas Hamelryck, Frank Kauff, Bartek Wilczynski, Michiel J. L. de Hoon, Biopython: freely available Python tools for computational molecular biology and bioinformatics, Bioinformatics, Volume 25, Issue 11, June 2009, Pages 1422-1423, https://doi.org/10.1093/bioinformatics/btp163"
 )
+numpy = PythonDependency(
+    "numpy",
+    citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2."
+)
 
 # Alignment
 samtools = Dependency(
