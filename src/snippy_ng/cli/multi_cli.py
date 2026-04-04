@@ -23,17 +23,18 @@ from snippy_ng.logging import derive_log_path
     type=AbsolutePath(exists=True, readable=True),
 )
 @click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample")
-@click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
+@click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment cluster")
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails")
-def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
-    Multi-sample SNP calling pipeline
+    Multi-sample SNP calling pipeline and core alignment construction 
 
     Example usage:
 
         $ snippy-ng multi samples.csv --ref reference.fasta
 
-        $ snippy-ng gather --ref reference.fasta --json | snippy-ng multi -
+        $ snippy-ng utils gather --ref reference.fasta --json | snippy-ng multi -
 
     """
     from snippy_ng.pipelines.common import load_or_prepare_reference
@@ -51,6 +52,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
+        output_directory=outdir / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
@@ -61,7 +63,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     run_ctx.outdir = outdir
     run_ctx.log_path = derive_log_path(run_ctx.log_path, outdir)
 
-    snippy_reference_dir = outdir / 'reference'
+    snippy_reference_dir = ref_stage.output.reference_directory
     successful_samples, failures = run_multi_pipeline(
         snippy_reference_dir=snippy_reference_dir,
         samples=cfg["samples"],
@@ -83,6 +85,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         snippy_dirs=[str(outdir / 'samples' / sample) for sample in successful_samples],
         reference=snippy_reference_dir,
         core=core,
+        inclusion_threshold=inclusion_threshold,
     ).build()
     core_outdir = Path(outdir) / 'core'
     context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)

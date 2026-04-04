@@ -2,7 +2,7 @@
 Shared fixtures and stubs for CLI tests.
 """
 import json
-import types
+import shutil
 from pathlib import Path
 
 import pytest
@@ -16,6 +16,7 @@ class DummyPipeline:
     last = None                        # will hold most‑recent instance
 
     def __init__(self, *_, **__):
+        self.stages     = __.get("stages", []) if __ else []
         self.validated = False
         self.ran       = False
         DummyPipeline.last = self      # remember myself
@@ -31,6 +32,7 @@ class DummyPipeline:
             return None
         
         self.set_working_directory(ctx.outdir)
+        self._materialize_stage_outputs(ctx.outdir)
         self.ran = True
         self.cleanup(None)
         self.goodbye()
@@ -43,12 +45,42 @@ class DummyPipeline:
     def goodbye(self):                 pass
     def error(self, *_):               pass
 
+    def _materialize_stage_outputs(self, outdir: Path):
+        outdir = Path(outdir)
+        for stage in self.stages:
+            output = getattr(stage, "output", None)
+            if output is None or not hasattr(output, "all_outputs"):
+                continue
+            for _, path in output.all_outputs():
+                source = Path(path)
+                if not source.exists() or source.is_dir():
+                    continue
+                target = outdir / source.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+
 
 def stage_factory(output):
     """Factory function to create dummy stage classes with specified output."""
+    class DummyOutput:
+        _immutable = False
+
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        def non_temporary_outputs(self):
+            return [(key, value) for key, value in self.__dict__.items() if key != "_immutable"]
+
+        def temporary_outputs(self):
+            return []
+
+        def all_outputs(self):
+            return self.non_temporary_outputs()
+
     class _Stage:
         def __init__(self, *_, **__):
-            self.output = types.SimpleNamespace(
+            self.output = DummyOutput(
                 **{out_key: out_val for out_key, out_val in output.items()}
             )
     return _Stage
@@ -111,7 +143,8 @@ def stub_common_stages(monkeypatch, tmp_path):
         "gff": tmp_path / "ref.gff",
         "reference_index": tmp_path / "ref.fa.fai",
         "reference_dict": tmp_path / "ref.dict",
-        "metadata": tmp_path / "metadata.json"
+        "metadata": tmp_path / "metadata.json",
+        "reference_directory": tmp_path,
     })
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",

@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 from typing import Iterable
-from types import SimpleNamespace
 
 from click.testing import CliRunner
 
@@ -75,7 +74,42 @@ def make_prepared_reference(tmp_path: Path, dirname: str = "prepared_reference")
 
 
 def stub_load_or_prepare_reference(monkeypatch, ref_file: Path, target: str = "snippy_ng.pipelines.common.load_or_prepare_reference") -> None:
+    class DummyOutput:
+        _immutable = False
+
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        def non_temporary_outputs(self):
+            return [(key, value) for key, value in self.__dict__.items() if key != "_immutable"]
+
+        def temporary_outputs(self):
+            return []
+
+        def all_outputs(self):
+            return self.non_temporary_outputs()
+
+    ref_dir = ref_file.parent
+    metadata = ref_dir / "metadata.json"
+    gff = next(ref_dir.glob("*.gff"), ref_dir / "genomic.gff")
+    reference_index = next(ref_dir.glob("*.fa.fai"), ref_dir / f"{ref_file.name}.fai")
+    reference_dict = next(ref_dir.glob("*.dict"), ref_dir / "genomic.dict")
+
     monkeypatch.setattr(
         target,
-        lambda *args, **kwargs: SimpleNamespace(output=SimpleNamespace(reference=ref_file)),
+        lambda *args, **kwargs: type(
+            "DummyReferenceStage",
+            (),
+            {
+                "output": DummyOutput(
+                    reference=ref_file,
+                    gff=gff,
+                    reference_index=reference_index,
+                    reference_dict=reference_dict,
+                    metadata=metadata,
+                    reference_directory=ref_dir,
+                )
+            },
+        )(),
     )

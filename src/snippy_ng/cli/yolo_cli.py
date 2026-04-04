@@ -118,10 +118,11 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     # create reusable reference
     ref_stage = load_or_prepare_reference(
         reference_path=cfg["reference"],
+        output_directory=outdir / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     if context["cpus"] is None:
-        context["cpus"] = os.cpu_count() or 1
+        context["cpus"] = os.cpu_count() or 1 # YOLO: use all available CPUs by default
     root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
     context["log_path"] = derive_log_path(root_log_path, outdir / "reference")
     context["outdir"] = outdir / 'reference'
@@ -130,7 +131,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     run_ctx.outdir = outdir
     run_ctx.log_path = derive_log_path(run_ctx.log_path, outdir)
 
-    snippy_reference_dir = ref_stage.output.reference.parent
+    snippy_reference_dir = ref_stage.output.reference_directory
 
     # each sample gets 4 CPUs or total_cpus / num_samples, whichever is higher
     cpus_per_sample = max(4, context["cpus"] // len(samples))
@@ -147,25 +148,6 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         logger.horizontal_rule(style="-")
         raise e
 
-    # core alignment
-    from snippy_ng.pipelines.core import CorePipelineBuilder
-
-    snippy_dirs = [
-        Path(outdir / "samples" / sample)
-        for sample in successful_samples
-    ]
-    soft_core_threshold = 0.95
-    aln_pipeline = CorePipelineBuilder(
-        snippy_dirs=snippy_dirs,
-        reference=snippy_reference_dir,
-        core=soft_core_threshold,
-    ).build()
-    core_outdir = Path(outdir) / "core"
-    context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
-    context["outdir"] = core_outdir
-    core_run_ctx = Context(**context)
-    aln_pipeline.run(core_run_ctx)
-
     if len(successful_samples) < 3:
         logger.warning("Less than 3 samples found, skipping tree construction.")
         if failures:
@@ -175,6 +157,28 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
                 + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
             )
         return 0
+
+    # core alignment
+    from snippy_ng.pipelines.core import CorePipelineBuilder
+
+    snippy_dirs = [
+        Path(outdir / "samples" / sample)
+        for sample in successful_samples
+    ]
+    soft_core_threshold = 0.95
+    inclusion_threshold = 0.3
+    aln_pipeline = CorePipelineBuilder(
+        snippy_dirs=snippy_dirs,
+        reference=snippy_reference_dir,
+        core=soft_core_threshold,
+        inclusion_threshold=inclusion_threshold,
+    ).build()
+    core_outdir = Path(outdir) / "core"
+    context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
+    context["outdir"] = core_outdir
+    core_run_ctx = Context(**context)
+    aln_pipeline.run(core_run_ctx)
+
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
 
@@ -183,7 +187,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     tree_pipeline = TreePipelineBuilder(
         aln=core_outdir / aln_pipeline.stages[-1].output.soft_core,
         fconst=(core_outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
-        fast_mode=False,
+        fast_mode=True,
     ).build()
     tree_outdir = Path(outdir) / "tree"
     context["log_path"] = derive_log_path(run_ctx.log_path, tree_outdir)

@@ -1,6 +1,5 @@
 import json
-from pathlib import Path
-from types import SimpleNamespace
+import csv
 import pytest
 from click.testing import CliRunner
 from unittest.mock import patch
@@ -9,6 +8,7 @@ from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines as _pl
 from snippy_ng.context import Context
 from snippy_ng.pipelines.multi import _run_one_sample
+from snippy_ng.stages.setup import LoadReferenceFromMetadataFile
 from tests.cli.helpers import get_bad_reference_target, make_prepared_reference, stub_load_or_prepare_reference
 
 
@@ -84,6 +84,35 @@ def _write_multi_config(tmp_path, config_type, samples_data):
 def _stub_multi_reference_loader(monkeypatch, tmp_path):
     _, prepared_ref = make_prepared_reference(tmp_path, dirname="reference")
     stub_load_or_prepare_reference(monkeypatch, prepared_ref)
+
+
+def _expected_sample_names(config_type, samples_data):
+    if isinstance(samples_data, dict):
+        return list(samples_data.get("samples", {}).keys())
+
+    lines = [line for line in samples_data.strip().splitlines() if line]
+    if len(lines) < 2:
+        return []
+    delimiter = "\t" if config_type == "tsv" else ","
+    reader = csv.DictReader(lines, delimiter=delimiter)
+    return [row["sample"] for row in reader if row.get("sample")]
+
+
+def _materialize_mock_sample_outputs(outdir, prefix, sample_names):
+    variant_bases = ["A", "C", "G", "T"]
+    for idx, sample_name in enumerate(sample_names):
+        sample_dir = outdir / "samples" / sample_name
+        sample_dir.mkdir(parents=True, exist_ok=True)
+        seq = f"{variant_bases[(idx + 1) % len(variant_bases)]}TCG"
+        (sample_dir / f"{prefix}.pseudo.fna").write_text(f">dummy\n{seq}\n")
+        (sample_dir / f"{prefix}.vcf.summary.tsv").write_text(
+            "sample\ttotal\tpass\n"
+            f"{sample_name}\t1\t1\n"
+        )
+        (sample_dir / f"{prefix}.vcf.breakdown.tsv").write_text(
+            "sample\tsection\tlabel\tcount\n"
+            f"{sample_name}\tfilter\tPASS\t1\n"
+        )
 
 
 ##############################################################################
@@ -261,6 +290,15 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
         args.append("--skip-check")
 
     runner = CliRunner()
+
+    if expect_run:
+        sample_names = _expected_sample_names(config_type, samples_data)
+
+        def _fake_run_multi_pipeline(**kwargs):
+            _materialize_mock_sample_outputs(outdir, kwargs["prefix"], sample_names)
+            return sample_names, []
+
+        mock_multi_pipeline.side_effect = _fake_run_multi_pipeline
 
     # --------------- Act ------------------------------------------------------
     result = runner.invoke(snippy_ng, args)
@@ -560,3 +598,61 @@ def test_multi_cli_stop_on_failure_passes_fail_fast_mode_to_runner(monkeypatch, 
     assert result.exit_code == 0, result.output
     assert captured_multi["stop_on_failure"] is True
     assert captured_multi["run_ctx"].log_path == (outdir / "LOG.txt").absolute()
+
+
+def test_multi_cli_uses_existing_prepared_reference_directory(monkeypatch, tmp_path):
+    prepared_ref_dir, ref_file = make_prepared_reference(tmp_path, dirname="prepared_reference")
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        lambda *args, **kwargs: LoadReferenceFromMetadataFile(metadata=prepared_ref_dir / "metadata.json"),
+    )
+
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.csv"
+    config_file.write_text(
+        "sample,type,left,right\n"
+        f"sample1,short,{r1},{r2}\n"
+    )
+
+    captured_multi = {}
+
+    def fake_run_multi_pipeline(**kwargs):
+        captured_multi.update(kwargs)
+        return ["sample1"], []
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
+
+    class DummyCorePipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            pass
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    runner = CliRunner()
+    result = runner.invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            str(prepared_ref_dir),
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured_multi["snippy_reference_dir"] == prepared_ref_dir

@@ -106,6 +106,7 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     assert captured["fconst"] == "1,2,3,4"
     assert captured["fast_mode"] is False
     assert captured_pipeline["run_contexts"][0].log_path == (outdir / "reference" / "LOG.txt").absolute()
+    assert captured_pipeline["run_contexts"][0].outdir == outdir / "reference"
 
 
 def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
@@ -164,6 +165,7 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
     assert result.exit_code == 0, result.output
     assert captured_multi["samples"]["long_1"]["caller"] == "freebayes"
     assert captured_multi["cpus_per_sample"] == 4
+    assert captured_multi["snippy_reference_dir"] == tmp_path / "prepared_reference"
 
 
 def test_yolo_errors_when_no_reference_found(tmp_path):
