@@ -538,7 +538,7 @@ class EpiReport(FormatHTMLReportTemplate):
                     raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
                 if entry[id_column] not in tree_tips:
                     if self.remove_invalid_rows:
-                        logger.warning(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context, skipping this metadata entry")
+                        print(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context, skipping this metadata entry")
                         continue
                     raise PipelineExecutionError(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context")
                 metadata.append(entry)
