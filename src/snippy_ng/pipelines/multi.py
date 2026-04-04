@@ -84,10 +84,10 @@ def run_multi_pipeline(
         if not fail_fast_shutdown:
             executor.shutdown(wait=True)
 
+    failed_samples_tsv = Path(run_ctx.outdir) / f"{prefix}.failed.tsv"
+    _write_failed_samples_tsv(failures=failures, output_path=failed_samples_tsv)
     if failures:
-        failed_samples_tsv = Path(run_ctx.outdir) / f"{prefix}.failed.tsv"
-        _write_failed_samples_tsv(failures=failures, output_path=failed_samples_tsv)
-        logger.warning(f"Skipping {len(failures)} failed samples; wrote {failed_samples_tsv}")
+        logger.warning(f"Skipping {len(failures)} failed samples. See {failed_samples_tsv} for details.")
 
     if not successful_samples:
         raise PipelineExecutionError("No samples completed successfully.")
