@@ -151,9 +151,8 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     if len(successful_samples) < 3:
         logger.warning("Less than 3 samples found, skipping tree construction.")
         if failures:
-            logger.horizontal_rule(style="-")
             raise PipelineExecutionError(
-                "Some samples failed (outputs were produced for successful samples):\n"
+                "Some samples failed and were removed:\n"
                 + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
             )
         return 0
@@ -210,9 +209,8 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     report_run_ctx = Context(**context)
     result = report_pipeline.run(report_run_ctx)
     if failures:
-        logger.horizontal_rule(style="-")
         raise PipelineExecutionError(
-            "Some samples failed (outputs were produced for successful samples):\n"
+            "Some samples failed and were removed:\n"
             + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
         )
     return result

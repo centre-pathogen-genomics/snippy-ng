@@ -94,7 +94,7 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     result = aln_pipeline.run(core_run_ctx)
     if failures:
         raise PipelineExecutionError(
-            "Some samples failed (outputs were produced for successful samples):\n"
+            "Some samples failed and were removed:\n"
             + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
         )
     return result
