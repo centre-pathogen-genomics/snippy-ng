@@ -192,6 +192,13 @@ def stub_long_stages(monkeypatch, tmp_path):
         stage_factory({"cleaned_reads": tmp_path / "cleaned.fq"}),
     )
     monkeypatch.setattr(
+        "snippy_ng.stages.calling.LongbowClair3ModelSelector",
+        stage_factory({
+            "prediction_json": tmp_path / "longbow.json",
+            "clair3_model": tmp_path / "resolved_clair3_model",
+        }),
+    )
+    monkeypatch.setattr(
         "snippy_ng.stages.stats.SeqKitReadStatsBasic",
         stage_factory({"stats_tsv": tmp_path / "stats.tsv"}),
     )

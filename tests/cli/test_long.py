@@ -80,7 +80,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             False,
         ),
         (
-            "change_no_model",
+            "reads_no_model",
             lambda p: [
                 "--reference", p["ref"],
                 "--reads",     p["reads"],
@@ -88,8 +88,8 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
                 "--caller",    "clair3",
                 "--skip-check",
             ],
-            2,
-            False,
+            0,
+            True,
         ),
         (
             "freebayes_caller",
@@ -102,6 +102,18 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             ],
             0,
             True,
+        ),
+        (
+            "bam_no_model",
+            lambda p: [
+                "--reference", p["ref"],
+                "--bam",       p["bam"],
+                "--outdir",    p["out"],
+                "--caller",    "clair3",
+                "--skip-check",
+            ],
+            2,
+            False,
         ),
 
     ],
