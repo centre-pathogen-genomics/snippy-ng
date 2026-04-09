@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import shutil
@@ -183,7 +184,7 @@ def build_cache_key(request: SimulationRequest, input_type: str) -> str:
 
 def parse_vcf_records(vcf_path: Path) -> list[VariantRecord]:
     records: list[VariantRecord] = []
-    with open(vcf_path, "r") as handle:
+    with gzip.open(vcf_path, "rt") as handle:
         for line in handle:
             if not line.strip() or line.startswith("#"):
                 continue

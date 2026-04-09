@@ -199,4 +199,4 @@ def test_clair3_caller_reads_model_path_from_manifest_file(tmp_path):
     commands = stage.create_commands(Context(cpus=1))
 
     assert commands[0].command[1] == "--model_path=/opt/models/r1041_e82_400bps_sup_v520"
-    assert "--chunk_size=1000" in commands[0].command
+    assert "--chunk_size=10000" in commands[0].command
