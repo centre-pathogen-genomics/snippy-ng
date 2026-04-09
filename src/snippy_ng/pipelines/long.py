@@ -7,10 +7,10 @@ from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionstoVCF
+from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionstoVCF, VcfPassFilter
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
-from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller
+from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthMask, ApplyMask, ZeroDepthBedFromBam
@@ -38,7 +38,7 @@ class LongPipelineBuilder(PipelineBuilder):
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
-    min_qual: float = Field(default=2, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
+    min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
 
     def build(self) -> SnippyPipeline:
@@ -91,6 +91,17 @@ class LongPipelineBuilder(PipelineBuilder):
             current_reads = [str(clean_reads_stage.output.cleaned_reads)]
             stages.append(clean_reads_stage)
 
+        clair3_model = self.clair3_model
+        if self.caller == "clair3" and clair3_model is None:
+            if not current_reads:
+                raise ValueError("Clair3 model could not be auto-detected without reads. Provide --clair3-model when using BAM/CRAM input.")
+            longbow_stage = LongbowClair3ModelSelector(
+                reads=Path(current_reads[0]),
+                **globals
+            )
+            stages.append(longbow_stage)
+            clair3_model = longbow_stage.output.clair3_model
+
         # Aligner
         if self.bam:
             if sample_name is None:
@@ -133,16 +144,15 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # SNP calling
         if self.caller == "clair3":
-            assert self.clair3_model is not None, "Clair3 model must be provided when using Clair3 caller."
-            assert Path(self.clair3_model).is_absolute(), f"Clair3 model path '{self.clair3_model}' must be an absolute path."
+            assert clair3_model is not None, "Clair3 model must be provided or resolved when using Clair3 caller."
             platform = 'ont'
-            if 'hifi' in str(self.clair3_model).lower():
+            if 'hifi' in str(clair3_model).lower():
                 platform = 'hifi'
             caller_stage = Clair3Caller(
                 bam=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
-                clair3_model=self.clair3_model,
+                clair3_model=clair3_model,
                 fast_mode=self.clair3_fast_mode,
                 platform=platform,
                 **globals
@@ -202,17 +212,24 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_stats)
         
+        # Filter to PASS-only variants for consensus generation
+        pass_filter = VcfPassFilter(
+            vcf=consequences.output.annotated_vcf,
+            **globals
+        )
+        stages.append(pass_filter)
+
         # Compress VCF
-        gzip = VcfCompressor(
+        gzip_vcf = VcfCompressor(
             input=consequences.output.annotated_vcf,
             **globals
         )
-        stages.append(gzip)
+        stages.append(gzip_vcf)
         
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.gz,
+            vcf_gz=gzip_vcf.output.gz,
             reference=reference_file,
             **globals
         )
@@ -266,7 +283,8 @@ class LongPipelineBuilder(PipelineBuilder):
 
         keep_files = [
             copy_final.output.fasta, 
-            consequences.output.annotated_vcf, 
+            gzip_vcf.output.gz,
+            pass_filter.output.vcf,
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
