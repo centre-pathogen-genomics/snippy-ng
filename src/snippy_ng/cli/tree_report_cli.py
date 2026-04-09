@@ -16,7 +16,7 @@ from pathlib import Path
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
 @click.option("--mid-point-root", is_flag=True, default=False, help="Mid-point root the tree in the report")
 @click.option("--ladderize", is_flag=True, default=False, help="Ladderize the tree in the report")
-def report(
+def tree_report(
     newick: Path,
     metadata: Optional[Path],
     color_by_column: Optional[str],
