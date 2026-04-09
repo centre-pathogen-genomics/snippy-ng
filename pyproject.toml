@@ -132,8 +132,8 @@ default = { solve-group = "default" }
 integration = { features = ["integration-test"], solve-group = "integration" }
 
 [tool.pixi.tasks]
-test = "pytest -m 'not integration_sim' tests"
-test-integration = "pytest -m integration_sim tests/integration"
+test = "hatch run test"
+test-integration = "hatch run integration"
 
 [tool.pixi.dependencies]
 # python dependencies
