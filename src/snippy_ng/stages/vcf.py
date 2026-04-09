@@ -10,6 +10,32 @@ from pydantic import Field
 class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
+
+class VcfPassFilterOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF containing only PASS variants")
+
+
+class VcfPassFilter(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfPassFilterOutput:
+        return VcfPassFilterOutput(
+            vcf=Path(f"{self.prefix}.pass.vcf")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                ["bcftools", "view", "-f", "PASS", str(self.vcf)],
+                description="Filter VCF to PASS variants only",
+                output_file=self.output.vcf,
+            )
+        ]
+
+
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")

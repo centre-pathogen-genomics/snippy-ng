@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionstoVCF, VcfFilterAsm
+from snippy_ng.stages.vcf import AddDeletionstoVCF, VcfFilterAsm, VcfPassFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
@@ -96,17 +96,24 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_stats)
         
+        # Filter to PASS-only variants for consensus generation
+        pass_filter = VcfPassFilter(
+            vcf=consequences.output.annotated_vcf,
+            prefix=self.prefix
+        )
+        stages.append(pass_filter)
+
         # Compress VCF
-        gzip = VcfCompressor(
+        gzip_vcf = VcfCompressor(
             input=consequences.output.annotated_vcf,
             prefix=self.prefix
         )
-        stages.append(gzip)
+        stages.append(gzip_vcf)
         
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.gz,
+            vcf_gz=gzip_vcf.output.gz,
             reference=reference_file,
             prefix=self.prefix
         )
@@ -151,7 +158,8 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         keep_files = [
             copy_final.output.fasta, 
-            consequences.output.annotated_vcf,
+            gzip_vcf.output.gz,
+            pass_filter.output.vcf,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]

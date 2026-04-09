@@ -8,7 +8,7 @@ from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionstoVCF, VcfPassFilter
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -184,17 +184,24 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_stats)
         
+        # Filter to PASS-only variants for consensus generation
+        pass_filter = VcfPassFilter(
+            vcf=consequences.output.annotated_vcf,
+            **globals
+        )
+        stages.append(pass_filter)
+
         # Compress VCF
-        gzip = VcfCompressor(
+        gzip_vcf = VcfCompressor(
             input=consequences.output.annotated_vcf,
             **globals
         )
-        stages.append(gzip)
+        stages.append(gzip_vcf)
         
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip.output.gz,
+            vcf_gz=gzip_vcf.output.gz,
             reference=reference_file,
             **globals
         )
@@ -248,7 +255,8 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         keep_files = [
             copy_final.output.fasta, 
-            consequences.output.annotated_vcf, 
+            gzip_vcf.output.gz,
+            pass_filter.output.vcf, 
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
