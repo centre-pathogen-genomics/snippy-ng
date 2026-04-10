@@ -63,7 +63,7 @@ def long(
         raise click.UsageError("Please provide --clair3-model when using Clair3 with BAM/CRAM input only.")
     
     if min_qual is None and caller == "freebayes":
-        min_qual = 2.0
+        min_qual = 100.0
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
