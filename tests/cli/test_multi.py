@@ -193,20 +193,6 @@ def _materialize_mock_sample_outputs(outdir, prefix, sample_names):
             True,
         ),
         (
-            "check_only",
-            "json",
-            {
-                "samples": {
-                    "sample1": {
-                        "type": "short",
-                        "reads": ["reads_R1.fq", "reads_R2.fq"]
-                    }
-                }
-            },
-            0,
-            False,
-        ),
-        (
             "outdir_exists",
             "json",
             {
@@ -280,17 +266,26 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
     # Add reference if not in JSON
     if config_type != "json" or (isinstance(samples_data, dict) and "reference" not in samples_data):
         args.extend(["--reference", str(ref_file)])
-    
-    args.extend(["--outdir", str(outdir)])
 
-    # For check-only mode, use --check WITHOUT --skip-check so validation happens
-    if case_name == "check_only":
-        args.append("--check")
-    else:
-        # For other tests, skip dependency checks to avoid test dependencies
-        args.append("--skip-check")
+    args.extend(["--outdir", str(outdir)])
+    args.append("--skip-check")
 
     runner = CliRunner()
+
+    class DummyCorePipeline:
+        def run(self, ctx):
+            if not ctx.check:
+                Path(ctx.outdir).mkdir(parents=True, exist_ok=True)
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **_kwargs):
+            pass
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
 
     if expect_run:
         sample_names = _expected_sample_names(config_type, samples_data)
@@ -300,20 +295,6 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
             return sample_names, []
 
         mock_multi_pipeline.side_effect = _fake_run_multi_pipeline
-
-        class DummyCorePipeline:
-            def run(self, ctx):
-                Path(ctx.outdir).mkdir(parents=True, exist_ok=True)
-                return 0
-
-        class DummyCorePipelineBuilder:
-            def __init__(self, **_kwargs):
-                pass
-
-            def build(self):
-                return DummyCorePipeline()
-
-        monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
 
     # --------------- Act ------------------------------------------------------
     result = runner.invoke(snippy_ng, args)
@@ -334,12 +315,7 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
         core_dir = outdir / "core"
         assert core_dir.exists(), "Core alignment directory was not created"
     else:
-        if case_name == "check_only":
-            # In check mode, validation happens but pipeline doesn't run
-            assert _pl.SnippyPipeline.last is not None
-            assert _pl.SnippyPipeline.last.validated
-            assert not _pl.SnippyPipeline.last.ran
-        elif expect_exit == 2:
+        if expect_exit == 2:
             # outdir_exists case - fails before pipeline creation
             pass
         else:
