@@ -1,5 +1,6 @@
 import json
 import csv
+from pathlib import Path
 import pytest
 from click.testing import CliRunner
 from unittest.mock import patch
@@ -299,6 +300,20 @@ def test_multi_cli(monkeypatch, tmp_path, mock_multi_pipeline, case_name, config
             return sample_names, []
 
         mock_multi_pipeline.side_effect = _fake_run_multi_pipeline
+
+        class DummyCorePipeline:
+            def run(self, ctx):
+                Path(ctx.outdir).mkdir(parents=True, exist_ok=True)
+                return 0
+
+        class DummyCorePipelineBuilder:
+            def __init__(self, **_kwargs):
+                pass
+
+            def build(self):
+                return DummyCorePipeline()
+
+        monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
 
     # --------------- Act ------------------------------------------------------
     result = runner.invoke(snippy_ng, args)
