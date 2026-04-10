@@ -24,7 +24,7 @@ from snippy_ng.logging import derive_log_path
 )
 @click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment cluster")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment cluster")
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails")
 def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """

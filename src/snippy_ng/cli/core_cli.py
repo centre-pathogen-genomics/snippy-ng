@@ -12,7 +12,7 @@ from pathlib import Path
 @click.argument("snippy_dirs", required=True, nargs=-1, type=AbsolutePath(exists=True, readable=True))
 @click.option("--ref", "reference", type=AbsolutePath(exists=True, readable=True), required=True, help="Reference FASTA used to define contig order")
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i", type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment cluster")
+@click.option("--inclusion-threshold", "-i", type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment cluster")
 def core(snippy_dirs: tuple[Path, ...], reference: Path, core: float, inclusion_threshold: float, outdir: Path, prefix: str, **context: Any):
     """
     Create core alignment from multiple Snippy-NG runs
