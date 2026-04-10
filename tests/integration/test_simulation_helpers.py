@@ -1,3 +1,4 @@
+import gzip
 from pathlib import Path
 
 from tests.integration.simulation import (
@@ -86,4 +87,16 @@ def test_parse_vcf_records_ignores_headers(tmp_path: Path):
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         "ref\t2\t.\tA\tG\t.\tPASS\t.\n"
     )
+    assert parse_vcf_records(vcf) == [VariantRecord("ref", 2, "A", "G")]
+
+
+def test_parse_vcf_records_reads_gzipped_vcf(tmp_path: Path):
+    vcf = tmp_path / "calls.vcf.gz"
+    with gzip.open(vcf, "wt") as handle:
+        handle.write(
+            "##fileformat=VCFv4.2\n"
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+            "ref\t2\t.\tA\tG\t.\tPASS\t.\n"
+        )
+
     assert parse_vcf_records(vcf) == [VariantRecord("ref", 2, "A", "G")]
