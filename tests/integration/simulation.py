@@ -184,7 +184,8 @@ def build_cache_key(request: SimulationRequest, input_type: str) -> str:
 
 def parse_vcf_records(vcf_path: Path) -> list[VariantRecord]:
     records: list[VariantRecord] = []
-    with gzip.open(vcf_path, "rt") as handle:
+    opener = gzip.open if vcf_path.suffix == ".gz" else open
+    with opener(vcf_path, "rt") as handle:
         for line in handle:
             if not line.strip() or line.startswith("#"):
                 continue
