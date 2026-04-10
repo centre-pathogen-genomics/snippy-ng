@@ -10,7 +10,6 @@ import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options
-from snippy_ng.context import Context
 
 
 @click.command(
@@ -37,6 +36,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     """
     import json
     from collections import Counter
+    from snippy_ng.context import Context
     from snippy_ng.logging import logger, derive_log_path
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline

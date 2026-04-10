@@ -4,9 +4,6 @@ import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
-from snippy_ng.context import Context
-from snippy_ng.exceptions import PipelineExecutionError
-from snippy_ng.logging import derive_log_path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
@@ -39,7 +36,11 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     """
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
+    from snippy_ng.exceptions import PipelineExecutionError
     from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline
+    from snippy_ng.logging import derive_log_path
+    from snippy_ng.context import Context
+
     
     try:
         cfg = load_multi_config(config, reference)
