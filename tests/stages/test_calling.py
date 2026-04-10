@@ -9,7 +9,7 @@ from snippy_ng.stages.calling import (
     Clair3ModelSelectorError,
     FreebayesCaller,
     LongbowClair3ModelSelector,
-    MIN_FREEBAYES_CHUNK_SIZE,
+    MIN_SHORT_CHUNK_SIZE,
     get_short_chunk_size,
 )
 
@@ -34,7 +34,7 @@ def test_get_short_chunk_size_honours_minimum(tmp_path):
 
     _, chunk_size = get_short_chunk_size(reference, reference_index, cpus=8)
 
-    assert chunk_size == MIN_FREEBAYES_CHUNK_SIZE
+    assert chunk_size == MIN_SHORT_CHUNK_SIZE
 
 
 def test_freebayes_caller_uses_adaptive_chunk_size_for_region_generation(tmp_path):

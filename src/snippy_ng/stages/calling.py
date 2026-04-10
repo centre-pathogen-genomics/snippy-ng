@@ -13,8 +13,8 @@ from snippy_ng.logging import logger
 from pydantic import Field, AfterValidator
 
 
-MIN_FREEBAYES_CHUNK_SIZE = 1000
-MIN_CLAIR3_CHUNK_SIZE = 10000
+MIN_SHORT_CHUNK_SIZE = 1000
+MIN_LONG_CHUNK_SIZE = 10000
 
 
 def estimate_reference_bases(reference: Path, reference_index: Path) -> int:
@@ -44,12 +44,12 @@ def get_calling_chunk_size(reference: Path, reference_index: Path, cpus: int, mi
 
 
 def get_short_chunk_size(reference: Path, reference_index: Path, cpus: int) -> tuple[int, int]:
-    """Determine Freebayes chunk size based on reference size and available CPUs, with a minimum threshold."""
-    return get_calling_chunk_size(reference, reference_index, cpus, MIN_FREEBAYES_CHUNK_SIZE)
+    """Determine short read chunk size based on reference size and available CPUs, with a minimum threshold."""
+    return get_calling_chunk_size(reference, reference_index, cpus, MIN_SHORT_CHUNK_SIZE)
 
 def get_long_chunk_size(reference: Path, reference_index: Path, cpus: int) -> tuple[int, int]:
-    """Determine Clair3 chunk size based on reference size and available CPUs, with a minimum threshold."""
-    return get_calling_chunk_size(reference, reference_index, cpus, MIN_CLAIR3_CHUNK_SIZE)
+    """Determine long read chunk size based on reference size and available CPUs, with a minimum threshold."""
+    return get_calling_chunk_size(reference, reference_index, cpus, MIN_LONG_CHUNK_SIZE)
 
 def no_spaces(v: str) -> str:
     """Ensure that a string contains no spaces."""
