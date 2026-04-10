@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import re
 
 from snippy_ng.stages import BaseStage, BaseOutput
@@ -9,6 +9,32 @@ from pydantic import Field
 
 class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
+
+
+class VcfPassFilterOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF containing only PASS variants")
+
+
+class VcfPassFilter(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfPassFilterOutput:
+        return VcfPassFilterOutput(
+            vcf=Path(f"{self.prefix}.pass.vcf")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                ["bcftools", "view", "-f", "PASS", str(self.vcf)],
+                description="Filter VCF to PASS variants only",
+                output_file=self.output.vcf,
+            )
+        ]
+
 
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
@@ -98,7 +124,7 @@ class VcfFilterAsm(VcfFilterShort):
     """
     Filter VCF files for assemblies using bcftools to remove unwanted variants.
     """
-    min_qual: int = Field(60, description="Minimum QUAL score for assembly-based calling")
+    min_qual: float = Field(60, description="Minimum QUAL score for assembly-based calling")
     min_depth: int = Field(1, description="Minimum depth for assembly-based calling")
 
 
@@ -115,7 +141,7 @@ class VcfFilterLong(VcfFilter):
     - Converting to haploid genotypes
     """
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
-    min_qual: int = Field(2, description="Mark variants below this QUAL threshold as LowQual")
+    min_qual: Optional[float] = Field(None, description="Mark variants below this QUAL threshold as LowQual")
     min_depth: int = Field(10, description="Mark variants below this depth threshold as LowDepth")
     max_indel: int = Field(10000, description="Maximum indel length to keep")
     
@@ -199,15 +225,19 @@ class VcfFilterLong(VcfFilter):
                 description="Remove non-alt alleles and output final VCF"
             ),
             self.shell_cmd(
-                ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
-                description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
-            ),
-            self.shell_cmd(
                 ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
                 description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
             ),
         ])
-        
+
+        if self.min_qual is not None:
+            pipeline_commands.append( 
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
+                    description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
+                )
+            )
+
         main_pipeline = self.shell_pipe(
             commands=pipeline_commands,
             description="Long-read variant filtering pipeline",

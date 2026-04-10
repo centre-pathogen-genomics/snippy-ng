@@ -45,3 +45,59 @@ def human_readable_size(path: Path) -> str:
         size /= 1024
 
     return ""
+
+
+def inner_join_csv_tsv(left_file, right_file, output_file, on):
+    """
+    Inner join two CSV/TSV files on a column.
+
+    Parameters
+    ----------
+    left_file : str
+    right_file : str
+    output_file : str
+    on : str
+        column name to join on
+    """
+
+    def delimiter(path):
+        return "\t" if Path(path).suffix.lower() == ".tsv" else ","
+
+    left_delim = delimiter(left_file)
+    right_delim = delimiter(right_file)
+    out_delim = delimiter(output_file)
+
+    # Load right file into lookup table
+    with open(right_file, newline="", encoding="utf-8") as f:
+        right_reader = csv.DictReader(f, delimiter=right_delim)
+        right_rows = list(right_reader)
+        right_fields = right_reader.fieldnames
+
+    lookup = {}
+    for row in right_rows:
+        lookup.setdefault(row[on], []).append(row)
+
+    # Stream left file and write joined output
+    with open(left_file, newline="", encoding="utf-8") as lf, \
+         open(output_file, "w", newline="", encoding="utf-8") as out:
+
+        left_reader = csv.DictReader(lf, delimiter=left_delim)
+        left_fields = left_reader.fieldnames
+
+        right_extra = [c for c in right_fields if c != on]
+
+        writer = csv.DictWriter(
+            out,
+            fieldnames=left_fields + right_extra,
+            delimiter=out_delim
+        )
+        writer.writeheader()
+
+        for left_row in left_reader:
+            key = left_row[on]
+            if key in lookup:
+                for r in lookup[key]:
+                    merged = left_row.copy()
+                    for c in right_extra:
+                        merged[c] = r[c]
+                    writer.writerow(merged)

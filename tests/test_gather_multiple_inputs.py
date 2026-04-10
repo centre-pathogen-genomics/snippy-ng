@@ -1,8 +1,28 @@
 """Test gathering samples from multiple input directories."""
 import gzip
+from pathlib import Path
 import pytest
 from snippy_ng.utils.gather import gather_samples_config
 from snippy_ng.utils.gather import guess_sample_id
+
+
+def write_fastq(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
+    path.write_text(f"{header}\n{seq}\n+\nIIII\n")
+
+
+def write_fastq_gz(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
+    with gzip.open(path, "wt") as fh:
+        fh.write(f"{header}\n{seq}\n+\nIIII\n")
+
+
+def assert_short_sample(samples, sample_id: str, *, left_suffix: str, right_suffix: str | None = None) -> None:
+    assert sample_id in samples
+    assert samples[sample_id]["type"] == "short"
+    assert samples[sample_id]["left"].endswith(left_suffix)
+    if right_suffix is None:
+        assert samples[sample_id]["right"] is None
+    else:
+        assert samples[sample_id]["right"].endswith(right_suffix)
 
 
 def test_gather_multiple_directories_with_same_basename(tmp_path):
@@ -52,15 +72,15 @@ def test_gather_multiple_directories_with_subdirs(tmp_path):
     samples_dir = tmp_path / "samples"
     sample1_dir = samples_dir / "sample1"
     sample1_dir.mkdir(parents=True)
-    (sample1_dir / "R1.fastq").write_text("@read\nACGT\n+\nIIII\n")
-    (sample1_dir / "R2.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(sample1_dir / "R1.fastq")
+    write_fastq(sample1_dir / "R2.fastq")
     
     # Create data/sample1/R1.fastq (same subdir name!)
     data_dir = tmp_path / "data"
     sample1b_dir = data_dir / "sample1"
     sample1b_dir.mkdir(parents=True)
-    (sample1b_dir / "R1.fastq").write_text("@read\nACGT\n+\nIIII\n")
-    (sample1b_dir / "R2.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(sample1b_dir / "R1.fastq")
+    write_fastq(sample1b_dir / "R2.fastq")
     
     # Scan both - duplicate sample IDs should be disambiguated
     cfg = gather_samples_config([samples_dir, data_dir])
@@ -96,8 +116,8 @@ def test_gather_r1_r2_in_sample_dirs_uses_directory_name(tmp_path):
     for sample in ("sample1", "sample2"):
         sample_dir = tmp_path / sample
         sample_dir.mkdir()
-        (sample_dir / "R1").write_text("@read\nACGT\n+\nIIII\n")
-        (sample_dir / "R2").write_text("@read\nTGCA\n+\nIIII\n")
+        write_fastq(sample_dir / "R1")
+        write_fastq(sample_dir / "R2", seq="TGCA")
 
     cfg = gather_samples_config([tmp_path])
     samples = cfg["samples"]
@@ -113,8 +133,8 @@ def test_gather_mutant_r1_r2_in_sample_dirs_prefixes_parent(tmp_path):
     for sample in ("sample1", "sample2"):
         sample_dir = tmp_path / sample
         sample_dir.mkdir()
-        (sample_dir / "mutant_R1").write_text("@read\nACGT\n+\nIIII\n")
-        (sample_dir / "mutant_R2").write_text("@read\nTGCA\n+\nIIII\n")
+        write_fastq(sample_dir / "mutant_R1")
+        write_fastq(sample_dir / "mutant_R2", seq="TGCA")
 
     cfg = gather_samples_config([tmp_path])
     samples = cfg["samples"]
@@ -188,7 +208,7 @@ def test_gather_reference_special_case_excluded_from_samples(tmp_path):
     # sample with a potentially clashing ID should still be kept as a sample
     sample_dir = tmp_path / "reads"
     sample_dir.mkdir()
-    (sample_dir / "reference.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(sample_dir / "reference.fastq")
 
     cfg = gather_samples_config([tmp_path], reference=ref)
     samples = cfg["samples"]
@@ -222,14 +242,17 @@ def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
     data_dir.mkdir()
 
     for name in ("mutant_1.trim.fastq.gz", "mutant_2.trim.fastq.gz"):
-        with gzip.open(data_dir / name, "wt") as fh:
-            fh.write("@read\nACGT\n+\nIIII\n")
+        write_fastq_gz(data_dir / name)
 
     cfg = gather_samples_config([data_dir])
     samples = cfg["samples"]
 
-    assert "mutant" in samples
-    assert samples["mutant"]["type"] == "short"
+    assert_short_sample(
+        samples,
+        "mutant",
+        left_suffix="mutant_1.trim.fastq.gz",
+        right_suffix="mutant_2.trim.fastq.gz",
+    )
     assert samples["mutant"]["left"] == str(data_dir / "mutant_1.trim.fastq.gz")
     assert samples["mutant"]["right"] == str(data_dir / "mutant_2.trim.fastq.gz")
     assert "mutant_1.trim" not in samples
@@ -256,29 +279,26 @@ def test_guess_sample_id_strips_common_read_suffix_variants(filename, expected):
 def test_gather_single_short_read_keeps_right_as_none(tmp_path):
     """A single short-read file should not serialize missing R2 as the string 'None'."""
     reads = tmp_path / "single.fastq"
-    reads.write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(reads)
 
     cfg = gather_samples_config([tmp_path])
     samples = cfg["samples"]
 
-    assert "single" in samples
-    assert samples["single"]["type"] == "short"
+    assert_short_sample(samples, "single", left_suffix="single.fastq")
     assert samples["single"]["left"] == str(reads)
-    assert samples["single"]["right"] is None
 
 
 def test_gather_srr_pair_with_numeric_sample_id_groups_r1_r2_correctly(tmp_path):
     """SRR-style names ending in _1/_2 should not be misclassified as duplicate R1s."""
     r1 = tmp_path / "SRR6171131_1.fastq"
     r2 = tmp_path / "SRR6171131_2.fastq"
-    r1.write_text("@read\nACGT\n+\nIIII\n")
-    r2.write_text("@read\nTGCA\n+\nIIII\n")
+    write_fastq(r1)
+    write_fastq(r2, seq="TGCA")
 
     cfg = gather_samples_config([tmp_path])
     samples = cfg["samples"]
 
-    assert "SRR6171131" in samples
-    assert samples["SRR6171131"]["type"] == "short"
+    assert_short_sample(samples, "SRR6171131", left_suffix="SRR6171131_1.fastq", right_suffix="SRR6171131_2.fastq")
     assert samples["SRR6171131"]["left"] == str(r1)
     assert samples["SRR6171131"]["right"] == str(r2)
 
@@ -298,84 +318,58 @@ def test_gather_kitchen_sink_mixed_layouts_and_naming_styles(tmp_path):
     # Paired short reads with explicit R1/R2 suffixes.
     sample_alpha = outbreak_a / "sample_alpha"
     sample_alpha.mkdir()
-    (sample_alpha / "alpha_R1.fastq").write_text("@read\nACGT\n+\nIIII\n")
-    (sample_alpha / "alpha_R2.fastq").write_text("@read\nTGCA\n+\nIIII\n")
+    write_fastq(sample_alpha / "alpha_R1.fastq")
+    write_fastq(sample_alpha / "alpha_R2.fastq", seq="TGCA")
 
     # Paired short reads using trimmed _1/_2 naming.
     trimmed = outbreak_a / "trimmed"
     trimmed.mkdir()
-    with gzip.open(trimmed / "mutant_1.trim.fastq.gz", "wt") as fh:
-        fh.write("@read\nACGT\n+\nIIII\n")
-    with gzip.open(trimmed / "mutant_2.trimmed.fastq.gz", "wt") as fh:
-        fh.write("@read\nTGCA\n+\nIIII\n")
+    write_fastq_gz(trimmed / "mutant_1.trim.fastq.gz")
+    write_fastq_gz(trimmed / "mutant_2.trimmed.fastq.gz", seq="TGCA")
 
     # SRR-style numeric sample id pair.
-    with gzip.open(outbreak_a / "SRR6171131_1.fastq.gz", "wt") as fh:
-        fh.write("@read\nACGT\n+\nIIII\n")
-    with gzip.open(outbreak_a / "SRR6171131_2.fastq.gz", "wt") as fh:
-        fh.write("@read\nTGCA\n+\nIIII\n")
+    write_fastq_gz(outbreak_a / "SRR6171131_1.fastq.gz")
+    write_fastq_gz(outbreak_a / "SRR6171131_2.fastq.gz", seq="TGCA")
 
     # Directory-based sample naming with plain R1/R2 filenames.
     sample_1 = outbreak_b / "sample_1"
     sample_2 = outbreak_b / "sample_2"
     sample_1.mkdir()
     sample_2.mkdir()
-    with gzip.open(sample_1 / "R1.fastq.gz", "wt") as fh:
-        fh.write("@read\nACGT\n+\nIIII\n")
-    with gzip.open(sample_1 / "R2.fastq.gz", "wt") as fh:
-        fh.write("@read\nTGCA\n+\nIIII\n")
-    with gzip.open(sample_2 / "R1.fastq.gz", "wt") as fh:
-        fh.write("@read\nACGT\n+\nIIII\n")
-    with gzip.open(sample_2 / "R2.fastq.gz", "wt") as fh:
-        fh.write("@read\nTGCA\n+\nIIII\n")
+    write_fastq_gz(sample_1 / "R1.fastq.gz")
+    write_fastq_gz(sample_1 / "R2.fastq.gz", seq="TGCA")
+    write_fastq_gz(sample_2 / "R1.fastq.gz")
+    write_fastq_gz(sample_2 / "R2.fastq.gz", seq="TGCA")
 
     # Single short read should stay unpaired.
-    (misc / "single.clean.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(misc / "single.clean.fastq")
 
     # ONT-like long read.
-    with gzip.open(misc / "nanopore.fastq.gz", "wt") as fh:
-        fh.write("@550e8400-e29b-41d4-a716-446655440000\nACGT\n+\nIIII\n")
+    write_fastq_gz(misc / "nanopore.fastq.gz", header="@550e8400-e29b-41d4-a716-446655440000")
 
     # Assemblies with same basename across roots should be prefixed.
     (outbreak_a / "sample1.fasta").write_text(">contig1\nACGT\n")
     (outbreak_b / "sample1.fasta").write_text(">contig2\nTGCA\n")
 
     # Sample that would clash with reference id should be disambiguated.
-    (outbreak_b / "reference.fastq").write_text("@read\nACGT\n+\nIIII\n")
+    write_fastq(outbreak_b / "reference.fastq")
 
     cfg = gather_samples_config([outbreak_a, outbreak_b, misc], reference=ref)
     samples = cfg["samples"]
 
     assert cfg["reference"] == str(ref.absolute())
 
-    assert "alpha" in samples
-    assert samples["alpha"]["type"] == "short"
-    assert samples["alpha"]["left"].endswith("alpha_R1.fastq")
-    assert samples["alpha"]["right"].endswith("alpha_R2.fastq")
+    assert_short_sample(samples, "alpha", left_suffix="alpha_R1.fastq", right_suffix="alpha_R2.fastq")
 
-    assert "mutant" in samples
-    assert samples["mutant"]["type"] == "short"
-    assert samples["mutant"]["left"].endswith("mutant_1.trim.fastq.gz")
-    assert samples["mutant"]["right"].endswith("mutant_2.trimmed.fastq.gz")
+    assert_short_sample(samples, "mutant", left_suffix="mutant_1.trim.fastq.gz", right_suffix="mutant_2.trimmed.fastq.gz")
 
-    assert "SRR6171131" in samples
-    assert samples["SRR6171131"]["type"] == "short"
-    assert samples["SRR6171131"]["left"].endswith("SRR6171131_1.fastq.gz")
-    assert samples["SRR6171131"]["right"].endswith("SRR6171131_2.fastq.gz")
+    assert_short_sample(samples, "SRR6171131", left_suffix="SRR6171131_1.fastq.gz", right_suffix="SRR6171131_2.fastq.gz")
 
-    assert "sample_1" in samples
-    assert samples["sample_1"]["type"] == "short"
-    assert samples["sample_1"]["left"].endswith("sample_1/R1.fastq.gz")
-    assert samples["sample_1"]["right"].endswith("sample_1/R2.fastq.gz")
+    assert_short_sample(samples, "sample_1", left_suffix="sample_1/R1.fastq.gz", right_suffix="sample_1/R2.fastq.gz")
 
-    assert "sample_2" in samples
-    assert samples["sample_2"]["type"] == "short"
-    assert samples["sample_2"]["left"].endswith("sample_2/R1.fastq.gz")
-    assert samples["sample_2"]["right"].endswith("sample_2/R2.fastq.gz")
+    assert_short_sample(samples, "sample_2", left_suffix="sample_2/R1.fastq.gz", right_suffix="sample_2/R2.fastq.gz")
 
-    assert "single.clean" in samples
-    assert samples["single.clean"]["type"] == "short"
-    assert samples["single.clean"]["right"] is None
+    assert_short_sample(samples, "single.clean", left_suffix="single.clean.fastq")
 
     assert "nanopore" in samples
     assert samples["nanopore"]["type"] == "long"

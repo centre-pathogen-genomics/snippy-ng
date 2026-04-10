@@ -114,6 +114,10 @@ biopython = PythonDependency(
     "biopython",
     citation="Peter J. A. Cock, Tiago Antao, Jeffrey T. Chang, Brad A. Chapman, Cymon J. Cox, Andrew Dalke, Iddo Friedberg, Thomas Hamelryck, Frank Kauff, Bartek Wilczynski, Michiel J. L. de Hoon, Biopython: freely available Python tools for computational molecular biology and bioinformatics, Bioinformatics, Volume 25, Issue 11, June 2009, Pages 1422-1423, https://doi.org/10.1093/bioinformatics/btp163"
 )
+numpy = PythonDependency(
+    "numpy",
+    citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2."
+)
 
 # Alignment
 samtools = Dependency(
@@ -157,8 +161,12 @@ clair3 = Dependency(
     command="run_clair3.sh",
     citation="Zheng, Z., Li, S., Su, J., Leung, A. W.-S., Lam, T.-W. & Luo, R. (2022). Symphonizing pileup and full-alignment for deep learning-based long-read variant calling. Nature Computational Science, 2(12), 797-803. https://doi.org/10.1038/s43588-022-00387-x",
     min_version="1.1.0",
-    less_then="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
+)
+longbow = Dependency(
+    "longbow",
+    citation="Chae H, Ruan Y, Chun S, et al. Restoring flowcell type and basecaller configuration from FASTQ files of nanopore sequencing data. Nat Commun. 2025;16:4198. https://doi.org/10.1038/s41467-025-59378-x",
+    min_version="2.3.1",
 )
 
 # Read cleaning

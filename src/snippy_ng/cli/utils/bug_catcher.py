@@ -1,6 +1,30 @@
 import click
+from pathlib import Path
+
 from snippy_ng.__about__ import __version__, EXE, GITHUB_URL
 from snippy_ng.exceptions import SnippyError 
+
+
+def _find_context_param(ctx: click.Context | None, name: str):
+    while ctx is not None:
+        if name in ctx.params:
+            return ctx.params[name]
+        ctx = ctx.parent
+    return None
+
+
+def _resolve_bug_log_path() -> Path | None:
+    from snippy_ng.logging import derive_log_path, logger
+
+    ctx = click.get_current_context(silent=True)
+    log_path = _find_context_param(ctx, "log_path")
+    outdir = _find_context_param(ctx, "outdir")
+    if log_path is not None:
+        return derive_log_path(Path(log_path), outdir)
+    if outdir is not None:
+        return derive_log_path(Path("LOG.txt"), outdir)
+    return logger.get_log_path() or logger.get_last_log_path()
+
 
 class BugCatchingGroup(click.Group):
     """
@@ -21,6 +45,7 @@ class BugCatchingGroup(click.Group):
             # Known SnippyError exceptions
             import sys
             from snippy_ng.logging import logger
+            logger.horizontal_rule(style="=")
             logger.error(e)
             sys.exit(1)
         except Exception as e:
@@ -29,8 +54,11 @@ class BugCatchingGroup(click.Group):
             import platform
             from urllib.parse import quote
             from snippy_ng.logging import logger
-            
-            traceback.print_exc(file=sys.stderr)
+
+            previous_log_path = logger.get_log_path()
+            bug_log_path = _resolve_bug_log_path()
+            if bug_log_path is not None:
+                logger.set_log_path(bug_log_path)
 
             url = (
                 f"{GITHUB_URL}/issues/new"
@@ -60,41 +88,44 @@ class BugCatchingGroup(click.Group):
             except Exception:
                 full_tb = "<unable to capture traceback>"
 
-            logger.echo(err=True)
-            logger.horizontal_rule("Bug report template (copy/paste the section below into GitHub)", color='red')
+            try:
+                logger.echo(err=True)
+                logger.horizontal_rule("Bug report template (copy/paste the section below into GitHub)", color='red')
 
-            logger.echo("\n**Describe the bug**", err=True)
-            logger.echo("> A clear and concise description of what the bug is.\n", err=True)
+                logger.echo("\n**Describe the bug**", err=True)
+                logger.echo("> A clear and concise description of what the bug is.\n", err=True)
 
-            logger.echo("You encountered an exception. Here is the exception message:\n", err=True)
-            logger.echo(f"```\n{type(e).__name__}: {e}\n```\n", err=True)
+                logger.echo("You encountered an exception. Here is the exception message:\n", err=True)
+                logger.echo(f"```\n{type(e).__name__}: {e}\n```\n", err=True)
 
-            logger.echo("The command you ran was:\n", err=True)
-            logger.echo(f"```\n{cmd_string}\n```\n", err=True)
+                logger.echo("The command you ran was:\n", err=True)
+                logger.echo(f"```\n{cmd_string}\n```\n", err=True)
 
-            logger.echo("**Environment**", err=True)
-            logger.echo("> Please provide your OS and Snippy-NG version. If you are running in conda, "
-                       "you can add 'conda list' output here as well.\n", err=True)
-            logger.echo(f"- OS: `{os_info}`", err=True)
-            logger.echo(f"- Snippy-NG version: `{snippy_version}`\n", err=True)
-            
-            logger.echo("**Additional context**", err=True)
-            logger.echo("> Add any other context about the problem here. (e.g., input files, "
-                       "exact command arguments, steps to reproduce, etc.)\n", err=True)
+                logger.echo("**Environment**", err=True)
+                logger.echo("> Please provide your OS and Snippy-NG version. If you are running in conda, "
+                           "you can add 'conda list' output here as well.\n", err=True)
+                logger.echo(f"- OS: `{os_info}`", err=True)
+                logger.echo(f"- Snippy-NG version: `{snippy_version}`\n", err=True)
+                
+                logger.echo("**Additional context**", err=True)
+                logger.echo("> Add any other context about the problem here. (e.g., input files, "
+                           "exact command arguments, steps to reproduce, etc.)\n", err=True)
 
-            logger.echo("**Backtrace**", err=True)
-            logger.echo("> If possible, please include the complete error log below.\n", err=True)
-            logger.echo("```", err=True)
-            logger.echo(full_tb.rstrip("\n"), err=True)
-            logger.echo("```\n", err=True)
+                logger.echo("**Backtrace**", err=True)
+                logger.echo("> If possible, please include the complete error log below.\n", err=True)
+                logger.echo("```", err=True)
+                logger.echo(full_tb.rstrip("\n"), err=True)
+                logger.echo("```\n", err=True)
 
-            logger.horizontal_rule("Copy/paste the section above into GitHub", color='red')
-            logger.echo(
-                "\nOh no! You broke Snippy-NG... Congrats! Please use the following URL to report this bug:",
-                err=True,
-            )
-            logger.echo(f"\n{url}\n", err=True)
-            logger.echo("Above is a pre-filled bug report template. "
-                       "Please copy/paste it into the GitHub issue form.\n", err=True)
+                logger.horizontal_rule("Copy/paste the section above into GitHub", color='red')
+                logger.echo(
+                    "\nOh no! You broke Snippy-NG... Congrats! Please use the following URL to report this bug:",
+                    err=True,
+                )
+                logger.echo(f"\n{url}\n", err=True)
+                logger.echo("Above is a pre-filled bug report template. "
+                           "Please copy/paste it into the GitHub issue form.\n", err=True)
+            finally:
+                logger.set_log_path(previous_log_path)
             
             sys.exit(1)

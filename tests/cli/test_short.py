@@ -1,8 +1,5 @@
 import pytest
-from click.testing import CliRunner
-
-from snippy_ng.cli import snippy_ng
-import snippy_ng.pipelines as _pl
+from tests.cli.helpers import apply_cli_case_overrides, assert_cli_result, get_bad_reference_target, run_cli_command, write_dummy_files
 
 
 @pytest.fixture(autouse=True)
@@ -95,29 +92,14 @@ def test_short_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_
         "bam": tmp_path / "reads.bam",
         "out": tmp_path / "output",
     }
-    for f in ["ref", "r1", "r2", "bam"]:
-        paths[f].write_text(">dummy\nA")
-
-    if case_name == "outdir_exists":
-        paths["out"].mkdir()
-
-    if case_name == "bad_reference":
-        monkeypatch.setattr("snippy_ng.pipelines.common.guess_reference_format", lambda _: None)
+    write_dummy_files(paths, ["ref", "r1", "r2", "bam"])
+    apply_cli_case_overrides(
+        monkeypatch,
+        case_name,
+        paths["out"],
+        bad_reference_target=get_bad_reference_target("short"),
+    )
 
     args = ["short"] + extra(paths)
-    runner = CliRunner()
-
-    # --------------- Act ------------------------------------------------------
-    result = runner.invoke(snippy_ng, args)
-
-    # --------------- Assert ---------------------------------------------------
-    assert result.exit_code == expect_exit, result.output
-
-    # Did we create / run a pipeline?
-    last_pipeline = _pl.SnippyPipeline.last        # may be None if creation failed earlyA
-
-    if expect_run:
-        assert last_pipeline and last_pipeline.ran is True
-    else:
-        if last_pipeline:
-            assert last_pipeline.ran is False
+    result = run_cli_command(args)
+    assert_cli_result(result, expect_exit, expect_run)

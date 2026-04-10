@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class Context(BaseModel):
     outdir: Optional[Path] = Field(None, description="Output directory for the pipeline run")
+    log_path: Optional[Path] = Field(default="LOG.txt", description="Optional log file path for this pipeline run")
     tmpdir: Optional[Path] = Field(default=None, description="Temporary directory")
     cpus: int = Field(default=1, description="Max number of CPUs to use")
     ram: Optional[int] = Field(default=None, description="RAM in GB")

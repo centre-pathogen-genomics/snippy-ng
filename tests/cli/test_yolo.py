@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng
+from tests.cli.helpers import make_prepared_reference, stub_load_or_prepare_reference
 
 
 def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
@@ -14,24 +15,16 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
         lambda **_: {"samples": samples},
     )
 
-    ref_dir = tmp_path / "prepared_reference"
-    ref_dir.mkdir(parents=True, exist_ok=True)
-    ref_file = ref_dir / "genomic.fa"
-    ref_file.write_text(">ref\nACGT\n")
-
-    def fake_load_or_prepare_reference(reference_path, output_directory):
-        return SimpleNamespace(output=SimpleNamespace(reference=ref_file))
-
-    monkeypatch.setattr(
-        "snippy_ng.pipelines.common.load_or_prepare_reference",
-        fake_load_or_prepare_reference,
-    )
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(monkeypatch, ref_file)
+    captured = {}
 
     class DummySnippyPipeline:
         def __init__(self, stages=None, outputs_to_keep=None):
             self.stages = stages or []
 
         def run(self, _ctx):
+            captured.setdefault("run_contexts", []).append(_ctx.model_copy(deep=True))
             return 0
 
     monkeypatch.setattr("snippy_ng.pipelines.SnippyPipeline", DummySnippyPipeline)
@@ -65,6 +58,16 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
         "snippy_ng.pipelines.core.CorePipelineBuilder",
         DummyCorePipelineBuilder,
     )
+    return captured
+
+
+def _run_yolo(tmp_path, *extra_args):
+    outdir = tmp_path / "out"
+    result = CliRunner().invoke(
+        snippy_ng,
+        ["yolo", str(tmp_path), "-o", str(outdir), *extra_args, "--skip-check"],
+    )
+    return outdir, result
 
 
 def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
@@ -74,9 +77,9 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
         "s2": {"type": "short"},
         "s3": {"type": "short"},
     }
-    _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
+    captured_pipeline = _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
 
-    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: None)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     captured = {}
 
@@ -95,18 +98,15 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     )
 
     # Act
-    outdir = tmp_path / "out"
-    runner = CliRunner()
-    result = runner.invoke(
-        snippy_ng,
-        ["yolo", str(tmp_path), "-o", str(outdir), "--skip-check"],
-    )
+    outdir, result = _run_yolo(tmp_path)
 
     # Assert
     assert result.exit_code == 0, result.output
     assert captured["aln"] == outdir / "core" / "core.095.aln"
     assert captured["fconst"] == "1,2,3,4"
-    assert captured["fast_mode"] is False
+    assert captured["fast_mode"] is True
+    assert captured_pipeline["run_contexts"][0].log_path == (outdir / "reference" / "LOG.txt").absolute()
+    assert captured_pipeline["run_contexts"][0].outdir == outdir / "reference"
 
 
 def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
@@ -114,8 +114,8 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
         "s1": {"type": "short"},
         "s2": {"type": "short"},
     }
-    _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
-    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: None)
+    captured_pipeline = _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     class ShouldNotBeCalledTreePipelineBuilder:
         def __init__(self, *args, **kwargs):
@@ -126,14 +126,10 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
         ShouldNotBeCalledTreePipelineBuilder,
     )
 
-    outdir = tmp_path / "out"
-    runner = CliRunner()
-    result = runner.invoke(
-        snippy_ng,
-        ["yolo", str(tmp_path), "-o", str(outdir), "--skip-check"],
-    )
+    _, result = _run_yolo(tmp_path)
 
     assert result.exit_code == 0, result.output
+    assert captured_pipeline["run_contexts"][0].log_path == ((tmp_path / "out") / "reference" / "LOG.txt").absolute()
 
 
 def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tmp_path):
@@ -148,6 +144,7 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
 
     def fake_run_multi_pipeline(**kwargs):
         captured_multi.update(kwargs)
+        return list(samples.keys()), []
 
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 
@@ -163,16 +160,12 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
         DummyTreePipelineBuilder,
     )
 
-    outdir = tmp_path / "out"
-    runner = CliRunner()
-    result = runner.invoke(
-        snippy_ng,
-        ["yolo", str(tmp_path), "-o", str(outdir), "-c", "8", "--skip-check"],
-    )
+    _, result = _run_yolo(tmp_path, "-c", "8")
 
     assert result.exit_code == 0, result.output
     assert captured_multi["samples"]["long_1"]["caller"] == "freebayes"
     assert captured_multi["cpus_per_sample"] == 4
+    assert captured_multi["snippy_reference_dir"] == tmp_path / "prepared_reference"
 
 
 def test_yolo_errors_when_no_reference_found(tmp_path):

@@ -25,3 +25,4 @@ report/
 samples.json
 CITATIONS.txt
 FILES.tsv
+clair3_models/

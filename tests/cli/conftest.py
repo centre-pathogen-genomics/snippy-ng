@@ -1,7 +1,8 @@
 """
 Shared fixtures and stubs for CLI tests.
 """
-import types
+import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ class DummyPipeline:
     last = None                        # will hold most‑recent instance
 
     def __init__(self, *_, **__):
+        self.stages     = __.get("stages", []) if __ else []
         self.validated = False
         self.ran       = False
         DummyPipeline.last = self      # remember myself
@@ -30,6 +32,7 @@ class DummyPipeline:
             return None
         
         self.set_working_directory(ctx.outdir)
+        self._materialize_stage_outputs(ctx.outdir)
         self.ran = True
         self.cleanup(None)
         self.goodbye()
@@ -42,12 +45,42 @@ class DummyPipeline:
     def goodbye(self):                 pass
     def error(self, *_):               pass
 
+    def _materialize_stage_outputs(self, outdir: Path):
+        outdir = Path(outdir)
+        for stage in self.stages:
+            output = getattr(stage, "output", None)
+            if output is None or not hasattr(output, "all_outputs"):
+                continue
+            for _, path in output.all_outputs():
+                source = Path(path)
+                if not source.exists() or source.is_dir():
+                    continue
+                target = outdir / source.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+
 
 def stage_factory(output):
     """Factory function to create dummy stage classes with specified output."""
+    class DummyOutput:
+        _immutable = False
+
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        def non_temporary_outputs(self):
+            return [(key, value) for key, value in self.__dict__.items() if key != "_immutable"]
+
+        def temporary_outputs(self):
+            return []
+
+        def all_outputs(self):
+            return self.non_temporary_outputs()
+
     class _Stage:
         def __init__(self, *_, **__):
-            self.output = types.SimpleNamespace(
+            self.output = DummyOutput(
                 **{out_key: out_val for out_key, out_val in output.items()}
             )
     return _Stage
@@ -89,15 +122,41 @@ def stub_reference_format(monkeypatch):
 @pytest.fixture
 def stub_common_stages(monkeypatch, tmp_path):
     """Stub out the common stages used across all pipelines."""
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps({
+        "reference": "ref.fa",
+        "format": "fasta",
+        "num_sequences": 1,
+        "total_length": 4,
+        "num_features": 0,
+        "prefix": "ref",
+        "datetime": "2026-01-01T00:00:00",
+        "version": "test",
+    }))
+    (tmp_path / "ref.fa").write_text(">ref\nATCG\n")
+    (tmp_path / "ref.gff").write_text("##gff-version 3\n")
+    (tmp_path / "ref.fa.fai").write_text("ref\t4\t5\t4\t5\n")
+    (tmp_path / "ref.dict").write_text("@SQ\tSN:ref\tLN:4\n")
+
+    prepare_reference_stage = stage_factory({
+        "reference": tmp_path / "ref.fa",
+        "gff": tmp_path / "ref.gff",
+        "reference_index": tmp_path / "ref.fa.fai",
+        "reference_dict": tmp_path / "ref.dict",
+        "metadata": tmp_path / "metadata.json",
+        "reference_directory": tmp_path,
+    })
     monkeypatch.setattr(
         "snippy_ng.stages.setup.PrepareReference",
-        stage_factory({
-            "reference": tmp_path / "ref.fa",
-            "gff": tmp_path / "ref.gff",
-            "reference_index": tmp_path / "ref.fa.fai",
-            "reference_dict": tmp_path / "ref.dict",
-            "metadata": tmp_path / "metadata.json"
-        }),
+        prepare_reference_stage,
+    )
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.PrepareReference",
+        prepare_reference_stage,
+    )
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.common.load_or_prepare_reference",
+        lambda *args, **kwargs: prepare_reference_stage(),
     )
 
 
@@ -131,6 +190,13 @@ def stub_long_stages(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "snippy_ng.stages.clean_reads.SeqkitCleanLongReads",
         stage_factory({"cleaned_reads": tmp_path / "cleaned.fq"}),
+    )
+    monkeypatch.setattr(
+        "snippy_ng.stages.calling.LongbowClair3ModelSelector",
+        stage_factory({
+            "prediction_json": tmp_path / "longbow.json",
+            "clair3_model": tmp_path / "resolved_clair3_model",
+        }),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.stats.SeqKitReadStatsBasic",

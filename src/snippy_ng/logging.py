@@ -1,6 +1,16 @@
 import os
 import click
 import time
+from pathlib import Path
+
+
+def derive_log_path(log_path: Path | None, outdir: Path | None) -> Path | None:
+    if log_path is None:
+        return None
+    log_path = Path(log_path)
+    if outdir is None:
+        return log_path.absolute()
+    return (Path(outdir) / log_path.name).absolute()
 
 
 class Logger():
@@ -11,15 +21,50 @@ class Logger():
             'ERROR': click.style('ERROR', fg='red', bold=True)
         }
 
+    def __init__(self, log_path: Path | None = None):
+        self._log_path: Path | None = Path(log_path) if log_path is not None else None
+        self._last_log_path: Path | None = self._log_path
+
     def _format(self, level, msg):
         """Format the log message."""
         asctime = time.strftime("%H:%M:%S")
         level_styled = self.levels.get(level, level)
         return f"[{asctime} - {level_styled}] {msg}"
 
-    def echo(self, message='', err=False, **kwargs):
+    def get_log_path(self) -> Path | None:
+        return self._log_path
+
+    def get_last_log_path(self) -> Path | None:
+        return self._last_log_path
+
+    def set_log_path(self, log_path: Path | None) -> None:
+        self._log_path = Path(log_path) if log_path is not None else None
+        if self._log_path is not None:
+            self._last_log_path = self._log_path
+
+    def reset_log_file(self) -> None:
+        log_path = self.get_log_path()
+        if log_path is None:
+            return
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        if log_path.exists():
+            log_path.unlink()
+
+    def _append_to_file(self, message: str) -> None:
+        log_path = self.get_log_path()
+        if log_path is None:
+            return
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(click.unstyle(message))
+            if not message.endswith("\n"):
+                handle.write("\n")
+
+    def echo(self, message='', err=False, console=True, **kwargs):
         """Echo a message to the console."""
-        click.echo(message, err=err, **kwargs)
+        if console:
+            click.echo(message, err=err, **kwargs)
+        self._append_to_file(message)
 
     def info(self, msg):
        self.echo(self._format("INFO", msg), err=True)

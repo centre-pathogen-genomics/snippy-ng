@@ -25,11 +25,10 @@ class ReferenceOutput(BaseOutput):
     metadata: Path = Field(..., description="Reference metadata JSON file")
     reference_directory: Path = Field(..., description="Directory containing reference files")
 
-
 class PrepareReference(BaseStage):
     input: Path = Field(..., description="Reference file")
     ref_fmt: str = Field("genbank", description="Reference format")
-    directory: Path = Field(Path("reference"), description="Output directory for reference files")
+    output_directory: Path | None = Field(default=None, description="Optional directory for prepared reference outputs")
 
     _dependencies = [
         biopython,
@@ -43,13 +42,14 @@ class PrepareReference(BaseStage):
 
     @property
     def output(self) -> ReferenceOutput:
+        output_directory = self.output_directory or Path(".")
         return ReferenceOutput(
-            reference=self.directory / f"{self.reference_prefix}.fa",
-            reference_index=self.directory / f"{self.reference_prefix}.fa.fai",
-            reference_dict=self.directory / f"{self.reference_prefix}.dict",
-            gff=self.directory / f"{self.reference_prefix}.gff",
-            metadata=self.directory / METADATA_FILE_NAME,
-            reference_directory=self.directory,
+            reference=output_directory / f"{self.reference_prefix}.fa",
+            reference_index=output_directory / f"{self.reference_prefix}.fa.fai",
+            reference_dict=output_directory / f"{self.reference_prefix}.dict",
+            gff=output_directory / f"{self.reference_prefix}.gff",
+            metadata=output_directory / METADATA_FILE_NAME,
+            reference_directory=output_directory,
         )
 
     def create_commands(self, ctx):
@@ -59,10 +59,6 @@ class PrepareReference(BaseStage):
             description=f"Extract FASTA and GFF from reference ({self.ref_fmt})",
         )
         return [
-            self.shell_cmd(
-                ["mkdir", "-p", str(self.directory)],
-                description=f"Create reference directory: {self.directory}",
-            ),
             process_reference_cmd,
             self.shell_cmd(
                 ["samtools", "faidx", str(self.output.reference)],
@@ -167,6 +163,10 @@ class PrepareReference(BaseStage):
         nseq = 0
         nfeat = 0
         total_length = 0
+
+        output_fasta_path.parent.mkdir(parents=True, exist_ok=True)
+        output_gff_path.parent.mkdir(parents=True, exist_ok=True)
+        self.output.metadata.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_fasta_path, "w") as fasta_out, open(
             output_gff_path, "w"

@@ -110,7 +110,7 @@ def simulated_dataset(tmp_path: Path, integration_cache_root: Path):
             truth_vcf=materialized.truth_vcf,
             mutated_reference=materialized.mutated_reference,
             outdir=outdir,
-            called_vcf=outdir / f"{prefix}.vcf",
+            called_vcf=outdir / f"{prefix}.vcf.gz",
             assembly=materialized.assembly,
             reads_r1=materialized.reads_r1,
             reads_r2=materialized.reads_r2,

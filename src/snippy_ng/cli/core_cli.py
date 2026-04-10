@@ -10,9 +10,10 @@ from pathlib import Path
 @click.option("--prefix", "-p", default="core", help="Prefix for output files", cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
 @click.argument("snippy_dirs", required=True, nargs=-1, type=AbsolutePath(exists=True, readable=True))
-@click.option("--ref", "reference", type=AbsolutePath(exists=True, readable=True), required=True, help="Reference FASTA used to define contig order")
-@click.option("--core", type=click.FLOAT, default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment (0.0-1.0)")
-def core(snippy_dirs: tuple[Path, ...], reference: Path, core: float, outdir: Path, prefix: str, **context: Any):
+@click.option("--ref", "--reference", type=AbsolutePath(exists=True, readable=True), required=True, help="Reference FASTA used to define contig order")
+@click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
+@click.option("--inclusion-threshold", "-i", type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+def core(snippy_dirs: tuple[Path, ...], reference: Path, core: float, inclusion_threshold: float, outdir: Path, prefix: str, **context: Any):
     """
     Create core alignment from multiple Snippy-NG runs
     """
@@ -30,6 +31,7 @@ def core(snippy_dirs: tuple[Path, ...], reference: Path, core: float, outdir: Pa
         snippy_dirs=snippy_dirs,
         reference=Path(reference),
         core=core,
+        inclusion_threshold=inclusion_threshold,
         prefix=prefix,
     ).build()
 

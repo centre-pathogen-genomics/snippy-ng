@@ -1,7 +1,7 @@
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.core import CombineFastaFile, SoftCoreFilter
+from snippy_ng.stages.core import CombineFastaFile, FilterAlignmentByAlignedPercentage, SoftCoreFilter
 from snippy_ng.stages.stats import AlignmentAlignedPercentage
 from pathlib import Path
 from pydantic import Field
@@ -12,6 +12,7 @@ class CorePipelineBuilder(PipelineBuilder):
     snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
+    inclusion_threshold: float = Field(default=0.1, description="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
     prefix: str = Field(default="core", description="Output file prefix")
 
     def build(self) -> SnippyPipeline:
@@ -20,7 +21,8 @@ class CorePipelineBuilder(PipelineBuilder):
 
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference
+            reference_path=self.reference,
+            output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
         reference_id = ReferenceMetadata(setup.output.metadata).prefix or "reference"
@@ -41,9 +43,17 @@ class CorePipelineBuilder(PipelineBuilder):
         )
         stages.append(alignment_stats)
 
+        alignment_filter = FilterAlignmentByAlignedPercentage(
+            aln=combine_stage.output.aln,
+            alignment_stats=alignment_stats.output.aligned_tsv,
+            prefix=self.prefix,
+            inclusion_threshold=self.inclusion_threshold,
+        )
+        stages.append(alignment_filter)
+
         # Stage to filter the alignment to create core alignment
         filter_stage = SoftCoreFilter(
-            aln=combine_stage.output.aln,
+            aln=alignment_filter.output.filtered_aln,
             core_threshold=self.core,
             prefix=self.prefix,
         )

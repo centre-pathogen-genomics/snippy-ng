@@ -1,21 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
-from snippy_ng.stages.vcf import VcfFilterShort
-from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
-from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.compression import BgzipCompressor
-from snippy_ng.stages.masks import ApplyMask, QualMask
-from snippy_ng.stages.copy import CopyFasta
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
 
 
 def load_or_prepare_reference(
         reference_path,
-        output_directory: Path = Path("reference"),
+        output_directory: Path | None = None,
         ) -> PrepareReference | LoadReferenceFromMetadataFile:
     """
     Load an existing reference directory or prepare a new reference from a FASTA/GenBank file.
@@ -42,12 +35,12 @@ def load_or_prepare_reference(
             metadata=Path(reference_path)
         )
     else:
-        setup = prepare_reference(reference_path, output_directory)
+        setup = prepare_reference(reference_path, output_directory=output_directory)
     
     return setup
 
 
-def prepare_reference(reference_path, output_directory) -> PrepareReference:
+def prepare_reference(reference_path, output_directory: Path | None = None) -> PrepareReference:
     """
     Prepare a new reference from a FASTA/GenBank file.
     
@@ -64,139 +57,7 @@ def prepare_reference(reference_path, output_directory) -> PrepareReference:
     setup = PrepareReference(
         input=reference_path,
         ref_fmt=reference_format,
-        directory=output_directory,
+        output_directory=output_directory,
     )
     
     return setup
-
-
-def filter_annotate_and_generate_consensus(
-    stages: list,
-    vcf: Path,
-    reference: Path,
-    reference_index: Path,
-    features: Path,
-    header: Optional[str],
-    min_qual: float,
-    globals: dict,
-) -> Path:
-    """
-    Filter VCF, annotate with consequences, compress, and generate pseudo-alignment.
-    
-    This is common logic shared between asm and short pipelines for processing
-    variant calls into a consensus sequence.
-    
-    Args:
-        stages: List to append stages to
-        vcf: Raw VCF file from variant caller
-        reference: Reference file
-        reference_index: Reference index file
-        features: GFF features file
-        header: Optional header for the output FASTA
-        min_qual: Minimum quality for filtering
-        globals: Dictionary containing prefix, cpus, ram, outdir, tmpdir
-        
-    Returns:
-        Path to the generated pseudo-alignment FASTA file
-    """
-    # Filter VCF
-    variant_filter = VcfFilterShort(
-        vcf=vcf,
-        reference=reference,
-        min_qual=min_qual,
-        **globals
-    )
-    stages.append(variant_filter)
-    variants_file = variant_filter.output.vcf
-    
-    # Consequences calling
-    consequences = BcftoolsConsequencesCaller(
-        variants=variants_file,
-        features=features,
-        reference=reference,
-        **globals
-    )
-    stages.append(consequences)
-    
-    # Compress VCF
-    gzip = BgzipCompressor(
-        input=consequences.output.annotated_vcf,
-        suffix="gz",
-        **globals
-    )
-    stages.append(gzip)
-    
-    # Pseudo-alignment
-    pseudo = BcftoolsPseudoAlignment(
-        ref_metadata=globals.get('ref_metadata'),
-        vcf_gz=gzip.output.compressed,
-        reference=reference,
-        reference_index=reference_index,
-        header=header,
-        **globals
-    )
-    stages.append(pseudo)
-    
-    return pseudo.output.fasta
-
-
-def apply_consensus_masking(
-    stages: list,
-    fasta: Path,
-    vcf: Path,
-    reference: Path,
-    mask: Optional[str],
-    min_qual: float,
-    globals: dict,
-) -> list:
-    """
-    Apply heterozygous/low-quality site masking, optional user mask, and copy final consensus.
-    
-    This is common logic shared between asm and short pipelines after their respective
-    depth/missing masking stages.
-    
-    Args:
-        stages: List to append stages to
-        fasta: Current FASTA file (after any depth masking)
-        vcf: Raw VCF file for heterozygous site detection
-        reference: Reference file
-        mask: Optional user mask BED file path
-        min_qual: Minimum quality threshold for masking
-        globals: Dictionary containing prefix, cpus, ram, outdir, tmpdir
-        
-    Returns:
-        Updated stages list
-    """
-    current_fasta = fasta
-    
-    # Apply heterozygous and low quality sites masking
-    het_mask = QualMask(
-        vcf=vcf,  # Use raw VCF for complete site information
-        fasta=current_fasta,
-        reference=reference,
-        min_qual=min_qual,
-        **globals
-    )
-    stages.append(het_mask)
-    current_fasta = het_mask.output.masked_fasta
-    
-    # Apply user mask if provided
-    if mask:
-        user_mask = ApplyMask(
-            fasta=current_fasta,
-            mask_bed=Path(mask),
-            **globals
-        )
-        stages.append(user_mask)
-        current_fasta = user_mask.output.masked_fasta
-
-    # Copy final masked consensus to standard output location
-    prefix = globals['prefix']
-    copy_final = CopyFasta(
-        input=current_fasta,
-        output_path=f"{prefix}.pseudo.fna",
-        **globals
-    )
-    stages.append(copy_final)
-    
-    return stages

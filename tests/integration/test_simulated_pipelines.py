@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+import gzip
 
 import pytest
 
@@ -166,7 +167,7 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     deletion_records = []
-    with open(outdir / "snippy.vcf", "r") as handle:
+    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
@@ -248,7 +249,7 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     variant_records = []
-    with open(outdir / "snippy.vcf", "r") as handle:
+    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
