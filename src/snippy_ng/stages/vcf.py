@@ -224,6 +224,10 @@ class VcfFilterLong(VcfFilter):
                 ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
                 description="Remove non-alt alleles and output final VCF"
             ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
+                description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+            ),
         ])
 
         if self.min_qual is not None:
@@ -231,14 +235,6 @@ class VcfFilterLong(VcfFilter):
                 self.shell_cmd(
                     ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
                     description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
-                )
-            )
-
-        if self.min_depth is not None:
-            pipeline_commands.append( 
-                self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
                 )
             )
 
