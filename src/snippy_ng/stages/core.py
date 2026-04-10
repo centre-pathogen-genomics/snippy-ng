@@ -11,6 +11,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from snippy_ng.exceptions import StageExecutionError, MissingInputError
+from snippy_ng.logging import logger
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import biopython, core_snp_filter, numpy
 
@@ -156,6 +157,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
     aln: Path = Field(..., description="Input multiple sequence alignment")
     alignment_stats: Path = Field(..., description="TSV file of per-sequence aligned percentages")
     inclusion_threshold: float = Field(0.20, description="Posterior probability threshold for retaining membership in the main alignment cluster")
+    identical_alignment_spread: float = Field(10.0, description="If the spread of aligned percentages is less than or equal to this value, keep all samples to avoid filtering when there are no clear outliers")
 
     _dependencies = [biopython, numpy]
 
@@ -169,7 +171,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         return [
             self.python_cmd(
                 func=self.filter_alignment,
-                args=(self.aln, self.alignment_stats, self.output.filtered_aln, self.inclusion_threshold),
+                args=(self.aln, self.alignment_stats, self.output.filtered_aln, self.inclusion_threshold, self.identical_alignment_spread),
                 description="Filter low-alignment samples from the MSA before soft core filtering",
             )
         ]
@@ -261,6 +263,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         alignment_stats: Path,
         filtered_aln: Path,
         inclusion_threshold: float = 0.50,
+        identical_alignment_spread: float = 10.0,
     ) -> None:
         records = list(SeqIO.parse(str(aln), "fasta"))
         if not records:
@@ -294,12 +297,13 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     raise MSAValidationError(f"Missing aligned percentage for sample '{record.id}' in {alignment_stats}")
                 sample_values.append(aligned_by_sequence[record.id])
 
-            if len(set(round(value, 6) for value in sample_values)) < 2:
+            if max(sample_values) - min(sample_values) <= identical_alignment_spread:
                 kept_records = records
             else:
                 weights, _, _, responsibilities = cls._fit_two_component_gmm(sample_values)
                 main_component = int(np.argmax(weights))
                 keep_ids = {reference_id}
+                removed_ids: list[str] = []
 
                 for record, aligned, probs in zip(sample_records, sample_values, responsibilities):
                     probability_main = float(probs[main_component])
@@ -316,8 +320,17 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     )
                     if not removed:
                         keep_ids.add(record.id)
+                    else:
+                        removed_ids.append(record.id)
 
                 kept_records = [record for record in records if record.id in keep_ids]
+                if removed_ids:
+                    logger.warning(
+                        "Filtered out "
+                        f"{len(removed_ids)} sample(s) from alignment {aln} "
+                        f"using inclusion threshold {inclusion_threshold:.2f}: "
+                        + ", ".join(removed_ids)
+                    )
 
         if len(stats_rows) == 1:
             for record in sample_records:

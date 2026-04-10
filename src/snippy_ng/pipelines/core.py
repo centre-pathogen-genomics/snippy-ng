@@ -12,7 +12,7 @@ class CorePipelineBuilder(PipelineBuilder):
     snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
-    inclusion_threshold: float = Field(default=0.2, description="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+    inclusion_threshold: float = Field(default=0.1, description="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
     prefix: str = Field(default="core", description="Output file prefix")
 
     def build(self) -> SnippyPipeline:
