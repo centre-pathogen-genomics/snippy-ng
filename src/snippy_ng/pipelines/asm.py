@@ -96,7 +96,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(vcf_stats)
         
-        # Filter to PASS-only variants for consensus generation
+        # Filter to PASS-only variants
         pass_filter = VcfPassFilter(
             vcf=consequences.output.annotated_vcf,
             prefix=self.prefix
