@@ -42,6 +42,7 @@ def test_filter_alignment_by_aligned_percentage_filters_outlier_sample(tmp_path)
         "aligned": "100.00",
         "probability_component_0": "",
         "probability_component_1": "",
+        "probability_component_2": "",
         "probability_main": "",
         "removed": "false",
     }
@@ -135,7 +136,7 @@ def test_filter_alignment_by_aligned_percentage_filters_high_and_low_outliers(tm
         "sample_c\t83.00\n"
         "sample_d\t80.00\n"
         "sample_e\t10.00\n"
-        "sample_f\t35.00\n"  
+        "sample_f\t35.00\n"
     )
     filtered_aln = tmp_path / "core.filtered.aln"
 
@@ -148,6 +149,47 @@ def test_filter_alignment_by_aligned_percentage_filters_high_and_low_outliers(tm
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
     assert kept_ids == ["reference", "sample_b", "sample_c", "sample_d"]
+    with aligned_tsv.open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    removed_rows = {row["sequence"]: row for row in rows if row["removed"] == "true"}
+    assert set(removed_rows) == {"sample_a", "sample_e", "sample_f"}
+    assert removed_rows["sample_a"]["probability_main"] != ""
+    assert removed_rows["sample_a"]["probability_component_2"] != ""
+    kept_rows = {row["sequence"]: row for row in rows if row["removed"] == "false"}
+    assert float(kept_rows["sample_b"]["probability_main"]) >= 0.50
+    assert float(removed_rows["sample_a"]["probability_main"]) < 0.50
+
+def test_filter_alignment_by_aligned_percentage_keeps_samples_when_one_tail_outlier(tmp_path):
+    aln = tmp_path / "core.full.aln"
+    aln.write_text(
+        ">reference\nAAAAAA\n"
+        ">sample_a\nAAAAAA\n"
+        ">sample_b\nAAA-AAA\n"
+        ">sample_c\nAA----\n"
+        ">sample_d\n------\n"
+        ">sample_e\nAAAAAA\n"
+    )
+    aligned_tsv = tmp_path / "core.aligned.tsv"
+    aligned_tsv.write_text(
+        "sequence\taligned\n"
+        "reference\t100.00\n"
+        "sample_a\t99.00\n"
+        "sample_b\t99.00\n"
+        "sample_c\t99.00\n"
+        "sample_d\t60.00\n"
+        "sample_e\t30.00\n"
+    )
+    filtered_aln = tmp_path / "core.filtered.aln"
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+        inclusion_threshold=0.50,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference", "sample_a", "sample_b", "sample_c"]
 
 def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_path, monkeypatch):
     aln = tmp_path / "core.full.aln"
@@ -180,38 +222,6 @@ def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_p
     assert messages == [
         f"Filtered out 1 sample(s) from alignment {aln} using inclusion threshold 0.50: sample_c"
     ]
-
-
-def test_filter_alignment_by_aligned_percentage_keeps_all_when_too_few_samples(tmp_path):
-    aln = tmp_path / "core.full.aln"
-    aln.write_text(
-        ">reference\nAAAAAA\n"
-        ">sample_a\nAAAAAA\n"
-        ">sample_b\nAAA-AAA\n"
-    )
-    aligned_tsv = tmp_path / "core.aligned.tsv"
-    aligned_tsv.write_text(
-        "sequence\taligned\n"
-        "reference\t100.00\n"
-        "sample_a\t100.00\n"
-        "sample_b\t85.00\n"
-    )
-    filtered_aln = tmp_path / "core.filtered.aln"
-
-    FilterAlignmentByAlignedPercentage.filter_alignment(
-        aln=aln,
-        alignment_stats=aligned_tsv,
-        filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
-    )
-
-    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
-    assert kept_ids == ["reference", "sample_a", "sample_b"]
-    with aligned_tsv.open("r", newline="") as handle:
-        rows = list(csv.DictReader(handle, delimiter="\t"))
-    assert [row["sequence"] for row in rows] == ["reference", "sample_a", "sample_b"]
-    assert all(row["removed"] == "false" for row in rows)
-    assert all(row["probability_main"] == "" for row in rows)
 
 
 def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
