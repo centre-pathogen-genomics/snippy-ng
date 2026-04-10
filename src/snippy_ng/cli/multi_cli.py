@@ -3,13 +3,15 @@ from typing import Any
 import click
 
 from snippy_ng.cli.utils import AbsolutePath
-from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
+from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 from snippy_ng.context import Context
 from snippy_ng.exceptions import PipelineExecutionError
 from snippy_ng.logging import derive_log_path
 
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
+@click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
+@click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample", cls=GlobalOption)
 @add_snippy_global_options()
 @click.argument(
     "config",
@@ -22,10 +24,8 @@ from snippy_ng.logging import derive_log_path
     required=False,
     type=AbsolutePath(exists=True, readable=True),
 )
-@click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample")
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment cluster")
-@click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
 def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction 
