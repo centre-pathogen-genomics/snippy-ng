@@ -181,10 +181,26 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         max_iter: int = 100,
         tol: float = 1e-6,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Fit a two-component one-dimensional Gaussian mixture model with EM.
+
+        The input is treated as a single numeric feature, and the algorithm
+        estimates two overlapping normal distributions that could have produced
+        those values. Each iteration alternates between:
+        1. estimating each sample's responsibility for each component, and
+        2. updating the component weights, means, and variances from those
+           responsibilities.
+
+        This helper is used to separate the main alignment-quality cluster from
+        a lower-quality cluster without imposing a hard cutoff on aligned
+        percentage.
+        """
         x = np.asarray(values, dtype=float).reshape(-1, 1)
         n = x.shape[0]
         if n < 2:
             raise ValueError("Need at least two values to fit a 2-component mixture")
+        if np.var(x[:, 0]) < 1e-12:
+            raise ValueError("Data are almost identical; 2-component GMM is not identifiable")
 
         sorted_values = np.sort(x[:, 0])
         q1 = sorted_values[max(0, n // 4)]
