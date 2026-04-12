@@ -236,7 +236,7 @@ class BaseStage(BaseModel):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=False,
-            bufsize=0,
+            bufsize=-1,
         )
         stdout_chunks: list[bytes] = []
         stderr_chunks: list[str] = []
@@ -309,7 +309,7 @@ class BaseStage(BaseModel):
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=False,
-                        bufsize=0,
+                        bufsize=-1,
                     )
                     processes.append(p)
                     stderr_chunks[id(p)] = []
