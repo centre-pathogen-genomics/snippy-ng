@@ -40,8 +40,8 @@ def samclip(
             contig_lengths=contig_lengths,
             max_clip=max,
             invert=invert,
-            on_debug=lambda msg: click.echo(msg, err=True) if debug else None,
             fix_mate=fix_mate,
+            debug=False, # prints too much info for large files
         ):
             output_buffer.append(line)
             if len(output_buffer) >= 8192:

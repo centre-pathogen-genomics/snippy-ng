@@ -63,6 +63,7 @@ class ShortReadAligner(Aligner):
         commands.append(sort_name_cmd)
 
         if self.samclip:
+            debug_flag = ["--debug"] if ctx.debug else []
             samclip_cmd = self.shell_cmd(
                 [
                     sys.executable,
@@ -75,6 +76,7 @@ class ShortReadAligner(Aligner):
                     "--max",
                     str(self.maxsoft),
                     "--fix-mate",
+                    *debug_flag,
                 ],
                 description="Filter alignments with excessive soft clipping",
             )
