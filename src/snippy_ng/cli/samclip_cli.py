@@ -48,8 +48,9 @@ def samclip(
                 sys.stdout.write("".join(output_buffer))
                 output_buffer.clear()
             line_count += 1
-            if line_count % 100000 == 0:
+            if debug and line_count % 100000 == 0:
                 click.echo(f"[samclip] Processed {line_count} lines...", err=True)
         if output_buffer:
             sys.stdout.write("".join(output_buffer))
-        click.echo(f"[samclip] Finished processing {line_count} lines.", err=True)
+        if debug:
+            click.echo(f"[samclip] Finished processing {line_count} lines.", err=True)
