@@ -301,12 +301,14 @@ class BaseStage(BaseModel):
             with ExitStack() as stack:
                 final_stdout_handle = stack.enter_context(open(last_output_file, "wb")) if last_output_file else None
                 prev_proc: Optional[subprocess.Popen] = None
-                for pipeline_part in cmd.processes:
+                for i, pipeline_part in enumerate(cmd.processes):
                     process_stdin = None if prev_proc is None else prev_proc.stdout
+                    is_final_process = i == len(cmd.processes) - 1
+                    process_stdout = final_stdout_handle if is_final_process and final_stdout_handle is not None else subprocess.PIPE
                     p = subprocess.Popen(
                         pipeline_part.command,
                         stdin=process_stdin,
-                        stdout=subprocess.PIPE,
+                        stdout=process_stdout,
                         stderr=subprocess.PIPE,
                         text=False,
                         bufsize=-1,
@@ -331,11 +333,7 @@ class BaseStage(BaseModel):
                         if not chunk:
                             break
                         stdout_chunks.append(chunk)
-                        if final_stdout_handle is not None:
-                            final_stdout_handle.write(chunk)
-                            final_stdout_handle.flush()
-                        else:
-                            self._log_command_output(chunk, quiet=ctx.quiet)
+                        self._log_command_output(chunk, quiet=ctx.quiet)
                     processes[-1].stdout.close()
 
                 for p in processes:
