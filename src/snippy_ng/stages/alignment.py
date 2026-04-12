@@ -74,6 +74,7 @@ class ShortReadAligner(Aligner):
                     f"{self.reference}.fai",
                     "--max",
                     str(self.maxsoft),
+                    "--fix-mate",
                 ],
                 description="Filter alignments with excessive soft clipping",
             )
