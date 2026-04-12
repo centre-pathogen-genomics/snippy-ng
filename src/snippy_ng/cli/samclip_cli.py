@@ -33,6 +33,8 @@ def samclip(
         contig_lengths = fai_to_dict(f)
     # Run the pipeline
     with open(sam_file, 'r') if sam_file else sys.stdin as sam_lines:
+        output_buffer = []
+        line_count = 0
         for line in samclip_filter_lines(
             sam_lines,
             contig_lengths=contig_lengths,
@@ -41,9 +43,13 @@ def samclip(
             on_debug=lambda msg: click.echo(msg, err=True) if debug else None,
             fix_mate=fix_mate,
         ):
-            print(line, end="")
-
-    
-
-
-    
+            output_buffer.append(line)
+            if len(output_buffer) >= 8192:
+                sys.stdout.write("".join(output_buffer))
+                output_buffer.clear()
+            line_count += 1
+            if line_count % 100000 == 0:
+                click.echo(f"[samclip] Processed {line_count} lines...", err=True)
+        if output_buffer:
+            sys.stdout.write("".join(output_buffer))
+        click.echo(f"[samclip] Finished processing {line_count} lines.", err=True)

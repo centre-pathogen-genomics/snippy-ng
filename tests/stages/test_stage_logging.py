@@ -1,8 +1,10 @@
 import sys
+from io import BytesIO
 from pathlib import Path
 
 from snippy_ng.context import Context
 from snippy_ng.logging import logger
+import snippy_ng.stages as stages_module
 from snippy_ng.stages import BaseOutput, BaseStage
 
 
@@ -126,3 +128,107 @@ def test_binary_pipeline_output_file_does_not_decode_stdout_as_utf8(tmp_path):
         if Path.cwd() != cwd:
             import os
             os.chdir(cwd)
+
+
+def test_shell_command_uses_buffered_subprocess_pipes(monkeypatch):
+    popen_calls = []
+
+    class FakeProcess:
+        def __init__(self, command, **kwargs):
+            self.args = command
+            self.stdout = BytesIO(b"")
+            self.stderr = BytesIO(b"")
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    def fake_popen(command, **kwargs):
+        popen_calls.append(kwargs)
+        return FakeProcess(command, **kwargs)
+
+    monkeypatch.setattr(stages_module.subprocess, "Popen", fake_popen)
+
+    stage = EchoStage(prefix="snippy")
+    stage._run_streaming_shell_command(["echo", "hello"], quiet=True)
+
+    assert popen_calls[0]["bufsize"] == -1
+
+
+def test_shell_pipeline_uses_buffered_subprocess_pipes(monkeypatch):
+    popen_calls = []
+
+    class FakeProcess:
+        def __init__(self, command, **kwargs):
+            self.args = command
+            self.stdout = BytesIO(b"")
+            self.stderr = BytesIO(b"")
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+    def fake_popen(command, **kwargs):
+        popen_calls.append(kwargs)
+        return FakeProcess(command, **kwargs)
+
+    monkeypatch.setattr(stages_module.subprocess, "Popen", fake_popen)
+
+    stage = EchoStage(prefix="snippy")
+    pipeline = stage.shell_pipe(
+        commands=[
+            stage.shell_cmd(["first"], description="First"),
+            stage.shell_cmd(["second"], description="Second"),
+        ],
+        description="Test pipeline",
+    )
+    stage._run_shell_pipeline(pipeline, Context(quiet=True))
+
+    assert [call["bufsize"] for call in popen_calls] == [-1, -1]
+    assert [call["stdout"] for call in popen_calls] == [
+        stages_module.subprocess.PIPE,
+        stages_module.subprocess.PIPE,
+    ]
+
+
+def test_shell_pipeline_writes_final_process_stdout_directly_to_output_file(tmp_path, monkeypatch):
+    popen_calls = []
+
+    class FakeProcess:
+        def __init__(self, command, **kwargs):
+            self.args = command
+            self.stdout = BytesIO(b"") if kwargs["stdout"] == stages_module.subprocess.PIPE else None
+            self.stderr = BytesIO(b"")
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+    def fake_popen(command, **kwargs):
+        popen_calls.append(kwargs)
+        return FakeProcess(command, **kwargs)
+
+    monkeypatch.setattr(stages_module.subprocess, "Popen", fake_popen)
+
+    stage = EchoStage(prefix="snippy")
+    output_file = tmp_path / "pipeline.out"
+    pipeline = stage.shell_pipe(
+        commands=[
+            stage.shell_cmd(["first"], description="First"),
+            stage.shell_cmd(["second"], description="Second"),
+        ],
+        description="Test pipeline",
+        output_file=output_file,
+    )
+    stage._run_shell_pipeline(pipeline, Context(quiet=True))
+
+    assert popen_calls[0]["stdout"] == stages_module.subprocess.PIPE
+    assert popen_calls[1]["stdout"] is not stages_module.subprocess.PIPE
+    assert popen_calls[1]["stdout"].name == str(output_file)
+    assert popen_calls[1]["stdout"].closed

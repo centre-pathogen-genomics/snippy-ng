@@ -149,12 +149,6 @@ def samclip_filter_lines(
                 if not is_bad:
                     yield line
 
-
-            if on_debug:
-                on_debug(
-                    f"QNAME={fields[QNAME]} keep={not is_bad} invert={invert} "
-                    f"mate_fix=False"
-                )
         return
 
     group_q: Optional[str] = None
@@ -193,7 +187,7 @@ def samclip_filter_lines(
                 else:
                     yield_line = line
 
-            if on_debug:
+            if on_debug and do_fix_mate:
                 on_debug(
                     f"QNAME={fields[QNAME]} keep={not is_bad} invert={invert} "
                     f"mate_fix={do_fix_mate}"

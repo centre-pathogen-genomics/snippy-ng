@@ -25,6 +25,7 @@ class Dependency:
     min_version: Optional[str] = None
     max_version: Optional[str] = None
     less_then: Optional[str] = None
+    exclude_versions: tuple[str, ...] = ()
 
     def check(self):
         command = self.command or self.name
@@ -45,6 +46,8 @@ class Dependency:
             requirements.append(f"<={self.max_version}")
         if self.less_then:
             requirements.append(f"<{self.less_then}")
+        for excluded_version in self.exclude_versions:
+            requirements.append(f"!={excluded_version}")
         if not requirements:
             return self.name
         return f'{self.name} {",".join(requirements)}'
@@ -93,6 +96,11 @@ class Dependency:
             raise InvalidDependencyError(
                 f"{self.name} version must be less than {self.less_then} (found {parsed_version})"
             )
+        for excluded_version in self.exclude_versions:
+            if parsed_version == parse(excluded_version):
+                raise InvalidDependencyError(
+                    f"{self.name} version must not be {excluded_version} (found {parsed_version})"
+                )
 
         return parsed_version
  
