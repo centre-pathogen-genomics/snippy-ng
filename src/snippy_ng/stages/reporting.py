@@ -356,11 +356,12 @@ class PrintVcfHistogram(BaseStage):
                 raise ValueError("contig_order must be 'header' or 'alpha'")
 
             try:
-                term_cols = max(os.get_terminal_size().columns, 40)
+                term_cols = os.get_terminal_size().columns
             except OSError:
                 term_cols = 80
 
-            usable_cols = max(10, term_cols - max(0, margin_cols * (len(contigs) - 1)))
+            separator_cols = (len(contigs) - 1) if draw_separators else 0
+            usable_cols = max(40, term_cols - separator_cols)
 
             cols_per_contig = allocate_columns_proportional(
                 contigs, usable_cols, min_cols_per_contig=min_cols_per_contig
