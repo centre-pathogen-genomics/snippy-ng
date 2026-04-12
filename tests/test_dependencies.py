@@ -39,13 +39,20 @@ def test_dependency_format_version_requirements_less_than():
     assert dep.format_version_requirements() == "test_tool <2.0.0"
 
 
+def test_dependency_format_version_requirements_exclude_versions():
+    """Test formatting version requirements with excluded versions."""
+    dep = Dependency("test_tool", exclude_versions=("1.2.3",))
+    assert dep.format_version_requirements() == "test_tool !=1.2.3"
+
+
 def test_dependency_format_version_requirements_multiple():
     """Test formatting version requirements with multiple constraints."""
-    dep = Dependency("test_tool", min_version="1.0.0", max_version="2.0.0")
+    dep = Dependency("test_tool", min_version="1.0.0", max_version="2.0.0", exclude_versions=("1.5.0",))
     result = dep.format_version_requirements()
     assert "test_tool" in result
     assert ">=1.0.0" in result
     assert "<=2.0.0" in result
+    assert "!=1.5.0" in result
 
 
 @patch('snippy_ng.dependencies.which')
@@ -115,6 +122,18 @@ def test_dependency_check_exact_version_mismatch(mock_run, mock_which):
     
     dep = Dependency("test_tool", version="1.2.3")
     with pytest.raises(InvalidDependencyError, match="version must be 1.2.3"):
+        dep.check()
+
+
+@patch('snippy_ng.dependencies.which')
+@patch('snippy_ng.dependencies.subprocess.run')
+def test_dependency_check_excluded_version(mock_run, mock_which):
+    """Test checking a dependency with an explicitly excluded version."""
+    mock_which.return_value = "/usr/bin/test_tool"
+    mock_run.return_value = MagicMock(stdout="test_tool version 1.21\n")
+
+    dep = Dependency("test_tool", exclude_versions=("1.21",), version_pattern=r"(\d+\.\d+)")
+    with pytest.raises(InvalidDependencyError, match="version must not be 1.21"):
         dep.check()
 
 
