@@ -129,7 +129,7 @@ class ShortReadAligner(Aligner):
 
         return self.shell_pipe(
             commands=pipeline_commands,
-            description="Alignment pipeline: align, filter, fix mates, sort, mark duplicates",
+            description="Alignment pipeline: align, name-sort, filter soft-clipped reads, fix mates, coordinate-sort, mark duplicates",
             output_file=Path(self.output.bam),
         )
 
