@@ -119,7 +119,7 @@ def samclip_filter_lines(
     max_clip: int = 5,
     invert: bool = False,
     fix_mate: bool = True,
-    debug: bool = False,
+    on_debug: Optional[Callable[[str], None]] = None,
 ) -> Iterator[str]:
     """Filter SAM alignment lines based on soft-clipping at the ends of reads.
     
@@ -187,8 +187,8 @@ def samclip_filter_lines(
                 else:
                     yield_line = line
 
-            if debug and do_fix_mate:
-                print(
+            if on_debug and do_fix_mate:
+                on_debug(
                     f"QNAME={fields[QNAME]} keep={not is_bad} invert={invert} "
                     f"mate_fix={do_fix_mate}"
                 )
