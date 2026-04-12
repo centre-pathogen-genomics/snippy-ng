@@ -8,7 +8,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
-@click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample", cls=GlobalOption)
+@click.option("--cpus-per-sample", type=click.INT, default=8, help="Number of CPUs to allocate per sample", cls=GlobalOption)
 @add_snippy_global_options()
 @click.argument(
     "config",
