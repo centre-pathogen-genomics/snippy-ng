@@ -89,7 +89,6 @@ class CramCompressor(Compressor):
                 str(self.output.cram),
                 str(self.input),
             ],
-            output_file=self.output.cram,
             description="Convert SAM/BAM to CRAM with embedded reference",
         )
         return [cram_cmd]
