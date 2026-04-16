@@ -22,7 +22,12 @@ __pycache__/
 tests/data/samples.csv
 samples.csv
 report/
+!docs/report/
+!docs/report/report.html
 samples.json
 CITATIONS.txt
 FILES.tsv
 clair3_models/
+snippy/
+.snakemake
+benchmarks/
