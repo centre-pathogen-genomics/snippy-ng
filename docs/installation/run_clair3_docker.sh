@@ -3,7 +3,7 @@
 set -eo pipefail
 
 # Install this wrapper as run_clair3.sh in your $PATH
-# e.g. install -m 755 docs/run_clair3_docker.sh ~/.local/bin/run_clair3.sh
+# e.g. install -m 755 docs/installation/run_clair3_docker.sh ~/.local/bin/run_clair3.sh
 #
 # The wrapper mounts the parent directories of common Clair3 path arguments so
 # absolute host paths continue to work inside the container.
