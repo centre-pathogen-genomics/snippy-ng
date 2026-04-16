@@ -62,12 +62,18 @@
 
       #tree-container {
         position: relative;
+        z-index: 30;
         overflow: visible !important;
+      }
+
+      #map-panel {
+        position: relative;
+        z-index: 1;
       }
 
       #tree {
         border-radius: 0.5rem;
-        overflow: hidden;
+        overflow: hidden !important;
       }
 
       #tree-modebar {
@@ -837,7 +843,7 @@
         ></div>
         <div
           id="map-panel"
-          class="hidden flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden"
+          class="hidden flex-1 min-w-0 h-full min-h-0 border rounded-lg bg-white shadow overflow-hidden z-1"
         >
           <div id="map" class="w-full h-full min-h-0 rounded"></div>
         </div>
@@ -909,7 +915,7 @@
       let metadataRows = [];
       let metadataDataTable = null;
       let isSyncingTableSelection = false;
-      const MIN_PANEL_SIZE = 200;
+      const MIN_PANEL_SIZE = 20;
       const DEFAULT_TREE_WIDTH_PCT = 66;
       const MIN_TREE_WIDTH_PCT = 10;
       const MAX_TREE_WIDTH_PCT = 90;
@@ -932,7 +938,7 @@
       let treeColourSequentialInput = "#440154, #21908d, #fde725";
       let treeColourDivergingBInput = "#f7f7f7, #f6b48f, #b40426";
       const LINK_ID_KEYS = ["id", "sample_id", "sample", "name"];
-      const TREE_CONFIG_STORAGE_KEY = "snippy-ng:epi-report:tree-config";
+      const TREE_CONFIG_STORAGE_KEY = "snippy-ng:report-tree:tree-config";
 
       const TREE_COLOUR_PRESETS = {
         ocean: {

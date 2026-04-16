@@ -470,8 +470,8 @@ class FormatHTMLReportTemplate(BaseStage):
             f.write(template_content)
 
 class EpiReport(FormatHTMLReportTemplate):
-    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "snippy-epi-report.html"
-    iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "iso3166-2-export.csv"
+    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "report-tree" / "snippy-report-tree.html"
+    iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "report-tree" / "iso3166-2-export.csv"
     ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
     remove_invalid_rows: bool = Field(default=True, description="Remove metadata rows that do not match any tip in the tree, instead of raising an error")
