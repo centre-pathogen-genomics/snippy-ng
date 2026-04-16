@@ -220,7 +220,7 @@ class SnippyPipeline:
                     self.debug(f"Removed empty output directory: {output_dir}")
                     removed += 1
                 except OSError:
-                    self.warning(f"Could not remove output directory {output_dir} (not empty).")
+                    self.warning(f"Could not remove output directory '{output_dir}' (not empty).")
                     continue
 
         if removed:
