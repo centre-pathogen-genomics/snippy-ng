@@ -13,7 +13,7 @@ from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.masks import DepthMask, ApplyMask, ZeroDepthBedFromBam
+from snippy_ng.stages.masks import DepthBedsFromBam, DepthMaskFromBed, ApplyMask
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.utils.gather import guess_sample_id
@@ -180,15 +180,16 @@ class LongPipelineBuilder(PipelineBuilder):
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
 
-        zero_depth_bed = ZeroDepthBedFromBam(
+        depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
+            min_depth=self.depth_mask,
             **globals
         )
-        stages.append(zero_depth_bed)
+        stages.append(depth_beds)
 
         # Add zero-depth regions to VCF as symbolic deletion blocks
         add_deletions = AddDeletionstoVCF(
-            zero_depth_bed=zero_depth_bed.output.zero_depth_bed,
+            zero_depth_bed=depth_beds.output.zero_depth_bed,
             vcf=variants_file,
             reference=reference_file,
             **globals
@@ -240,9 +241,9 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # Apply minimum-depth masking
         if self.depth_mask > 0:
-            depth_mask = DepthMask(
-                bam=aligned_reads,
+            depth_mask = DepthMaskFromBed(
                 fasta=current_fasta,
+                mask_bed=depth_beds.output.min_depth_bed,
                 min_depth=self.depth_mask,
                 **globals
             )
