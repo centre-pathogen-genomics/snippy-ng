@@ -469,9 +469,9 @@ class FormatHTMLReportTemplate(BaseStage):
         with open(self.output.rendered, "w") as f:
             f.write(template_content)
 
-class EpiReport(FormatHTMLReportTemplate):
-    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "snippy-epi-report.html"
-    iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "epi-report" / "iso3166-2-export.csv"
+class TreeReport(FormatHTMLReportTemplate):
+    template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "report-tree" / "snippy-report-tree.html"
+    iso3166_2: Path = Path(__file__).resolve().parent.parent / "templates" / "report-tree" / "iso3166-2-export.csv"
     ladderize: bool = Field(default=False, description="Ladderize the tree in the report")
     mid_point_root: bool = Field(default=False, description="Mid-point root the tree in the report")
     remove_invalid_rows: bool = Field(default=True, description="Remove metadata rows that do not match any tip in the tree, instead of raising an error")
@@ -482,7 +482,7 @@ class EpiReport(FormatHTMLReportTemplate):
         required_keys = {"NEWICK", "REPORT_NAME", "METADATA", "LOGS"}
         missing_keys = [k for k in required_keys if k not in context]
         if missing_keys:
-            raise ValueError(f"Context key(s) '{', '.join(missing_keys)}' are required for EpiReport but not found in context")
+            raise ValueError(f"Context key(s) '{', '.join(missing_keys)}' are required for TreeReport but not found in context")
         
         from Bio import Phylo
         from io import StringIO
@@ -503,7 +503,7 @@ class EpiReport(FormatHTMLReportTemplate):
             Phylo.write(tree, handle, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
             context["NEWICK"] = handle.getvalue().strip()
         except Exception as e:
-            raise PipelineExecutionError(f"Invalid NEWICK string provided in context for EpiReport: {e}")
+            raise PipelineExecutionError(f"Invalid NEWICK string provided in context for TreeReport: {e}")
         
         if context.get("METADATA") is not None:
             if isinstance(context["METADATA"], str):
@@ -513,9 +513,9 @@ class EpiReport(FormatHTMLReportTemplate):
                 try:
                     context["METADATA_JSON"] = load_metadata_as_json_str(context["METADATA"])
                 except Exception as e:
-                    raise PipelineExecutionError(f"Error loading metadata file provided in context for EpiReport: {e}")
+                    raise PipelineExecutionError(f"Error loading metadata file provided in context for TreeReport: {e}")
             else:
-                raise PipelineExecutionError("METADATA context variable for EpiReport must be either a JSON string or a Path to a metadata file")
+                raise PipelineExecutionError("METADATA context variable for TreeReport must be either a JSON string or a Path to a metadata file")
         if "METADATA_JSON" not in context:
             context["METADATA_JSON"] = None
         if context["METADATA_JSON"] is not None:
@@ -523,7 +523,7 @@ class EpiReport(FormatHTMLReportTemplate):
                 metadata_json_str = context["METADATA_JSON"]
                 metadata_json = json.loads(metadata_json_str)
             except Exception as e:
-                raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for EpiReport: {e}")
+                raise PipelineExecutionError(f"Invalid METADATA_JSON string provided in context for TreeReport: {e}")
             # check all the metadata entries have an id_column that matches a tip in the tree
             tree_tips = {tip.name for tip in tree.get_terminals()}
             id_column = None
@@ -538,12 +538,12 @@ class EpiReport(FormatHTMLReportTemplate):
                 elif "name" in entry:
                     id_column = "name"
                 else:
-                    raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for EpiReport context")
+                    raise PipelineExecutionError(f"Metadata entry {entry} is missing required 'id' field for TreeReport context")
                 if entry[id_column] not in tree_tips:
                     if self.remove_invalid_rows:
-                        print(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context, skipping this metadata entry")
+                        print(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for TreeReport context, skipping this metadata entry")
                         continue
-                    raise PipelineExecutionError(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for EpiReport context")
+                    raise PipelineExecutionError(f"Metadata {id_column} '{entry[id_column]}' does not match any tip in the NEWICK tree for TreeReport context")
                 metadata.append(entry)
             context["METADATA_JSON"] = json.dumps(metadata)
         # add iso3166-2 country code mapping to context for use in the template

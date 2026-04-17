@@ -6,46 +6,25 @@ from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 
 
-@click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
-@click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
-@click.option("--cpus-per-sample", type=click.INT, default=1, help="Number of CPUs to allocate per sample", cls=GlobalOption)
-@add_snippy_global_options()
-@click.argument(
-    "config",
-    required=True,
-    type=click.File(mode="r")
-)
-@click.option(
-    "--reference",
-    "--ref",
-    required=False,
-    type=AbsolutePath(exists=True, readable=True),
-)
-@click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
-def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
-    """
-    Multi-sample SNP calling pipeline and core alignment construction 
-
-    Example usage:
-
-        $ snippy-ng multi samples.csv --ref reference.fasta
-
-        $ snippy-ng utils gather --ref reference.fasta --json | snippy-ng multi -
-
-    """
+def run_multi_config(
+    cfg: dict,
+    *,
+    reference: Path | None,
+    cpus_per_sample: int,
+    core: float,
+    inclusion_threshold: float,
+    stop_on_failure: bool,
+    outdir: Path,
+    prefix: str,
+    context: dict[str, Any],
+):
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.exceptions import PipelineExecutionError
-    from snippy_ng.pipelines.multi import load_multi_config, run_multi_pipeline
+    from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.logging import derive_log_path
     from snippy_ng.context import Context
 
-    
-    try:
-        cfg = load_multi_config(config, reference)
-    except Exception as e:
-        raise click.ClickException(e)
     if reference is not None:
         cfg["reference"] = str(reference)
     if "reference" not in cfg or not cfg["reference"]:
@@ -73,6 +52,11 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
         cpus_per_sample=cpus_per_sample,
         stop_on_failure=stop_on_failure,
     )
+    if not successful_samples:
+        raise PipelineExecutionError(
+            "All samples failed. No core alignment will be produced.\n"
+            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+        )
     if failures and stop_on_failure:
         raise PipelineExecutionError(
             "Some samples failed:\n"
@@ -93,9 +77,63 @@ def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     result = aln_pipeline.run(core_run_ctx)
-    if failures:
+    return {
+        "result": result,
+        "successful_samples": successful_samples,
+        "failed_samples": failures,
+        "core_outdir": core_outdir,
+    }
+
+
+@click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
+@click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
+@click.option("--cpus-per-sample", type=click.INT, default=8, help="Number of CPUs to allocate per sample", cls=GlobalOption)
+@add_snippy_global_options()
+@click.argument(
+    "config",
+    required=True,
+    type=click.File(mode="r")
+)
+@click.option(
+    "--reference",
+    "--ref",
+    required=False,
+    type=AbsolutePath(exists=True, readable=True),
+)
+@click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.1, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+    """
+    Multi-sample SNP calling pipeline and core alignment construction 
+
+    Example usage:
+
+        $ snippy-ng multi samples.csv --ref reference.fasta
+
+        $ snippy-ng utils gather --ref reference.fasta --json | snippy-ng multi -
+
+    """
+    from snippy_ng.pipelines.multi import load_multi_config
+    from snippy_ng.exceptions import PipelineExecutionError
+
+    try:
+        cfg = load_multi_config(config, reference)
+    except Exception as e:
+        raise click.ClickException(e)
+    result = run_multi_config(
+        cfg,
+        reference=reference,
+        cpus_per_sample=cpus_per_sample,
+        core=core,
+        inclusion_threshold=inclusion_threshold,
+        stop_on_failure=stop_on_failure,
+        outdir=outdir,
+        prefix=prefix,
+        context=context,
+    )
+    if result["failed_samples"]:
         raise PipelineExecutionError(
             "Some samples failed and were removed:\n"
-            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in failures)
+            + "\n".join(f"Sample '{s}' -> {msg}" for s, msg in result["failed_samples"])
         )
-    return result
+    return 

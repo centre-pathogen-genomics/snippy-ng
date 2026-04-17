@@ -89,9 +89,6 @@ def run_multi_pipeline(
     if failures:
         logger.warning(f"Skipping {len(failures)} failed samples. See {failed_samples_tsv} for details.")
 
-    if not successful_samples:
-        raise PipelineExecutionError("No samples completed successfully.")
-
     _combine_sample_stats(
         samples_dir=Path(run_ctx.outdir) / "samples",
         sample_names=successful_samples,

@@ -2,6 +2,20 @@
 site_name: snippy_ng
 # repo_url: https://github.com/wytamma/write-the
 
+nav:
+  - Home: index.md
+  - Installation:
+      - installation/index.md
+      - Clair3: installation/clair3.md
+  - Report: report/index.md
+  - GUI: gui.md
+  - Development:
+      - development/index.md
+      - CLI: development/cli.md
+      - Integration Tests: development/integration-tests.md
+      - Pipelines: development/pipelines.md
+      - Stages: development/stages.md
+
 theme:
   name: "material"
   # homepage: https://write-the.wytamma.com
@@ -19,6 +33,7 @@ theme:
         name: Switch to light mode
   features:
     - toc.follow
+    - navigation.indexes
     - content.action.edit
 
 extra:

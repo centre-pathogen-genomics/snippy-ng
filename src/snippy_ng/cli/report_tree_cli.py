@@ -5,7 +5,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_sn
 from pathlib import Path
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
+@click.command("report-tree", cls=CommandWithGlobals, context_settings={'show_default': True})
 @click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="report", help="Prefix for html report", cls=GlobalOption)
 @add_snippy_global_options(exclude=['prefix', 'outdir'])
@@ -16,7 +16,7 @@ from pathlib import Path
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Report", help="Title for the HTML report")
 @click.option("--mid-point-root", is_flag=True, default=False, help="Mid-point root the tree in the report")
 @click.option("--ladderize", is_flag=True, default=False, help="Ladderize the tree in the report")
-def tree_report(
+def report_tree(
     newick: Path,
     metadata: Optional[Path],
     color_by_column: Optional[str],
@@ -33,7 +33,7 @@ def tree_report(
 
     Example usage:
 
-        snippy-ng utils report tree.newick --metadata metadata.csv
+        snippy-ng utils report-tree tree.newick --metadata metadata.csv
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.report import ReportPipelineBuilder

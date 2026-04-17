@@ -1,5 +1,8 @@
 from pathlib import Path
+from io import StringIO
 
+from snippy_ng.context import Context
+from snippy_ng.stages.masks import DepthBedsFromBam, DepthMaskFromBed
 from snippy_ng.stages.vcf import AddDeletionstoVCF
 
 
@@ -140,3 +143,78 @@ def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_varia
     assert pos == "565"
     assert ref == "A"
     assert alt == "G"
+
+
+def test_depth_beds_from_bam_splits_zero_and_min_depth_rows():
+    zero_depth = StringIO()
+    min_depth = StringIO()
+    lines = [
+        "ref\t0\t10\t0\n",
+        "ref\t10\t20\t1\n",
+        "ref\t20\t30\t9\n",
+        "ref\t30\t40\t10\n",
+        "ref\t40\t50\t11\n",
+    ]
+
+    DepthBedsFromBam.write_depth_beds(lines, 10, zero_depth, min_depth)
+
+    assert zero_depth.getvalue() == "ref\t0\t10\n"
+    assert min_depth.getvalue() == "ref\t10\t20\nref\t20\t30\n"
+
+
+def test_depth_beds_from_bam_ignores_malformed_rows():
+    zero_depth = StringIO()
+    min_depth = StringIO()
+    lines = [
+        "too-short\n",
+        "ref\t0\t10\tdepth\n",
+        "ref\t10\t20\t0\n",
+    ]
+
+    DepthBedsFromBam.write_depth_beds(lines, 10, zero_depth, min_depth)
+
+    assert zero_depth.getvalue() == "ref\t10\t20\n"
+    assert min_depth.getvalue() == ""
+
+
+def test_depth_beds_from_bam_uses_one_genomecov_command():
+    stage = DepthBedsFromBam(
+        bam=Path("sample.bam"),
+        min_depth=10,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 1
+    assert len(commands[0].processes) == 2
+    assert commands[0].processes[0].command == [
+        "bedtools", "genomecov", "-ibam", "sample.bam", "-bga"
+    ]
+    assert commands[0].processes[1].command[:5] == [
+        "awk",
+        "-v", "zero_depth_bed=sample.zerodepth.bed",
+        "-v", "min_depth_bed=sample.mindepth.bed",
+    ]
+    assert commands[0].processes[1].command[5:7] == ["-v", "min_depth=10"]
+
+
+def test_depth_mask_from_bed_uses_maskfasta_with_n():
+    stage = DepthMaskFromBed(
+        fasta=Path("sample.consensus.fasta"),
+        mask_bed=Path("sample.mindepth.bed"),
+        min_depth=10,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 1
+    assert commands[0].command == [
+        "bedtools", "maskfasta",
+        "-fi", "sample.consensus.fasta",
+        "-bed", "sample.mindepth.bed",
+        "-fo", "sample.mindepth_masked.fasta",
+        "-fullHeader",
+        "-mc", "N",
+    ]

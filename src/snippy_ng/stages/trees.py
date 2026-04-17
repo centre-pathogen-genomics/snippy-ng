@@ -4,6 +4,12 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.stages import BaseOutput, BaseStage, TempPath
 from snippy_ng.dependencies import iqtree
+from snippy_ng.exceptions import StageExecutionError
+
+
+class TreeBuildingError(StageExecutionError):
+    """Custom exception for errors during tree building stage execution."""
+    pass
 
 
 class IQTreeBuildTreeOutput(BaseOutput):
@@ -52,6 +58,10 @@ class IQTreeBuildTree(BaseStage):
         )
 
     def create_commands(self, ctx):
+        validate_aln_cmd = self.python_cmd(
+            self.check_aln_has_three_samples,
+            description="Validating that the input alignment contains at least 3 samples"
+        )
         iqtree_cmd = self.shell_cmd(
             [
                 "iqtree",
@@ -74,5 +84,15 @@ class IQTreeBuildTree(BaseStage):
         else:
             # Ultrafast bootstrap (-bb) does not work with -fast option
             iqtree_cmd.command.extend(["-bb", str(self.bootstrap)])
-        return [iqtree_cmd]
-    
+        return [validate_aln_cmd, iqtree_cmd]
+
+    def check_aln_has_three_samples(self):
+        with open(self.aln) as f:
+            num_samples = 0
+            for line in f:
+                if num_samples >= 3:
+                    break
+                if line.startswith(">"):
+                    num_samples += 1
+        if num_samples < 3:
+            raise TreeBuildingError(f"Alignment must contain at least 3 samples to build a tree, but found only {num_samples} in {self.aln}") 

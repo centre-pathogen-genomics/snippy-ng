@@ -8,9 +8,10 @@ from snippy_ng.cli.ref_cli import ref
 from snippy_ng.cli.core_cli import core
 from snippy_ng.cli.tree_cli import tree
 from snippy_ng.cli.multi_cli import multi
+from snippy_ng.cli.gui_cli import gui
 from snippy_ng.cli.gather_cli import gather
 from snippy_ng.cli.samclip_cli import samclip
-from snippy_ng.cli.tree_report_cli import tree_report
+from snippy_ng.cli.report_tree_cli import report_tree
 from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
@@ -63,6 +64,7 @@ snippy_ng.add_command(long)
 snippy_ng.add_command(multi)
 snippy_ng.add_command(core)
 snippy_ng.add_command(tree)
+snippy_ng.add_command(gui)
 snippy_ng.add_command(yolo)
 
 
@@ -77,4 +79,4 @@ def utils():
 utils.add_command(ref)
 utils.add_command(gather)
 utils.add_command(samclip)
-utils.add_command(tree_report)
+utils.add_command(report_tree)
