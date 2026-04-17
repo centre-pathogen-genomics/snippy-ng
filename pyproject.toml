@@ -149,6 +149,7 @@ pydantic  = { version = "*", channel = "conda-forge" }
 biopython = { version = "*", channel = "conda-forge" }
 numpy = { version = "*", channel = "conda-forge" }
 gradio = {version = "*", channel = "conda-forge"}
+pytz = {version = "*", channel = "conda-forge"}
 
 # external dependencies
 samtools = { version = ">=1.21,<2", channel = "bioconda" }
