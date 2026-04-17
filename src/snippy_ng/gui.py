@@ -333,7 +333,7 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 return
             tarball_button = gr.Button("Create tarball of output directory for download")
             tarball_file = gr.File(label="Download output tarball", visible=False)
-            tarball_button.click(lambda: gr.update(visible=True), inputs=[], outputs=tarball_file)
+            tarball_button.click(lambda: gr.update(visible=True), inputs=[], outputs=tarball_file, api_visibility="private")
             tarball_button.click(create_output_tarball, inputs=[output_dir_state, tarball_file], outputs=tarball_file)
 
             file_explorer = gr.FileExplorer(
@@ -341,22 +341,23 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 file_count="single",
                 root_dir=output_dir,
                 glob="**/*",
-                # every=1,
                 height=400,
                 interactive=True,
             )
             output_file = gr.File(label="Download file", visible=False)
-            file_explorer.change(lambda: gr.update(visible=True), inputs=[], outputs=output_file)
+            file_explorer.change(lambda: gr.update(visible=True), inputs=[], outputs=output_file, api_visibility="private")
             file_explorer.change(select_download_file, file_explorer, output_file)
 
         run_event = run_button.click(
             _disable_run_button,
             inputs=[],
             outputs=run_button,
+            api_visibility="private"
         ).then(
             lambda: gr.update(value="Running Snippy-NG...", visible=True),
             inputs=[],
             outputs=status,
+            api_visibility="private"
         )
         run_event.then(
             run_snippy_multi_gui,
@@ -381,11 +382,13 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 force,
             ],
             outputs=[status, output_dir_state],
-            api_name="snippy",
+            api_name="snippy-ng",
         ).then(
             _enable_run_button,
             inputs=[],
             outputs=run_button,
+            api_visibility="private"
+
         )
 
     return app
