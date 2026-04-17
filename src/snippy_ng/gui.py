@@ -332,9 +332,11 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
             if not output_dir:
                 return
             tarball_button = gr.Button("Create tarball of output directory for download")
-            tarball_file = gr.File(label="Download output tarball", visible=False)
-            tarball_button.click(lambda: gr.update(visible=True), inputs=[], outputs=tarball_file, api_visibility="private")
-            tarball_button.click(create_output_tarball, inputs=[output_dir_state, tarball_file], outputs=tarball_file)
+            tarball_file = gr.File(label="Download output tarball", visible=False, interactive=False)
+            tarball_button.click(lambda: gr.update(visible=True), outputs=tarball_file, api_visibility="private")
+            tarball_button.click(create_output_tarball, inputs=[output_dir_state, tarball_file], outputs=tarball_file).then(
+                lambda: gr.update(visible=False), outputs=tarball_button, api_visibility="private"
+            )
 
             file_explorer = gr.FileExplorer(
                 label="Choose a file to download",
@@ -344,18 +346,16 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 height=400,
                 interactive=True,
             )
-            output_file = gr.File(label="Download file", visible=False)
-            file_explorer.change(lambda: gr.update(visible=True), inputs=[], outputs=output_file, api_visibility="private")
+            output_file = gr.File(label="Download file", visible=False, interactive=False)
+            file_explorer.change(lambda: gr.update(visible=True), outputs=output_file, api_visibility="private")
             file_explorer.change(select_download_file, file_explorer, output_file)
 
         run_event = run_button.click(
             _disable_run_button,
-            inputs=[],
             outputs=run_button,
             api_visibility="private"
         ).then(
-            lambda: gr.update(value="Running Snippy-NG...", visible=True),
-            inputs=[],
+            lambda: gr.update(visible=True),
             outputs=status,
             api_visibility="private"
         )
@@ -385,7 +385,6 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
             api_name="snippy-ng",
         ).then(
             _enable_run_button,
-            inputs=[],
             outputs=run_button,
             api_visibility="private"
 
