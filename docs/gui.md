@@ -11,6 +11,8 @@ The GUI accepts a reference genome and sample files, creates a multi-sample
 configuration, runs the multi-sample pipeline, and provides output files for
 download.
 
+![Screenshot of the GUI showing input fields for reference and sample files, a run button.](images/gui.png)
+
 ## Install
 
 The GUI depends on Gradio, which is optional. Install Snippy-NG with the GUI
