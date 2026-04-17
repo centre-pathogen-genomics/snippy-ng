@@ -1,10 +1,10 @@
 import json
 
-from snippy_ng.stages.reporting import EpiReport
+from snippy_ng.stages.reporting import TreeReport
 
 
 def test_epi_report_preserves_small_branch_lengths():
-    report = EpiReport()
+    report = TreeReport()
     context = {
         "NEWICK": "(sample_a:0.00000004,sample_b:0.1);",
         "REPORT_NAME": "test-report",

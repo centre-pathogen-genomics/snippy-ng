@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Union
 from pydantic import Field
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.reporting import EpiReport, Context
+from snippy_ng.stages.reporting import TreeReport, Context
 
 
 class ReportPipelineBuilder(PipelineBuilder):
@@ -26,7 +26,7 @@ class ReportPipelineBuilder(PipelineBuilder):
                 "COLOR_BY_COLUMN": self.color_by_column if self.color_by_column else "",
                 "LOGS": self.logs if self.logs else None,
             }
-        report_stage = EpiReport(
+        report_stage = TreeReport(
             context=context,
             prefix=self.prefix,
             mid_point_root=self.mid_point_root,
