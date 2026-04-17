@@ -4,6 +4,7 @@ site_name: snippy_ng
 
 nav:
   - Home: index.md
+  - GUI: gui.md
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
