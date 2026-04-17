@@ -4,6 +4,8 @@ title: GUI
 
 # `snippy-ng gui`
 
+[![Open Snippy-NG GUI demo on Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/144z09rUrX5ZP_UWHx39G6fOckPvFMKnf?usp=sharing)
+
 Launch the optional Gradio graphical interface for running `snippy-ng multi`
 from a browser.
 
