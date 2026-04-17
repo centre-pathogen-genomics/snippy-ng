@@ -48,6 +48,22 @@ read processing.
 Use this option when you already manage the external tools yourself, for example
 with conda, micromamba, pixi, containers, or a shared HPC module system.
 
+## GUI Install
+
+The `snippy-ng gui` command uses Gradio, which is an optional pip extra. Install Snippy-NG with the GUI extra:
+
+```console
+pip install 'snippy-nextgen[gui]'
+```
+
+Or add Gradio to an existing Snippy-NG environment:
+
+```console
+pip install gradio
+```
+
+If Gradio is not installed, `snippy-ng gui` will print an install message and exit without affecting the rest of the command-line interface.
+
 ## External Tools
 
 Snippy-NG checks stage dependencies before running a pipeline. The main external

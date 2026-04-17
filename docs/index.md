@@ -53,6 +53,7 @@ See the [installation guide](installation/index.md) for dependency details,
 | `snippy-ng multi` | Run multi-sample analysis and construct a core alignment. |
 | `snippy-ng core` | Create a core alignment from multiple Snippy-NG run directories. |
 | `snippy-ng tree` | Build a phylogenetic tree from an alignment. |
+| `snippy-ng gui` | Launch the optional Gradio graphical interface. |
 | `snippy-ng utils ref` | Prepare a reference genome for Snippy-NG. |
 | `snippy-ng utils gather` | Discover sample files and write TSV or JSON input for `multi`. |
 | `snippy-ng utils samclip` | Filter clipped reads from SAM alignments. |
