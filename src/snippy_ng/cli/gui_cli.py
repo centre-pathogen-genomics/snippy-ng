@@ -38,5 +38,4 @@ def gui(host: str, port: int, share: bool, no_browser: bool, temp_output: bool, 
         server_port=port,
         share=share,
         inbrowser=not no_browser,
-        debug=True,
     )
