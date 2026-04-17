@@ -4,11 +4,11 @@ site_name: snippy_ng
 
 nav:
   - Home: index.md
-  - GUI: gui.md
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
   - Report: report/index.md
+  - GUI: gui.md
   - Development:
       - development/index.md
       - CLI: development/cli.md
