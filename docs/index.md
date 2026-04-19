@@ -57,6 +57,7 @@ See the [installation guide](installation/index.md) for dependency details,
 | `snippy-ng utils ref` | Prepare a reference genome for Snippy-NG. |
 | `snippy-ng utils gather` | Discover sample files and write TSV or JSON input for `multi`. |
 | `snippy-ng utils samclip` | Filter clipped reads from SAM alignments. |
+| `snippy-ng utils cnv` | Estimate contig or feature copy numbers from aligned BAM or CRAM depth. |
 | `snippy-ng utils report-tree` | Create an interactive HTML report from a Newick tree. |
 
 ## Examples
@@ -96,6 +97,7 @@ snippy-ng utils report-tree multi/tree/tree.treefile --metadata multi/snippy.vcf
 
 - [Installation](installation/index.md)
 - [Clair3 Setup](installation/clair3.md)
+- [Copy Number Variation](cnv.md)
 - [Interactive Report](report/index.md)
 - [Development Guide](development/index.md)
 - [CLI Development](development/cli.md)
