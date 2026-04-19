@@ -74,6 +74,6 @@ The baseline is the median per-base depth across the known single-copy region.
 | --- | --- |
 | `ALIGNMENT` | Input BAM or CRAM. |
 | `--gff PATH` | Estimate copy number per selected GFF feature instead of per contig. |
-| `--feature TEXT` | GFF feature type to use with `--gff`; default `CDS`. |
+| `--feature TEXT` | GFF feature type to use with `--gff`; default `gene`. |
 | `--known-single-copy TEXT` | Baseline interval as `START,END` on the largest contig or `CONTIG:START-END`. |
 | `--no-header` | Do not print the TSV header. |
