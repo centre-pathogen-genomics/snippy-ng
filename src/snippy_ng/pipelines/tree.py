@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 from pydantic import Field
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.trees import IQTreeBuildTree
+from snippy_ng.stages.trees import IQTreeBuildTree, ScaleTreeToSNPs
 
 
 class TreePipelineBuilder(PipelineBuilder):
@@ -29,4 +29,12 @@ class TreePipelineBuilder(PipelineBuilder):
             
         stages.append(iqtree_stage)
 
-        return SnippyPipeline(stages=stages)
+        snp_tree_stage = ScaleTreeToSNPs(
+            tree=iqtree_stage.output.tree,
+            aln=self.aln,
+            fconst=self.fconst,
+            prefix=self.prefix,
+        )
+        stages.append(snp_tree_stage)
+
+        return SnippyPipeline(stages=stages, outputs_to_keep=[snp_tree_stage.output.tree])

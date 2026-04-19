@@ -1,12 +1,13 @@
 
 site_name: snippy_ng
-# repo_url: https://github.com/wytamma/write-the
+repo_url: https://github.com/centre-pathogen-genomics/snippy-ng
 
 nav:
   - Home: index.md
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
+  - Copy Number Variation: cnv.md
   - Report: report/index.md
   - GUI: gui.md
   - Development:
@@ -18,7 +19,7 @@ nav:
 
 theme:
   name: "material"
-  # homepage: https://write-the.wytamma.com
+  homepage: https://cpg.org.au/snippy-ng/
   # logo: assets/logo.png
   # favicon: images/favicon.png
   custom_dir: docs/overrides

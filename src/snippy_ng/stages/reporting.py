@@ -13,9 +13,8 @@ from snippy_ng.exceptions import PipelineExecutionError
 from snippy_ng.dependencies import biopython, phylocanvas, phylojs
 from snippy_ng.utils.files import load_metadata_as_json_str
 from snippy_ng.__about__ import __version__
+from snippy_ng.constants import NEWICK_BRANCH_LENGTH_FORMAT
 from pydantic import Field
-
-NEWICK_BRANCH_LENGTH_FORMAT = "%1.10f"
 
 
 class PrintVcfSummary(BaseStage):

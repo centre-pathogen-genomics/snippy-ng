@@ -29,7 +29,7 @@ def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fas
 
     #if fconst is a path read the content
     if not fconst and Path(alignment).with_suffix(".fconst").exists():
-        logger.debug("No fconst provided, but found .fconst file corresponding to the alignment. Using this file for constant sites counts.")
+        logger.warning("No fconst provided, but found .fconst file corresponding to the alignment. Using this file for constant sites counts.")
         fconst = Path(alignment).with_suffix(".fconst")
 
     if fconst and Path(fconst).is_file():
