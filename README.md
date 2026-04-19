@@ -32,6 +32,28 @@ The complete snippy-ng environment ([including most dependencies](https://github
 curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
 ```
 
+## Examples 
+
+```bash
+snippy-ng asm --ref tests/data/reference.gbk --asm tests/data/wildtype.contigs.fa
+```
+
+```bash
+snippy-ng short --ref tests/data/reference.gbk --R1 tests/data/mutant_R1.fastq.gz --R2 tests/data/mutant_R2.fastq.gz
+```
+
+```bash
+export CLAIR3_MODELS=./clair3_models # try to find appropriate models in this directory
+snippy-ng long --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
+```
+
+```bash
+snippy-ng utils gather --json --ref tests/data/reference.gbk tests/data/{wildtype,mutant}* > samples.json 
+snippy-ng multi samples.json --cpus 6 -o multi
+snippy-ng tree --fast multi/core/core.095.aln -o multi/tree
+snippy-ng utils report-tree multi/tree/tree.snps.newick --metadata multi/snippy.vcf.summary.tsv -o multi/report
+```
+
 ## Development
 
 To set up a development environment, clone the repository and install `pixi` and `hatch`. Pixi is used to manage external dependencies, and Hatch is used to manage the Python package development.
@@ -72,27 +94,6 @@ pixi run -e integration test-integration
 Simulated inputs are generated at test time and cached under `.cache/integration-sim/`.
 See [docs/integration-tests.md](/Users/wwirth/programming/snippy-ng/docs/integration-tests.md) for the scenario format and harness contract.
 
-## Examples 
-
-```bash
-snippy-ng asm --ref tests/data/reference.gbk --asm tests/data/wildtype.contigs.fa
-```
-
-```bash
-snippy-ng short --ref tests/data/reference.gbk --R1 tests/data/mutant_R1.fastq.gz --R2 tests/data/mutant_R2.fastq.gz
-```
-
-```bash
-export CLAIR3_MODELS=./clair3_models # try to find appropriate models in this directory
-snippy-ng long --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
-```
-
-```bash
-snippy-ng utils gather --json --ref tests/data/reference.gbk tests/data/{wildtype,mutant}* > samples.json 
-snippy-ng multi samples.json --cpus 6 -o multi
-snippy-ng tree --fast multi/core/core.095.aln -o multi/tree
-snippy-ng utils report-tree multi/tree/tree.snps.newick --metadata multi/snippy.vcf.summary.tsv -o multi/report
-```
 
 ## License
 
