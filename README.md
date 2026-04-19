@@ -91,7 +91,7 @@ snippy-ng long --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.g
 snippy-ng utils gather --json --ref tests/data/reference.gbk tests/data/{wildtype,mutant}* > samples.json 
 snippy-ng multi samples.json --cpus 6 -o multi
 snippy-ng tree --fast multi/core/core.095.aln -o multi/tree
-snippy-ng utils report-tree multi/tree/tree.treefile --metadata multi/snippy.vcf.summary.tsv -o multi/report
+snippy-ng utils report-tree multi/tree/tree.snps.newick --metadata multi/snippy.vcf.summary.tsv -o multi/report
 ```
 
 ## License
