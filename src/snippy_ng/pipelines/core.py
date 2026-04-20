@@ -18,6 +18,7 @@ class CorePipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the alignment pipeline."""
         stages = []
+        outputs_to_keep = []
 
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -36,12 +37,14 @@ class CorePipelineBuilder(PipelineBuilder):
             prefix=self.prefix,
         )
         stages.append(combine_stage)
+        outputs_to_keep.extend(combine_stage.output.paths)
 
         alignment_stats = AlignmentAlignedPercentage(
             alignment=combine_stage.output.aln,
             prefix=self.prefix,
         )
         stages.append(alignment_stats)
+        outputs_to_keep.extend(alignment_stats.output.paths)
 
         alignment_filter = FilterAlignmentByAlignedPercentage(
             aln=combine_stage.output.aln,
@@ -58,5 +61,6 @@ class CorePipelineBuilder(PipelineBuilder):
             prefix=self.prefix,
         )
         stages.append(filter_stage)
+        outputs_to_keep.extend(filter_stage.output.paths)
 
-        return SnippyPipeline(stages=stages)
+        return SnippyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)

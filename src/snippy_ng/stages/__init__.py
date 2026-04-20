@@ -68,6 +68,16 @@ class BaseOutput(BaseModel):
         if any(isinstance(meta, TemporaryOutput) for meta in field_info.metadata):
             return True
         return cls._annotation_has_temporary_marker(field_info.annotation)
+    
+    @property
+    def paths(self) -> List[Path]:
+        """Return all output paths."""
+        paths = []
+        for name in self.__class__.model_fields:
+            value = getattr(self, name, None)
+            if isinstance(value, Path):
+                paths.append(value)
+        return paths
 
     def temporary_outputs(self) -> List[tuple[str, Path]]:
         """Return temporary output fields and their resolved path values."""
