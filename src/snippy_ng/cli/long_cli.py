@@ -19,6 +19,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
+@click.option("--caller-map-qual", default=30, type=click.INT, help="Minimum mapping quality for caller to consider a read")
 @click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
@@ -37,6 +38,7 @@ def long(
     minimap_preset: str,
     caller: str,
     caller_opts: str,
+    caller_map_qual: int,
     clair3_model: Optional[Path],
     clair3_fast_mode: bool,
     min_read_len: int,
@@ -86,6 +88,7 @@ def long(
         min_read_len=min_read_len,
         min_read_qual=min_read_qual,
         min_qual=min_qual,
+        min_mapping_quality=caller_map_qual,
         mask=mask,
         depth_mask=depth_mask,
     ).build()
