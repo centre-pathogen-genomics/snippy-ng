@@ -25,8 +25,10 @@ class ShortPipelineBuilder(PipelineBuilder):
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
-    clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
+    clean_reads: bool = Field(default=False, description="Clean reads with fastp")
+    min_read_len: int = Field(default=15, description="Minimum read length")
+    min_read_qual: float = Field(default=20, description="Minimum read quality")
     aligner: str = Field(default="minimap2", description="Aligner to use (minimap2 or bwamem)")
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
@@ -79,6 +81,8 @@ class ShortPipelineBuilder(PipelineBuilder):
         if self.clean_reads and current_reads:
             clean_reads_stage = FastpCleanReads(
                 reads=current_reads,
+                min_length=self.min_read_len,
+                min_quality=self.min_read_qual,
                 **globals
             )
             # Update reads to use cleaned reads

@@ -11,8 +11,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
-@click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
+@click.option("--clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
+@click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
+@click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
@@ -25,8 +27,10 @@ def short(
     r1: Optional[Path],
     r2: Optional[Path],
     bam: Optional[Path],
-    clean_reads: bool,
     downsample: Optional[float],
+    clean_reads: bool,
+    min_read_len: int,
+    min_read_qual: float,
     mask: Optional[Path],
     depth_mask: int,
     aligner: str,
@@ -66,6 +70,8 @@ def short(
         prefix=prefix,
         bam=bam,
         clean_reads=clean_reads,
+        min_read_len=min_read_len,
+        min_read_qual=min_read_qual,
         downsample=downsample,
         aligner=aligner,
         aligner_opts=aligner_opts,
