@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionstoVCF, VcfFilterAsm, VcfPassFilter
+from snippy_ng.stages.vcf import AddDeletionsToVCF, VcfFilterAsm, VcfPassFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
@@ -24,6 +24,8 @@ class AsmPipelineBuilder(PipelineBuilder):
     prefix: str = Field(default="snippy", description="Output file prefix")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
+    add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
+
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
@@ -70,15 +72,16 @@ class AsmPipelineBuilder(PipelineBuilder):
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
 
-        # Add zero-depth regions to VCF as symbolic deletion blocks
-        add_deletions = AddDeletionstoVCF(
-            zero_depth_bed=caller.output.missing_bed,
-            vcf=variants_file,
-            reference=reference_file,
-            prefix=self.prefix
-        )
-        stages.append(add_deletions)
-        variants_file = add_deletions.output.vcf
+        if self.add_deletions_to_vcf:
+            # Add zero-depth regions to VCF as symbolic deletion blocks
+            add_deletions = AddDeletionsToVCF(
+                zero_depth_bed=caller.output.missing_bed,
+                vcf=variants_file,
+                reference=reference_file,
+                prefix=self.prefix
+            )
+            stages.append(add_deletions)
+            variants_file = add_deletions.output.vcf
 
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -113,7 +116,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf_gz=gzip_vcf.output.gz,
+            vcf=pass_filter.output.vcf,
             reference=reference_file,
             prefix=self.prefix
         )
