@@ -22,7 +22,7 @@ class FastpCleanReads(BaseStage):
     
     reads: List[Path] = Field(..., description="List of input read files (1 or 2 files)")
     min_length: int = Field(15, description="Minimum read length after trimming")
-    quality_cutoff: int = Field(20, description="Quality cutoff for base trimming")
+    min_quality: int = Field(20, description="Quality cutoff for base trimming")
     unqualified_percent_limit: int = Field(20, description="Percentage of unqualified bases allowed")
     n_base_limit: int = Field(5, description="Maximum number of N bases allowed")
     detect_adapter_for_pe: bool = Field(True, description="Auto-detect adapters for paired-end reads")
@@ -56,7 +56,7 @@ class FastpCleanReads(BaseStage):
             json_report=f"{self.prefix}.fastp.json"
         )
     
-    def build_fastp_command(self, ctx) -> ShellCommand:
+    def create_commands(self, ctx) -> List[ShellCommand]:
         """Constructs the fastp command for read cleaning."""
         cmd_parts = ["fastp"]
         
@@ -81,7 +81,7 @@ class FastpCleanReads(BaseStage):
         # Quality filtering
         cmd_parts.extend(["--length_required", str(self.min_length)])
         cmd_parts.extend(["--cut_tail_window_size", "4"])
-        cmd_parts.extend(["--cut_tail_mean_quality", str(self.quality_cutoff)])
+        cmd_parts.extend(["--cut_tail_mean_quality", str(self.min_quality)])
         cmd_parts.extend(["--unqualified_percent_limit", str(self.unqualified_percent_limit)])
         cmd_parts.extend(["--n_base_limit", str(self.n_base_limit)])
         
@@ -107,14 +107,10 @@ class FastpCleanReads(BaseStage):
             cmd_parts.extend(shlex.split(self.additional_options))
         
         read_type = "paired-end" if len(self.reads) == 2 else "single-end"
-        return self.shell_cmd(
+        return [self.shell_cmd(
             command=cmd_parts,
             description=f"Clean and filter {read_type} reads using fastp"
-        )
-    
-    def create_commands(self, ctx) -> List:
-        """Constructs the fastp cleaning command."""
-        return [self.build_fastp_command(ctx)]
+        )]
 
 
 class FastpCleanReadsAggressive(FastpCleanReads):
