@@ -13,7 +13,7 @@ from Bio.SeqRecord import SeqRecord
 from snippy_ng.exceptions import StageExecutionError, MissingInputError
 from snippy_ng.logging import logger
 from snippy_ng.stages import BaseStage, BaseOutput
-from snippy_ng.dependencies import biopython, core_snp_filter, numpy
+from snippy_ng.dependencies import biopython, core_snp_filter, distle, numpy
 
 
 class MSAValidationError(StageExecutionError):
@@ -145,8 +145,41 @@ class SoftCoreFilterOutput(BaseOutput):
     constant_sites: Path = Field(..., description="File containing constant-site counts for phylogenetic model correction")
 
 
+class DistleDistanceMatrixOutput(BaseOutput):
+    phylip: Path = Field(..., description="Pairwise distance matrix in PHYLIP format")
+
+
 class AlignmentSampleFilterOutput(BaseOutput):
     filtered_aln: Path = Field(..., description="MSA with low-alignment samples removed before soft core filtering")
+
+
+class DistleDistanceMatrix(BaseStage):
+    """Convert an alignment into a PHYLIP distance matrix using distle."""
+
+    aln: Path = Field(..., description="Input multiple sequence alignment")
+
+    _dependencies = [distle]
+
+    @property
+    def output(self) -> DistleDistanceMatrixOutput:
+        return DistleDistanceMatrixOutput(
+            phylip=self.aln.with_suffix(".phylip"),
+        )
+
+    def create_commands(self, ctx):
+        return [
+            self.shell_cmd(
+                [
+                    "distle",
+                    "--threads", str(ctx.cpus),
+                    "-o",
+                    "phylip",
+                    str(self.aln),
+                    str(self.output.phylip),
+                ],
+                description="Calculate pairwise distances from MSA in PHYLIP format",
+            )
+        ]
 
 
 class FilterAlignmentByAlignedPercentage(BaseStage):

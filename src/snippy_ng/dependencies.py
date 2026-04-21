@@ -216,6 +216,10 @@ core_snp_filter = Dependency(
     min_version="0.2.0",
     version_pattern=r"v(\d+\.\d+\.\d+)",
 )
+distle = Dependency(
+    "distle",
+    min_version="0.3.0",
+)
 
 # Phylogenetic tree building
 iqtree = Dependency(
