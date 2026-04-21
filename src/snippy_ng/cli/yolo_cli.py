@@ -178,14 +178,26 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
 
+    soft_core_stage = next(
+        (
+            stage
+            for stage in reversed(aln_pipeline.stages)
+            if hasattr(getattr(stage, "output", None), "soft_core")
+            and hasattr(getattr(stage, "output", None), "constant_sites")
+        ),
+        None,
+    )
+    if soft_core_stage is None:
+        raise PipelineExecutionError("Core pipeline did not produce soft-core alignment outputs.")
+
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
 
 
     context["ram"] = None # YOLO: disable RAM limiting for this step
     tree_pipeline = TreePipelineBuilder(
-        aln=core_outdir / aln_pipeline.stages[-1].output.soft_core,
-        fconst=(core_outdir / aln_pipeline.stages[-1].output.constant_sites).read_text().strip(),
+        aln=core_outdir / soft_core_stage.output.soft_core,
+        fconst=(core_outdir / soft_core_stage.output.constant_sites).read_text().strip(),
         fast_mode=True,
     ).build()
     tree_outdir = Path(outdir) / "tree"
