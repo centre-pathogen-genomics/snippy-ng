@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.masks import DepthBedsFromBam, DepthMaskFromBed
-from snippy_ng.stages.vcf import AddDeletionstoVCF
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta
+from snippy_ng.stages.vcf import AddDeletionsToVCF
 
 
 def _write_minimal_vcf(vcf_path: Path) -> None:
@@ -41,7 +41,7 @@ def test_add_deletions_to_vcf_symbolic_len_standard_interval(tmp_path: Path):
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t103379\t103380\n")
 
-    AddDeletionstoVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -67,7 +67,7 @@ def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(tmp_pa
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t0\t20\n")
 
-    AddDeletionstoVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -107,7 +107,7 @@ def test_add_deletions_to_vcf_skips_existing_explicit_deletion(tmp_path: Path):
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t103379\t103380\n")
 
-    AddDeletionstoVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -133,7 +133,7 @@ def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_varia
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t560\t570\n")
 
-    AddDeletionstoVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -156,7 +156,7 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
     assert len(commands) == 2
     assert len(commands[0].processes) == 3
     assert commands[0].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam"
+        "samtools", "depth", "-aa", "-q", "13", "-Q", "0", "sample.bam",
     ]
     assert commands[0].processes[1].command == [
         "awk", '$3==0 {print $1"\\t"($2-1)"\\t"$2}'
@@ -166,7 +166,7 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
 
     assert len(commands[1].processes) == 3
     assert commands[1].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam"
+        "samtools", "depth", "-aa", "-q", "13", "-Q", "0", "sample.bam",
     ]
     assert commands[1].processes[1].command == [
         "awk", '$3>0 && $3<10 {print $1"\\t"($2-1)"\\t"$2}'
@@ -175,8 +175,27 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
     assert commands[1].output_file == Path("sample.mindepth.bed")
 
 
+def test_depth_beds_from_bam_can_match_variant_calling_quality_thresholds():
+    stage = DepthBedsFromBam(
+        bam=Path("sample.bam"),
+        min_depth=10,
+        min_base_quality=13,
+        min_mapping_quality=30,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert commands[0].processes[0].command == [
+        "samtools", "depth", "-aa", "-q", "13", "-Q", "30", "sample.bam",
+    ], "Default quality thresholds should not be included in Zero-depth command"
+    assert commands[1].processes[0].command == [
+        "samtools", "depth", "-aa", "-q", "13", "-Q", "30", "sample.bam",
+    ]
+
+
 def test_depth_mask_from_bed_uses_maskfasta_with_n():
-    stage = DepthMaskFromBed(
+    stage = ApplyDepthMaskToFasta(
         fasta=Path("sample.consensus.fasta"),
         mask_bed=Path("sample.mindepth.bed"),
         min_depth=10,
