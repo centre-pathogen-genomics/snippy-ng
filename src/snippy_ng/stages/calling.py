@@ -347,8 +347,7 @@ class PAFCaller(Caller):
                     description="Insert FORMAT header lines for DP and AO",
                     output_file=self.output.vcf,
                 )
-        # TODO: Combine vcf with missing bed using <DEL> blocks so we have a single 
-        # VCF output with both variant calls and missing regions annotated as deletions.
+
         return [
             paf_to_pipeline,
             compute_missing_bed_cmd,
