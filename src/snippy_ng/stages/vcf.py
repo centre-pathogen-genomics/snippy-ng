@@ -17,6 +17,7 @@ class VcfPassFilterOutput(BaseOutput):
 
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
+    no_insertions: bool = Field(True, description="Remove insertions from the output VCF")
 
     _dependencies = [bcftools]
 
@@ -27,9 +28,13 @@ class VcfPassFilter(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
+        include_expr = 'FMT/GT="1/1" || FMT/GT="0/1"'
+        if self.no_insertions:
+            # Exclude insertions while retaining deletions, including symbolic DEL blocks.
+            include_expr = f'({include_expr}) && (strlen(ALT)<=strlen(REF) || ALT="<DEL>")'
         return [
             self.shell_cmd(
-                ["bcftools", "view", "-f", "PASS", str(self.vcf)],
+                ["bcftools", "view", "-f", "PASS", "-i", include_expr, str(self.vcf)],
                 description="Filter VCF to PASS variants only",
                 output_file=self.output.vcf,
             )
@@ -84,8 +89,6 @@ class VcfFilterShort(VcfFilter):
                         "norm",
                         "-f",
                         str(self.reference),
-                        "-m",
-                        "-both",
                         "--check-ref", "e",
                         "--remove-duplicates",
                         "-Ou",
@@ -200,8 +203,6 @@ class VcfFilterLong(VcfFilter):
                     "norm",
                     "-f",
                     str(self.reference),
-                    "-m",
-                    "-both",
                     "--check-ref", "e",
                     "--remove-duplicates",
                     "-Ou",
@@ -257,12 +258,12 @@ class VcfFilterLong(VcfFilter):
 
 
 
-class AddDeletionstoVCFOutput(BaseOutput):
+class AddDeletionsToVCFOutput(BaseOutput):
     """Output from the zero-depth deletion annotation stage."""
     vcf: Path = Field(..., description="VCF with zero-depth regions added as <DEL> blocks")
 
 
-class AddDeletionstoVCF(BaseStage):
+class AddDeletionsToVCF(BaseStage):
     """
     Add zero-depth regions as symbolic deletion blocks to a VCF.
 
@@ -274,8 +275,8 @@ class AddDeletionstoVCF(BaseStage):
     reference: Path = Field(..., description="Reference FASTA file")
 
     @property
-    def output(self) -> AddDeletionstoVCFOutput:
-        return AddDeletionstoVCFOutput(
+    def output(self) -> AddDeletionsToVCFOutput:
+        return AddDeletionsToVCFOutput(
             vcf=Path(f"{self.prefix}.with_del.vcf")
         )
 
@@ -304,7 +305,7 @@ class AddDeletionstoVCF(BaseStage):
         keys: set[tuple[str, int, int]] = set()
 
         if alt == "<DEL>" or "SVTYPE=DEL" in info_field:
-            end_pos = AddDeletionstoVCF._extract_info_int(info_field, "END")
+            end_pos = AddDeletionsToVCF._extract_info_int(info_field, "END")
             if end_pos is not None:
                 keys.add((chrom, pos, end_pos))
 
@@ -339,7 +340,7 @@ class AddDeletionstoVCF(BaseStage):
             end = pos + max(len(ref), 1) - 1
 
         if alt == "<DEL>" or "SVTYPE=DEL" in info_field:
-            info_end = AddDeletionstoVCF._extract_info_int(info_field, "END")
+            info_end = AddDeletionsToVCF._extract_info_int(info_field, "END")
             if info_end is not None:
                 end = max(end, info_end)
 
@@ -357,7 +358,7 @@ class AddDeletionstoVCF(BaseStage):
         occupied_intervals: dict[str, list[tuple[int, int]]],
     ) -> bool:
         for existing_start, existing_end in occupied_intervals.get(chrom, []):
-            if AddDeletionstoVCF._intervals_overlap(start, end, existing_start, existing_end):
+            if AddDeletionsToVCF._intervals_overlap(start, end, existing_start, existing_end):
                 return True
         return False
 
@@ -400,7 +401,7 @@ class AddDeletionstoVCF(BaseStage):
         has_info_type = False
         has_info_zd = False
         sample_count = 0
-        reference_sequences = AddDeletionstoVCF._load_reference_sequences(reference_fasta)
+        reference_sequences = AddDeletionsToVCF._load_reference_sequences(reference_fasta)
 
         existing_del_keys: set[tuple[str, int, int]] = set()
         occupied_intervals: dict[str, list[tuple[int, int]]] = {}
@@ -453,9 +454,9 @@ class AddDeletionstoVCF(BaseStage):
                 alt = cols[4]
                 info_field = cols[7]
                 existing_del_keys.update(
-                    AddDeletionstoVCF._existing_deletion_keys(chrom, pos, ref, alt, info_field)
+                    AddDeletionsToVCF._existing_deletion_keys(chrom, pos, ref, alt, info_field)
                 )
-                interval_start, interval_end = AddDeletionstoVCF._variant_interval(pos, ref, info_field, alt)
+                interval_start, interval_end = AddDeletionsToVCF._variant_interval(pos, ref, info_field, alt)
                 occupied_intervals.setdefault(chrom, []).append((interval_start, interval_end))
 
                 variant_rows.append((chrom, pos, record_index, stripped))
@@ -479,7 +480,8 @@ class AddDeletionstoVCF(BaseStage):
 
         added_index = len(variant_rows)
         with open(zero_depth_bed, "r") as bed_handle:
-            for i, bed_line in enumerate(bed_handle, start=1):
+            del_index = 1
+            for bed_line in bed_handle:
                 fields = bed_line.rstrip("\n").split("\t")
                 if len(fields) < 3:
                     continue
@@ -541,7 +543,7 @@ class AddDeletionstoVCF(BaseStage):
                 key = (chrom, pos, end_pos)
                 if key in existing_del_keys:
                     continue
-                if AddDeletionstoVCF._overlaps_any_interval(chrom, pos, end_pos, occupied_intervals):
+                if AddDeletionsToVCF._overlaps_any_interval(chrom, pos, end_pos, occupied_intervals):
                     logger.debug(
                         f"Skipping synthetic zero-depth DEL at {chrom}:{pos}-{end_pos} because it overlaps an existing VCF variant"
                     )
@@ -553,7 +555,7 @@ class AddDeletionstoVCF(BaseStage):
                     "TYPE=INDEL;"
                     f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
                 )
-                base_cols = [chrom, str(pos), f"DEL_{i}", ref_allele, alt_allele, ".", "PASS", info]
+                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "PASS", info]
 
                 if sample_count > 0:
                     base_cols.extend(["GT", *(["1/1"] * sample_count)])
@@ -561,6 +563,7 @@ class AddDeletionstoVCF(BaseStage):
                 line = "\t".join(base_cols)
                 variant_rows.append((chrom, pos, added_index, line))
                 added_index += 1
+                del_index += 1
 
         unknown_rank = len(contig_rank)
 

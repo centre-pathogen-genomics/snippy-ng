@@ -98,6 +98,7 @@ class FreebayesCaller(Caller):
     bam_index: Path = Field(..., description="Index file for the input BAM")
     fbopt: str = Field("", description="Additional Freebayes options")
     ploidy: int = Field(2, description="Ploidy for variant calling")
+    min_mapping_quality: int = Field(30, description="Minimum mapping quality for FreeBayes to count reads")
     exclude_insertions: bool = Field(
         True,
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
@@ -140,7 +141,7 @@ class FreebayesCaller(Caller):
             "--min-alternate-count", "2",
             "--min-repeat-entropy", "1.0",
             "--min-base-quality", "13",
-            "--min-mapping-quality", "60",
+            "--min-mapping-quality", str(self.min_mapping_quality),
             "--strict-vcf",
         ]
         if self.fbopt:
@@ -162,6 +163,7 @@ class FreebayesCallerLong(FreebayesCaller):
     Call variants using Freebayes for long-read data.
     """
     # def test_freebayes_ran_successfully(self):
+    min_mapping_quality: int = Field(30, description="Minimum mapping quality for FreeBayes to count reads")
         
 
     def create_commands(self, ctx) -> List:
@@ -185,7 +187,7 @@ class FreebayesCallerLong(FreebayesCaller):
             "--ploidy", str(self.ploidy),
             "--genotype-qualities",
             "--haplotype-length", "-1",
-            "--min-mapping-quality", "10",
+            "--min-mapping-quality", str(self.min_mapping_quality),
             "--min-base-quality", "10",
         ]
         if self.fbopt:
@@ -345,8 +347,7 @@ class PAFCaller(Caller):
                     description="Insert FORMAT header lines for DP and AO",
                     output_file=self.output.vcf,
                 )
-        # TODO: Combine vcf with missing bed using <DEL> blocks so we have a single 
-        # VCF output with both variant calls and missing regions annotated as deletions.
+
         return [
             paf_to_pipeline,
             compute_missing_bed_cmd,
@@ -711,6 +712,7 @@ class Clair3Caller(Caller):
     clair3_model: Path = Field(..., description="Path to Clair3 model")
     platform: str = Field("ont", description="Sequencing platform (e.g., ont, hifi)")
     fast_mode: bool = Field(True, description="Enable fast mode for Clair3")
+    min_mapping_quality: int = Field(30, description="Minimum mapping quality for Clair3 to count reads")
 
     _dependencies = [clair3]
 
@@ -744,6 +746,7 @@ class Clair3Caller(Caller):
                 f"--output={Path(self.prefix + '_clair3_out').absolute()}",
                 f"--platform={self.platform}",
                 f"--chunk_size={chunk_size}",
+                f"--min_mq={self.min_mapping_quality}",
                 "--include_all_ctgs",
                 "--no_phasing_for_fa",
                 "--enable_long_indel",
@@ -767,13 +770,17 @@ class Clair3Caller(Caller):
             ],
             description="Move Clair3 VCF to final output location",
         )
-        cleanup_cmd = self.shell_cmd(
-            [
-                "rm",
-                "-rf",
-                f"{self.prefix}_clair3_out",
-            ],
-            description="Clean up Clair3 output directory",
-        )
+        commands = [clair3_cmd, unzip_cmd, move_vcf_cmd]
 
-        return [clair3_cmd, unzip_cmd, move_vcf_cmd, cleanup_cmd] 
+        if not ctx.no_cleanup:
+            commands.append(self.shell_cmd(
+                    [
+                        "rm",
+                        "-rf",
+                        f"{self.prefix}_clair3_out",
+                    ],
+                    description="Clean up Clair3 output directory",
+                )
+            )
+
+        return commands

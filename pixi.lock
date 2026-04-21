@@ -29,6 +29,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/core-snp-filter-0.2.0-h3ab6199_2.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/distle-0.3.0-h54198d6_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -210,6 +211,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/dav1d-1.2.1-h31becfc_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/dbus-1.16.2-h70963c4_1.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/distle-0.3.0-h389c417_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -464,6 +466,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/core-snp-filter-0.2.0-hefd1791_2.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-64/distle-0.3.0-h518e4cb_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -665,6 +668,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/dav1d-1.2.1-hb547adb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/dbus-1.16.2-h3ff7a7c_1.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/distle-0.3.0-h1a4e967_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -902,6 +906,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/core-snp-filter-0.2.0-h3ab6199_2.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/distle-0.3.0-h54198d6_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -1104,6 +1109,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/dav1d-1.2.1-h31becfc_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/dbus-1.16.2-h70963c4_1.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/distle-0.3.0-h389c417_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -1378,6 +1384,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-64/core-snp-filter-0.2.0-hefd1791_2.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.13-py312hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-64/distle-0.3.0-h518e4cb_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -1599,6 +1606,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/dav1d-1.2.1-hb547adb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/dbus-1.16.2-h3ff7a7c_1.conda
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/distle-0.3.0-h1a4e967_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
@@ -2802,6 +2810,50 @@ packages:
   purls: []
   size: 393811
   timestamp: 1764536084131
+- conda: https://conda.anaconda.org/bioconda/linux-64/distle-0.3.0-h54198d6_1.conda
+  sha256: 17168db3247d9aec1b408f79b23e7fe31cae760802affa910e60be8b34fbc14d
+  md5: 8ee39011287fd444f37036dfd93ff670
+  depends:
+  - libgcc >=14
+  constrains:
+  - __glibc >=2.17
+  license: GPL-3.0-only
+  license_family: GPL3
+  purls: []
+  size: 859291
+  timestamp: 1771592088149
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/distle-0.3.0-h389c417_1.conda
+  sha256: 6e921987a7f585f7914ebe6f5fe7cca97869d449bc1b3eca3bb649d1fb02df23
+  md5: fa6b40a20b6108aab164893696f5899a
+  depends:
+  - libgcc >=14
+  constrains:
+  - __glibc >=2.17
+  license: GPL-3.0-only
+  license_family: GPL3
+  purls: []
+  size: 802445
+  timestamp: 1771591928951
+- conda: https://conda.anaconda.org/bioconda/osx-64/distle-0.3.0-h518e4cb_1.conda
+  sha256: 4bbde2bf947bec39e0438c44bdb37d68d3130a8deef64d3c39de3d5fd2b4fc16
+  md5: 6fe0a816809a984ac25c21ad4da7a51b
+  constrains:
+  - __osx >=10.13
+  license: GPL-3.0-only
+  license_family: GPL3
+  purls: []
+  size: 804906
+  timestamp: 1771592860002
+- conda: https://conda.anaconda.org/bioconda/osx-arm64/distle-0.3.0-h1a4e967_1.conda
+  sha256: b9e3500a86857bbda387a64080bbd0b6309632e003b47f49f6cd23dd094c9791
+  md5: 6f089362fa8d08a836f31d25bb0fa976
+  constrains:
+  - __osx >=11.0
+  license: GPL-3.0-only
+  license_family: GPL3
+  purls: []
+  size: 739095
+  timestamp: 1771592186337
 - conda: https://conda.anaconda.org/conda-forge/noarch/dnspython-2.8.0-pyhcf101f3_0.conda
   sha256: ef1e7b8405997ed3d6e2b6722bd7088d4a8adf215e7c88335582e65651fb4e05
   md5: d73fdc05f10693b518f52c994d748c19

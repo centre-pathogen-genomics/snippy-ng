@@ -8,6 +8,7 @@ from snippy_ng.stages.calling import (
     Clair3Caller,
     Clair3ModelSelectorError,
     FreebayesCaller,
+    FreebayesCallerLong,
     LongbowClair3ModelSelector,
     MIN_SHORT_CHUNK_SIZE,
     get_short_chunk_size,
@@ -63,6 +64,60 @@ def test_freebayes_caller_uses_adaptive_chunk_size_for_region_generation(tmp_pat
         str(reference_index),
         "142857",
     ]
+
+
+def test_freebayes_caller_uses_configured_mapping_quality(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1000000\t0\t0\t0\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+
+    stage = FreebayesCaller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        min_mapping_quality=30,
+        prefix="snippy",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+    freebayes_command = commands[1].command
+
+    assert freebayes_command[
+        freebayes_command.index("--min-mapping-quality") + 1
+    ] == "30"
+
+
+def test_freebayes_long_caller_uses_configured_mapping_quality(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1000000\t0\t0\t0\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+
+    stage = FreebayesCallerLong(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        min_mapping_quality=30,
+        prefix="snippy",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+    freebayes_command = commands[1].command
+
+    assert freebayes_command[
+        freebayes_command.index("--min-mapping-quality") + 1
+    ] == "30"
 
 
 def test_longbow_resolver_picks_r10_sup_model_from_env_root(tmp_path, monkeypatch):

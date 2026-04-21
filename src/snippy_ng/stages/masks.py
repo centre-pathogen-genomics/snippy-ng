@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Iterable, List, TextIO
+from typing import List
 
 from snippy_ng.stages import BaseStage, BaseOutput, TempPath
-from snippy_ng.dependencies import bedtools, bcftools
+from snippy_ng.dependencies import bedtools, bcftools, samtools
 
 from pydantic import Field
 
@@ -14,13 +14,16 @@ class DepthBedsFromBamOutput(BaseOutput):
 
 
 class DepthBedsFromBam(BaseStage):
-    """Generate zero-depth and minimum-depth BED files from one coverage scan."""
+    """Generate zero-depth and minimum-depth BED files from per-base depth."""
 
     bam: Path = Field(..., description="Input BAM file")
     min_depth: int = Field(..., description="Minimum depth threshold")
+    min_base_quality: int = Field(13, description="Minimum base quality to include in depth calculation")
+    min_mapping_quality: int = Field(0, description="Minimum mapping quality to include in depth calculation")
 
     _dependencies = [
-        bedtools
+        bedtools,
+        samtools,
     ]
 
     @property
@@ -31,60 +34,58 @@ class DepthBedsFromBam(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        genomecov_cmd = self.shell_cmd(
-            ["bedtools", "genomecov", "-ibam", str(self.bam), "-bga"],
-            description="Generate genome coverage in BED format"
-        )
-        split_cmd = self.shell_cmd(
-            [
-                "awk",
-                "-v", f"zero_depth_bed={self.output.zero_depth_bed}",
-                "-v", f"min_depth_bed={self.output.min_depth_bed}",
-                "-v", f"min_depth={self.min_depth}",
-                'BEGIN { OFS="\\t"; printf "" > zero_depth_bed; printf "" > min_depth_bed } '
-                '$4==0 { print $1, $2, $3 > zero_depth_bed; next } '
-                '$4>0 && $4<min_depth { print $1, $2, $3 > min_depth_bed } '
-                'END { close(zero_depth_bed); close(min_depth_bed) }',
-            ],
-            description="Split coverage into zero-depth and min-depth BED files"
-        )
-
+        depth_cmd = [
+            "samtools", "depth",
+            "-aa",
+            "--min-BQ", str(self.min_base_quality),
+            "--min-MQ", str(self.min_mapping_quality),
+            str(self.bam),
+        ]
         return [
             self.shell_pipe(
-                [genomecov_cmd, split_cmd],
-                description="Generate zero-depth and min-depth BED blocks from one coverage scan",
+                [
+                    self.shell_cmd(
+                        depth_cmd,
+                        description="Generate per-base depth for zero-depth mask",
+                    ),
+                    self.shell_cmd(
+                        ["awk", '$3==0 {print $1"\\t"($2-1)"\\t"$2}'],
+                        description="Extract zero-depth bases as BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["bedtools", "merge", "-i", "-"],
+                        description="Merge adjacent zero-depth BED intervals",
+                    ),
+                ],
+                description="Generate zero-depth BED blocks",
+                output_file=self.output.zero_depth_bed,
+            ),
+            self.shell_pipe(
+                [
+                    self.shell_cmd(
+                        depth_cmd,
+                        description="Generate per-base depth for minimum-depth mask",
+                    ),
+                    self.shell_cmd(
+                        ["awk", f'$3>0 && $3<{self.min_depth} {{print $1"\\t"($2-1)"\\t"$2}}'],
+                        description="Extract low-depth bases as BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["bedtools", "merge", "-i", "-"],
+                        description="Merge adjacent low-depth BED intervals",
+                    ),
+                ],
+                description="Generate minimum-depth BED blocks",
+                output_file=self.output.min_depth_bed,
             )
         ]
-
-    @staticmethod
-    def write_depth_beds(
-        genomecov_lines: Iterable[str],
-        min_depth: int,
-        zero_depth_handle: TextIO,
-        min_depth_handle: TextIO,
-    ) -> None:
-        for raw_line in genomecov_lines:
-            fields = raw_line.rstrip("\n").split("\t")
-            if len(fields) < 4:
-                continue
-            try:
-                depth = float(fields[3])
-            except ValueError:
-                continue
-
-            bed_line = f"{fields[0]}\t{fields[1]}\t{fields[2]}\n"
-            if depth == 0:
-                zero_depth_handle.write(bed_line)
-            elif 0 < depth < min_depth:
-                min_depth_handle.write(bed_line)
-
 
 class DepthMaskFromBedOutput(BaseOutput):
     """Output from applying a precomputed minimum-depth mask."""
     masked_fasta: Path = Field(..., description="FASTA with low-depth regions (depth < min_depth) masked")
 
 
-class DepthMaskFromBed(BaseStage):
+class ApplyDepthMaskToFasta(BaseStage):
     """Apply a precomputed minimum-depth BED mask to a FASTA file."""
 
     fasta: Path = Field(..., description="Input FASTA file to be masked")

@@ -53,7 +53,7 @@ class SamtoolsFilter(BaseStage):
         
         # Add mapping quality filter
         if self.min_mapq > 0:
-            cmd_parts.extend(["-q", str(self.min_mapq)])
+            cmd_parts.extend(["--min-MQ", str(self.min_mapq)])
         
         # Add flag filters
         if self.exclude_flags:

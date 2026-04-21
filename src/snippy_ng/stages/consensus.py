@@ -16,14 +16,14 @@ class PseudoAlignment(BaseStage):
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
     fasta: Path = Field(..., description="Pseudo-alignment consensus FASTA generated from reference + variants")
+    vcf_gz: TempPath = Field(..., description="BGZF-compressed VCF file used for consensus calling")
     vcf_index: TempPath = Field(..., description="Index file for the input VCF.gz")
 
 class BcftoolsPseudoAlignment(PseudoAlignment):
     """
     Call pseudo-alignment using Bcftools consensus.
     """
-    vcf_gz: Path = Field(..., description="Input VCF.gz file")
-    no_insertions: bool = Field(True, description="Do not apply insertions to the consensus sequence")
+    vcf: Path = Field(..., description="Input VCF file")
     iupac_ambiguity_codes: bool = Field(True, description="Use IUPAC ambiguity codes for heterozygous sites")
     ref_metadata: ReferenceMetadata = Field(..., description="Metadata for the run")
 
@@ -35,7 +35,8 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
             fasta=Path(f"{self.prefix}.pseudo.raw.fna"),
-            vcf_index=Path(f"{self.vcf_gz}.csi")
+            vcf_gz=self.vcf.with_suffix(".vcf.gz"),
+            vcf_index=self.vcf.with_suffix(".vcf.gz.csi"),
         )
     
     def test_output_matches_reference(self):
@@ -63,20 +64,17 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
 
         bcf_csq_args = ["bcftools", "consensus"]
 
-        include_expr = 'FILTER="PASS"'
-        if self.no_insertions:
-            # Exclude insertions while retaining deletions, including symbolic DEL blocks.
-            include_expr = f'({include_expr}) && (strlen(ALT)<=strlen(REF) || ALT="<DEL>")'
-        bcf_csq_args.extend(["-i", include_expr])
         if self.iupac_ambiguity_codes:
             bcf_csq_args.append("--iupac-codes")
         bcf_csq_args.extend([
             "-f", str(self.reference),
             "-o", str(self.output.fasta),
             "--mark-del", "-",
-            str(self.vcf_gz),
+            "--mark-snv", "lc",
+            str(self.output.vcf_gz),
         ])
         return [
-            self.shell_cmd(["bcftools", "index", "-f", str(self.vcf_gz)], description="Indexing VCF file"),
+            self.shell_cmd(["bgzip", "-o", str(self.output.vcf_gz), str(self.vcf)], description="Compressing file with bgzip"),
+            self.shell_cmd(["bcftools", "index", "-f", str(self.output.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
         ]

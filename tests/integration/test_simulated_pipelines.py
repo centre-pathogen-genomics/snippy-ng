@@ -5,6 +5,8 @@ import gzip
 
 import pytest
 
+from snippy_ng.context import Context
+from snippy_ng.pipelines.core import CorePipelineBuilder
 from tests.integration.simulation import (
     DEFAULT_REFERENCE,
     PROJECT_ROOT,
@@ -263,3 +265,91 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     reference_seq = _read_fasta_sequence(request.reference, variant.chrom)
     consensus_seq = _read_fasta_sequence(outdir / "snippy.pseudo.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == reference_seq[variant.pos - 1]
+
+
+def _read_fasta_records(path: Path) -> dict[str, str]:
+    records: dict[str, str] = {}
+    current_name: str | None = None
+    chunks: list[str] = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if current_name is not None:
+                    records[current_name] = "".join(chunks)
+                current_name = line[1:].split()[0]
+                chunks = []
+                continue
+            chunks.append(line)
+    if current_name is not None:
+        records[current_name] = "".join(chunks)
+    return records
+
+
+def _read_phylip_taxa_count(path: Path) -> int:
+    with open(path, "r", encoding="utf-8") as handle:
+        first_line = handle.readline().strip()
+    assert first_line, f"Expected PHYLIP header in {path}"
+    return int(first_line.split()[0])
+
+
+def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset, tmp_path):
+    datasets = [
+        simulated_dataset(
+            (VariantRecord("Wildtype", 20, "A", "C"),),
+            "asm",
+            name="core_sample_a",
+            untouched_regions=(("Wildtype", 200, 260),),
+        ),
+        simulated_dataset(
+            (VariantRecord("Wildtype", 40, "C", "A"),),
+            "asm",
+            name="core_sample_b",
+            untouched_regions=(("Wildtype", 200, 260),),
+        ),
+        simulated_dataset(
+            (VariantRecord("Wildtype", 120, "A", "G"),),
+            "asm",
+            name="core_sample_c",
+            untouched_regions=(("Wildtype", 200, 260),),
+        ),
+    ]
+    outdir = tmp_path / "core-pipeline"
+
+    pipeline = CorePipelineBuilder(
+        snippy_dirs=[dataset.outdir for dataset in datasets],
+        reference=DEFAULT_REFERENCE,
+        prefix="core",
+    ).build()
+    pipeline.run(
+        Context(
+            outdir=outdir,
+            skip_check=True,
+            cpus=1,
+            ram=4,
+        )
+    )
+
+    full_aln = outdir / "core.full.aln"
+    soft_core_aln = outdir / "core.095.aln"
+    full_phylip = outdir / "core.full.phylip"
+    soft_core_phylip = outdir / "core.095.phylip"
+
+    assert full_aln.exists()
+    assert soft_core_aln.exists()
+    assert full_phylip.exists()
+    assert soft_core_phylip.exists()
+
+    full_records = _read_fasta_records(full_aln)
+    soft_core_records = _read_fasta_records(soft_core_aln)
+    reference_seq = _read_fasta_sequence(DEFAULT_REFERENCE, "Wildtype")
+
+    assert list(full_records) == ["reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"]
+    assert list(soft_core_records) == list(full_records)
+    assert all(len(seq) == len(reference_seq) for seq in full_records.values())
+    assert len(next(iter(soft_core_records.values()))) == 3
+    assert {seq.upper() for seq in soft_core_records.values()} == {"ACA", "CCA", "AAA", "ACG"}
+    assert _read_phylip_taxa_count(full_phylip) == 4
+    assert _read_phylip_taxa_count(soft_core_phylip) == 4

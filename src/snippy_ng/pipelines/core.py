@@ -1,7 +1,7 @@
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.core import CombineFastaFile, FilterAlignmentByAlignedPercentage, SoftCoreFilter
+from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, FilterAlignmentByAlignedPercentage, SoftCoreFilter
 from snippy_ng.stages.stats import AlignmentAlignedPercentage
 from pathlib import Path
 from pydantic import Field
@@ -18,6 +18,7 @@ class CorePipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the alignment pipeline."""
         stages = []
+        outputs_to_keep = []
 
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
@@ -36,12 +37,20 @@ class CorePipelineBuilder(PipelineBuilder):
             prefix=self.prefix,
         )
         stages.append(combine_stage)
+        outputs_to_keep.extend(combine_stage.output.paths)
+
+        full_distances = DistleDistanceMatrix(
+            aln=combine_stage.output.aln,
+        )
+        stages.append(full_distances)
+        outputs_to_keep.extend(full_distances.output.paths)
 
         alignment_stats = AlignmentAlignedPercentage(
             alignment=combine_stage.output.aln,
             prefix=self.prefix,
         )
         stages.append(alignment_stats)
+        outputs_to_keep.extend(alignment_stats.output.paths)
 
         alignment_filter = FilterAlignmentByAlignedPercentage(
             aln=combine_stage.output.aln,
@@ -58,5 +67,12 @@ class CorePipelineBuilder(PipelineBuilder):
             prefix=self.prefix,
         )
         stages.append(filter_stage)
+        outputs_to_keep.extend(filter_stage.output.paths)
 
-        return SnippyPipeline(stages=stages)
+        soft_core_distances = DistleDistanceMatrix(
+            aln=filter_stage.output.soft_core,
+        )
+        stages.append(soft_core_distances)
+        outputs_to_keep.extend(soft_core_distances.output.paths)
+
+        return SnippyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)

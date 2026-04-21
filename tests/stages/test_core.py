@@ -1,10 +1,12 @@
 import csv
+from pathlib import Path
 
 from Bio import SeqIO
 
 from snippy_ng.logging import logger
 from snippy_ng.pipelines.core import CorePipelineBuilder
-from snippy_ng.stages.core import FilterAlignmentByAlignedPercentage, SoftCoreFilter
+from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, FilterAlignmentByAlignedPercentage, SoftCoreFilter
+from snippy_ng.context import Context
 
 
 def test_filter_alignment_by_aligned_percentage_filters_outlier_sample(tmp_path):
@@ -246,3 +248,52 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
     filter_stage = next(stage for stage in pipeline.stages if isinstance(stage, FilterAlignmentByAlignedPercentage))
 
     assert soft_core_stage.aln == filter_stage.output.filtered_aln
+
+
+def test_distle_distance_matrix_uses_phylip_output(tmp_path):
+    stage = DistleDistanceMatrix(
+        aln=tmp_path / "core.full.aln",
+        prefix="core.full",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 1
+    assert commands[0].command == [
+        "distle",
+        "--threads", str(Context().cpus),
+        "-o",
+        "phylip",
+        str(tmp_path / "core.full.aln"),
+        str(tmp_path / "core.full.phylip"),
+    ]
+    assert stage.output.phylip == tmp_path / "core.full.phylip"
+
+
+def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    (reference / "reference.fa").write_text(">ref\nAAAA\n")
+    (reference / "reference.fa.fai").write_text("ref\t4\t0\t4\t5\n")
+    (reference / "reference.dict").write_text("ref\t4\n")
+    (reference / "reference.gff").write_text("##gff-version 3\n")
+    (reference / "metadata.json").write_text('{"prefix": "reference"}')
+
+    snippy_dir = tmp_path / "sample1"
+    snippy_dir.mkdir()
+
+    pipeline = CorePipelineBuilder(
+        snippy_dirs=[snippy_dir],
+        reference=reference,
+        prefix="core",
+    ).build()
+
+    distle_stages = [stage for stage in pipeline.stages if isinstance(stage, DistleDistanceMatrix)]
+    combine_stage = next(stage for stage in pipeline.stages if isinstance(stage, CombineFastaFile))
+    soft_core_stage = next(stage for stage in pipeline.stages if isinstance(stage, SoftCoreFilter))
+
+    assert len(distle_stages) == 2
+    assert distle_stages[0].aln == combine_stage.output.aln
+    assert distle_stages[0].output.phylip == Path("core.full.phylip")
+    assert distle_stages[1].aln == soft_core_stage.output.soft_core
+    assert distle_stages[1].output.phylip == Path("core.095.phylip")
