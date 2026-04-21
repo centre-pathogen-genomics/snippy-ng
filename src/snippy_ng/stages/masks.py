@@ -37,8 +37,8 @@ class DepthBedsFromBam(BaseStage):
         depth_cmd = [
             "samtools", "depth",
             "-aa",
-            "-q", str(self.min_base_quality),
-            "-Q", str(self.min_mapping_quality),
+            "--min-BQ", str(self.min_base_quality),
+            "--min-MQ", str(self.min_mapping_quality),
             str(self.bam),
         ]
         return [
