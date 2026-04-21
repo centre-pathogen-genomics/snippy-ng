@@ -11,9 +11,7 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-DISTANT_REFERENCE = DATA_DIR / "distant.fa"
-SNIPPY_PASS_VCF = DATA_DIR / "snippy.pass.vcf"
+pytestmark = pytest.mark.integration_sim
 
 IUPAC_CODES = {
     frozenset(("A", "C")): "M",
@@ -142,20 +140,40 @@ def _expected_consensus_span(record: VcfRecord) -> tuple[int, str] | None:
     return None
 
 
+def _write_generated_reference_and_vcf(tmp_path: Path) -> tuple[Path, Path]:
+    reference = tmp_path / "reference.fa"
+    vcf = tmp_path / "snippy.pass.vcf"
+    reference_sequence = "ACGT" * 12
+
+    reference.write_text(
+        ">ref\n"
+        f"{reference_sequence}\n",
+        encoding="utf-8",
+    )
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        f"##contig=<ID=ref,length={len(reference_sequence)}>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"
+        "ref\t3\t.\tG\tA\t60\tPASS\t.\tGT\t1/1\n"
+        "ref\t6\t.\tCG\tTT\t60\tPASS\t.\tGT\t1/1\n"
+        "ref\t11\t.\tGT\tG\t60\tPASS\t.\tGT\t1/1\n"
+        "ref\t25\t.\tA\tG\t60\tPASS\t.\tGT\t0/1\n",
+        encoding="utf-8",
+    )
+    return reference, vcf
+
+
 def test_bcftools_consensus_applies_all_snippy_variants(tmp_path: Path):
     missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
     if missing_commands:
         pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
-    if not SNIPPY_PASS_VCF.exists():
-        pytest.skip(f"{SNIPPY_PASS_VCF} is required for this consensus regression test")
 
-    reference_sequences = _load_fasta(DISTANT_REFERENCE)
-    pass_vcf = tmp_path / SNIPPY_PASS_VCF.name
-    shutil.copyfile(SNIPPY_PASS_VCF, pass_vcf)
+    reference, pass_vcf = _write_generated_reference_and_vcf(tmp_path)
+    reference_sequences = _load_fasta(reference)
 
     stage = BcftoolsPseudoAlignment(
         prefix=str(tmp_path / "snippy"),
-        reference=DISTANT_REFERENCE,
+        reference=reference,
         vcf=pass_vcf,
         ref_metadata=ReferenceMetadata(
             total_length=sum(len(seq) for seq in reference_sequences.values()),
