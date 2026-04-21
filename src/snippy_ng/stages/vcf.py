@@ -258,7 +258,7 @@ class VcfFilterLong(VcfFilter):
 
 
 
-class AddDeletionstoVCFOutput(BaseOutput):
+class AddDeletionsToVCFOutput(BaseOutput):
     """Output from the zero-depth deletion annotation stage."""
     vcf: Path = Field(..., description="VCF with zero-depth regions added as <DEL> blocks")
 
@@ -275,8 +275,8 @@ class AddDeletionsToVCF(BaseStage):
     reference: Path = Field(..., description="Reference FASTA file")
 
     @property
-    def output(self) -> AddDeletionstoVCFOutput:
-        return AddDeletionstoVCFOutput(
+    def output(self) -> AddDeletionsToVCFOutput:
+        return AddDeletionsToVCFOutput(
             vcf=Path(f"{self.prefix}.with_del.vcf")
         )
 
