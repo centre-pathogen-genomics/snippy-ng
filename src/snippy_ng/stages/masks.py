@@ -18,6 +18,8 @@ class DepthBedsFromBam(BaseStage):
 
     bam: Path = Field(..., description="Input BAM file")
     min_depth: int = Field(..., description="Minimum depth threshold")
+    min_base_quality: int = Field(13, description="Minimum base quality to include in depth calculation")
+    min_mapping_quality: int = Field(0, description="Minimum mapping quality to include in depth calculation")
 
     _dependencies = [
         bedtools,
@@ -32,11 +34,18 @@ class DepthBedsFromBam(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
+        depth_cmd = [
+            "samtools", "depth",
+            "-aa",
+            "-q", str(self.min_base_quality),
+            "-Q", str(self.min_mapping_quality),
+            str(self.bam),
+        ]
         return [
             self.shell_pipe(
                 [
                     self.shell_cmd(
-                        ["samtools", "depth", "-aa", str(self.bam)],
+                        depth_cmd,
                         description="Generate per-base depth for zero-depth mask",
                     ),
                     self.shell_cmd(
@@ -54,7 +63,7 @@ class DepthBedsFromBam(BaseStage):
             self.shell_pipe(
                 [
                     self.shell_cmd(
-                        ["samtools", "depth", "-aa", str(self.bam)],
+                        depth_cmd,
                         description="Generate per-base depth for minimum-depth mask",
                     ),
                     self.shell_cmd(
@@ -68,7 +77,7 @@ class DepthBedsFromBam(BaseStage):
                 ],
                 description="Generate minimum-depth BED blocks",
                 output_file=self.output.min_depth_bed,
-            ),
+            )
         ]
 
 class DepthMaskFromBedOutput(BaseOutput):
@@ -76,7 +85,7 @@ class DepthMaskFromBedOutput(BaseOutput):
     masked_fasta: Path = Field(..., description="FASTA with low-depth regions (depth < min_depth) masked")
 
 
-class DepthMaskFromBed(BaseStage):
+class ApplyDepthMaskToFasta(BaseStage):
     """Apply a precomputed minimum-depth BED mask to a FASTA file."""
 
     fasta: Path = Field(..., description="Input FASTA file to be masked")
