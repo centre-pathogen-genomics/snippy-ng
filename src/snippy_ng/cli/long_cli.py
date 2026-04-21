@@ -12,6 +12,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
+@click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
+@click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--depth-mask", default=10, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
@@ -22,8 +24,6 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--caller-map-qual", default=30, type=click.INT, help="Minimum mapping quality for caller to consider a read")
 @click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
-@click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
-@click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
 def long(
     reference: Path,
@@ -31,6 +31,8 @@ def long(
     bam: Optional[Path],
     downsample: Optional[float],
     clean_reads: bool,
+    min_read_len: int,
+    min_read_qual: float,
     mask: Optional[Path],
     depth_mask: int,
     aligner: str,
@@ -41,8 +43,6 @@ def long(
     caller_map_qual: int,
     clair3_model: Optional[Path],
     clair3_fast_mode: bool,
-    min_read_len: int,
-    min_read_qual: float,
     min_qual: float,
     prefix: str,
     **context: Any,
