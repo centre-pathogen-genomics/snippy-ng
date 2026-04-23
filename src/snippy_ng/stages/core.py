@@ -157,13 +157,15 @@ class DistleDistanceMatrix(BaseStage):
     """Convert an alignment into a PHYLIP distance matrix using distle."""
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
+    format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
 
     _dependencies = [distle]
 
     @property
     def output(self) -> DistleDistanceMatrixOutput:
+        suffix = ".distance.phylip" if self.format == "phylip" else ".distance.tsv"
         return DistleDistanceMatrixOutput(
-            phylip=self.aln.with_suffix(".phylip"),
+            phylip=self.aln.with_suffix(suffix),
         )
 
     def create_commands(self, ctx):
@@ -173,7 +175,7 @@ class DistleDistanceMatrix(BaseStage):
                     "distle",
                     "--threads", str(ctx.cpus),
                     "-o",
-                    "phylip",
+                    self.format,
                     str(self.aln),
                     str(self.output.phylip),
                 ],

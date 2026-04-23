@@ -13,6 +13,7 @@ class CorePipelineBuilder(PipelineBuilder):
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
     inclusion_threshold: float = Field(default=0.1, description="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+    snp_distance_format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
     prefix: str = Field(default="core", description="Output file prefix")
 
     def build(self) -> SnippyPipeline:
@@ -41,6 +42,7 @@ class CorePipelineBuilder(PipelineBuilder):
 
         full_distances = DistleDistanceMatrix(
             aln=combine_stage.output.aln,
+            format=self.snp_distance_format,
         )
         stages.append(full_distances)
         outputs_to_keep.extend(full_distances.output.paths)
@@ -71,6 +73,7 @@ class CorePipelineBuilder(PipelineBuilder):
 
         soft_core_distances = DistleDistanceMatrix(
             aln=filter_stage.output.soft_core,
+            format=self.snp_distance_format,
         )
         stages.append(soft_core_distances)
         outputs_to_keep.extend(soft_core_distances.output.paths)
