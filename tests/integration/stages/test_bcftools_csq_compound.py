@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import shutil
 from pathlib import Path
 
@@ -10,6 +11,21 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 
 
 pytestmark = pytest.mark.integration_sim
+
+
+MINI_GFF = """##gff-version 3
+mini\tsnippy-ng\tgene\t1\t2217\t.\t-\t.\tID=gene:BFV63_RS17260;biotype=protein_coding;Name=hypF
+mini\tsnippy-ng\ttranscript\t1\t2217\t.\t-\t.\tID=transcript:BFV63_RS17260_transcript_1;Parent=gene:BFV63_RS17260;biotype=protein_coding
+mini\tsnippy-ng\tCDS\t1\t2217\t.\t-\t0\tParent=transcript:BFV63_RS17260_transcript_1
+"""
+
+MINI_VCF = """##fileformat=VCFv4.2
+##contig=<ID=mini,length=2217>
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsnippy
+mini\t2214\t.\tT\tG\t60\tPASS\t.\tGT\t1/1
+mini\t2216\t.\tA\tAT\t60\tPASS\t.\tGT\t1/1
+"""
 
 
 def _parse_info_field(info: str) -> dict[str, str]:
@@ -47,17 +63,38 @@ def _annotated_records(path: Path) -> list[dict[str, str]]:
     return records
 
 
+def _build_reference_sequence(length: int = 2217, seed: int = 7) -> str:
+    rng = random.Random(seed)
+    prefix = "".join(rng.choice("ACGT") for _ in range(length - 6))
+    return prefix + "GCTCAT"
+
+
+def _write_compound_bug_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    reference = tmp_path / "mini.fa"
+    features = tmp_path / "mini.gff"
+    variants = tmp_path / "mini.vcf"
+
+    reference.write_text(f">mini\n{_build_reference_sequence()}\n", encoding="utf-8")
+    features.write_text(MINI_GFF, encoding="utf-8")
+    variants.write_text(MINI_VCF, encoding="utf-8")
+
+    return reference, features, variants
+
+
 def test_bcftools_csq_compound_reverse_strand_bug_reproducer_is_annotated(tmp_path: Path):
+    """
+    There is a known bug in bcftools csq that can cause incorrect annotations for compound variants on the reverse strand when not using --local-csq mode
+    https://github.com/samtools/bcftools/issues/2543
+    """
     if shutil.which("bcftools") is None:
         pytest.skip("bcftools required for this consequence regression test")
 
-    project_root = Path(__file__).resolve().parents[3]
-    fixture_dir = project_root / "bcftools-csq-compound-bug"
+    reference, features, variants = _write_compound_bug_fixture(tmp_path)
     stage = BcftoolsConsequencesCaller(
         prefix=str(tmp_path / "compound-csq"),
-        reference=fixture_dir / "mini.fa",
-        variants=fixture_dir / "mini.vcf",
-        features=fixture_dir / "mini.gff",
+        reference=reference,
+        variants=variants,
+        features=features,
     )
 
     stage.run(Context(cpus=1, quiet=True))
