@@ -254,10 +254,6 @@ class VcfFilterLong(VcfFilter):
         return [create_contigs_cmd, create_header_pipeline, main_pipeline, cleanup_cmd]
 
     
-
-
-
-
 class AddDeletionsToVCFOutput(BaseOutput):
     """Output from the zero-depth deletion annotation stage."""
     vcf: Path = Field(..., description="VCF with zero-depth regions added as <DEL> blocks")
