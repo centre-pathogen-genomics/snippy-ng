@@ -48,21 +48,21 @@ Stages should not contain top-level CLI parsing logic. If a task can be reused i
 
 ## Environment variable-backed stage fields
 
-Stages can declare fields whose default values come from environment variables by using `EnvVar` from [src/snippy_ng/envvars.py](src/snippy_ng/envvars.py). This is useful for runtime toggles that should remain part of the typed stage model rather than being hard-coded in `create_commands()`.
+Stages can declare fields whose default values come from environment variables by using `EnvVarField` from [src/snippy_ng/envvars.py](src/snippy_ng/envvars.py). This is useful for runtime toggles that should remain part of the typed stage model rather than being hard-coded in `create_commands()`.
 
 For example, [src/snippy_ng/stages/consequences.py](src/snippy_ng/stages/consequences.py) defines `use_local_csq` like this:
 
 ```python
-from snippy_ng.envvars import EnvVar
+from snippy_ng.envvars import EnvVarField
 
 
 class BcftoolsConsequencesCaller(BaseStage):
     reference: Path = Field(..., description="Reference file")
     variants: Path = Field(..., description="Input VCF file")
     features: Path = Field(..., description="Input features file")
-    use_local_csq: bool = EnvVar(
+    use_local_csq: bool = EnvVarField(
+        True,
         "LOCAL_BCFTOOLS_CSQ",
-        default=True,
         description="Whether to use bcftools csq's --local-csq mode for consequence annotation",
     )
 ```
@@ -73,7 +73,7 @@ This field reads the prefixed environment variable:
 
 and parse the value based on the field default type. For booleans, accepted truthy values include `1`, `true`, `yes`, and `on`; falsy values include `0`, `false`, `no`, `off`, and the empty string.
 
-Use `EnvVar` when:
+Use `EnvVarField` when:
 
 - the option should appear as a normal typed field on the stage
 - the value should be resolved when the stage model is instantiated

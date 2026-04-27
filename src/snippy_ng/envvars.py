@@ -125,7 +125,7 @@ def _infer_parser(env_var: str, default: Any) -> Callable[[str], Any]:
     )
 
 
-class EnvVar(FieldInfo, Generic[T]):
+class EnvVarField(FieldInfo, Generic[T]):
     env_var: str
     fallback_default: T | Any
     fallback_default_factory: Callable[[], T] | None
@@ -133,14 +133,16 @@ class EnvVar(FieldInfo, Generic[T]):
 
     def __init__(
         self,
-        env_var: str,
         default: T | Any = PydanticUndefined,
+        env_var: str | None = None,
         *,
         default_factory: Callable[[], T] | None = None,
         description: str | None = None,
         parser: Callable[[str], T] | None = None,
         **kwargs,
     ) -> None:
+        if env_var is None:
+            raise TypeError("EnvVarField requires an environment variable name")
         normalized_env_var = normalize_envvar_name(env_var)
         inferred_default = default_factory() if default is PydanticUndefined and default_factory is not None else default
 
@@ -170,7 +172,7 @@ class EnvVar(FieldInfo, Generic[T]):
         return self.get()
 
 
-class BoolEnvVar(EnvVar[bool]):
+class BoolEnvVar(EnvVarField[bool]):
 
     @property
     def enabled(self) -> bool:
@@ -186,8 +188,8 @@ def envvar(
     default: T,
     description: str | None = None,
     parser: Callable[[str], T],
-) -> EnvVar[T]:
-    return EnvVar(env_var=env_var, default=default, description=description, parser=parser)
+) -> EnvVarField[T]:
+    return EnvVarField(default, env_var, description=description, parser=parser)
 
 
 def bool_envvar(env_var: str, *, default: bool = False, description: str | None = None) -> BoolEnvVar:
@@ -199,7 +201,7 @@ def bool_envvar(env_var: str, *, default: bool = False, description: str | None 
     )
 
 
-def int_envvar(env_var: str, *, default: int = 0, description: str | None = None) -> EnvVar[int]:
+def int_envvar(env_var: str, *, default: int = 0, description: str | None = None) -> EnvVarField[int]:
     return envvar(
         env_var,
         default=default,
@@ -208,7 +210,7 @@ def int_envvar(env_var: str, *, default: int = 0, description: str | None = None
     )
 
 
-def float_envvar(env_var: str, *, default: float = 0.0, description: str | None = None) -> EnvVar[float]:
+def float_envvar(env_var: str, *, default: float = 0.0, description: str | None = None) -> EnvVarField[float]:
     return envvar(
         env_var,
         default=default,
@@ -217,10 +219,13 @@ def float_envvar(env_var: str, *, default: float = 0.0, description: str | None 
     )
 
 
-def str_envvar(env_var: str, *, default: str = "", description: str | None = None) -> EnvVar[str]:
+def str_envvar(env_var: str, *, default: str = "", description: str | None = None) -> EnvVarField[str]:
     return envvar(
         env_var,
         default=default,
         description=description,
         parser=lambda raw_value: raw_value,
     )
+
+
+EnvVar = EnvVarField

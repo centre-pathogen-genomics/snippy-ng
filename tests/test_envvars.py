@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from snippy_ng.envvars import (
-    EnvVar,
+    EnvVarField,
     bool_envvar,
     candidate_envvar_names,
     float_envvar,
@@ -86,8 +86,8 @@ def test_define_envvars_read_current_environment(monkeypatch):
     assert test_str.value == "configured"
 def test_envvar_field_reads_current_environment_on_model_creation(monkeypatch):
     class ExampleModel(BaseModel):
-        enabled: bool = EnvVar("EXAMPLE_ENABLED", default=True)
-        retries: int = EnvVar("EXAMPLE_RETRIES", default=3)
+        enabled: bool = EnvVarField(True, "EXAMPLE_ENABLED")
+        retries: int = EnvVarField(3, "EXAMPLE_RETRIES")
 
     monkeypatch.setenv("SNIPPY_NG_EXAMPLE_ENABLED", "0")
     monkeypatch.setenv("SNIPPY_NG_EXAMPLE_RETRIES", "8")
@@ -96,3 +96,12 @@ def test_envvar_field_reads_current_environment_on_model_creation(monkeypatch):
 
     assert model.enabled is False
     assert model.retries == 8
+
+
+def test_envvar_requires_name():
+    try:
+        EnvVarField(15)
+    except TypeError as exc:
+        assert str(exc) == "EnvVarField requires an environment variable name"
+    else:
+        raise AssertionError("Expected EnvVarField to require an environment variable name")
