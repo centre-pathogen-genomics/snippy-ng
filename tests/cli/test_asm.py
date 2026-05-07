@@ -30,6 +30,31 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             True,
         ),
         (
+            "assembly_ok_nucmer",
+            lambda p: [
+                "--reference", p["ref"],
+                "--assembly",  p["asm"],
+                "--aligner",   "nucmer",
+                "--outdir",    p["out"],
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
+            "assembly_ok_minimap_asm5",
+            lambda p: [
+                "--reference", p["ref"],
+                "--assembly",  p["asm"],
+                "--aligner",   "minimap2",
+                "--minimap-preset", "asm5",
+                "--outdir",    p["out"],
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
             "check_only",
             lambda p: [
                 "--reference", p["ref"],
