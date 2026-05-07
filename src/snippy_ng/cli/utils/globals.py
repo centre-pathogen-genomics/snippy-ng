@@ -5,7 +5,6 @@ import os
 
 from snippy_ng.cli.utils import absolute_path
 
-
 class GlobalOption(click.Option):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -56,10 +55,12 @@ def not_implemented_callback(ctx, param, value):
     return value
 
 def cap_cpus_callback(ctx, param, value):
+    from snippy_ng.utils.system import available_cpu_count
+    
     if ctx.resilient_parsing:
         return
-    available = os.cpu_count()
-    return min(available, value) if available else value
+    available = available_cpu_count()
+    return min(available, value)
 
 GLOBAL_DEFS = [
     {
