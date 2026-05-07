@@ -18,7 +18,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--depth-mask", default=10, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
-@click.option("--minimap-preset", default="map-ont", type=click.Choice(["map-ont", "lr:hq", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
+@click.option("--minimap-preset", default="lr:hq", type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
 @click.option("--caller-map-qual", default=30, type=click.INT, help="Minimum mapping quality for caller to consider a read")
