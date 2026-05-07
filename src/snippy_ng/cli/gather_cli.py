@@ -8,6 +8,14 @@ from snippy_ng.cli.utils import AbsolutePath
 @click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True, dir_okay=False, file_okay=True), help="Reference genome to include in JSON output and exclude from the search")
 @click.option("--max-depth", "-d", type=click.INT, default=4, help="Maximum directory depth to search for sequence files", show_default=True)
 @click.option("--exclude", "-e", type=click.STRING, default=None, help="Regular expression to exclude files based on their name", show_default=True)
+@click.option(
+    "--default",
+    "defaults",
+    type=(click.STRING, click.STRING),
+    multiple=True,
+    help="Set a default key/value for all samples; can be repeated",
+    show_default=True,
+)
 @click.option("--aggressive-ids", "-a", is_flag=True, default=False, help="Aggressively parse sample IDs from file paths", show_default=True)
 @click.option("--json", "-j", is_flag=True, default=False, help="Output JSON instead of TSV", show_default=True)
 def gather(**config):
@@ -34,6 +42,13 @@ def gather(**config):
         reference=config.get("reference"),
     )
     samples = gathered["samples"]
+    sample_defaults = dict(config.get("defaults") or ())
+    if sample_defaults:
+        for sample_data in samples.values():
+            for key, value in sample_defaults.items():
+                if sample_data.get(key) is None:
+                    sample_data[key] = value
+
     type_counts = Counter(sample_data.get("type", "unknown") for sample_data in samples.values())
     type_summary = ", ".join(f"{sample_type}={count}" for sample_type, count in sorted(type_counts.items()))
     logger.info(f"Found {len(samples)} samples ({type_summary})")
