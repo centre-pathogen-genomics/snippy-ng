@@ -101,3 +101,27 @@ def test_gather_default_replaces_none_values(monkeypatch, tmp_path):
 
     assert samples["sample_a"]["clair3_model"] == "clair3_models/r1041_e82_400bps_sup_v520"
     assert samples["sample_b"]["clair3_model"] == "custom_model"
+
+
+def test_gather_accepts_reference_directory(monkeypatch, tmp_path):
+    monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
+    reference_dir = tmp_path / "reference"
+    reference_dir.mkdir()
+
+    captured = {}
+
+    def fake_gather_samples_config(**kwargs):
+        captured.update(kwargs)
+        return {"reference": str(reference_dir), "samples": {}}
+
+    monkeypatch.setattr("snippy_ng.utils.gather.gather_samples_config", fake_gather_samples_config)
+
+    result = CliRunner().invoke(
+        snippy_ng,
+        ["utils", "gather", str(tmp_path), "--ref", str(reference_dir), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["reference"] == str(reference_dir)
+    assert captured["reference"] == reference_dir

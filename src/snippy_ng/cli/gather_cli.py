@@ -5,7 +5,7 @@ from snippy_ng.cli.utils import AbsolutePath
 
 @click.command(context_settings={'show_default': True})
 @click.argument("input_files", required=False, type=AbsolutePath(exists=True, readable=True), nargs=-1)
-@click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True, dir_okay=False, file_okay=True), help="Reference genome to include in JSON output and exclude from the search")
+@click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True, dir_okay=True, file_okay=True), help="Reference genome or prepared reference directory to include in JSON output and exclude from the search")
 @click.option("--max-depth", "-d", type=click.INT, default=4, help="Maximum directory depth to search for sequence files", show_default=True)
 @click.option("--exclude", "-e", type=click.STRING, default=None, help="Regular expression to exclude files based on their name", show_default=True)
 @click.option(

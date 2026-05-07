@@ -442,11 +442,23 @@ def gather_samples_config(
     Scan inputs for sequence files, build config dict, and return it.
     """
     normalized_reference = _to_absolute_path(Path(reference)) if reference else None
-    if normalized_reference and not normalized_reference.is_file():
-        raise GatherSamplesError(f"Reference path '{normalized_reference}' is not a file.")
     normalized_exclude_files: List[Path] = [_to_absolute_path(p) for p in exclude_files] if exclude_files else []
     if normalized_reference:
-        normalized_exclude_files.append(normalized_reference)
+        if normalized_reference.is_file():
+            normalized_exclude_files.append(normalized_reference)
+        elif normalized_reference.is_dir():
+            metadata = normalized_reference / "metadata.json"
+            if not metadata.is_file():
+                raise GatherSamplesError(
+                    f"Reference path '{normalized_reference}' is a directory but does not contain metadata.json."
+                )
+            normalized_exclude_files.extend(
+                _to_absolute_path(path)
+                for path in normalized_reference.rglob("*")
+                if path.is_file()
+            )
+        else:
+            raise GatherSamplesError(f"Reference path '{normalized_reference}' is neither a file nor a directory.")
 
     seqfiles = scan_sequence_files(
         inputs,
