@@ -31,3 +31,4 @@ clair3_models/
 snippy/
 .snakemake
 benchmarks/
+samples/
