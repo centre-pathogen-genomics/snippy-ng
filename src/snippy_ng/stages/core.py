@@ -301,6 +301,23 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         }
 
     @staticmethod
+    def _aligned_percentage(
+        sequence: str,
+        aligned_by_sequence: dict[str, float],
+        alignment_stats: Path,
+        *,
+        default: float,
+    ) -> float:
+        aligned = aligned_by_sequence.get(sequence)
+        if aligned is not None:
+            return aligned
+        logger.warning(
+            f"Missing aligned percentage for sequence '{sequence}' in {alignment_stats}; "
+            f"treating it as {default:.2f}"
+        )
+        return default
+
+    @staticmethod
     def _rewrite_alignment_stats(
         alignment_stats: Path,
         rows: list[dict[str, str]],
@@ -335,16 +352,27 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
 
         reference_id = records[0].id
         sample_records = records[1:]
-        stats_rows = [cls._empty_stats_row(reference_id, aligned_by_sequence[reference_id])]
+        reference_aligned = cls._aligned_percentage(
+            reference_id,
+            aligned_by_sequence,
+            alignment_stats,
+            default=100.0,
+        )
+        stats_rows = [cls._empty_stats_row(reference_id, reference_aligned)]
 
         if len(sample_records) < 3:
             kept_records = records
         else:
             sample_values = []
             for record in sample_records:
-                if record.id not in aligned_by_sequence:
-                    raise MSAValidationError(f"Missing aligned percentage for sample '{record.id}' in {alignment_stats}")
-                sample_values.append(aligned_by_sequence[record.id])
+                sample_values.append(
+                    cls._aligned_percentage(
+                        record.id,
+                        aligned_by_sequence,
+                        alignment_stats,
+                        default=0.0,
+                    )
+                )
 
             if max(sample_values) - min(sample_values) <= identical_alignment_spread:
                 kept_records = records
@@ -383,7 +411,13 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
 
         if len(stats_rows) == 1:
             for record in sample_records:
-                stats_rows.append(cls._empty_stats_row(record.id, aligned_by_sequence[record.id]))
+                aligned = cls._aligned_percentage(
+                    record.id,
+                    aligned_by_sequence,
+                    alignment_stats,
+                    default=0.0,
+                )
+                stats_rows.append(cls._empty_stats_row(record.id, aligned))
 
         with filtered_aln.open("w") as handle:
             SeqIO.write(kept_records, handle, "fasta-2line")

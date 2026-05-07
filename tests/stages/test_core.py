@@ -118,6 +118,43 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_too_few_s
     assert all(row["removed"] == "false" for row in rows)
     assert all(row["probability_main"] == "" for row in rows)
 
+
+def test_filter_alignment_by_aligned_percentage_treats_missing_sample_stats_as_zero(tmp_path, monkeypatch):
+    aln = tmp_path / "core.full.aln"
+    aln.write_text(
+        ">reference\nAAAAAA\n"
+        ">sample_a\nAAAAAA\n"
+        ">sample_b\nAAA-AAA\n"
+    )
+    aligned_tsv = tmp_path / "core.aligned.tsv"
+    aligned_tsv.write_text(
+        "sequence\taligned\n"
+        "reference\t100.00\n"
+        "sample_a\t100.00\n"
+    )
+    filtered_aln = tmp_path / "core.filtered.aln"
+    messages: list[str] = []
+
+    monkeypatch.setattr(logger, "warning", messages.append)
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+        inclusion_threshold=0.50,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference", "sample_a", "sample_b"]
+    with aligned_tsv.open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    sample_b = next(row for row in rows if row["sequence"] == "sample_b")
+    assert sample_b["aligned"] == "0.00"
+    assert messages == [
+        f"Missing aligned percentage for sequence 'sample_b' in {aligned_tsv}; treating it as 0.00"
+    ]
+
+
 def test_filter_alignment_by_aligned_percentage_filters_high_and_low_outliers(tmp_path):
     aln = tmp_path / "core.full.aln"
     aln.write_text(
