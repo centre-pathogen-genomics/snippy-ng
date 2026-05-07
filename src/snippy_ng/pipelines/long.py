@@ -25,7 +25,7 @@ class LongPipelineBuilder(PipelineBuilder):
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     prefix: str = Field(default="snippy", description="Output file prefix")
-    clean_reads: bool = Field(default=False, description="Clean reads with fastp")
+    clean_reads: bool = Field(default=False, description="Clean reads with SeqKit before alignment")
     min_read_len: int = Field(default=1000, description="Minimum read length")
     min_read_qual: float = Field(default=10, description="Minimum read quality")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")

@@ -11,7 +11,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
+@click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
