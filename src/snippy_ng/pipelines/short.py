@@ -60,7 +60,21 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Track current reads through potential cleaning and downsampling
         current_reads = self.reads.copy() if self.reads else []
-        
+
+        # Clean reads (optional)
+        if self.clean_reads and current_reads:
+            clean_reads_stage = FastpCleanReads(
+                reads=current_reads,
+                min_length=self.min_read_len,
+                min_quality=self.min_read_qual,
+                **globals
+            )
+            # Update reads to use cleaned reads
+            current_reads = [clean_reads_stage.output.cleaned_r1]
+            if clean_reads_stage.output.cleaned_r2:
+                current_reads.append(clean_reads_stage.output.cleaned_r2)
+            stages.append(clean_reads_stage)
+
         if self.downsample and current_reads:
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
             
@@ -77,20 +91,6 @@ class ShortPipelineBuilder(PipelineBuilder):
                 current_reads.append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
         
-        # Clean reads (optional)
-        if self.clean_reads and current_reads:
-            clean_reads_stage = FastpCleanReads(
-                reads=current_reads,
-                min_length=self.min_read_len,
-                min_quality=self.min_read_qual,
-                **globals
-            )
-            # Update reads to use cleaned reads
-            current_reads = [clean_reads_stage.output.cleaned_r1]
-            if clean_reads_stage.output.cleaned_r2:
-                current_reads.append(clean_reads_stage.output.cleaned_r2)
-            stages.append(clean_reads_stage)
-
         if self.bam:
             if sample_name is None:
                 sample_name = guess_sample_id(Path(self.bam).name)

@@ -66,6 +66,18 @@ class LongPipelineBuilder(PipelineBuilder):
         # Always keep as strings for Pydantic validation
         current_reads = [str(self.reads)] if self.reads else []
         
+        # Clean reads
+        if self.clean_reads and current_reads:
+            clean_reads_stage = SeqkitCleanLongReads(
+                reads=str(current_reads[0]),
+                min_length=self.min_read_len,
+                min_qscore=self.min_read_qual,
+                **globals
+            )
+            # Update reads to use cleaned reads (convert to strings for Pydantic)
+            current_reads = [str(clean_reads_stage.output.cleaned_reads)]
+            stages.append(clean_reads_stage)
+
         if self.downsample and current_reads:
             from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
             
@@ -81,18 +93,6 @@ class LongPipelineBuilder(PipelineBuilder):
             if downsample_stage.output.downsampled_r2:
                 current_reads.append(str(downsample_stage.output.downsampled_r2))
             stages.append(downsample_stage)
-        
-        # Clean reads
-        if self.clean_reads and current_reads:
-            clean_reads_stage = SeqkitCleanLongReads(
-                reads=str(current_reads[0]),
-                min_length=self.min_read_len,
-                min_qscore=self.min_read_qual,
-                **globals
-            )
-            # Update reads to use cleaned reads (convert to strings for Pydantic)
-            current_reads = [str(clean_reads_stage.output.cleaned_reads)]
-            stages.append(clean_reads_stage)
 
         clair3_model = self.clair3_model
         if self.caller == "clair3" and clair3_model is None:
