@@ -95,7 +95,7 @@ class AssemblyVariantContextFilter(BaseStage):
         description="Minimum reference-base distance required between an assembly SNP and any assembly indel. 0 disables this filter.",
     )
     min_snp_distance_to_breakpoint: int = EnvVarField(
-        125,
+        10,
         "ASM_MIN_SNP_DISTANCE_TO_BREAKPOINT",
         parser=lambda raw: int(raw.strip()),
         description="Minimum reference-base distance required between an assembly SNP and caller-provided alignment edge distance. 0 disables this filter.",
