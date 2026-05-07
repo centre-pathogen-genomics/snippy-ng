@@ -74,10 +74,53 @@ class IntegrationDataset:
     def called_records(self) -> list[VariantRecord]:
         return parse_vcf_records(self.called_vcf)
 
-    def assert_variant_present(self, chrom: str, pos: int, ref: str, alt: str) -> None:
+    def assert_variant_present(
+        self,
+        chrom: str,
+        pos: int,
+        ref: str,
+        alt: str,
+        required_filter: str | None = None,
+        required_info_tags: Iterable[str] = (),
+    ) -> None:
         expected = normalize_variant(VariantRecord(chrom=chrom, pos=pos, ref=ref, alt=alt))
         called = {normalize_variant(record) for record in self.called_records()}
         assert expected in called, f"Expected variant {expected} not found in {self.called_vcf}"
+
+        if required_filter is None and not tuple(required_info_tags):
+            return
+
+        matching_rows: list[list[str]] = []
+        opener = gzip.open if self.called_vcf.suffix == ".gz" else open
+        with opener(self.called_vcf, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip() or line.startswith("#"):
+                    continue
+                cols = line.rstrip("\n").split("\t")
+                if len(cols) < 8:
+                    continue
+                record = normalize_variant(
+                    VariantRecord(
+                        chrom=cols[0],
+                        pos=int(cols[1]),
+                        ref=cols[3],
+                        alt=cols[4].split(",")[0],
+                    )
+                )
+                if record == expected:
+                    matching_rows.append(cols)
+
+        assert matching_rows, f"Expected matching VCF rows for {expected} in {self.called_vcf}"
+
+        if required_filter is not None:
+            assert any(row[6] == required_filter for row in matching_rows), matching_rows
+
+        required_info_tags = tuple(required_info_tags)
+        if required_info_tags:
+            assert any(
+                all(tag in row[7].split(";") for tag in required_info_tags)
+                for row in matching_rows
+            ), matching_rows
 
     def assert_no_variants_in_region(self, chrom: str, start: int, end: int) -> None:
         unexpected = [

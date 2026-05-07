@@ -367,3 +367,34 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
     assert {seq.upper() for seq in soft_core_records.values()} == {"ACA", "CCA", "AAA", "ACG"}
     assert _read_distance_tsv_taxa(full_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
     assert _read_distance_tsv_taxa(soft_core_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
+
+
+@pytest.mark.parametrize(
+    ("sample_name", "variant"),
+    [
+        ("core_sample_a", VariantRecord("Wildtype", 20, "A", "C")),
+        ("core_sample_b", VariantRecord("Wildtype", 40, "C", "A")),
+        ("core_sample_c", VariantRecord("Wildtype", 120, "A", "G")),
+    ],
+)
+def test_core_sample_asm_variants_are_recovered(simulated_dataset, sample_name, variant):
+    dataset = simulated_dataset(
+        (variant,),
+        "asm",
+        name=sample_name,
+        untouched_regions=(("Wildtype", 200, 260),),
+    )
+
+    dataset.assert_variant_present(
+        variant.chrom,
+        variant.pos,
+        variant.ref,
+        variant.alt,
+        required_filter="PASS",
+    )
+
+    consensus_seq = _read_fasta_sequence(dataset.outdir / "snippy.pseudo.fna", variant.chrom)
+    assert consensus_seq[variant.pos - 1] == variant.alt.lower(), (
+        f"Consensus base at {variant.chrom}:{variant.pos} should be {variant.alt.lower()}, "
+        f"found {consensus_seq[variant.pos - 1]}"
+    )
