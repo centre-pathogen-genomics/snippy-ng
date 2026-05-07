@@ -411,6 +411,48 @@ def test_run_one_sample_passes_disambiguated_sample_name_to_builder(monkeypatch,
     ]
 
 
+def test_run_one_sample_ignores_unsupported_keys_for_asm_builder(monkeypatch, tmp_path):
+    captured = {}
+
+    class DummyPipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyAsmPipelineBuilder:
+        model_fields = {"reference": None, "prefix": None, "sample_name": None, "assembly": None}
+
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            return DummyPipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.asm.AsmPipelineBuilder", DummyAsmPipelineBuilder)
+
+    job = (
+        "example",
+        {
+            "type": "asm",
+            "assembly": str(tmp_path / "assembly.fa"),
+            "clair3_model": "clair3_models/r1041_e82_400bps_sup_v520",
+        },
+        {
+            "reference": str(tmp_path / "reference.fa"),
+            "outdir": str(tmp_path / "out"),
+            "prefix": "snippy",
+            "run_ctx": Context(outdir=tmp_path / "out", cpus=4).model_dump(mode="python"),
+            "cpus_per_sample": 2,
+        },
+    )
+
+    result = _run_one_sample(job)
+
+    assert result == "example"
+    assert captured["sample_name"] == "example"
+    assert captured["assembly"] == str(tmp_path / "assembly.fa")
+    assert "clair3_model" not in captured
+
+
 def test_multi_cli_default_keeps_going_and_uses_only_successful_samples_for_core(monkeypatch, tmp_path):
     ref_file = tmp_path / "ref.fa"
     ref_file.write_text(">dummy\nATCG")

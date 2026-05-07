@@ -106,6 +106,23 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
     from snippy_ng.pipelines.long import LongPipelineBuilder
     from snippy_ng.pipelines.short import ShortPipelineBuilder
     import click
+
+    def _filter_builder_kwargs(builder_cls, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Filter out any config keys that are not accepted by the builder's model to avoid validation errors."""
+        model_fields = getattr(builder_cls, "model_fields", None)
+        if not model_fields:
+            return kwargs
+
+        allowed_fields = set(model_fields.keys())
+        filtered = {key: value for key, value in kwargs.items() if key in allowed_fields}
+        dropped = sorted(set(kwargs) - set(filtered))
+        if dropped:
+            logger.debug(
+                f"Dropping unsupported config keys for sample '{sample_name}' ({builder_cls.__name__}): {', '.join(dropped)}"
+            )
+        return filtered
+
+    sample_cfg = dict(sample_cfg)
     
     sample_type = sample_cfg.get("type")
     del sample_cfg["type"]
@@ -117,33 +134,36 @@ def _run_one_sample(job: Tuple[str, Dict[str, Any], Dict[str, Any]]) -> str:
         if not reads:
             # if reads not provided, expect left/right
             reads = [str(r) for r in (sample_cfg.get("left"), sample_cfg.get("right")) if r]
-        pipeline = ShortPipelineBuilder(
-            reference=config["reference"],
-            reads=reads,
-            bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
-            prefix=config["prefix"],
-            sample_name=sample_name,
+        short_builder_kwargs = {
+            "reference": config["reference"],
+            "reads": reads,
+            "bam": str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
+            "prefix": config["prefix"],
+            "sample_name": sample_name,
             **{k: v for k, v in sample_cfg.items() if k not in ["left", "right", "bam", "reads", "sample_name"]},
-        ).build()
+        }
+        pipeline = ShortPipelineBuilder(**_filter_builder_kwargs(ShortPipelineBuilder, short_builder_kwargs)).build()
 
     elif sample_type == "long":
-        pipeline = LongPipelineBuilder(
-            reference=config["reference"],
-            reads=str(sample_cfg.get("reads")) if sample_cfg.get("reads") else None,
-            bam=str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
-            prefix=config["prefix"],
-            sample_name=sample_name,
+        long_builder_kwargs = {
+            "reference": config["reference"],
+            "reads": str(sample_cfg.get("reads")) if sample_cfg.get("reads") else None,
+            "bam": str(sample_cfg.get("bam")) if sample_cfg.get("bam") else None,
+            "prefix": config["prefix"],
+            "sample_name": sample_name,
             **{k: v for k, v in sample_cfg.items() if k not in ["reads", "bam", "sample_name"]},
-        ).build()
+        }
+        pipeline = LongPipelineBuilder(**_filter_builder_kwargs(LongPipelineBuilder, long_builder_kwargs)).build()
 
     elif sample_type == "asm":
         sample_cfg['assembly'] = str(sample_cfg.get("assembly"))
-        pipeline = AsmPipelineBuilder(
-            reference=config["reference"],
-            prefix=config["prefix"],
-            sample_name=sample_name,
+        asm_builder_kwargs = {
+            "reference": config["reference"],
+            "prefix": config["prefix"],
+            "sample_name": sample_name,
             **{k: v for k, v in sample_cfg.items() if k != "sample_name"},
-        ).build()
+        }
+        pipeline = AsmPipelineBuilder(**_filter_builder_kwargs(AsmPipelineBuilder, asm_builder_kwargs)).build()
 
     else:
         raise click.UsageError(
