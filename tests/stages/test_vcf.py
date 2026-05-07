@@ -1,0 +1,105 @@
+from pathlib import Path
+
+from snippy_ng.stages.vcf import AssemblyVariantContextFilter
+
+
+def _records(vcf: Path) -> list[list[str]]:
+    return [
+        line.strip().split("\t")
+        for line in vcf.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    ]
+
+
+def test_assembly_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
+                "chr1\t2\t.\tC\tT\t60\t.\t.",
+                "chr1\t6\t.\tC\tT\t60\t.\t.",
+                "chr1\t10\t.\tC\tT\t60\t.\t.",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+    output_vcf = tmp_path / "output.vcf"
+
+    AssemblyVariantContextFilter.filter_vcf(
+        input_vcf,
+        output_vcf,
+        max_local_snps=1,
+        local_snp_window=5,
+    )
+
+    records = _records(output_vcf)
+    assert len(records) == 3
+    assert all(record[6] == "LowQual" for record in records)
+    assert all("ASM_CONTEXT_LOWQUAL_REASON=LOCAL_SNP_CLUSTER" in record[7] for record in records)
+
+
+def test_assembly_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
+                "chr1\t10\t.\tA\tT\t60\t.\t.",
+                "chr1\t15\t.\tAC\tA\t60\t.\t.",
+                "chr1\t50\t.\tG\tC\t60\t.\t.",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+    output_vcf = tmp_path / "output.vcf"
+
+    AssemblyVariantContextFilter.filter_vcf(
+        input_vcf,
+        output_vcf,
+        min_snp_distance_to_indel=10,
+    )
+
+    records = _records(output_vcf)
+    assert [record[:5] for record in records] == [
+        ["chr1", "10", ".", "A", "T"],
+        ["chr1", "15", ".", "AC", "A"],
+        ["chr1", "50", ".", "G", "C"],
+    ]
+    assert records[0][6] == "LowQual"
+    assert "ASM_CONTEXT_LOWQUAL_REASON=NEAR_INDEL" in records[0][7]
+    assert records[1][6] == "."
+    assert records[2][6] == "."
+
+
+def test_assembly_variant_context_filter_marks_snps_near_alignment_edges_lowqual(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
+                "chr1\t10\t.\tA\tT\t60\t.\tMUMMER_EDGE_DIST=1",
+                "chr1\t50\t.\tG\tC\t60\t.\tMUMMER_EDGE_DIST=25",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+    output_vcf = tmp_path / "output.vcf"
+
+    AssemblyVariantContextFilter.filter_vcf(
+        input_vcf,
+        output_vcf,
+        min_snp_distance_to_breakpoint=10,
+    )
+
+    records = _records(output_vcf)
+    assert [record[:5] for record in records] == [
+        ["chr1", "10", ".", "A", "T"],
+        ["chr1", "50", ".", "G", "C"],
+    ]
+    assert records[0][6] == "LowQual"
+    assert "ASM_CONTEXT_LOWQUAL_REASON=NEAR_ALIGNMENT_EDGE" in records[0][7]
+    assert records[1][6] == "."

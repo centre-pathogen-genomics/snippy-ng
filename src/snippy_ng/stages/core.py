@@ -157,13 +157,15 @@ class DistleDistanceMatrix(BaseStage):
     """Convert an alignment into a PHYLIP distance matrix using distle."""
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
+    format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
 
     _dependencies = [distle]
 
     @property
     def output(self) -> DistleDistanceMatrixOutput:
+        suffix = ".distance.phylip" if self.format == "phylip" else ".distance.tsv"
         return DistleDistanceMatrixOutput(
-            phylip=self.aln.with_suffix(".phylip"),
+            phylip=self.aln.with_suffix(suffix),
         )
 
     def create_commands(self, ctx):
@@ -173,7 +175,7 @@ class DistleDistanceMatrix(BaseStage):
                     "distle",
                     "--threads", str(ctx.cpus),
                     "-o",
-                    "phylip",
+                    self.format,
                     str(self.aln),
                     str(self.output.phylip),
                 ],
@@ -299,6 +301,23 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         }
 
     @staticmethod
+    def _aligned_percentage(
+        sequence: str,
+        aligned_by_sequence: dict[str, float],
+        alignment_stats: Path,
+        *,
+        default: float,
+    ) -> float:
+        aligned = aligned_by_sequence.get(sequence)
+        if aligned is not None:
+            return aligned
+        logger.warning(
+            f"Missing aligned percentage for sequence '{sequence}' in {alignment_stats}; "
+            f"treating it as {default:.2f}"
+        )
+        return default
+
+    @staticmethod
     def _rewrite_alignment_stats(
         alignment_stats: Path,
         rows: list[dict[str, str]],
@@ -333,16 +352,27 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
 
         reference_id = records[0].id
         sample_records = records[1:]
-        stats_rows = [cls._empty_stats_row(reference_id, aligned_by_sequence[reference_id])]
+        reference_aligned = cls._aligned_percentage(
+            reference_id,
+            aligned_by_sequence,
+            alignment_stats,
+            default=100.0,
+        )
+        stats_rows = [cls._empty_stats_row(reference_id, reference_aligned)]
 
         if len(sample_records) < 3:
             kept_records = records
         else:
             sample_values = []
             for record in sample_records:
-                if record.id not in aligned_by_sequence:
-                    raise MSAValidationError(f"Missing aligned percentage for sample '{record.id}' in {alignment_stats}")
-                sample_values.append(aligned_by_sequence[record.id])
+                sample_values.append(
+                    cls._aligned_percentage(
+                        record.id,
+                        aligned_by_sequence,
+                        alignment_stats,
+                        default=0.0,
+                    )
+                )
 
             if max(sample_values) - min(sample_values) <= identical_alignment_spread:
                 kept_records = records
@@ -381,12 +411,20 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
 
         if len(stats_rows) == 1:
             for record in sample_records:
-                stats_rows.append(cls._empty_stats_row(record.id, aligned_by_sequence[record.id]))
+                aligned = cls._aligned_percentage(
+                    record.id,
+                    aligned_by_sequence,
+                    alignment_stats,
+                    default=0.0,
+                )
+                stats_rows.append(cls._empty_stats_row(record.id, aligned))
 
         with filtered_aln.open("w") as handle:
             SeqIO.write(kept_records, handle, "fasta-2line")
         cls._rewrite_alignment_stats(alignment_stats, stats_rows)
 
+class SoftCoreError(StageExecutionError):
+    pass
 
 class SoftCoreFilter(BaseStage):
     """
@@ -412,7 +450,7 @@ class SoftCoreFilter(BaseStage):
     def test_soft_core_is_not_empty(self):
         first_record = next(SeqIO.parse(str(self.output.soft_core), "fasta"), None)
         if first_record is None or len(first_record.seq) == 0:
-            logger.warning(
+            raise SoftCoreError(
                 f"Soft core MSA has no sites: {self.output.soft_core}. You likely have samples with no variant sites. Check the % alignment for each sample to the reference."
             )
 

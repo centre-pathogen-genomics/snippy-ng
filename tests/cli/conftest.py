@@ -168,7 +168,18 @@ def stub_asm_stages(monkeypatch, tmp_path):
         stage_factory({"paf": tmp_path / "align.paf"}),
     )
     monkeypatch.setattr(
+        "snippy_ng.stages.alignment.AssemblyNucmerAligner",
+        stage_factory({"delta": tmp_path / "align.delta"}),
+    )
+    monkeypatch.setattr(
         "snippy_ng.stages.calling.PAFCaller",
+        stage_factory({
+            "vcf": tmp_path / "calls.vcf",
+            "missing_bed": tmp_path / "missing.bed"
+        }),
+    )
+    monkeypatch.setattr(
+        "snippy_ng.stages.calling.ShowSnpsCaller",
         stage_factory({
             "vcf": tmp_path / "calls.vcf",
             "missing_bed": tmp_path / "missing.bed"

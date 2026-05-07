@@ -218,6 +218,25 @@ def test_gather_reference_special_case_excluded_from_samples(tmp_path):
     assert "reference.fa" not in samples
 
 
+def test_gather_prepared_reference_directory_is_accepted_and_excluded(tmp_path):
+    """Prepared reference directory should be allowed as --ref and excluded from sample scanning."""
+    ref_dir = tmp_path / "reference"
+    ref_dir.mkdir()
+    (ref_dir / "metadata.json").write_text("{}")
+    (ref_dir / "reference.fa").write_text(">ref\nACGT\n")
+
+    sample_dir = tmp_path / "reads"
+    sample_dir.mkdir()
+    write_fastq(sample_dir / "sample.fastq")
+
+    cfg = gather_samples_config([tmp_path], reference=ref_dir)
+    samples = cfg["samples"]
+
+    assert cfg["reference"] == str(ref_dir.absolute())
+    assert "sample" in samples
+    assert len(samples) == 1
+
+
 def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
     """If a sample ID clashes with reference ID, sample must be renamed, not dropped."""
     ref = tmp_path / "ref.fasta"

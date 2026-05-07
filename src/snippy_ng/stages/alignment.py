@@ -2,7 +2,8 @@ from pathlib import Path
 import sys
 from typing import List
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
-from snippy_ng.dependencies import samtools, bwa, minimap2
+from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
+from snippy_ng.envvars import EnvVarField
 from pydantic import Field 
 
 
@@ -262,6 +263,11 @@ class AssemblyAligner(BaseStage):
 
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
+    minimap_preset: str = EnvVarField(
+        "asm20",
+        "ASM_MINIMAP_PRESET",
+        description="Minimap2 preset to use for assembly-to-reference alignment",
+    )
 
     _dependencies = [minimap2]
 
@@ -279,7 +285,7 @@ class AssemblyAligner(BaseStage):
                     [
                         "minimap2",
                         "-x",
-                        "asm20",
+                        self.minimap_preset,
                         "-t",
                         str(ctx.cpus),
                         "-c",
@@ -309,4 +315,65 @@ class AssemblyAligner(BaseStage):
         if paf_path.stat().st_size == 0:
             raise ValueError(
                 f"PAF output file {paf_path} is empty, expected alignment results. Did you use the correct reference?"
+            )
+
+
+class AssemblyNucmerAlignerOutput(BaseOutput):
+    delta: Path = Field(..., description="Delta file of assembly-to-reference alignments produced by nucmer")
+
+
+class AssemblyNucmerAligner(BaseStage):
+    """
+    Align an assembly to a reference using nucmer from MUMmer.
+    """
+
+    reference: Path = Field(..., description="Reference file")
+    assembly: Path = Field(..., description="Input assembly FASTA file")
+    breaklen: int = EnvVarField(250, "MUMMER_BREAKLEN", description="Maximum poor-scoring extension distance for nucmer")
+    mincluster: int = EnvVarField(120, "MUMMER_MINCLUSTER", description="Minimum length of a match cluster for nucmer")
+    maxgap: int = EnvVarField(50, "MUMMER_MAXGAP", description="Maximum gap between adjacent matches in a cluster for nucmer")
+    minmatch: int = EnvVarField(46, "MUMMER_MINMATCH", description="Minimum exact-match length for nucmer anchors")
+    minalign: int = EnvVarField(400, "MUMMER_MINALIGN", description="Minimum alignment length retained by nucmer after extension")
+
+    _dependencies = [nucmer]
+
+    @property
+    def output(self) -> AssemblyNucmerAlignerOutput:
+        return AssemblyNucmerAlignerOutput(delta=Path(f"{self.prefix}.delta"))
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                [
+                    "nucmer",
+                    "--prefix",
+                    self.prefix,
+                    "--threads",
+                    str(ctx.cpus),
+                    "--breaklen",
+                    str(self.breaklen),
+                    "--mincluster",
+                    str(self.mincluster),
+                    "--maxgap",
+                    str(self.maxgap),
+                    "--minmatch",
+                    str(self.minmatch),
+                    "--minalign",
+                    str(self.minalign),
+                    str(self.reference),
+                    str(self.assembly),
+                ],
+                description="Align assembly to reference with nucmer",
+            )
+        ]
+
+    def test_delta_output(self):
+        delta_path = self.output.delta
+        if not delta_path.exists():
+            raise FileNotFoundError(
+                f"Expected delta output file {delta_path} was not created"
+            )
+        if delta_path.stat().st_size == 0:
+            raise ValueError(
+                f"Delta output file {delta_path} is empty, expected alignment results. Did you use the correct reference?"
             )

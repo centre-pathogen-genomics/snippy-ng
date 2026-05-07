@@ -208,17 +208,16 @@ class QualMask(BaseStage):
     
     def _generate_het_sites_bed(self) -> List:
         """Generate BED file of heterozygous and low quality sites using bcftools"""
-        # Query for het sites and low quality sites
+        # Query for low-quality sites by either numeric QUAL or any non-PASS FILTER label.
         bcftools_query = self.shell_cmd([
                 "bcftools", "query", 
-                "-i", f'QUAL<{self.min_qual}',
+                "-i", f'QUAL<{self.min_qual} || (FILTER!="PASS" && FILTER!=".")',
                 "-f", "%CHROM\\t%POS0\\t%POS\\n",
                 str(self.vcf)
             ], 
-            description=f"Extract heterozygous sites and sites with QUAL < {self.min_qual}",
+            description=f"Extract sites with QUAL < {self.min_qual} or non-PASS FILTER labels",
             output_file=self.output.het_sites_bed,
         )
-        
         return [bcftools_query]
     
     def _apply_het_mask(self):

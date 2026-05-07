@@ -1,17 +1,17 @@
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, VcfFilterAsm, VcfPassFilter
+from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, QualMask
 from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
-from snippy_ng.stages.alignment import AssemblyAligner
-from snippy_ng.stages.calling import PAFCaller
+from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
+from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram
 from snippy_ng.stages.stats import VcfStats
 from snippy_ng.utils.gather import guess_sample_id
@@ -25,7 +25,9 @@ class AsmPipelineBuilder(PipelineBuilder):
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
-
+    aligner: Literal["minimap2", "nucmer"] = Field(default="minimap2", description="Assembly aligner to use")
+    minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
+    min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
@@ -43,30 +45,44 @@ class AsmPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
-        # Aligner 
-        aligner = AssemblyAligner(
-            reference=reference_file,
-            assembly=Path(self.assembly),
-            prefix=self.prefix
-        )
-        stages.append(aligner)
-        
-        # Call variants
-        caller = PAFCaller(
-            paf=aligner.output.paf,
-            ref_dict=setup.output.reference_dict,
-            reference=reference_file,
-            reference_index=reference_index,
-            prefix=self.prefix
-        )
+        if self.aligner == "nucmer":
+            aligner = AssemblyNucmerAligner(
+                reference=reference_file,
+                assembly=Path(self.assembly),
+                prefix=self.prefix,
+            )
+            stages.append(aligner)
+            caller = ShowSnpsCaller(
+                delta=aligner.output.delta,
+                ref_dict=setup.output.reference_dict,
+                assembly=Path(self.assembly),
+                reference=reference_file,
+                reference_index=reference_index,
+                prefix=self.prefix,
+            )
+        else:
+            aligner = AssemblyAligner(
+                reference=reference_file,
+                assembly=Path(self.assembly),
+                minimap_preset=self.minimap_preset,
+                prefix=self.prefix,
+            )
+            stages.append(aligner)
+            caller = PAFCaller(
+                paf=aligner.output.paf,
+                ref_dict=setup.output.reference_dict,
+                reference=reference_file,
+                reference_index=reference_index,
+                prefix=self.prefix,
+            )
         stages.append(caller)
-        
+
         # Filter VCF
         variant_filter = VcfFilterAsm(
             vcf=caller.output.vcf,
             reference=reference_file,
             # hard code for asm-based calling
-            min_qual=60,
+            min_qual=self.min_qual,
             prefix=self.prefix
         )
         stages.append(variant_filter)
@@ -83,9 +99,15 @@ class AsmPipelineBuilder(PipelineBuilder):
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
 
+        context_filter = AssemblyVariantContextFilter(
+            vcf=variants_file,
+            prefix=self.prefix,
+        )
+        stages.append(context_filter)
+
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
-            variants=variants_file,
+            variants=context_filter.output.vcf,
             features=features_file,
             reference=reference_file,
             prefix=self.prefix
@@ -127,9 +149,10 @@ class AsmPipelineBuilder(PipelineBuilder):
 
         # Apply heterozygous and low quality sites masking
         het_mask = QualMask(
-            vcf=caller.output.vcf,  # Use raw VCF for complete site information
+            vcf=consequences.output.annotated_vcf,
             fasta=current_fasta,
-            prefix=self.prefix
+            prefix=self.prefix,
+            min_qual=self.min_qual
         )
         stages.append(het_mask)
         current_fasta = het_mask.output.masked_fasta

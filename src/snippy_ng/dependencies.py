@@ -146,6 +146,12 @@ minimap2 = Dependency(
     version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
     min_version="2.17",
 )
+nucmer = Dependency(
+    "nucmer",
+    citation="Marçais G, Delcher AL, Phillippy AM, Coston R, Salzberg SL, Zimin A. MUMmer4: A fast and versatile genome alignment system. PLoS Comput Biol. 2018;14(1):e1005944. https://doi.org/10.1371/journal.pcbi.1005944",
+    version_pattern=r"(\d+\.\d+\.\d+(?:rc\d+)?)",
+    version_arg="--version",
+)
 paftools = Dependency(
     "paftools.js",
     min_version="2.30",

@@ -9,7 +9,9 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, resolve_path=False, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
 @click.option("--assembly", "--asm", required=True, type=AbsolutePath(exists=True, readable=True), help="Assembly in FASTA format")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-def asm(reference: Path, assembly: Path, mask: Optional[Path], prefix: str, **context: Any):
+@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "nucmer"]), help="Aligner program to use")
+@click.option("--minimap-preset", default="asm20", type=click.Choice(["asm5", "asm10", "asm20"]), help="Preset for minimap2 assembly alignment")
+def asm(reference: Path, assembly: Path, mask: Optional[Path], aligner: str, minimap_preset: str, prefix: str, **context: Any):
     """
     Assembly based SNP calling pipeline
 
@@ -29,10 +31,11 @@ def asm(reference: Path, assembly: Path, mask: Optional[Path], prefix: str, **co
         assembly=assembly,
         prefix=prefix,
         mask=mask,
+        aligner=aligner,
+        minimap_preset=minimap_preset,
     ).build()
 
     # Create a context object to pass to the pipeline run method
     run_ctx = Context(**context)
     # Run the pipeline with the provided context
     return pipeline.run(run_ctx)
-

@@ -118,6 +118,43 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_too_few_s
     assert all(row["removed"] == "false" for row in rows)
     assert all(row["probability_main"] == "" for row in rows)
 
+
+def test_filter_alignment_by_aligned_percentage_treats_missing_sample_stats_as_zero(tmp_path, monkeypatch):
+    aln = tmp_path / "core.full.aln"
+    aln.write_text(
+        ">reference\nAAAAAA\n"
+        ">sample_a\nAAAAAA\n"
+        ">sample_b\nAAA-AAA\n"
+    )
+    aligned_tsv = tmp_path / "core.aligned.tsv"
+    aligned_tsv.write_text(
+        "sequence\taligned\n"
+        "reference\t100.00\n"
+        "sample_a\t100.00\n"
+    )
+    filtered_aln = tmp_path / "core.filtered.aln"
+    messages: list[str] = []
+
+    monkeypatch.setattr(logger, "warning", messages.append)
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+        inclusion_threshold=0.50,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference", "sample_a", "sample_b"]
+    with aligned_tsv.open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    sample_b = next(row for row in rows if row["sequence"] == "sample_b")
+    assert sample_b["aligned"] == "0.00"
+    assert messages == [
+        f"Missing aligned percentage for sequence 'sample_b' in {aligned_tsv}; treating it as 0.00"
+    ]
+
+
 def test_filter_alignment_by_aligned_percentage_filters_high_and_low_outliers(tmp_path):
     aln = tmp_path / "core.full.aln"
     aln.write_text(
@@ -250,7 +287,7 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
     assert soft_core_stage.aln == filter_stage.output.filtered_aln
 
 
-def test_distle_distance_matrix_uses_phylip_output(tmp_path):
+def test_distle_distance_matrix_uses_tabular_output(tmp_path):
     stage = DistleDistanceMatrix(
         aln=tmp_path / "core.full.aln",
         prefix="core.full",
@@ -263,11 +300,11 @@ def test_distle_distance_matrix_uses_phylip_output(tmp_path):
         "distle",
         "--threads", str(Context().cpus),
         "-o",
-        "phylip",
+        "tabular",
         str(tmp_path / "core.full.aln"),
-        str(tmp_path / "core.full.phylip"),
+        str(tmp_path / "core.full.distance.tsv"),
     ]
-    assert stage.output.phylip == tmp_path / "core.full.phylip"
+    assert stage.output.phylip == tmp_path / "core.full.distance.tsv"
 
 
 def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
@@ -294,6 +331,6 @@ def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
 
     assert len(distle_stages) == 2
     assert distle_stages[0].aln == combine_stage.output.aln
-    assert distle_stages[0].output.phylip == Path("core.full.phylip")
+    assert distle_stages[0].output.phylip == Path("core.full.distance.tsv")
     assert distle_stages[1].aln == soft_core_stage.output.soft_core
-    assert distle_stages[1].output.phylip == Path("core.095.phylip")
+    assert distle_stages[1].output.phylip == Path("core.095.distance.tsv")

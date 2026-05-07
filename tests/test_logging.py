@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from snippy_ng.logging import Logger, derive_log_path
+from snippy_ng.logging import DEBUG, Logger, derive_log_path
 
 
 def test_logger_resets_existing_log_file(tmp_path):
@@ -30,3 +30,9 @@ def test_derive_log_path_without_outdir_is_absolute(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     assert derive_log_path(Path("LOG.txt"), None) == (tmp_path / "LOG.txt").absolute()
+
+
+def test_debug_feature_has_expected_default(monkeypatch):
+    monkeypatch.delenv("SNIPPY_NG_DEBUG", raising=False)
+
+    assert DEBUG.enabled is False

@@ -2,14 +2,13 @@
 Thanks for looking at the source code! You found a hidden command :D
 """
 
-import os
-
 from pathlib import Path
 from typing import Any, Iterable, List
 import click
 
 from snippy_ng.cli.utils import AbsolutePath
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options
+from snippy_ng.utils.system import available_cpu_count
 
 
 @click.command(
@@ -122,7 +121,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
     if context["cpus"] is None:
-        context["cpus"] = os.cpu_count() or 1 # YOLO: use all available CPUs by default
+        context["cpus"] = available_cpu_count()  # YOLO: use all available CPUs by default
     root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
     context["log_path"] = derive_log_path(root_log_path, outdir / "reference")
     context["outdir"] = outdir / 'reference'

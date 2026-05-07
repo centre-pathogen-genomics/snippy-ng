@@ -1,15 +1,16 @@
 import json
+import os
 import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
-import os
 
 import gradio as gr
 
 from snippy_ng.cli.multi_cli import run_multi_config
 from snippy_ng.utils.gather import gather_samples_config
+from snippy_ng.utils.system import available_cpu_count
 
 
 def _as_path(value: Any) -> Optional[Path]:
@@ -267,7 +268,7 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
     """
     Create and return the Gradio interface for the Snippy-NG GUI.
     """
-    detected_cpus = os.cpu_count() or 1
+    detected_cpus = available_cpu_count()
     max_cpus = max(1, int(max_cpus)) if max_cpus is not None else detected_cpus
     default_cpus = min(detected_cpus, max_cpus)
     default_cpus_per_sample = min(8, default_cpus)

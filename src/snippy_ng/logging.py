@@ -3,6 +3,14 @@ import click
 import time
 from pathlib import Path
 
+from snippy_ng.envvars import bool_envvar
+
+
+DEBUG = bool_envvar(
+    "DEBUG",
+    description="Enable debug-oriented runtime behavior and verbose diagnostics",
+)
+
 
 def derive_log_path(log_path: Path | None, outdir: Path | None) -> Path | None:
     if log_path is None:
@@ -73,7 +81,7 @@ class Logger():
         self.echo(self._format("WARNING", msg), err=True)
 
     def is_debug(self):
-        return os.getenv("SNIPPY_NG_DEBUG", "0") == "1"
+        return DEBUG.enabled
 
     def debug(self, msg):
         if self.is_debug():

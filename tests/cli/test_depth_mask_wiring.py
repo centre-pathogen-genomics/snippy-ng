@@ -36,6 +36,7 @@ def test_short_pipeline_uses_combined_depth_beds(tmp_path):
         "--reference", str(paths["ref"]),
         "--R1", str(paths["r1"]),
         "--R2", str(paths["r2"]),
+        "--depth-mask", "10",
         "--outdir", str(paths["out"]),
         "--skip-check",
     ])
@@ -119,6 +120,7 @@ def test_long_pipeline_uses_combined_depth_beds(tmp_path):
         "long",
         "--reference", str(paths["ref"]),
         "--reads", str(paths["reads"]),
+        "--depth-mask", "10",
         "--outdir", str(paths["out"]),
         "--caller", "freebayes",
         "--skip-check",
