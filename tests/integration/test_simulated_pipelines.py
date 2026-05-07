@@ -288,11 +288,25 @@ def _read_fasta_records(path: Path) -> dict[str, str]:
     return records
 
 
-def _read_phylip_taxa_count(path: Path) -> int:
+def _read_distance_tsv_taxa(path: Path) -> set[str]:
+    taxa: set[str] = set()
     with open(path, "r", encoding="utf-8") as handle:
-        first_line = handle.readline().strip()
-    assert first_line, f"Expected PHYLIP header in {path}"
-    return int(first_line.split()[0])
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            fields = line.split("\t")
+            if len(fields) < 2:
+                continue
+            if len(fields) >= 3:
+                try:
+                    float(fields[2])
+                except ValueError:
+                    continue
+            taxa.add(fields[0])
+            taxa.add(fields[1])
+    assert taxa, f"Expected tabular distance rows in {path}"
+    return taxa
 
 
 def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset, tmp_path):
@@ -334,13 +348,13 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
 
     full_aln = outdir / "core.full.aln"
     soft_core_aln = outdir / "core.095.aln"
-    full_phylip = outdir / "core.full.phylip"
-    soft_core_phylip = outdir / "core.095.phylip"
+    full_distance_tsv = outdir / "core.full.distance.tsv"
+    soft_core_distance_tsv = outdir / "core.095.distance.tsv"
 
     assert full_aln.exists()
     assert soft_core_aln.exists()
-    assert full_phylip.exists()
-    assert soft_core_phylip.exists()
+    assert full_distance_tsv.exists()
+    assert soft_core_distance_tsv.exists()
 
     full_records = _read_fasta_records(full_aln)
     soft_core_records = _read_fasta_records(soft_core_aln)
@@ -351,5 +365,5 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
     assert all(len(seq) == len(reference_seq) for seq in full_records.values())
     assert len(next(iter(soft_core_records.values()))) == 3
     assert {seq.upper() for seq in soft_core_records.values()} == {"ACA", "CCA", "AAA", "ACG"}
-    assert _read_phylip_taxa_count(full_phylip) == 4
-    assert _read_phylip_taxa_count(soft_core_phylip) == 4
+    assert _read_distance_tsv_taxa(full_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
+    assert _read_distance_tsv_taxa(soft_core_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}

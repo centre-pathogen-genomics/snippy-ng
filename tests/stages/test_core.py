@@ -287,7 +287,7 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
     assert soft_core_stage.aln == filter_stage.output.filtered_aln
 
 
-def test_distle_distance_matrix_uses_phylip_output(tmp_path):
+def test_distle_distance_matrix_uses_tabular_output(tmp_path):
     stage = DistleDistanceMatrix(
         aln=tmp_path / "core.full.aln",
         prefix="core.full",
@@ -300,11 +300,11 @@ def test_distle_distance_matrix_uses_phylip_output(tmp_path):
         "distle",
         "--threads", str(Context().cpus),
         "-o",
-        "phylip",
+        "tabular",
         str(tmp_path / "core.full.aln"),
-        str(tmp_path / "core.full.phylip"),
+        str(tmp_path / "core.full.distance.tsv"),
     ]
-    assert stage.output.phylip == tmp_path / "core.full.phylip"
+    assert stage.output.phylip == tmp_path / "core.full.distance.tsv"
 
 
 def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
@@ -331,6 +331,6 @@ def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
 
     assert len(distle_stages) == 2
     assert distle_stages[0].aln == combine_stage.output.aln
-    assert distle_stages[0].output.phylip == Path("core.full.phylip")
+    assert distle_stages[0].output.phylip == Path("core.full.distance.tsv")
     assert distle_stages[1].aln == soft_core_stage.output.soft_core
-    assert distle_stages[1].output.phylip == Path("core.095.phylip")
+    assert distle_stages[1].output.phylip == Path("core.095.distance.tsv")
