@@ -1,7 +1,7 @@
 {
       "conda": {
             "bcbio-gff": "0.7.1",
-            "click": "8.3.3",
+            "click": "8.4.0",
             "packaging": "26.2",
             "pydantic": "2.13.4",
             "biopython": "1.87",
@@ -17,7 +17,7 @@
             "rasusa": "2.2.2",
             "bedtools": "2.31.1",
             "core-snp-filter": "0.2.0",
-            "iqtree": "3.1.1",
+            "iqtree": "3.1.2",
             "python": "3.15.0a8",
             "numpy": "2.4.5",
             "longbow": "2.3.1",
