@@ -22,10 +22,11 @@ class AsmPipelineBuilder(PipelineBuilder):
     reference: Path = Field(..., description="Reference genome file path")
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snippy", description="Output file prefix")
+    caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
+    caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
-    aligner: Literal["minimap2", "nucmer"] = Field(default="minimap2", description="Assembly aligner to use")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
 
@@ -45,7 +46,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
-        if self.aligner == "nucmer":
+        if self.caller == "nucmer":
             aligner = AssemblyNucmerAligner(
                 reference=reference_file,
                 assembly=Path(self.assembly),
@@ -58,6 +59,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 assembly=Path(self.assembly),
                 reference=reference_file,
                 reference_index=reference_index,
+                additional_options=self.caller_opts,
                 prefix=self.prefix,
             )
         else:
@@ -73,6 +75,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 ref_dict=setup.output.reference_dict,
                 reference=reference_file,
                 reference_index=reference_index,
+                additional_options=self.caller_opts,
                 prefix=self.prefix,
             )
         stages.append(caller)

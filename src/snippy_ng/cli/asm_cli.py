@@ -9,16 +9,15 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, resolve_path=False, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
 @click.option("--assembly", "--asm", required=True, type=AbsolutePath(exists=True, readable=True), help="Assembly in FASTA format")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "nucmer"]), help="Aligner program to use")
-@click.option("--minimap-preset", default="asm20", type=click.Choice(["asm5", "asm10", "asm20"]), help="Preset for minimap2 assembly alignment")
-def asm(reference: Path, assembly: Path, mask: Optional[Path], aligner: str, minimap_preset: str, prefix: str, **context: Any):
+@click.option("--caller", default="nucmer", type=click.Choice(["nucmer", "paftools"]), help="Caller to use for assembly-based SNP calling")
+@click.option("--caller-opts", default="", type=click.STRING, help="Extra options for the assembly caller")
+def asm(reference: Path, assembly: Path, mask: Optional[Path], caller: str, minimap_preset: str, caller_opts: str, prefix: str, **context: Any):
     """
     Assembly based SNP calling pipeline
 
     Examples:
 
-        $ snippy-ng asm --reference ref.fa --assembly assembly.fa --outdir output
-    """
+s    """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     
@@ -30,8 +29,9 @@ def asm(reference: Path, assembly: Path, mask: Optional[Path], aligner: str, min
         reference=reference,
         assembly=assembly,
         prefix=prefix,
+        caller=caller,
+        caller_opts=caller_opts,
         mask=mask,
-        aligner=aligner,
         minimap_preset=minimap_preset,
     ).build()
 
