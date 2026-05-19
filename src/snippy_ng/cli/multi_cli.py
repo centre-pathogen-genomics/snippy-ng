@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 import click
 
 from snippy_ng.cli.utils import AbsolutePath
@@ -9,8 +9,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 def run_multi_config(
     cfg: dict,
     *,
-    reference: Path | None,
-    cpus_per_sample: int,
+    reference: Optional[Path],
+    cpus_per_sample: Optional[int] = None,
     core: float,
     inclusion_threshold: float,
     stop_on_failure: bool,
@@ -87,7 +87,7 @@ def run_multi_config(
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
-@click.option("--cpus-per-sample", type=click.INT, default=8, help="Number of CPUs to allocate per sample", cls=GlobalOption)
+@click.option("--cpus-per-sample", type=click.INT, default=None, help="Number of CPUs to allocate per sample", cls=GlobalOption)
 @add_snippy_global_options()
 @click.argument(
     "config",
@@ -102,7 +102,7 @@ def run_multi_config(
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
 @click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
-def multi(config: click.File, reference: Path | None, cpus_per_sample: int, core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+def multi(config: click.File, reference: Optional[Path], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction 
 
