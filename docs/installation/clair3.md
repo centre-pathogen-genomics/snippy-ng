@@ -27,7 +27,7 @@ This is not the preferred long-read caller, but it avoids the Clair3 dependency.
 Create a conda environment with Clair3 installed:
 
 ```console
-conda create -n clair3 -c bioconda clair3
+conda create -n clair3 -c conda-forge -c bioconda -y clair3
 ```
 
 Add a wrapper called `run_clair3.sh` to a directory on your `PATH`. This example
