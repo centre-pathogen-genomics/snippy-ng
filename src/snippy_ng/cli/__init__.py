@@ -14,6 +14,7 @@ from snippy_ng.cli.samclip_cli import samclip
 from snippy_ng.cli.report_tree_cli import report_tree
 from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.cnv_cli import cnv
+from snippy_ng.cli.vcf_cli import vcf
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -82,3 +83,4 @@ utils.add_command(gather)
 utils.add_command(samclip)
 utils.add_command(report_tree)
 utils.add_command(cnv)
+utils.add_command(vcf)
