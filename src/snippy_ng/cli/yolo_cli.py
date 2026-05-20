@@ -103,16 +103,9 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     with open(Path(outdir) / "samples.json", "w") as f:
         f.write(json.dumps(gathered, indent=2))
 
-    # use freebayes for long read samples in YOLO mode
-    # TODO: need to determine the chemistry of the long reads to choose the best clair3 model
-    fb_samples = {}
-    for name, sample in samples.items():
-        if sample["type"] == "long":
-            sample["caller"] = "freebayes"
-        fb_samples[name] = sample
     cfg = {
         "reference": str(reference),
-        "samples": fb_samples,
+        "samples": samples,
     }
     # create reusable reference
     ref_stage = load_or_prepare_reference(
@@ -206,9 +199,9 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     tree_pipeline.run(tree_run_ctx)
 
     # report
-    from snippy_ng.pipelines.report import ReportPipelineBuilder
+    from snippy_ng.pipelines.report import TreeReportPipelineBuilder
 
-    report_pipeline = ReportPipelineBuilder(
+    report_pipeline = TreeReportPipelineBuilder(
         tree=tree_outdir / tree_pipeline.stages[-1].output.tree,
         title="Snippy-NG Report",
         metadata=Path(outdir) / f"{prefix}.vcf.summary.tsv",

@@ -36,7 +36,7 @@ def report_tree(
         snippy-ng utils report-tree tree.newick --metadata metadata.csv
     """
     from snippy_ng.context import Context
-    from snippy_ng.pipelines.report import ReportPipelineBuilder
+    from snippy_ng.pipelines.report import TreeReportPipelineBuilder
    
     if metadata and metadata.suffix.lower() not in [".json", ".csv", ".tsv"]:
         raise click.BadParameter("Metadata file must be in JSON, CSV, or TSV format", param_hint="--metadata")
@@ -45,7 +45,7 @@ def report_tree(
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
-    pipeline = ReportPipelineBuilder(
+    pipeline = TreeReportPipelineBuilder(
         tree=newick,
         mid_point_root=mid_point_root,
         ladderize=ladderize,
