@@ -19,7 +19,7 @@ from snippy_ng.utils.gather import guess_sample_id
 
 class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome file path")
+    reference: Path = Field(..., description="Reference genome (FASTA or GenBank) or prepared reference directory")
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
