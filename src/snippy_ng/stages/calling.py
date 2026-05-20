@@ -73,6 +73,7 @@ class Caller(BaseStage):
     prefix: Annotated[str, AfterValidator(no_spaces)] = Field(
         ..., description="Output file prefix"
     )
+    additional_options: str = Field("", description="Additional options for the caller")
 
     def test_check_if_vcf_has_variants(self):
         """Test that the output VCF file is not empty."""
@@ -99,7 +100,6 @@ class FreebayesCaller(Caller):
 
     bam: Path = Field(..., description="Input BAM file")
     bam_index: Path = Field(..., description="Index file for the input BAM")
-    fbopt: str = Field("", description="Additional Freebayes options")
     ploidy: int = Field(2, description="Ploidy for variant calling")
     min_mapping_quality: int = Field(30, description="Minimum mapping quality for FreeBayes to count reads")
     exclude_insertions: bool = Field(
@@ -147,10 +147,10 @@ class FreebayesCaller(Caller):
             "--min-mapping-quality", str(self.min_mapping_quality),
             "--strict-vcf",
         ]
-        if self.fbopt:
+        if self.additional_options:
             import shlex
-
-            freebayes_cmd_parts.extend(shlex.split(self.fbopt))
+            freebayes_cmd_parts.extend(shlex.split(self.additional_options))
+        
         freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
 
         freebayes_cmd = self.shell_cmd(
@@ -193,10 +193,10 @@ class FreebayesCallerLong(FreebayesCaller):
             "--min-mapping-quality", str(self.min_mapping_quality),
             "--min-base-quality", "10",
         ]
-        if self.fbopt:
+        if self.additional_options:
             import shlex
-
-            freebayes_cmd_parts.extend(shlex.split(self.fbopt))
+            freebayes_cmd_parts.extend(shlex.split(self.additional_options))
+        
         freebayes_cmd_parts.extend(["-f", str(self.reference), str(self.bam)])
 
         freebayes_cmd = self.shell_cmd(
@@ -303,23 +303,28 @@ class PAFCaller(Caller):
             output_file=self.output.missing_bed,
         )
 
+        paftools_cmd_parts = [
+            "paftools.js",
+            "call",
+            "-q",
+            "0",
+            "-L",
+            str(self.min_alignment_length_coverage),
+            "-l",
+            str(self.min_alignment_length_variant_calling),
+            "-s",
+            self.prefix,
+            "-f",
+            str(self.reference),
+            str(self.paf),
+        ]
+        if self.additional_options:
+            import shlex
+            paftools_cmd_parts.extend(shlex.split(self.additional_options))
+
         # variant calling
         paftools_cmd = self.shell_cmd(
-                    [
-                        "paftools.js",
-                        "call",
-                        "-q",
-                        "0",
-                        "-L",
-                        str(self.min_alignment_length_coverage),
-                        "-l",
-                        str(self.min_alignment_length_variant_calling),
-                        "-s",
-                        self.prefix,
-                        "-f",
-                        str(self.reference),
-                        str(self.paf),
-                    ],
+                    paftools_cmd_parts,
                     description="Call variants from PAF using paftools.js",
                     output_file=self.output.tmp_vcf,
                 )
@@ -666,8 +671,16 @@ class ShowSnpsCaller(Caller):
             description="Filter nucmer alignments to the best one-to-one mappings",
             output_file=self.output.filtered_delta,
         )
+        show_coords_cmd_parts = [
+            "show-coords", "-T", "-H", "-r", "-c", "-l", str(self.output.filtered_delta)
+            ]
+        
+        if self.additional_options:
+            import shlex
+            show_coords_cmd_parts.extend(shlex.split(self.additional_options))
+
         show_coords_cmd = self.shell_cmd(
-            ["show-coords", "-T", "-H", "-r", "-c", "-l", str(self.output.filtered_delta)],
+            show_coords_cmd_parts,
             description="Summarize filtered nucmer alignments with show-coords",
             output_file=self.output.coords_tsv,
         )
@@ -1459,22 +1472,27 @@ class Clair3Caller(Caller):
         """Constructs the Clair3 variant calling commands."""
         model_path = self._resolve_model_path_arg()
         _, chunk_size = get_long_chunk_size(self.reference, self.reference_index, ctx.cpus)
+        
+        clair3_cmd_parts = [
+            "run_clair3.sh",
+            f"--model_path={model_path.absolute()}",
+            f"--bam_fn={str(self.bam.absolute())}",
+            f"--ref_fn={str(self.reference.absolute())}",
+            f"--threads={str(ctx.cpus)}",
+            f"--output={Path(self.prefix + '_clair3_out').absolute()}",
+            f"--platform={self.platform}",
+            f"--chunk_size={chunk_size}",
+            f"--min_mq={self.min_mapping_quality}",
+            "--include_all_ctgs",
+            "--no_phasing_for_fa",
+            "--enable_long_indel",
+        ]
+        if self.additional_options:
+            import shlex
+            clair3_cmd_parts.extend(shlex.split(self.additional_options))
 
         clair3_cmd = self.shell_cmd(
-            [
-                "run_clair3.sh",
-                f"--model_path={model_path.absolute()}",
-                f"--bam_fn={str(self.bam.absolute())}",
-                f"--ref_fn={str(self.reference.absolute())}",
-                f"--threads={str(ctx.cpus)}",
-                f"--output={Path(self.prefix + '_clair3_out').absolute()}",
-                f"--platform={self.platform}",
-                f"--chunk_size={chunk_size}",
-                f"--min_mq={self.min_mapping_quality}",
-                "--include_all_ctgs",
-                "--no_phasing_for_fa",
-                "--enable_long_indel",
-            ],
+            clair3_cmd_parts,
             description="Call variants with Clair3",
         )
         if self.fast_mode:
