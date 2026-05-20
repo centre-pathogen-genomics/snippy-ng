@@ -220,6 +220,23 @@ def _append_info(info: str, key: str, value: str) -> str:
     return f"{info};{key}={value}"
 
 
+def _set_format_sample_value(format_value: str, sample_value: str, key: str, value: str) -> tuple[str, str]:
+    format_keys = [] if format_value in {"", "."} else format_value.split(":")
+    sample_values = [] if sample_value in {"", "."} else sample_value.split(":")
+
+    if key in format_keys:
+        index = format_keys.index(key)
+    else:
+        format_keys.append(key)
+        index = len(format_keys) - 1
+
+    if len(sample_values) < len(format_keys):
+        sample_values.extend(["."] * (len(format_keys) - len(sample_values)))
+    sample_values[index] = value
+
+    return ":".join(format_keys), ":".join(sample_values)
+
+
 def _format_float(value: float) -> str:
     return f"{value:.6g}"
 
@@ -297,6 +314,7 @@ def annotate_vcf_strand_bias(
 ) -> None:
     vcf_lines = vcf.read_text(encoding="utf-8").splitlines(keepends=True)
     positions = _collect_variant_positions(vcf_lines)
+    has_format_sb_header = any(line.startswith("##FORMAT=<ID=SB,") for line in vcf_lines)
 
     pileups: dict[tuple[str, int], str] = {}
     if positions:
@@ -329,6 +347,8 @@ def annotate_vcf_strand_bias(
                 handle.write('##INFO=<ID=SB_PVALUE,Number=1,Type=Float,Description="Two-sided Fisher exact strand-bias p-value">\n')
                 handle.write('##INFO=<ID=SB_PHRED,Number=1,Type=Float,Description="Phred-scaled strand-bias score derived from SB_PVALUE">\n')
                 handle.write('##INFO=<ID=SB_METHOD,Number=1,Type=String,Description="Strand-bias method used to compute SB_PVALUE">\n')
+                if not has_format_sb_header:
+                    handle.write('##FORMAT=<ID=SB,Number=1,Type=Float,Description="Fraction of alternate-supporting reads on the forward strand: SB_ALT_FWD / (SB_ALT_FWD + SB_ALT_REV)">\n')
                 if filter_pvalue is not None:
                     handle.write(f'##FILTER=<ID=StrandBias,Description="Strand-bias p-value below {filter_pvalue:g}">\n')
                 handle.write(line)
@@ -369,6 +389,17 @@ def annotate_vcf_strand_bias(
             fields[7] = _append_info(fields[7], "SB_PVALUE", formatted_pvalue)
             fields[7] = _append_info(fields[7], "SB_PHRED", formatted_phred)
             fields[7] = _append_info(fields[7], "SB_METHOD", "FisherExact")
+
+            if len(fields) >= 10:
+                format_value = fields[8]
+                for sample_index in range(9, len(fields)):
+                    format_value, fields[sample_index] = _set_format_sample_value(
+                        format_value,
+                        fields[sample_index],
+                        "SB",
+                        formatted_alt_forward_fraction,
+                    )
+                fields[8] = format_value
 
             if filter_pvalue is not None and result.pvalue < filter_pvalue:
                 fields[6] = _append_filter(fields[6], "StrandBias")
