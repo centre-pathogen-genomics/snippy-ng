@@ -133,7 +133,7 @@ def test_short_pipeline_includes_sample_report_by_default(monkeypatch, tmp_path)
 
     sample_report_stages = [stage for stage in pipeline.stages if isinstance(stage, SampleReport)]
     assert len(sample_report_stages) == 1
-    assert sample_report_stages[0].variant_scope == "pass"
+    assert sample_report_stages[0].variant_scope == "all"
 
 
 def test_long_pipeline_can_omit_sample_report(monkeypatch, tmp_path):

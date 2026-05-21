@@ -31,7 +31,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
     haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
     report: bool = Field(default=True, description="Create a per-sample HTML report")
-    report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
+    report_scope: str = Field(default="all", description="Variant scope for the sample report: pass or all")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""

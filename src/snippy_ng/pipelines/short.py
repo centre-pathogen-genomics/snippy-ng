@@ -41,7 +41,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
     report: bool = Field(default=True, description="Create per-sample HTML report")
     report_scope: str = Field(default="all", description="Variant scope for the sample report: pass or all")
-    report_window_size: int = Field(default=1000, description="Base pairs of context around each report variant")
+    report_window_size: int = Field(default=100, description="Base pairs of context around each report variant")
 
 
     def build(self) -> SnippyPipeline:
