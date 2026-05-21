@@ -162,7 +162,7 @@ class PrintVcfHistogram(BaseStage):
 
             return contigs
 
-        def iter_vcf_records(vcf_path: Union[str, Path], pass_only: bool = True) -> Iterable[Tuple[str, int]]:
+        def iter_vcf_records(vcf_path: Union[str, Path], pass_only: bool = True, snp_only: bool = True) -> Iterable[Tuple[str, int]]:
             with open_text_maybe_gzip(vcf_path) as f:
                 for line in f:
                     if not line or line[0] == "#":
@@ -171,6 +171,8 @@ class PrintVcfHistogram(BaseStage):
                     if len(fields) < 7:
                         continue
                     if pass_only and fields[6] != "PASS":
+                        continue
+                    if snp_only and fields[7].find("TYPE=SNP") == -1:
                         continue
                     chrom = fields[0]
                     try:
