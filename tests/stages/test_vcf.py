@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
+from snippy_ng.stages.vcf import MIXED_SITE_GT_FILTER
 from snippy_ng.stages.vcf import AssemblyVariantContextFilter
 from snippy_ng.stages.vcf import CollapseDiploidGenotypes
 from snippy_ng.stages.vcf import VcfFilterLong
@@ -147,7 +148,7 @@ def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
         "-m",
         "+",
         "-e",
-        'GT="0/1"',
+        MIXED_SITE_GT_FILTER,
         "-",
     ]
 
@@ -171,7 +172,7 @@ def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
         "-m",
         "+",
         "-e",
-        'GT="0/1"',
+        MIXED_SITE_GT_FILTER,
         "-",
     ]
 
