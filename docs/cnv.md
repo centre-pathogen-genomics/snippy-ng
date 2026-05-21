@@ -1,4 +1,4 @@
-# `snippy-ng utils cnv`
+# `snippy-ng utils aln cnv`
 
 Estimate copy number variation from an aligned BAM or CRAM.
 
@@ -10,7 +10,7 @@ The command uses `samtools coverage` to calculate mean depth for each contig. By
 Estimate copy number for each contig:
 
 ```console
-snippy-ng utils cnv sample.cram > sample.cnv.tsv
+snippy-ng utils aln cnv sample.cram > sample.cnv.tsv
 ```
 
 Output:
@@ -25,13 +25,13 @@ Supply a GFF to estimate copy number for each selected feature. The default
 feature type is `gene`.
 
 ```console
-snippy-ng utils cnv sample.cram --gff reference.gff > sample.features.cnv.tsv
+snippy-ng utils aln cnv sample.cram --gff reference.gff > sample.features.cnv.tsv
 ```
 
 Use another GFF feature type:
 
 ```console
-snippy-ng utils cnv sample.cram --gff reference.gff --feature gene > sample.genes.cnv.tsv
+snippy-ng utils aln cnv sample.cram --gff reference.gff --feature gene > sample.genes.cnv.tsv
 ```
 
 Feature mode uses `samtools depth -aa -b` and reports the median per-base
@@ -48,19 +48,19 @@ feature_id	contig_id	start	end	read_depth	copy_number
 Use a known single-copy interval on the largest contig as the baseline:
 
 ```console
-snippy-ng utils cnv sample.cram --known-single-copy 4518,5000 > sample.cnv.tsv
+snippy-ng utils aln cnv sample.cram --known-single-copy 4518,5000 > sample.cnv.tsv
 ```
 
 Use an explicit contig:
 
 ```console
-snippy-ng utils cnv sample.cram --known-single-copy chr1:4518-5000 > sample.cnv.tsv
+snippy-ng utils aln cnv sample.cram --known-single-copy chr1:4518-5000 > sample.cnv.tsv
 ```
 
 The known single-copy interval can also be used with feature mode:
 
 ```console
-snippy-ng utils cnv sample.cram \
+snippy-ng utils aln cnv sample.cram \
   --gff reference.gff \
   --known-single-copy 4518,5000 \
   > sample.features.cnv.tsv
