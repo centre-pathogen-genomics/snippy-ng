@@ -133,7 +133,7 @@ def test_asm_pipeline_includes_vcf_only_sample_report(monkeypatch, tmp_path):
     assert len(sample_report_stages) == 1
     assert sample_report_stages[0].alignment is None
     assert sample_report_stages[0].reference is None
-    assert sample_report_stages[0].variant_scope == "pass"
+    assert sample_report_stages[0].variant_scope == "all"
 
 
 def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
