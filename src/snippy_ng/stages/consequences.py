@@ -28,7 +28,7 @@ class BcftoolsConsequencesCaller(BaseStage):
     @property
     def output(self) -> BcftoolsConsequencesCallerOutput:
         return BcftoolsConsequencesCallerOutput(
-            annotated_vcf=Path(f"{self.prefix}.vcf")
+            annotated_vcf=Path(f"{self.prefix}.annotated.vcf")
         )
 
     def create_commands(self, ctx) -> List:
