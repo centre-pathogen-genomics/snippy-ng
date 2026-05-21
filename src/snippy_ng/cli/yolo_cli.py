@@ -89,6 +89,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         aggressive_ids=False,
         exclude_name_regex=None,
         reference=reference,
+        defaults={"report": True}, # YOLO: enable reports by default 
     )
     samples = gathered["samples"]
     if not samples:

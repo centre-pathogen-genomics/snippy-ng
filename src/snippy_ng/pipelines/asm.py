@@ -12,7 +12,7 @@ from snippy_ng.stages.copy import FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
-from snippy_ng.stages.reporting import PrintVcfHistogram
+from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import VcfStats
 from snippy_ng.utils.gather import guess_sample_id
 
@@ -29,6 +29,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
+    report: bool = Field(default=True, description="Create a per-sample HTML report")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
@@ -184,6 +185,18 @@ class AsmPipelineBuilder(PipelineBuilder):
             prefix=self.prefix
         )
         stages.append(vcf_histogram)
+
+        sample_report_stage = None
+        if self.report:
+            sample_report_stage = SampleReport(
+                vcf=pass_filter.output.vcf,
+                title="Snippy-NG Sample Report",
+                sample_name=sample_name,
+                variant_scope="pass",
+                window_size=100,
+                prefix=self.prefix,
+            )
+            stages.append(sample_report_stage)
         
         keep_files = [
             copy_final.output.fasta, 
@@ -192,4 +205,6 @@ class AsmPipelineBuilder(PipelineBuilder):
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        if sample_report_stage is not None:
+            keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.reporting import PrintVcfHistogram
+from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
@@ -42,6 +42,9 @@ class LongPipelineBuilder(PipelineBuilder):
     min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for FreeBayes calls and depth masks")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
+    report: bool = Field(default=True, description="Create per-sample HTML report")
+    report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
+    report_window_size: int = Field(default=1000, description="Base pairs of context around each report variant")
 
 
     def build(self) -> SnippyPipeline:
@@ -94,17 +97,6 @@ class LongPipelineBuilder(PipelineBuilder):
                 current_reads.append(str(downsample_stage.output.downsampled_r2))
             stages.append(downsample_stage)
 
-        clair3_model = self.clair3_model
-        if self.caller == "clair3" and clair3_model is None:
-            if not current_reads:
-                raise ValueError("Clair3 model could not be auto-detected without reads. Provide --clair3-model when using BAM/CRAM input.")
-            longbow_stage = LongbowClair3ModelSelector(
-                reads=Path(current_reads[0]),
-                **globals
-            )
-            stages.append(longbow_stage)
-            clair3_model = longbow_stage.output.clair3_model
-
         # Aligner
         if self.bam:
             if sample_name is None:
@@ -147,6 +139,16 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # SNP calling
         if self.caller == "clair3":
+            clair3_model = self.clair3_model
+            if clair3_model is None:
+                if not current_reads:
+                    raise ValueError("Clair3 model can not be auto-detected without reads. Provide --clair3-model when using BAM/CRAM input.")
+                longbow_stage = LongbowClair3ModelSelector(
+                    reads=Path(current_reads[0]),
+                    **globals
+                )
+                stages.append(longbow_stage)
+                clair3_model = longbow_stage.output.clair3_model
             assert clair3_model is not None, "Clair3 model must be provided or resolved when using Clair3 caller."
             platform = 'ont'
             if 'hifi' in str(clair3_model).lower():
@@ -157,6 +159,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference_index=reference_index,
                 clair3_model=clair3_model,
                 fast_mode=self.clair3_fast_mode,
+                additional_options=self.caller_opts,
                 platform=platform,
                 **globals
             )
@@ -166,8 +169,8 @@ class LongPipelineBuilder(PipelineBuilder):
                 bam_index=align_filter.output.bai,
                 reference=reference_file,
                 reference_index=reference_index,
-                fbopt=self.caller_opts,
                 min_mapping_quality=self.min_mapping_quality,
+                additional_options=self.caller_opts,
                 **globals
             )
         stages.append(caller_stage)
@@ -283,6 +286,22 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(cram_compressor)
 
+        sample_report_stage = None
+        if self.report:
+            sample_report_vcf = pass_filter.output.vcf if self.report_scope == "pass" else consequences.output.annotated_vcf
+            sample_report_stage = SampleReport(
+                vcf=sample_report_vcf,
+                alignment=aligned_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                title=f"{sample_name or self.prefix} Sample Report",
+                sample_name=sample_name,
+                variant_scope=self.report_scope,
+                window_size=self.report_window_size,
+                **globals,
+            )
+            stages.append(sample_report_stage)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -298,6 +317,8 @@ class LongPipelineBuilder(PipelineBuilder):
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        if sample_report_stage is not None:
+            keep_files.append(sample_report_stage.output.rendered)
         if stats_tsv is not None:
             keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

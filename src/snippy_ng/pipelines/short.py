@@ -4,7 +4,7 @@ from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
-from snippy_ng.stages.reporting import PrintVcfHistogram
+from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
@@ -38,6 +38,9 @@ class ShortPipelineBuilder(PipelineBuilder):
     min_mapping_quality: int = Field(default=30, description="Minimum mapping quality for FreeBayes calls and depth masks")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
+    report: bool = Field(default=True, description="Create per-sample HTML report")
+    report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
+    report_window_size: int = Field(default=1000, description="Base pairs of context around each report variant")
 
 
     def build(self) -> SnippyPipeline:
@@ -142,7 +145,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             bam_index=align_filter.output.bai,
             reference=reference_file,
             reference_index=reference_index,
-            fbopt=self.caller_opts,
+            additional_options=self.caller_opts,
             min_mapping_quality=self.min_mapping_quality,
             **globals
         )
@@ -260,6 +263,22 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(cram_compressor)
 
+        sample_report_stage = None
+        if self.report:
+            sample_report_vcf = pass_filter.output.vcf if self.report_scope == "pass" else consequences.output.annotated_vcf
+            sample_report_stage = SampleReport(
+                vcf=sample_report_vcf,
+                alignment=aligned_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                title=f"{sample_name.title() or self.prefix.title()} Sample Report",
+                sample_name=sample_name,
+                variant_scope=self.report_scope,
+                window_size=self.report_window_size,
+                **globals,
+            )
+            stages.append(sample_report_stage)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -275,6 +294,8 @@ class ShortPipelineBuilder(PipelineBuilder):
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        if sample_report_stage is not None:
+            keep_files.append(sample_report_stage.output.rendered)
         if stats_tsv is not None:
             keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

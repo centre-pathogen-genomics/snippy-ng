@@ -22,6 +22,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--depth-mask", default=0, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Mark variants below this QUAL threshold as LowQual in the output VCF")
+@click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def short(
     reference: Path,
     r1: Optional[Path],
@@ -38,6 +39,7 @@ def short(
     caller_opts: str,
     caller_map_qual: int,
     min_qual: float,
+    report: bool,
     prefix: str,
     **context: Any,
 ):
@@ -80,6 +82,7 @@ def short(
         depth_mask=depth_mask,
         min_qual=min_qual,
         min_mapping_quality=caller_map_qual,
+        report=report,
     ).build()
     
     # Run the pipeline
