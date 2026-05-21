@@ -21,7 +21,6 @@ class AssemblyVariantContextFilterOutput(BaseOutput):
 class VcfPassFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="VCF containing only PASS variants")
 
-
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
     no_insertions: bool = Field(False, description="Remove insertions from the output VCF")
@@ -354,6 +353,10 @@ class VcfFilterShort(VcfFilter):
                     ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
                     description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
                 ),
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", 'GT="0/1"', "-"],
+                    description="Mark heterozygous 0/1 genotypes as MixedSite and preserve existing FILTER labels",
+                ),
             ]
         bcftools_pipeline = self.shell_pipe(
             commands=commands,
@@ -467,6 +470,10 @@ class VcfFilterLong(VcfFilter):
             self.shell_cmd(
                 ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
                 description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+            ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", 'GT="0/1"', "-"],
+                description="Mark heterozygous 0/1 genotypes as MixedSite and preserve existing FILTER labels",
             ),
         ])
 
