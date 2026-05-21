@@ -209,10 +209,10 @@ class AsmPipelineBuilder(PipelineBuilder):
         sample_report_stage = None
         if self.report:
             sample_report_stage = SampleReport(
-                vcf=pass_filter.output.vcf if self.report_scope == "pass" else variants_file,
+                vcf=variants_file,
                 title="Snippy-NG Sample Report",
                 sample_name=sample_name,
-                variant_scope="pass",
+                variant_scope=self.report_scope,
                 window_size=100,
                 prefix=self.prefix,
             )

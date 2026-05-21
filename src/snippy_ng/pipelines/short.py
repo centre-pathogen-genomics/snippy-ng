@@ -289,9 +289,8 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         sample_report_stage = None
         if self.report:
-            sample_report_vcf = pass_filter.output.vcf if self.report_scope == "pass" else variants_file
             sample_report_stage = SampleReport(
-                vcf=sample_report_vcf,
+                vcf=variants_file,
                 alignment=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
