@@ -219,3 +219,54 @@ def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     assert final_vcf.input == collapse_stage.output.vcf
     assert vcf_stats.vcf == final_vcf.output.copied_file
     assert sample_report.vcf == final_vcf.output.copied_file
+
+
+def test_short_pipeline_skips_genotype_collapse_when_haploid_disabled(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.short import ShortPipelineBuilder
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.short.load_or_prepare_reference",
+    )
+    bam = tmp_path / "reads.bam"
+    bam.write_text("bam")
+
+    pipeline = ShortPipelineBuilder(
+        reference=ref_file,
+        reads=[],
+        bam=bam,
+        haploid=False,
+        prefix="sample",
+    ).build()
+
+    assert not any(isinstance(stage, CollapseDiploidGenotypes) for stage in pipeline.stages)
+    final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
+    assert final_vcf.input == Path("sample.annotated.vcf")
+
+
+def test_long_pipeline_skips_genotype_collapse_when_haploid_disabled(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.long import LongPipelineBuilder
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.long.load_or_prepare_reference",
+    )
+    bam = tmp_path / "reads.bam"
+    bam.write_text("bam")
+
+    pipeline = LongPipelineBuilder(
+        reference=ref_file,
+        reads=None,
+        bam=bam,
+        caller="freebayes",
+        haploid=False,
+        prefix="sample",
+    ).build()
+
+    assert not any(isinstance(stage, CollapseDiploidGenotypes) for stage in pipeline.stages)
+    final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
+    assert final_vcf.input == Path("sample.annotated.vcf")

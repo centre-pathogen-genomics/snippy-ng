@@ -42,6 +42,7 @@ class LongPipelineBuilder(PipelineBuilder):
     min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for FreeBayes calls and depth masks")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
+    haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
     report: bool = Field(default=True, description="Create per-sample HTML report")
     report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
     report_window_size: int = Field(default=1000, description="Base pairs of context around each report variant")
@@ -215,14 +216,17 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
-        collapse_genotypes = CollapseDiploidGenotypes(
-            vcf=consequences.output.annotated_vcf,
-            **globals,
-        )
-        stages.append(collapse_genotypes)
+        variants_file = consequences.output.annotated_vcf
+        if self.haploid:
+            collapse_genotypes = CollapseDiploidGenotypes(
+                vcf=variants_file,
+                **globals,
+            )
+            stages.append(collapse_genotypes)
+            variants_file = collapse_genotypes.output.vcf
 
         final_vcf = CopyFile(
-            input=collapse_genotypes.output.vcf,
+            input=variants_file,
             output_path=f"{self.prefix}.all.vcf",
         )
         stages.append(final_vcf)

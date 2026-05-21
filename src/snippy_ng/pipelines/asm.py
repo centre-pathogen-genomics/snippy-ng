@@ -29,6 +29,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
+    haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
     report: bool = Field(default=True, description="Create a per-sample HTML report")
     report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
 
@@ -119,14 +120,17 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
-        collapse_genotypes = CollapseDiploidGenotypes(
-            vcf=consequences.output.annotated_vcf,
-            prefix=self.prefix,
-        )
-        stages.append(collapse_genotypes)
+        variants_file = consequences.output.annotated_vcf
+        if self.haploid:
+            collapse_genotypes = CollapseDiploidGenotypes(
+                vcf=variants_file,
+                prefix=self.prefix,
+            )
+            stages.append(collapse_genotypes)
+            variants_file = collapse_genotypes.output.vcf
 
         final_vcf = CopyFile(
-            input=collapse_genotypes.output.vcf,
+            input=variants_file,
             output_path=f"{self.prefix}.all.vcf",
         )
         stages.append(final_vcf)
