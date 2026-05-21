@@ -53,8 +53,8 @@ def test_annotate_vcf_strand_bias_writes_info_and_filter(monkeypatch, tmp_path):
 
     vcf.write_text(
         "##fileformat=VCFv4.2\n"
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "chr1\t10\t.\tC\tT\t50\tPASS\t.\n",
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"
+        "chr1\t10\t.\tC\tT\t50\tPASS\t.\tGT:DP\t1/1:14\n",
         encoding="utf-8",
     )
     bam.write_text("bam", encoding="utf-8")
@@ -83,8 +83,41 @@ def test_annotate_vcf_strand_bias_writes_info_and_filter(monkeypatch, tmp_path):
     text = output.read_text(encoding="utf-8")
     assert '##INFO=<ID=SB_REF_FWD' in text
     assert '##INFO=<ID=SB_ALT_FWD_FRAC' in text
-    assert '##FORMAT=<ID=SB,' not in text
+    assert '##FORMAT=<ID=SB,Number=1,Type=Float' in text
     assert '##FILTER=<ID=StrandBias' in text
     assert '\tStrandBias\tSB_REF_FWD=6;SB_REF_REV=4;SB_ALT_FWD=4;SB_ALT_REV=0;' in text
     assert 'SB_ALT_FWD_FRAC=1' in text
+    assert '\tGT:DP:SB\t1/1:14:1\n' in text
     assert 'SB_METHOD=FisherExact' in text
+
+
+def test_annotate_vcf_strand_bias_replaces_existing_format_sb(monkeypatch, tmp_path):
+    vcf = tmp_path / "input.vcf"
+    bam = tmp_path / "sample.bam"
+    reference = tmp_path / "reference.fa"
+    output = tmp_path / "annotated.vcf"
+
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##FORMAT=<ID=SB,Number=1,Type=Float,Description=\"Existing strand-bias field\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"
+        "chr1\t10\t.\tA\tG\t50\tPASS\t.\tGT:SB:DP\t0/1:0.2:6\n",
+        encoding="utf-8",
+    )
+    bam.write_text("bam", encoding="utf-8")
+    reference.write_text(">chr1\nA\n", encoding="utf-8")
+
+    def fake_mpileup(alignment: Path, reference_path: Path, positions_bed: Path) -> str:
+        return "chr1\t10\tA\t6\t..,,GG\t~~~~~~\n"
+
+    monkeypatch.setattr("snippy_ng.utils.strand_bias.samtools_mpileup", fake_mpileup)
+
+    annotate_vcf_strand_bias(
+        vcf=vcf.absolute(),
+        bam=bam.absolute(),
+        reference=reference.absolute(),
+        output=output,
+    )
+
+    text = output.read_text(encoding="utf-8")
+    assert "\tGT:SB:DP\t0/1:1:6\n" in text
