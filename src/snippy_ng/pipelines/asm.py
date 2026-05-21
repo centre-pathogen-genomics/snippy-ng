@@ -7,7 +7,7 @@ from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import ApplyMask, QualMask
+from snippy_ng.stages.masks import ApplyMask
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
@@ -169,16 +169,6 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
 
-        # Apply heterozygous and low quality sites masking
-        het_mask = QualMask(
-            vcf=variants_file,
-            fasta=current_fasta,
-            prefix=self.prefix,
-            min_qual=self.min_qual
-        )
-        stages.append(het_mask)
-        current_fasta = het_mask.output.masked_fasta
-        
         # Apply user mask if provided
         if self.mask:
             user_mask = ApplyMask(
