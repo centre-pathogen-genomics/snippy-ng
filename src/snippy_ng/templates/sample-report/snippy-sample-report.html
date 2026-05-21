@@ -161,6 +161,7 @@
         vcfName: "{{VCF_NAME}}",
         cramName: "{{CRAM_NAME}}",
         craiName: "{{CRAI_NAME}}",
+        hasIgv: "{{HAS_IGV}}" === "true",
       };
 
       function decodeBase64ToBlobUrl(value, type = "application/octet-stream") {
@@ -247,11 +248,11 @@
           <div class="max-h-[70vh] overflow-auto p-4 bg-slate-100">
             <div class="mb-4 text-sm text-slate-700">
 	              <ul class="space-y-2">
-	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Inspect variants:</b> Click a table row to move the embedded IGV viewer to that position.</li>
-	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and export the table as CSV or XLSX.</li>
-	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>IGV tracks:</b> The report embeds the selected VCF, reference FASTA/index, and a CRAM/index cropped to the variant windows so the viewer works client-side with less alignment data.</li>
-	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Read cropping:</b> Alignments are hard-cropped to the report windows before embedding; reads crossing separate windows may appear as separate cropped segments.</li>
-	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Panel shortcuts:</b> Press <b>C</b> to show or hide the chart, <b>I</b> to show or hide IGV, and <b>D</b> to show or hide the variant table.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Inspect variants:</b> Click a table row to select that variant; when alignment data is embedded, the IGV viewer moves to that position.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and export the table as CSV or XLSX.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>IGV tracks:</b> When an alignment and reference are provided, the report embeds the selected VCF, reference FASTA/index, and a CRAM/index cropped to the variant windows so the viewer works client-side with less alignment data.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Read cropping:</b> Embedded alignments are hard-cropped to the report windows; reads crossing separate windows may appear as separate cropped segments.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Panel shortcuts:</b> Press <b>C</b> to show or hide the chart, <b>I</b> to show or hide IGV when available, and <b>D</b> to show or hide the variant table.</li>
 	              </ul>
             </div>
           </div>
@@ -469,13 +470,14 @@
         variants.find((variant) => String(variant.type).toUpperCase() === "SNP") ||
         variants[0];
 
-      const referenceUrl = decodeBase64ToBlobUrl(embeddedData.referenceFasta);
-      const referenceIndexUrl = decodeBase64ToBlobUrl(embeddedData.referenceIndex);
+      const hasIgvAssets = embeddedData.hasIgv;
+      const referenceUrl = hasIgvAssets ? decodeBase64ToBlobUrl(embeddedData.referenceFasta) : "";
+      const referenceIndexUrl = hasIgvAssets ? decodeBase64ToBlobUrl(embeddedData.referenceIndex) : "";
       const vcfUrl = decodeBase64ToBlobUrl(embeddedData.vcf, "text/plain");
-      const cramUrl = decodeBase64ToBlobUrl(embeddedData.cram);
-      const craiUrl = decodeBase64ToBlobUrl(embeddedData.crai);
+      const cramUrl = hasIgvAssets ? decodeBase64ToBlobUrl(embeddedData.cram) : "";
+      const craiUrl = hasIgvAssets ? decodeBase64ToBlobUrl(embeddedData.crai) : "";
       const referenceContigs = new Map(
-        decodeBase64ToText(embeddedData.referenceIndex)
+        (hasIgvAssets ? decodeBase64ToText(embeddedData.referenceIndex) : "")
           .trim()
           .split(/\n+/)
           .filter(Boolean)
@@ -532,6 +534,9 @@
       const sampleReportLayout = document.getElementById("sample-report-layout");
       const rowResizer = document.getElementById("row-resizer");
       const colResizer = document.getElementById("col-resizer");
+      if (!hasIgvAssets && igvPanel) {
+        igvPanel.classList.add("hidden");
+      }
       let resizeRefreshPending = false;
       let flexPlot = null;
       let flexPlotClickHandlerBound = false;
@@ -1501,7 +1506,7 @@
             event.stopImmediatePropagation();
             togglePanelVisibility(flexPlotPanel);
             syncPanelVisibilityLayout();
-          } else if (key === "i" && igvPanel) {
+          } else if (key === "i" && hasIgvAssets && igvPanel) {
             event.preventDefault();
             event.stopImmediatePropagation();
             togglePanelVisibility(igvPanel);
@@ -2180,70 +2185,72 @@
         }
       });
 
-      const initialTrackHeights = computeIgvTrackHeights();
       setPlotIgvWidths(currentPlotWidthPct);
-      const initialIgvLocus = variantLocusString(defaultVariant);
+      if (hasIgvAssets) {
+        const initialTrackHeights = computeIgvTrackHeights();
+        const initialIgvLocus = variantLocusString(defaultVariant);
 
-      const igvOptions = {
-        loadDefaultGenomes: false,
-        search: false,
-        locus: initialIgvLocus,
-        reference: {
-          id: embeddedData.referenceName,
-          name: embeddedData.referenceName,
-          fastaURL: referenceUrl,
-          indexURL: referenceIndexUrl,
-          wholeGenomeView: false,
-        },
-        tracks: [
-          {
-            name: embeddedData.vcfName,
-            type: "variant",
-            format: "vcf",
-            url: vcfUrl,
-            displayMode: "expanded",
-            height: initialTrackHeights.variantHeight,
-            visibilityWindow: 50000,
+        const igvOptions = {
+          loadDefaultGenomes: false,
+          search: false,
+          locus: initialIgvLocus,
+          reference: {
+            id: embeddedData.referenceName,
+            name: embeddedData.referenceName,
+            fastaURL: referenceUrl,
+            indexURL: referenceIndexUrl,
+            wholeGenomeView: false,
           },
-          {
-            name: embeddedData.cramName,
-            type: "alignment",
-            format: "cram",
-            url: cramUrl,
-            indexURL: craiUrl,
-            height: initialTrackHeights.alignmentHeight,
-            showCoverage: true,
-            showAlignments: true,
-            visibilityWindow: 50000,
-          },
-        ],
-      };
+          tracks: [
+            {
+              name: embeddedData.vcfName,
+              type: "variant",
+              format: "vcf",
+              url: vcfUrl,
+              displayMode: "expanded",
+              height: initialTrackHeights.variantHeight,
+              visibilityWindow: 50000,
+            },
+            {
+              name: embeddedData.cramName,
+              type: "alignment",
+              format: "cram",
+              url: cramUrl,
+              indexURL: craiUrl,
+              height: initialTrackHeights.alignmentHeight,
+              showCoverage: true,
+              showAlignments: true,
+              visibilityWindow: 50000,
+            },
+          ],
+        };
 
-      function finishIgvBrowserSetup(createdBrowser) {
-        browser = createdBrowser;
-        removeIgvInternalPadding();
-        refreshIgvLayoutAfterPanelChange();
-        window.setTimeout(refreshIgvLayoutAfterPanelChange, 100);
-        window.setTimeout(refreshIgvLayoutAfterPanelChange, 350);
+        function finishIgvBrowserSetup(createdBrowser) {
+          browser = createdBrowser;
+          removeIgvInternalPadding();
+          refreshIgvLayoutAfterPanelChange();
+          window.setTimeout(refreshIgvLayoutAfterPanelChange, 100);
+          window.setTimeout(refreshIgvLayoutAfterPanelChange, 350);
+        }
+
+        function createIgvBrowser(options) {
+          return igv.createBrowser(document.getElementById("igv-container"), options)
+            .then(finishIgvBrowserSetup)
+            .catch((error) => {
+              if (options.locus === undefined) {
+                throw error;
+              }
+              const fallbackOptions = { ...options };
+              delete fallbackOptions.locus;
+              return igv.createBrowser(document.getElementById("igv-container"), fallbackOptions)
+                .then(finishIgvBrowserSetup);
+            });
+        }
+
+        createIgvBrowser(igvOptions).catch((error) => {
+          console.warn("IGV browser failed to initialize", error);
+        });
       }
-
-      function createIgvBrowser(options) {
-        return igv.createBrowser(document.getElementById("igv-container"), options)
-          .then(finishIgvBrowserSetup)
-          .catch((error) => {
-            if (options.locus === undefined) {
-              throw error;
-            }
-            const fallbackOptions = { ...options };
-            delete fallbackOptions.locus;
-            return igv.createBrowser(document.getElementById("igv-container"), fallbackOptions)
-              .then(finishIgvBrowserSetup);
-          });
-      }
-
-      createIgvBrowser(igvOptions).catch((error) => {
-        console.warn("IGV browser failed to initialize", error);
-      });
 
       setPlotIgvWidths(currentPlotWidthPct);
       syncIgvContainerToPanel();
@@ -2251,6 +2258,7 @@
       renderFlexPlot();
       initFlexPlotControlsDrawer();
       initFlexPlotDownload();
+      syncPanelVisibilityLayout();
       initRowResizer();
       initColResizer();
       initKeyboardShortcuts();
