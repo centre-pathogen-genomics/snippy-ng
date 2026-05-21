@@ -8,7 +8,10 @@ nav:
       - installation/index.md
       - Clair3: installation/clair3.md
   - Copy Number Variation: cnv.md
-  - Report: report/index.md
+  - Report:
+      - report/index.md
+      - Tree report: report/tree.md
+      - Sample report: report/sample.md
   - GUI: gui.md
   - Development:
       - development/index.md

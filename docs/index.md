@@ -56,9 +56,10 @@ See the [installation guide](installation/index.md) for dependency details,
 | `snippy-ng gui` | Launch the optional Gradio graphical interface. |
 | `snippy-ng utils ref` | Prepare a reference genome for Snippy-NG. |
 | `snippy-ng utils gather` | Discover sample files and write TSV or JSON input for `multi`. |
-| `snippy-ng utils samclip` | Filter clipped reads from SAM alignments. |
+| `snippy-ng utils aln samclip` | Filter clipped reads from SAM alignments. |
 | `snippy-ng utils cnv` | Estimate contig or feature copy numbers from aligned BAM or CRAM depth. |
-| `snippy-ng utils report-tree` | Create an interactive HTML report from a Newick tree. |
+| `snippy-ng utils report tree` | Create an interactive HTML report from a Newick tree. |
+| `snippy-ng utils report sample` | Create an interactive HTML report for a single sample VCF. |
 
 ## Examples
 
@@ -90,7 +91,7 @@ Run a multi-sample workflow and build a report:
 snippy-ng utils gather --json --ref tests/data/reference.gbk tests/data/{wildtype,mutant}* > samples.json
 snippy-ng multi samples.json --cpus 6 -o multi
 snippy-ng tree --fast multi/core/core.095.aln -o multi/tree
-snippy-ng utils report-tree multi/tree/tree.treefile --metadata multi/snippy.vcf.summary.tsv -o multi/report
+snippy-ng utils report tree multi/tree/tree.treefile --metadata multi/snippy.vcf.summary.tsv -o multi/report
 ```
 
 ## Documentation
@@ -98,7 +99,7 @@ snippy-ng utils report-tree multi/tree/tree.treefile --metadata multi/snippy.vcf
 - [Installation](installation/index.md)
 - [Clair3 Setup](installation/clair3.md)
 - [Copy Number Variation](cnv.md)
-- [Interactive Report](report/index.md)
+- [Interactive reports](report/index.md)
 - [Development Guide](development/index.md)
 - [CLI Development](development/cli.md)
 - [Pipeline Development](development/pipelines.md)
