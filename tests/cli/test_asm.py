@@ -1,4 +1,5 @@
 import pytest
+from snippy_ng.stages.reporting import SampleReport
 from tests.cli.helpers import apply_cli_case_overrides, assert_cli_result, get_bad_reference_target, run_cli_command, write_dummy_files
 
 
@@ -34,7 +35,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             lambda p: [
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
-                "--aligner",   "nucmer",
+                "--caller",   "nucmer",
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -46,8 +47,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             lambda p: [
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
-                "--aligner",   "minimap2",
-                "--minimap-preset", "asm5",
+                "--caller",   "paftools",
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -112,3 +112,44 @@ def test_asm_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_ru
     args = ["asm"] + extra(paths)
     result = run_cli_command(args)
     assert_cli_result(result, expect_exit, expect_run)
+
+
+def test_asm_pipeline_includes_vcf_only_sample_report(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
+
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "asm": tmp_path / "assembly.fa",
+    }
+    write_dummy_files(paths, ["ref", "asm"])
+
+    pipeline = AsmPipelineBuilder(
+        reference=paths["ref"],
+        assembly=paths["asm"],
+        prefix="sample",
+    ).build()
+
+    sample_report_stages = [stage for stage in pipeline.stages if isinstance(stage, SampleReport)]
+    assert len(sample_report_stages) == 1
+    assert sample_report_stages[0].alignment is None
+    assert sample_report_stages[0].reference is None
+    assert sample_report_stages[0].variant_scope == "all"
+
+
+def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
+
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "asm": tmp_path / "assembly.fa",
+    }
+    write_dummy_files(paths, ["ref", "asm"])
+
+    pipeline = AsmPipelineBuilder(
+        reference=paths["ref"],
+        assembly=paths["asm"],
+        report=False,
+        prefix="sample",
+    ).build()
+
+    assert not any(isinstance(stage, SampleReport) for stage in pipeline.stages)

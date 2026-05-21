@@ -6,7 +6,7 @@ from pathlib import Path
 from Bio import SeqIO
 from Bio.Seq import Seq
 
-from snippy_ng.dependencies import biopython
+from snippy_ng.dependencies import biopython, samtools
 from snippy_ng.exceptions import StageExecutionError
 
 
@@ -32,6 +32,7 @@ class PrepareReference(BaseStage):
 
     _dependencies = [
         biopython,
+        samtools,
     ]
 
     @computed_field

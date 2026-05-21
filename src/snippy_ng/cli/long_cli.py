@@ -25,6 +25,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
 @click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
 @click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
+@click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def long(
     reference: Path,
     reads: Optional[Path],
@@ -44,6 +45,7 @@ def long(
     clair3_model: Optional[Path],
     clair3_fast_mode: bool,
     min_qual: float,
+    report: bool,
     prefix: str,
     **context: Any,
 ):
@@ -91,6 +93,7 @@ def long(
         min_mapping_quality=caller_map_qual,
         mask=mask,
         depth_mask=depth_mask,
+        report=report,
     ).build()
     
     # Run the pipeline

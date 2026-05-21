@@ -31,7 +31,7 @@ def test_cnv_cli_outputs_copy_number_table(monkeypatch, tmp_path):
 
     result = CliRunner().invoke(
         snippy_ng,
-        ["utils", "cnv", str(alignment)],
+        ["utils", "aln", "cnv", str(alignment)],
     )
 
     assert result.exit_code == 0, result.output
@@ -66,7 +66,7 @@ def test_cnv_cli_no_header(monkeypatch, tmp_path):
 
     result = CliRunner().invoke(
         snippy_ng,
-        ["utils", "cnv", "--no-header", str(alignment)],
+        ["utils", "aln", "cnv", "--no-header", str(alignment)],
     )
 
     assert result.exit_code == 0, result.output
@@ -116,7 +116,7 @@ def test_cnv_cli_gff_outputs_feature_copy_number_table(monkeypatch, tmp_path):
         snippy_ng,
         [
             "utils",
-            "cnv",
+            "aln", "cnv",
             str(alignment),
             "--gff",
             str(gff),
@@ -175,7 +175,7 @@ def test_cnv_cli_known_single_copy_overrides_contig_baseline(monkeypatch, tmp_pa
         snippy_ng,
         [
             "utils",
-            "cnv",
+            "aln", "cnv",
             str(alignment),
             "--known-single-copy",
             "10,12",
@@ -246,7 +246,7 @@ def test_cnv_cli_known_single_copy_named_region_overrides_feature_baseline(monke
         snippy_ng,
         [
             "utils",
-            "cnv",
+            "aln", "cnv",
             str(alignment),
             "--gff",
             str(gff),

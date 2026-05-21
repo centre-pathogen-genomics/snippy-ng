@@ -1,6 +1,12 @@
 from pathlib import Path
 
+from snippy_ng.context import Context
+from snippy_ng.stages.vcf import MIXED_SITE_GT_FILTER
 from snippy_ng.stages.vcf import AssemblyVariantContextFilter
+from snippy_ng.stages.vcf import CollapseDiploidGenotypes
+from snippy_ng.stages.vcf import VcfFilterLong
+from snippy_ng.stages.vcf import VcfFilterShort
+from snippy_ng.stages.vcf import VcfToTab
 
 
 def _records(vcf: Path) -> list[list[str]]:
@@ -103,3 +109,97 @@ def test_assembly_variant_context_filter_marks_snps_near_alignment_edges_lowqual
     assert records[0][6] == "LowQual"
     assert "ASM_CONTEXT_LOWQUAL_REASON=NEAR_ALIGNMENT_EDGE" in records[0][7]
     assert records[1][6] == "."
+
+
+def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():
+    stage = VcfToTab(
+        vcf=Path("sample.vcf"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 1
+    assert commands[0].command == [
+        "bcftools",
+        "query",
+        "-f",
+        "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
+        "sample.vcf",
+    ]
+    assert commands[0].output_file == Path("snps.tab")
+
+
+def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
+    stage = VcfFilterShort(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    mixed_site_cmd = commands[0].processes[-1]
+    assert mixed_site_cmd.command == [
+        "bcftools",
+        "filter",
+        "-s",
+        "MixedSite",
+        "-m",
+        "+",
+        "-e",
+        MIXED_SITE_GT_FILTER,
+        "-",
+    ]
+
+
+def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
+    stage = VcfFilterLong(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        reference_index=Path("ref.fa.fai"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    mixed_site_cmd = commands[2].processes[-1]
+    assert mixed_site_cmd.command == [
+        "bcftools",
+        "filter",
+        "-s",
+        "MixedSite",
+        "-m",
+        "+",
+        "-e",
+        MIXED_SITE_GT_FILTER,
+        "-",
+    ]
+
+
+def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    output_vcf = tmp_path / "output.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample",
+                "chr1\t10\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1/1:12",
+                "chr1\t11\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0/1:9",
+                "chr1\t12\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0/0:10",
+                "chr1\t13\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|1:7",
+                "chr1\t14\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|0:5",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    CollapseDiploidGenotypes.collapse_genotypes(input_vcf, output_vcf)
+
+    records = _records(output_vcf)
+    assert records[0][9] == "1:12"
+    assert records[1][9] == ".:9"
+    assert records[2][9] == "0/0:10"
+    assert records[3][9] == "1:7"
+    assert records[4][9] == ".:5"

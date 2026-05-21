@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, QualMask
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta
 from snippy_ng.stages.vcf import AddDeletionsToVCF
 
 
@@ -214,24 +214,3 @@ def test_depth_mask_from_bed_uses_maskfasta_with_n():
         "-mc", "N",
     ]
 
-
-def test_qual_mask_masks_lowqual_filter_labels():
-    stage = QualMask(
-        fasta=Path("sample.consensus.fasta"),
-        vcf=Path("sample.raw.vcf"),
-        min_qual=20,
-        prefix="sample",
-    )
-
-    commands = stage.create_commands(Context())
-    query_command = commands[0].command
-
-    assert query_command == [
-        "bcftools",
-        "query",
-        "-i",
-        'QUAL<20.0 || (FILTER!="PASS" && FILTER!=".")',
-        "-f",
-        "%CHROM\\t%POS0\\t%POS\\n",
-        "sample.raw.vcf",
-    ]

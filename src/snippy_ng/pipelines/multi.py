@@ -19,7 +19,7 @@ def run_multi_pipeline(
     *,
     prefix: str,
     run_ctx: Context,
-    cpus_per_sample: int,
+    cpus_per_sample: Optional[int] = None,
     stop_on_failure: bool = False,
 ) -> MultiPipelineResult:
     """
@@ -28,7 +28,10 @@ def run_multi_pipeline(
 
     total_cpus = int(run_ctx.cpus)
     # cap cpus_per_sample to total_cpus
-    cpus_per_sample = min(int(cpus_per_sample), total_cpus)
+    if cpus_per_sample is not None:
+        cpus_per_sample = min(int(cpus_per_sample), total_cpus)
+    else:
+        cpus_per_sample = total_cpus
     # Limit max parallelism to avoid oversubscription
     max_parallel = max(1, total_cpus // cpus_per_sample)
 
@@ -195,8 +198,8 @@ def _combine_sample_stats(
 ) -> None:
     tsv_outputs = OrderedDict({
         f"{prefix}.reads.tsv": outdir / f"{prefix}.reads.tsv",
-        f"{prefix}.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
-        f"{prefix}.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
+        f"{prefix}.all.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
+        f"{prefix}.all.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
     })
 
     for filename, combined_path in tsv_outputs.items():

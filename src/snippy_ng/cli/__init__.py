@@ -11,9 +11,12 @@ from snippy_ng.cli.multi_cli import multi
 from snippy_ng.cli.gui_cli import gui
 from snippy_ng.cli.gather_cli import gather
 from snippy_ng.cli.samclip_cli import samclip
-from snippy_ng.cli.report_tree_cli import report_tree
+from snippy_ng.cli.samcrop_cli import samcrop
+from snippy_ng.cli.report_cli.report_tree_cli import tree as report_tree
+from snippy_ng.cli.report_cli.sample_report_cli import sample as sample_report
 from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.cnv_cli import cnv
+from snippy_ng.cli.vcf.strand_bias_cli import strand_bias
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -79,6 +82,30 @@ def utils():
 
 utils.add_command(ref)
 utils.add_command(gather)
-utils.add_command(samclip)
-utils.add_command(report_tree)
-utils.add_command(cnv)
+
+@utils.group(context_settings={"show_default": True})
+def aln():
+    """Alignment utility commands for Snippy-NG."""
+    pass
+
+aln.add_command(samclip)
+aln.add_command(samcrop)
+aln.add_command(cnv)
+
+@utils.group(context_settings={"show_default": True})
+def vcf():
+    """VCF utility commands for Snippy-NG."""
+    pass
+
+vcf.add_command(strand_bias)
+
+
+@utils.group(cls=BugCatchingGroup, context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
+def report():
+    """
+    Reporting utilities for Snippy-NG.
+    """
+    pass
+
+report.add_command(report_tree)
+report.add_command(sample_report)

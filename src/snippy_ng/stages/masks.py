@@ -6,7 +6,6 @@ from snippy_ng.dependencies import bedtools, bcftools, samtools
 
 from pydantic import Field
 
-
 class DepthBedsFromBamOutput(BaseOutput):
     """Output from combined depth BED generation."""
     zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
@@ -79,6 +78,7 @@ class DepthBedsFromBam(BaseStage):
                 output_file=self.output.min_depth_bed,
             )
         ]
+
 
 class DepthMaskFromBedOutput(BaseOutput):
     """Output from applying a precomputed minimum-depth mask."""
@@ -165,68 +165,69 @@ class ApplyMask(BaseStage):
         ]
 
 
-class HetMaskOutput(BaseOutput):
-    """Output from the heterozygous/low quality masking stage"""
-    masked_fasta: Path = Field(..., description="FASTA with heterozygous and low-quality sites masked")
-    het_sites_bed: TempPath = Field(..., description="BED file of heterozygous and low-quality variant sites")
+class MaskMixedSitesOutput(BaseOutput):
+    mixed_site_bed: TempPath = Field(..., description="BED file of sites flagged with the MixedSite VCF filter")
+    masked_fasta: Path = Field(..., description="FASTA with MixedSite positions masked")
 
 
-class QualMask(BaseStage):
-    """
-    Low quality sites masking stage.
-    
-    This stage masks low QUAL sites with 'n' characters.
-    """
-    fasta: Path = Field(..., description="Input FASTA file to be masked")
-    vcf: Path = Field(..., description="Input VCF file (raw VCF recommended)")
-    min_qual: float = Field(20.0, description="Minimum QUAL threshold for sites (default: 20.0)")
-    mask_char: str = Field("n", description="Character to use for masking (default: 'n')")
+class MaskMixedSites(BaseStage):
+    """Mask sites flagged with the MixedSite VCF filter using bedtools maskfasta."""
+
+    fasta: Path = Field(..., description="Consensus FASTA to mask")
+    vcf: Path = Field(..., description="VCF containing MixedSite-filtered records")
+    mask_char: str = Field("n", description="Character to use for masking")
 
     _dependencies = [
         bcftools,
-        bedtools
+        bedtools,
     ]
 
     @property
-    def output(self) -> HetMaskOutput:
-        return HetMaskOutput(
-            masked_fasta=Path(f"{self.prefix}.het_masked.fasta"),
-            het_sites_bed=Path(f"{self.prefix}.het_sites.bed")
+    def output(self) -> MaskMixedSitesOutput:
+        return MaskMixedSitesOutput(
+            mixed_site_bed=Path(f"{self.prefix}.mixed_sites.bed"),
+            masked_fasta=Path(f"{self.prefix}.mixed_masked.fasta"),
         )
 
     def create_commands(self, ctx) -> List:
-        """Generate het/low-qual masking commands"""
-        commands = []
-        
-        # Generate BED file of heterozygous and low quality sites
-        commands.extend(self._generate_het_sites_bed())
-        
-        # Apply mask to FASTA
-        commands.append(self._apply_het_mask())
-        
-        return commands
-    
-    def _generate_het_sites_bed(self) -> List:
-        """Generate BED file of heterozygous and low quality sites using bcftools"""
-        # Query for low-quality sites by either numeric QUAL or any non-PASS FILTER label.
-        bcftools_query = self.shell_cmd([
-                "bcftools", "query", 
-                "-i", f'QUAL<{self.min_qual} || (FILTER!="PASS" && FILTER!=".")',
-                "-f", "%CHROM\\t%POS0\\t%POS\\n",
-                str(self.vcf)
-            ], 
-            description=f"Extract sites with QUAL < {self.min_qual} or non-PASS FILTER labels",
-            output_file=self.output.het_sites_bed,
-        )
-        return [bcftools_query]
-    
-    def _apply_het_mask(self):
-        """Apply het sites mask to FASTA file"""
-        return self.shell_cmd([
-            "bedtools", "maskfasta",
-            "-fi", str(self.fasta),
-            "-bed", str(self.output.het_sites_bed),
-            "-fo", str(self.output.masked_fasta),
-            "-fullHeader",
-            "-mc", self.mask_char
-        ], description=f"Apply heterozygous sites mask with '{self.mask_char}' character")
+        return [
+            self.shell_pipe(
+                [
+                    self.shell_cmd(
+                        [
+                            "bcftools", "query",
+                            "-i", 'FILTER="MixedSite"',
+                            "-f", r"%CHROM\t%POS0\t%REF\n",
+                            str(self.vcf),
+                        ],
+                        description="Extract MixedSite VCF records",
+                    ),
+                    self.shell_cmd(
+                        ["awk", '{print $1"\\t"$2"\\t"($2+length($3))}'],
+                        description="Convert MixedSite records to BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["sort", "-k1,1", "-k2,2n"],
+                        description="Sort MixedSite BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["bedtools", "merge", "-i", "-"],
+                        description="Merge adjacent MixedSite BED intervals",
+                    ),
+                ],
+                description="Create BED file for MixedSite positions",
+                output_file=self.output.mixed_site_bed,
+            ),
+            self.shell_cmd(
+                [
+                    "bedtools", "maskfasta",
+                    "-fi", str(self.fasta),
+                    "-bed", str(self.output.mixed_site_bed),
+                    "-fo", str(self.output.masked_fasta),
+                    "-fullHeader",
+                    "-mc", self.mask_char,
+                ],
+                description="Mask MixedSite positions in consensus FASTA",
+            ),
+        ]
+

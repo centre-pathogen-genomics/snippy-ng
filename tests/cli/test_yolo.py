@@ -132,10 +132,10 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
     assert captured_pipeline["run_contexts"][0].log_path == ((tmp_path / "out") / "reference" / "LOG.txt").absolute()
 
 
-def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tmp_path):
+def test_yolo_preserves_long_sample_caller_and_sets_cpus_per_sample(monkeypatch, tmp_path):
     samples = {
         "short_1": {"type": "short"},
-        "long_1": {"type": "long"},
+        "long_1": {"type": "long", "caller": "clair3", "clair3_model": None},
         "short_2": {"type": "short"},
     }
     _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
@@ -163,7 +163,7 @@ def test_yolo_sets_long_samples_to_freebayes_and_cpus_per_sample(monkeypatch, tm
     _, result = _run_yolo(tmp_path, "-c", "8")
 
     assert result.exit_code == 0, result.output
-    assert captured_multi["samples"]["long_1"]["caller"] == "freebayes"
+    assert captured_multi["samples"]["long_1"]["caller"] == "clair3"
     assert captured_multi["cpus_per_sample"] == 4
     assert captured_multi["snippy_reference_dir"] == tmp_path / "prepared_reference"
 

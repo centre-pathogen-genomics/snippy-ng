@@ -10,6 +10,10 @@ from snippy_ng.envvars import EnvVarField
 from snippy_ng.logging import logger
 from pydantic import Field
 
+HET_GT = {"0/1", "1/0", "0|1", "1|0"}
+MIXED_SITE_GT_FILTER = ' || '.join(f'GT="{gt}"' for gt in HET_GT)
+
+
 class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
@@ -22,9 +26,104 @@ class VcfPassFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="VCF containing only PASS variants")
 
 
+class VcfToTabOutput(BaseOutput):
+    tab: Path = Field(..., description="Tab-delimited variant table derived from a VCF")
+
+
+class VcfToTab(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file to convert into a tab-delimited table")
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfToTabOutput:
+        return VcfToTabOutput(
+            tab=Path(f"{self.prefix}.tab")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "query",
+                    "-f",
+                    "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
+                    str(self.vcf),
+                ],
+                description="Convert VCF records into a simple tab-delimited table",
+                output_file=self.output.tab,
+            )
+        ]
+
+
+class CollapseDiploidGenotypesOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF with diploid genotypes collapsed to haploid genotypes")
+
+class CollapseDiploidGenotypes(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file whose GT field should be collapsed")
+
+    @property
+    def output(self) -> CollapseDiploidGenotypesOutput:
+        return CollapseDiploidGenotypesOutput(
+            vcf=Path(f"{self.prefix}.haploid.vcf")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.python_cmd(
+                func=self.collapse_genotypes,
+                args=[self.vcf, self.output.vcf],
+                description="Collapse diploid genotypes to haploid genotypes",
+            )
+        ]
+
+    @staticmethod
+    def _collapse_gt(gt: str) -> str:
+        if gt in {"1/1", "1|1"}:
+            return "1"
+        if gt in HET_GT:
+            return "."
+        return gt
+
+    @classmethod
+    def collapse_genotypes(cls, input_vcf: Path, output_vcf: Path) -> None:
+        with open(input_vcf, "r", encoding="utf-8") as in_handle, open(output_vcf, "w", encoding="utf-8") as out_handle:
+            for raw_line in in_handle:
+                if raw_line.startswith("#"):
+                    out_handle.write(raw_line)
+                    continue
+
+                stripped = raw_line.rstrip("\n")
+                if not stripped:
+                    out_handle.write(raw_line)
+                    continue
+
+                fields = stripped.split("\t")
+                if len(fields) < 10:
+                    out_handle.write(raw_line)
+                    continue
+
+                format_fields = fields[8].split(":")
+                try:
+                    gt_index = format_fields.index("GT")
+                except ValueError:
+                    out_handle.write(raw_line)
+                    continue
+
+                for sample_index in range(9, len(fields)):
+                    sample_fields = fields[sample_index].split(":")
+                    if gt_index >= len(sample_fields):
+                        continue
+                    sample_fields[gt_index] = cls._collapse_gt(sample_fields[gt_index])
+                    fields[sample_index] = ":".join(sample_fields)
+
+                out_handle.write("\t".join(fields) + "\n")
+
+
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
-    no_insertions: bool = Field(True, description="Remove insertions from the output VCF")
+    no_insertions: bool = Field(False, description="Remove insertions from the output VCF")
 
     _dependencies = [bcftools]
 
@@ -35,13 +134,13 @@ class VcfPassFilter(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        include_expr = 'FMT/GT="1/1" || FMT/GT="0/1"'
+        cmd = ["bcftools", "view", "-f", "PASS", str(self.vcf)]
         if self.no_insertions:
             # Exclude insertions while retaining deletions, including symbolic DEL blocks.
-            include_expr = f'({include_expr}) && (strlen(ALT)<=strlen(REF) || ALT="<DEL>")'
+            cmd.extend(["-i", '(strlen(ALT)<=strlen(REF) || ALT="<DEL>")'])
         return [
             self.shell_cmd(
-                ["bcftools", "view", "-f", "PASS", "-i", include_expr, str(self.vcf)],
+                cmd,
                 description="Filter VCF to PASS variants only",
                 output_file=self.output.vcf,
             )
@@ -354,6 +453,10 @@ class VcfFilterShort(VcfFilter):
                     ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
                     description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
                 ),
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
+                    description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
+                ),
             ]
         bcftools_pipeline = self.shell_pipe(
             commands=commands,
@@ -467,6 +570,10 @@ class VcfFilterLong(VcfFilter):
             self.shell_cmd(
                 ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
                 description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+            ),
+            self.shell_cmd(
+                ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
+                description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
             ),
         ])
 
@@ -790,7 +897,7 @@ class AddDeletionsToVCF(BaseStage):
                     "TYPE=INDEL;"
                     f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
                 )
-                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "PASS", info]
+                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "ZERODEPTH", info]
 
                 if sample_count > 0:
                     base_cols.extend(["GT", *(["1/1"] * sample_count)])

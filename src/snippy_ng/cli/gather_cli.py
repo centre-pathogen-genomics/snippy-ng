@@ -40,14 +40,9 @@ def gather(**config):
         aggressive_ids=config["aggressive_ids"],
         exclude_name_regex=config["exclude"],
         reference=config.get("reference"),
+        defaults=dict(config.get("defaults") or ()),
     )
     samples = gathered["samples"]
-    sample_defaults = dict(config.get("defaults") or ())
-    if sample_defaults:
-        for sample_data in samples.values():
-            for key, value in sample_defaults.items():
-                if sample_data.get(key) is None:
-                    sample_data[key] = value
 
     type_counts = Counter(sample_data.get("type", "unknown") for sample_data in samples.values())
     type_summary = ", ".join(f"{sample_type}={count}" for sample_type, count in sorted(type_counts.items()))

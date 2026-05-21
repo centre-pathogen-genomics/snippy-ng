@@ -3,31 +3,35 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter
+from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import ApplyMask, QualMask
-from snippy_ng.stages.copy import FinaliseFasta
+from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
+from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
-from snippy_ng.stages.reporting import PrintVcfHistogram
+from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import VcfStats
 from snippy_ng.utils.gather import guess_sample_id
 
 
 class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome file path")
+    reference: Path = Field(..., description="Reference genome (FASTA or GenBank) or prepared reference directory")
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snippy", description="Output file prefix")
+    caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
+    caller_opts: str = Field(default="", description="Additional caller options")
     mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
-    aligner: Literal["minimap2", "nucmer"] = Field(default="minimap2", description="Assembly aligner to use")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
+    haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
+    report: bool = Field(default=True, description="Create a per-sample HTML report")
+    report_scope: str = Field(default="all", description="Variant scope for the sample report: pass or all")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
@@ -45,7 +49,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
-        if self.aligner == "nucmer":
+        if self.caller == "nucmer":
             aligner = AssemblyNucmerAligner(
                 reference=reference_file,
                 assembly=Path(self.assembly),
@@ -58,6 +62,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 assembly=Path(self.assembly),
                 reference=reference_file,
                 reference_index=reference_index,
+                additional_options=self.caller_opts,
                 prefix=self.prefix,
             )
         else:
@@ -73,6 +78,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 ref_dict=setup.output.reference_dict,
                 reference=reference_file,
                 reference_index=reference_index,
+                additional_options=self.caller_opts,
                 prefix=self.prefix,
             )
         stages.append(caller)
@@ -114,8 +120,24 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        variants_file = consequences.output.annotated_vcf
+        if self.haploid:
+            collapse_genotypes = CollapseDiploidGenotypes(
+                vcf=variants_file,
+                prefix=self.prefix,
+            )
+            stages.append(collapse_genotypes)
+            variants_file = collapse_genotypes.output.vcf
+
+        final_vcf = CopyFile(
+            input=variants_file,
+            output_path=f"{self.prefix}.all.vcf",
+        )
+        stages.append(final_vcf)
+        variants_file = final_vcf.output.copied_file
+
         vcf_stats = VcfStats(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             sample_name=sample_name,
             prefix=self.prefix
         )
@@ -123,15 +145,15 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         # Filter to PASS-only variants
         pass_filter = VcfPassFilter(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             prefix=self.prefix
         )
         stages.append(pass_filter)
 
         # Compress VCF
         gzip_vcf = VcfCompressor(
-            input=consequences.output.annotated_vcf,
-            prefix=self.prefix
+            input=variants_file,
+            prefix=self.prefix,
         )
         stages.append(gzip_vcf)
         
@@ -147,16 +169,18 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
 
-        # Apply heterozygous and low quality sites masking
-        het_mask = QualMask(
-            vcf=consequences.output.annotated_vcf,
+        # Mask sites flagged with the MixedSite VCF filter using the full-call VCF
+        # I think this is very unlikely in assembly-based calling but there is a
+        # theoretical possibility of contigs being collapsed in the assembly and showing 
+        # up as heterozygous sites in the VCF, so we will mask them just in case.
+        mixed_sites = MaskMixedSites(
             fasta=current_fasta,
-            prefix=self.prefix,
-            min_qual=self.min_qual
+            vcf=variants_file,
+            prefix=self.prefix
         )
-        stages.append(het_mask)
-        current_fasta = het_mask.output.masked_fasta
-        
+        stages.append(mixed_sites)
+        current_fasta = mixed_sites.output.masked_fasta
+
         # Apply user mask if provided
         if self.mask:
             user_mask = ApplyMask(
@@ -170,7 +194,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Copy final masked consensus to standard output location
         copy_final = FinaliseFasta(
             input=current_fasta,
-            output_path=f"{self.prefix}.pseudo.fna",
+            output_path=f"{self.prefix}.fna",
             prefix=self.prefix
         )
         stages.append(copy_final)
@@ -181,6 +205,18 @@ class AsmPipelineBuilder(PipelineBuilder):
             prefix=self.prefix
         )
         stages.append(vcf_histogram)
+
+        sample_report_stage = None
+        if self.report:
+            sample_report_stage = SampleReport(
+                vcf=variants_file,
+                title="Snippy-NG Sample Report",
+                sample_name=sample_name,
+                variant_scope=self.report_scope,
+                window_size=100,
+                prefix=self.prefix,
+            )
+            stages.append(sample_report_stage)
         
         keep_files = [
             copy_final.output.fasta, 
@@ -189,4 +225,6 @@ class AsmPipelineBuilder(PipelineBuilder):
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        if sample_report_stage is not None:
+            keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

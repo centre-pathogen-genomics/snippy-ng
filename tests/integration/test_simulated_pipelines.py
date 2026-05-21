@@ -2,6 +2,7 @@ import subprocess
 import sys
 from pathlib import Path
 import gzip
+import csv
 
 import pytest
 
@@ -13,6 +14,8 @@ from tests.integration.simulation import (
     SimulationRequest,
     VariantRecord,
     materialize_scenario,
+    normalize_variant,
+    parse_vcf_records,
 )
 
 
@@ -169,7 +172,7 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     deletion_records = []
-    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
+    with gzip.open(outdir / "snippy.all.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
@@ -251,7 +254,7 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     variant_records = []
-    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
+    with gzip.open(outdir / "snippy.all.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
@@ -263,7 +266,7 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     assert any(record[6] != "PASS" for record in variant_records), variant_records
 
     reference_seq = _read_fasta_sequence(request.reference, variant.chrom)
-    consensus_seq = _read_fasta_sequence(outdir / "snippy.pseudo.fna", variant.chrom)
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == reference_seq[variant.pos - 1]
 
 
@@ -307,6 +310,11 @@ def _read_distance_tsv_taxa(path: Path) -> set[str]:
             taxa.add(fields[1])
     assert taxa, f"Expected tabular distance rows in {path}"
     return taxa
+
+
+def _read_tsv_rows(path: Path) -> list[dict[str, str]]:
+    with open(path, "r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
 
 
 def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset, tmp_path):
@@ -369,6 +377,94 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
     assert _read_distance_tsv_taxa(soft_core_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
 
 
+def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integration_cache_root):
+    samples = {
+        "multi_sample_a": VariantRecord("Wildtype", 20, "A", "C"),
+        "multi_sample_b": VariantRecord("Wildtype", 40, "C", "A"),
+    }
+    materialized_samples = {}
+    for sample_name, variant in samples.items():
+        request = SimulationRequest(
+            name=sample_name,
+            reference=DEFAULT_REFERENCE,
+            truth_variants=(variant,),
+            untouched_regions=(("Wildtype", 200, 260),),
+        )
+        materialized_samples[sample_name] = materialize_scenario(
+            request=request,
+            input_type="asm",
+            cache_root=integration_cache_root,
+        )
+
+    config = tmp_path / "multi-samples.csv"
+    config.write_text(
+        "sample,type,assembly,report\n"
+        + "\n".join(
+            f"{sample_name},asm,{materialized.assembly},false"
+            for sample_name, materialized in materialized_samples.items()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    outdir = tmp_path / "multi-pipeline"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "multi",
+            str(config),
+            "--reference", str(DEFAULT_REFERENCE),
+            "--outdir", str(outdir),
+            "--prefix", "snippy",
+            "--skip-check",
+            "--cpus", "1",
+            "--cpus-per-sample", "1",
+            "--ram", "4",
+            "--core", "1.0",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    failed_rows = (outdir / "snippy.failed.tsv").read_text(encoding="utf-8").splitlines()
+    assert failed_rows == ["sample\terror"]
+
+    summary_rows = _read_tsv_rows(outdir / "snippy.vcf.summary.tsv")
+    breakdown_rows = _read_tsv_rows(outdir / "snippy.vcf.breakdown.tsv")
+    assert {row["sample"] for row in summary_rows} == set(samples)
+    assert {row["sample"] for row in breakdown_rows} == set(samples)
+
+    full_aln = outdir / "core" / "core.full.aln"
+    core_aln = outdir / "core" / "core.100.aln"
+    assert full_aln.exists()
+    assert core_aln.exists()
+
+    full_records = _read_fasta_records(full_aln)
+    reference_seq = _read_fasta_sequence(DEFAULT_REFERENCE, "Wildtype")
+    expected_names = {"reference", *samples.keys()}
+    assert set(full_records) == expected_names
+    assert all(len(seq) == len(reference_seq) for seq in full_records.values())
+
+    for sample_name, variant in samples.items():
+        sample_dir = outdir / "samples" / sample_name
+        called_vcf = sample_dir / "snippy.all.vcf.gz"
+        assert called_vcf.exists()
+        called = {normalize_variant(record) for record in parse_vcf_records(called_vcf)}
+        assert normalize_variant(variant) in called
+        assert full_records[sample_name][variant.pos - 1].upper() == variant.alt
+        assert full_records["reference"][variant.pos - 1].upper() == variant.ref
+
+    core_records = _read_fasta_records(core_aln)
+    assert set(core_records) == expected_names
+    assert {seq.upper() for seq in core_records.values()} == {"AC", "CC", "AA"}
+
+
 @pytest.mark.parametrize(
     ("sample_name", "variant"),
     [
@@ -393,7 +489,7 @@ def test_core_sample_asm_variants_are_recovered(simulated_dataset, sample_name, 
         required_filter="PASS",
     )
 
-    consensus_seq = _read_fasta_sequence(dataset.outdir / "snippy.pseudo.fna", variant.chrom)
+    consensus_seq = _read_fasta_sequence(dataset.outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == variant.alt.lower(), (
         f"Consensus base at {variant.chrom}:{variant.pos} should be {variant.alt.lower()}, "
         f"found {consensus_seq[variant.pos - 1]}"

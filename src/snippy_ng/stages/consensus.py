@@ -16,6 +16,7 @@ class PseudoAlignment(BaseStage):
 
 class BcftoolsPseudoAlignmentOutput(BaseOutput):
     fasta: Path = Field(..., description="Pseudo-alignment consensus FASTA generated from reference + variants")
+    # We convert the input VCF to bgzipped format for use in the consensus calling
     vcf_gz: TempPath = Field(..., description="BGZF-compressed VCF file used for consensus calling")
     vcf_index: TempPath = Field(..., description="Index file for the input VCF.gz")
 
@@ -24,7 +25,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     Call pseudo-alignment using Bcftools consensus.
     """
     vcf: Path = Field(..., description="Input VCF file")
-    iupac_ambiguity_codes: bool = Field(True, description="Use IUPAC ambiguity codes for heterozygous sites")
+    iupac_ambiguity_codes: bool = Field(False, description="Use IUPAC ambiguity codes for heterozygous sites")
     ref_metadata: ReferenceMetadata = Field(..., description="Metadata for the run")
 
     _dependencies = [
@@ -34,7 +35,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.pseudo.raw.fna"),
+            fasta=Path(f"{self.prefix}.pseudo.raw.fa"),
             vcf_gz=self.vcf.with_suffix(".vcf.gz"),
             vcf_index=self.vcf.with_suffix(".vcf.gz.csi"),
         )
@@ -73,8 +74,14 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
             "--mark-snv", "lc",
             str(self.output.vcf_gz),
         ])
+
+        filter_inserts_and_compress_pipeline = self.shell_pipe([
+            self.shell_cmd(["bcftools", "view", "-i", '(strlen(ALT)<=strlen(REF) || ALT="<DEL>")', str(self.vcf)], description="Filtering VCF to exclude insertions for consensus calling"),
+            self.shell_cmd(["bgzip", "-c"], description="Compressing VCF with bgzip"),
+        ], output_file=self.output.vcf_gz, description="Filtering and compressing VCF for consensus calling")
+
         return [
-            self.shell_cmd(["bgzip", "-o", str(self.output.vcf_gz), str(self.vcf)], description="Compressing file with bgzip"),
+            filter_inserts_and_compress_pipeline,
             self.shell_cmd(["bcftools", "index", "-f", str(self.output.vcf_gz)], description="Indexing VCF file"),
             self.shell_cmd(bcf_csq_args, description="Calling consensus with bcftools"),
         ]
