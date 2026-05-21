@@ -198,8 +198,8 @@ def _combine_sample_stats(
 ) -> None:
     tsv_outputs = OrderedDict({
         f"{prefix}.reads.tsv": outdir / f"{prefix}.reads.tsv",
-        f"{prefix}.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
-        f"{prefix}.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
+        f"{prefix}.all.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
+        f"{prefix}.all.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
     })
 
     for filename, combined_path in tsv_outputs.items():
