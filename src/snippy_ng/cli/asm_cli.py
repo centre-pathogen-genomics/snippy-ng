@@ -17,8 +17,10 @@ def asm(reference: Path, assembly: Path, mask: Optional[Path], caller: str, call
     Assembly based SNP calling pipeline
 
     Examples:
-
-s    """
+    
+        $ snippy-ng asm --reference ref.fa --assembly asm.fa --outdir output
+    
+    """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.asm import AsmPipelineBuilder
     
