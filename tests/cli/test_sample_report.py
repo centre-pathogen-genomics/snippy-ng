@@ -45,19 +45,49 @@ def test_sample_report_cli_builds_pipeline(monkeypatch, tmp_path):
     assert result.exit_code == 0, result.output
     pipeline = DummyPipeline.last
     assert pipeline.ran is True
-    stage = pipeline.stages[0]
+    stage = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
     assert stage.variant_scope == "all"
     assert stage.window_size == 500
-    assert stage.reference_index == reference_index
+    assert stage.reference_index == Path("reference/ref.fa.fai")
 
 
-def test_sample_report_cli_requires_reference_index(tmp_path):
+def test_sample_report_cli_builds_vcf_only_pipeline(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        report_pipeline_module.pipelines,
+        "SnippyPipeline",
+        lambda stages=None, outputs_to_keep=None: DummyPipeline(stages=stages, outputs_to_keep=outputs_to_keep),
+    )
+
+    vcf = tmp_path / "sample.vcf"
+    outdir = tmp_path / "report"
+    vcf.write_text("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+
+    result = run_cli_command(
+        [
+            "utils",
+            "sample-report",
+            str(vcf),
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    pipeline = DummyPipeline.last
+    assert pipeline.ran is True
+    assert len(pipeline.stages) == 1
+    stage = pipeline.stages[0]
+    assert isinstance(stage, SampleReport)
+    assert stage.alignment is None
+    assert stage.reference is None
+
+
+def test_sample_report_cli_requires_reference_with_alignment(tmp_path):
     vcf = tmp_path / "sample.vcf"
     alignment = tmp_path / "sample.cram"
-    reference = tmp_path / "ref.fa"
     vcf.write_text("##fileformat=VCFv4.2\n")
     alignment.write_text("cram")
-    reference.write_text(">chr1\nA\n")
 
     result = run_cli_command(
         [
@@ -66,16 +96,14 @@ def test_sample_report_cli_requires_reference_index(tmp_path):
             str(vcf),
             "--alignment",
             str(alignment),
-            "--reference",
-            str(reference),
             "--outdir",
-            str(tmp_path / "missing-index-report"),
+            str(tmp_path / "report"),
             "--skip-check",
         ]
     )
 
     assert result.exit_code == 2
-    assert "Reference index does not exist" in result.output
+    assert "--reference is required when --alignment is provided" in result.output
 
 
 def test_short_pipeline_includes_sample_report_by_default(monkeypatch, tmp_path):

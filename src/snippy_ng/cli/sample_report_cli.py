@@ -17,8 +17,8 @@ from snippy_ng.cli.utils.globals import (
 @click.option("--prefix", "-p", default="sample-report", help="Prefix for HTML report", cls=GlobalOption)
 @add_snippy_global_options(exclude=["prefix", "outdir"])
 @click.argument("vcf", required=True, type=AbsolutePath(exists=True, readable=True))
-@click.option("--alignment", "--cram", "--bam", required=True, type=AbsolutePath(exists=True, readable=True), help="BAM or CRAM alignment file to embed after windowing")
-@click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA used by the alignment")
+@click.option("--alignment", "--cram", "--bam", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional BAM or CRAM alignment file to embed after windowing")
+@click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA used by the alignment")
 @click.option("--variant-scope", default="pass", type=click.Choice(["pass", "all"]), help="Variants to include in the report")
 @click.option("--window-size", default=100, type=click.IntRange(min=0), help="Base pairs of context around each variant")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Sample Report", help="Title for the HTML report")
@@ -35,9 +35,12 @@ def sample_report(
     prefix: str,
     **context: Any,
 ):
-    """Create an HTML report with a variant table and embedded IGV.js alignment view."""
+    """Create an HTML report with a variant table and optional embedded IGV.js alignment view."""
     from snippy_ng.context import Context
     from snippy_ng.pipelines.reports import SampleReportPipelineBuilder
+
+    if alignment and not reference:
+        raise click.UsageError("--reference is required when --alignment is provided")
 
     pipeline = SampleReportPipelineBuilder(
         vcf=vcf,

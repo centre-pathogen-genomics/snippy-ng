@@ -129,6 +129,31 @@ def test_sample_report_render_embeds_payloads(tmp_path):
     assert "sample.vcf" in html
 
 
+def test_sample_report_render_without_igv_assets(tmp_path):
+    template = tmp_path / "template.html"
+    output = tmp_path / "report.html"
+    variants = tmp_path / "variants.json"
+    vcf = tmp_path / "sample.vcf"
+
+    template.write_text("{{HAS_IGV}} {{CRAM_B64}} {{REFERENCE_FASTA_B64}} {{VCF_NAME}}")
+    variants.write_text("[]")
+    vcf.write_text("##fileformat=VCFv4.2\n")
+
+    SampleReport.render_sample_report(
+        template,
+        output,
+        variants,
+        None,
+        None,
+        vcf,
+        None,
+        None,
+        "Report",
+    )
+
+    assert output.read_text() == "false   sample.vcf"
+
+
 def test_sample_report_commands_window_and_index_cram(tmp_path):
     stage = SampleReport(
         vcf=tmp_path / "sample.vcf",
@@ -199,3 +224,20 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "sample.sample-report.cram",
         "sample.sample-report.cram.crai",
     ]
+
+
+def test_sample_report_commands_without_alignment_only_render_table(tmp_path):
+    stage = SampleReport(
+        vcf=tmp_path / "sample.vcf",
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+
+    assert len(commands) == 2
+    assert commands[0].description == "Create sample-report variant table and alignment windows"
+    assert commands[1].description == "Render sample HTML report"
+    assert commands[1].args[3] is None
+    assert commands[1].args[4] is None
+    assert commands[1].args[6] is None
+    assert commands[1].args[7] is None

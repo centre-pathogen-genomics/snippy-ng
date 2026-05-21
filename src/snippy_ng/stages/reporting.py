@@ -427,8 +427,8 @@ class SampleReport(BaseStage):
 
     template_path: Path = Path(__file__).resolve().parent.parent / "templates" / "sample-report" / "snippy-sample-report.html"
     vcf: Path = Field(..., description="Input VCF used to build the variant table")
-    alignment: Path = Field(..., description="Input BAM/CRAM alignment to window around variants")
-    reference: Path = Field(..., description="Reference FASTA used by the alignment")
+    alignment: Optional[Path] = Field(default=None, description="Optional input BAM/CRAM alignment to window around variants")
+    reference: Optional[Path] = Field(default=None, description="Reference FASTA used by the alignment")
     reference_index: Optional[Path] = Field(default=None, description="Reference FASTA index (.fai)")
     title: str = Field(default="Snippy-NG Sample Report", description="Title for the sample report")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override")
@@ -436,6 +436,9 @@ class SampleReport(BaseStage):
     window_size: int = Field(default=1000, description="Base pairs of context to embed around each variant")
 
     _dependencies = [bedtools, samtools]
+
+    def model_post_init(self, __context) -> None:
+        self._dependencies = [bedtools, samtools] if self.alignment else []
 
     @property
     def output(self) -> SampleReportOutput:
@@ -450,8 +453,10 @@ class SampleReport(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        reference_index = self.reference_index or Path(f"{self.reference}.fai")
-        return [
+        if self.alignment and not self.reference:
+            raise PipelineExecutionError("reference is required when alignment is provided for sample report")
+        reference_index = self.reference_index or (Path(f"{self.reference}.fai") if self.reference else None)
+        commands = [
             self.python_cmd(
                 func=self.write_variant_assets,
                 args=[
@@ -464,113 +469,122 @@ class SampleReport(BaseStage):
                 ],
                 description="Create sample-report variant table and alignment windows",
             ),
-            self.shell_pipe(
+        ]
+        has_igv_assets = self.alignment is not None and self.reference is not None and reference_index is not None
+        if has_igv_assets:
+            commands.extend(
                 [
-                    self.shell_cmd(
+                    self.shell_pipe(
                         [
-                            "sort",
-                            "-k1,1",
-                            "-k2,2n",
-                            str(self.output.regions_bed),
-                        ],
-                        description="Sort sample-report alignment windows",
-                    ),
-                    self.shell_cmd(
-                        [
-                            "bedtools",
-                            "merge",
-                            "-i",
-                            "-",
+                            self.shell_cmd(
+                                [
+                                    "sort",
+                                    "-k1,1",
+                                    "-k2,2n",
+                                    str(self.output.regions_bed),
+                                ],
+                                description="Sort sample-report alignment windows",
+                            ),
+                            self.shell_cmd(
+                                [
+                                    "bedtools",
+                                    "merge",
+                                    "-i",
+                                    "-",
+                                ],
+                                description="Merge sample-report alignment windows",
+                            ),
                         ],
                         description="Merge sample-report alignment windows",
+                        output_file=self.output.merged_regions_bed,
                     ),
-                ],
-                description="Merge sample-report alignment windows",
-                output_file=self.output.merged_regions_bed,
-            ),
-            self.shell_cmd(
-                [
-                    "samtools",
-                    "index",
-                    str(self.alignment),
-                    str(self.output.alignment_index),
-                ],
-                description="Index input alignment for sample-report window extraction",
-            ),
-            self.shell_pipe(
-                [
                     self.shell_cmd(
                         [
                             "samtools",
-                            "view",
-                            "--threads",
-                            str(ctx.cpus),
-                            "-h",
-                            "-M",
-                            "-X",
-                            "-T",
-                            str(self.reference),
-                            "-L",
-                            str(self.output.merged_regions_bed),
+                            "index",
                             str(self.alignment),
                             str(self.output.alignment_index),
                         ],
-                        description="Create SAM stream for sample-report clipping",
+                        description="Index input alignment for sample-report window extraction",
+                    ),
+                    self.shell_pipe(
+                        [
+                            self.shell_cmd(
+                                [
+                                    "samtools",
+                                    "view",
+                                    "--threads",
+                                    str(ctx.cpus),
+                                    "-h",
+                                    "-M",
+                                    "-X",
+                                    "-T",
+                                    str(self.reference),
+                                    "-L",
+                                    str(self.output.merged_regions_bed),
+                                    str(self.alignment),
+                                    str(self.output.alignment_index),
+                                ],
+                                description="Create SAM stream for sample-report clipping",
+                            ),
+                            self.shell_cmd(
+                                [
+                                    sys.executable,
+                                    "-m",
+                                    "snippy_ng",
+                                    "utils",
+                                    "samcrop",
+                                    "--bed",
+                                    str(self.output.merged_regions_bed),
+                                ],
+                                description="Hard-crop reads to sample-report windows",
+                            ),
+                            self.shell_cmd(
+                                [
+                                    "samtools",
+                                    "sort",
+                                    "--threads",
+                                    str(ctx.cpus),
+                                    "-T",
+                                    f"{self.prefix}.sample-report.sort.tmp",
+                                    "-O",
+                                    "cram,level=9",
+                                    "--reference",
+                                    str(self.reference),
+                                    "-o",
+                                    str(self.output.cram),
+                                    "-",
+                                ],
+                                description="Sort cropped sample-report CRAM",
+                            ),
+                        ],
+                        description="Hard-crop and sort sample-report reads to clipped CRAM",
                     ),
                     self.shell_cmd(
-                        [
-                            sys.executable,
-                            "-m",
-                            "snippy_ng",
-                            "utils",
-                            "samcrop",
-                            "--bed",
-                            str(self.output.merged_regions_bed),
-                        ],
-                        description="Hard-crop reads to sample-report windows",
+                        ["samtools", "index", str(self.output.cram), str(self.output.crai)],
+                        description="Index clipped sample-report CRAM",
                     ),
-                    self.shell_cmd(
-                        [
-                            "samtools",
-                            "sort",
-                            "--threads",
-                            str(ctx.cpus),
-                            "-T",
-                            f"{self.prefix}.sample-report.sort.tmp",
-                            "-O",
-                            "cram,level=9",
-                            "--reference",
-                            str(self.reference),
-                            "-o",
-                            str(self.output.cram),
-                            "-",
-                        ],
-                        description="Sort cropped sample-report CRAM",
-                    ),
-                ],
-                description="Hard-crop and sort sample-report reads to clipped CRAM",
-            ),
-            self.shell_cmd(
-                ["samtools", "index", str(self.output.cram), str(self.output.crai)],
-                description="Index clipped sample-report CRAM",
-            ),
+                ]
+            )
+        commands.append(
             self.python_cmd(
                 func=self.render_sample_report,
                 args=[
                     self.template_path,
                     self.output.rendered,
                     self.output.variants_json,
-                    self.output.cram,
-                    self.output.crai,
+                    self.output.cram if has_igv_assets else None,
+                    self.output.crai if has_igv_assets else None,
                     self.vcf,
-                    self.reference,
-                    reference_index,
+                    self.reference if has_igv_assets else None,
+                    reference_index if has_igv_assets else None,
                     self.title,
                     self.sample_name,
                 ],
                 description="Render sample HTML report",
             ),
-        ]
+        )
+        return commands
 
     @staticmethod
     def _open_text(path: Path):
@@ -851,15 +865,16 @@ class SampleReport(BaseStage):
         template_path: Path,
         output_html: Path,
         variants_json: Path,
-        cram: Path,
-        crai: Path,
+        cram: Optional[Path],
+        crai: Optional[Path],
         vcf: Path,
-        reference: Path,
-        reference_index: Path,
+        reference: Optional[Path],
+        reference_index: Optional[Path],
         title: str,
         sample_name: Optional[str] = None,
     ) -> None:
-        if not reference_index.exists():
+        has_igv = cram is not None and crai is not None and reference is not None and reference_index is not None
+        if has_igv and not reference_index.exists():
             raise PipelineExecutionError(f"Reference index for sample report does not exist: {reference_index}")
 
         context = {
@@ -869,14 +884,15 @@ class SampleReport(BaseStage):
             "VERSION": __version__,
             "VARIANTS_JSON_B64": cls._base64_file(variants_json),
             "VCF_B64": cls._base64_file(vcf),
-            "REFERENCE_FASTA_B64": cls._base64_file(reference),
-            "REFERENCE_INDEX_B64": cls._base64_file(reference_index),
-            "CRAM_B64": cls._base64_file(cram),
-            "CRAI_B64": cls._base64_file(crai),
-            "REFERENCE_NAME": reference.name,
+            "REFERENCE_FASTA_B64": cls._base64_file(reference) if has_igv else "",
+            "REFERENCE_INDEX_B64": cls._base64_file(reference_index) if has_igv else "",
+            "CRAM_B64": cls._base64_file(cram) if has_igv else "",
+            "CRAI_B64": cls._base64_file(crai) if has_igv else "",
+            "HAS_IGV": "true" if has_igv else "false",
+            "REFERENCE_NAME": reference.name if reference else "",
             "VCF_NAME": vcf.name,
-            "CRAM_NAME": cram.name,
-            "CRAI_NAME": crai.name,
+            "CRAM_NAME": cram.name if cram else "",
+            "CRAI_NAME": crai.name if crai else "",
         }
 
         template_content = template_path.read_text(encoding="utf-8")

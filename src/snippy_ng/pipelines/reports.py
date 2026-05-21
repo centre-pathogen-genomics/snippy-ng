@@ -43,8 +43,8 @@ class SampleReportPipelineBuilder(PipelineBuilder):
     """Builder for per-sample variant and alignment reports."""
 
     vcf: Path = Field(..., description="VCF file used to build the variant table")
-    alignment: Path = Field(..., description="BAM/CRAM alignment to window around variants")
-    reference: Path = Field(..., description="Reference genome (FASTA or GenBank) or prepared reference directory")
+    alignment: Optional[Path] = Field(default=None, description="Optional BAM/CRAM alignment to window around variants")
+    reference: Optional[Path] = Field(default=None, description="Optional reference genome (FASTA or GenBank) or prepared reference directory")
     title: str = Field(default="Snippy-NG Sample Report", description="Title for the report")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override")
     variant_scope: str = Field(default="pass", description="Variant scope to include: pass or all")
@@ -53,18 +53,22 @@ class SampleReportPipelineBuilder(PipelineBuilder):
     def build(self):
         stages=[]
         
-        # Setup reference (load existing or prepare new)
-        setup = load_or_prepare_reference(
-            reference_path=self.reference,
-            output_directory=Path("reference"),
-        )
-        stages.append(setup)
+        if self.alignment and not self.reference:
+            raise ValueError("--reference is required when --alignment is provided")
+
+        setup = None
+        if self.alignment and self.reference:
+            setup = load_or_prepare_reference(
+                reference_path=self.reference,
+                output_directory=Path("reference"),
+            )
+            stages.append(setup)
 
         report_stage = SampleReport(
             vcf=self.vcf,
             alignment=self.alignment,
-            reference=setup.output.reference,
-            reference_index=setup.output.reference_index,
+            reference=setup.output.reference if setup else None,
+            reference_index=setup.output.reference_index if setup else None,
             title=self.title,
             sample_name=self.sample_name,
             variant_scope=self.variant_scope,
