@@ -199,7 +199,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     tree_pipeline.run(tree_run_ctx)
 
     # report
-    from snippy_ng.pipelines.report import TreeReportPipelineBuilder
+    from snippy_ng.pipelines.reports import TreeReportPipelineBuilder
 
     report_pipeline = TreeReportPipelineBuilder(
         tree=tree_outdir / tree_pipeline.stages[-1].output.tree,
