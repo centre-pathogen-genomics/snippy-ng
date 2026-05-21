@@ -36,7 +36,7 @@ def report_tree(
         snippy-ng utils report-tree tree.newick --metadata metadata.csv
     """
     from snippy_ng.context import Context
-    from snippy_ng.pipelines.report import TreeReportPipelineBuilder
+    from snippy_ng.pipelines.reports import TreeReportPipelineBuilder
    
     if metadata and metadata.suffix.lower() not in [".json", ".csv", ".tsv"]:
         raise click.BadParameter("Metadata file must be in JSON, CSV, or TSV format", param_hint="--metadata")
