@@ -7,7 +7,7 @@ from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter
+from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
@@ -215,8 +215,14 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        collapse_genotypes = CollapseDiploidGenotypes(
+            vcf=consequences.output.annotated_vcf,
+            **globals,
+        )
+        stages.append(collapse_genotypes)
+
         final_vcf = CopyFile(
-            input=consequences.output.annotated_vcf,
+            input=collapse_genotypes.output.vcf,
             output_path=f"{self.prefix}.all.vcf",
         )
         stages.append(final_vcf)

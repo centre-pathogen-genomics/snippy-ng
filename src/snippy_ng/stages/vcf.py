@@ -21,6 +21,102 @@ class AssemblyVariantContextFilterOutput(BaseOutput):
 class VcfPassFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="VCF containing only PASS variants")
 
+
+class VcfToTabOutput(BaseOutput):
+    tab: Path = Field(..., description="Tab-delimited variant table derived from a VCF")
+
+
+class VcfToTab(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file to convert into a tab-delimited table")
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfToTabOutput:
+        return VcfToTabOutput(
+            tab=Path(f"{self.prefix}.tab")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "query",
+                    "-f",
+                    "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
+                    str(self.vcf),
+                ],
+                description="Convert VCF records into a simple tab-delimited table",
+                output_file=self.output.tab,
+            )
+        ]
+
+
+class CollapseDiploidGenotypesOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF with diploid genotypes collapsed to haploid genotypes")
+
+class CollapseDiploidGenotypes(BaseStage):
+    vcf: Path = Field(..., description="Input VCF file whose GT field should be collapsed")
+
+    @property
+    def output(self) -> CollapseDiploidGenotypesOutput:
+        return CollapseDiploidGenotypesOutput(
+            vcf=Path(f"{self.prefix}.haploid.vcf")
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.python_cmd(
+                func=self.collapse_genotypes,
+                args=[self.vcf, self.output.vcf],
+                description="Collapse diploid genotypes to haploid genotypes",
+            )
+        ]
+
+    @staticmethod
+    def _collapse_gt(gt: str) -> str:
+        if gt in {"1/1", "1|1"}:
+            return "1"
+        if gt in {"0/1", "1/0", "0|1", "1|0"}:
+            return "."
+        return gt
+
+    @classmethod
+    def collapse_genotypes(cls, input_vcf: Path, output_vcf: Path) -> None:
+        with open(input_vcf, "r", encoding="utf-8") as in_handle, open(output_vcf, "w", encoding="utf-8") as out_handle:
+            for raw_line in in_handle:
+                if raw_line.startswith("#"):
+                    out_handle.write(raw_line)
+                    continue
+
+                stripped = raw_line.rstrip("\n")
+                if not stripped:
+                    out_handle.write(raw_line)
+                    continue
+
+                fields = stripped.split("\t")
+                if len(fields) < 10:
+                    out_handle.write(raw_line)
+                    continue
+
+                format_fields = fields[8].split(":")
+                try:
+                    gt_index = format_fields.index("GT")
+                except ValueError:
+                    out_handle.write(raw_line)
+                    continue
+
+                for sample_index in range(9, len(fields)):
+                    sample_fields = fields[sample_index].split(":")
+                    if gt_index >= len(sample_fields):
+                        continue
+                    sample_fields[gt_index] = cls._collapse_gt(sample_fields[gt_index])
+                    fields[sample_index] = ":".join(sample_fields)
+
+                out_handle.write("\t".join(fields) + "\n")
+
+
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
     no_insertions: bool = Field(False, description="Remove insertions from the output VCF")

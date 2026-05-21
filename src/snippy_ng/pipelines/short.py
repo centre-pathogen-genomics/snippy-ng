@@ -8,7 +8,7 @@ from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -39,7 +39,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     report: bool = Field(default=True, description="Create per-sample HTML report")
-    report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
+    report_scope: str = Field(default="all", description="Variant scope for the sample report: pass or all")
     report_window_size: int = Field(default=1000, description="Base pairs of context around each report variant")
 
 
@@ -191,8 +191,14 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        collapse_genotypes = CollapseDiploidGenotypes(
+            vcf=consequences.output.annotated_vcf,
+            **globals,
+        )
+        stages.append(collapse_genotypes)
+
         final_vcf = CopyFile(
-            input=consequences.output.annotated_vcf,
+            input=collapse_genotypes.output.vcf,
             output_path=f"{self.prefix}.all.vcf",
         )
         stages.append(final_vcf)

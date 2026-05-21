@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter
+from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
@@ -119,8 +119,14 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        collapse_genotypes = CollapseDiploidGenotypes(
+            vcf=consequences.output.annotated_vcf,
+            prefix=self.prefix,
+        )
+        stages.append(collapse_genotypes)
+
         final_vcf = CopyFile(
-            input=consequences.output.annotated_vcf,
+            input=collapse_genotypes.output.vcf,
             output_path=f"{self.prefix}.all.vcf",
         )
         stages.append(final_vcf)

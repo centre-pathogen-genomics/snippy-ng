@@ -4,6 +4,7 @@ import snippy_ng.pipelines.reports as report_pipeline_module
 from snippy_ng.stages.copy import CopyFile
 from snippy_ng.stages.reporting import SampleReport
 from snippy_ng.stages.stats import VcfStats
+from snippy_ng.stages.vcf import CollapseDiploidGenotypes
 from tests.cli.conftest import DummyPipeline
 from tests.cli.helpers import make_prepared_reference, run_cli_command, stub_load_or_prepare_reference
 
@@ -179,10 +180,12 @@ def test_short_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
         prefix="sample",
     ).build()
 
+    collapse_stage = next(stage for stage in pipeline.stages if isinstance(stage, CollapseDiploidGenotypes))
     final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
     vcf_stats = next(stage for stage in pipeline.stages if isinstance(stage, VcfStats))
     sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
 
+    assert final_vcf.input == collapse_stage.output.vcf
     assert vcf_stats.vcf == final_vcf.output.copied_file
     assert sample_report.vcf == final_vcf.output.copied_file
 
@@ -208,9 +211,11 @@ def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
         prefix="sample",
     ).build()
 
+    collapse_stage = next(stage for stage in pipeline.stages if isinstance(stage, CollapseDiploidGenotypes))
     final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
     vcf_stats = next(stage for stage in pipeline.stages if isinstance(stage, VcfStats))
     sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
 
+    assert final_vcf.input == collapse_stage.output.vcf
     assert vcf_stats.vcf == final_vcf.output.copied_file
     assert sample_report.vcf == final_vcf.output.copied_file
