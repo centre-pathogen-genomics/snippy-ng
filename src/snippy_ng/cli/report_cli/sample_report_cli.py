@@ -14,7 +14,7 @@ from snippy_ng.cli.utils.globals import (
 
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the sample report", callback=check_outdir_callback, cls=GlobalOption)
-@click.option("--prefix", "-p", default="sample-report", help="Prefix for HTML report", cls=GlobalOption)
+@click.option("--prefix", "-p", default="sample", help="Prefix for HTML report", cls=GlobalOption)
 @add_snippy_global_options(exclude=["prefix", "outdir"])
 @click.argument("vcf", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--alignment", "--cram", "--bam", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional BAM or CRAM alignment file to embed after windowing")
