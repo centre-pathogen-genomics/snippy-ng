@@ -1,7 +1,9 @@
 from pathlib import Path
 
 import snippy_ng.pipelines.reports as report_pipeline_module
+from snippy_ng.stages.copy import CopyFile
 from snippy_ng.stages.reporting import SampleReport
+from snippy_ng.stages.stats import VcfStats
 from tests.cli.conftest import DummyPipeline
 from tests.cli.helpers import make_prepared_reference, run_cli_command, stub_load_or_prepare_reference
 
@@ -155,3 +157,60 @@ def test_long_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
     ).build()
 
     assert not any(isinstance(stage, SampleReport) for stage in pipeline.stages)
+
+
+def test_short_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.short import ShortPipelineBuilder
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.short.load_or_prepare_reference",
+    )
+    bam = tmp_path / "reads.bam"
+    bam.write_text("bam")
+
+    pipeline = ShortPipelineBuilder(
+        reference=ref_file,
+        reads=[],
+        bam=bam,
+        report_scope="all",
+        prefix="sample",
+    ).build()
+
+    final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
+    vcf_stats = next(stage for stage in pipeline.stages if isinstance(stage, VcfStats))
+    sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+
+    assert vcf_stats.vcf == final_vcf.output.copied_file
+    assert sample_report.vcf == final_vcf.output.copied_file
+
+
+def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.long import LongPipelineBuilder
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.long.load_or_prepare_reference",
+    )
+    bam = tmp_path / "reads.bam"
+    bam.write_text("bam")
+
+    pipeline = LongPipelineBuilder(
+        reference=ref_file,
+        reads=None,
+        bam=bam,
+        caller="freebayes",
+        report_scope="all",
+        prefix="sample",
+    ).build()
+
+    final_vcf = next(stage for stage in pipeline.stages if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf"))
+    vcf_stats = next(stage for stage in pipeline.stages if isinstance(stage, VcfStats))
+    sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+
+    assert vcf_stats.vcf == final_vcf.output.copied_file
+    assert sample_report.vcf == final_vcf.output.copied_file
