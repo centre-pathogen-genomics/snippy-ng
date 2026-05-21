@@ -1,0 +1,2259 @@
+<!-- Open this file in a web browser to view the interactive sample report -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{REPORT_NAME}}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@3.0.9/dist/igv.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
+    <link href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/tabulator-tables/dist/js/tabulator.min.js"></script>
+    <script type="text/javascript" src="https://oss.sheetjs.com/sheetjs/xlsx.full.min.js"></script>
+
+    <style>
+      .tabulator {
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+      }
+
+      #variant-table .tabulator-row {
+        cursor: pointer;
+      }
+
+      #variant-table .tabulator-row.tabulator-selected {
+        background-color: #3c72832a !important;
+      }
+
+      #variant-table .tabulator-row.sample-report-active-row,
+      #variant-table .tabulator-row.sample-report-active-row .tabulator-cell {
+        background-color: #3c72832a !important;
+      }
+
+      #variant-table .tabulator-row.tabulator-row-odd.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: #ffffff !important;
+      }
+
+      #variant-table .tabulator-row.tabulator-row-even.tabulator-selected .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: rgb(239, 239, 239) !important;
+      }
+
+      #variant-table .tabulator-row.sample-report-active-row .tabulator-cell.tabulator-row-header.tabulator-frozen.tabulator-frozen-left {
+        background-color: #3C738363 !important;
+      }
+
+      #variant-table .tabulator-cell.tabulator-row-header,
+      #variant-table .tabulator-col.tabulator-row-header {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      .sample-column-option {
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        text-align: left;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.4rem;
+        background: #ffffff;
+        padding: 0.35rem 0.45rem;
+        font-size: 0.8rem;
+        color: #334155;
+      }
+
+      .sample-column-option:hover {
+        background: #f8fafc;
+      }
+
+      .sample-column-option.active {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+
+      .sample-column-title {
+        flex: 0 0 auto;
+      }
+
+      .sample-column-description {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #94a3b8;
+      }
+
+      #igv-panel {
+        overflow: hidden;
+      }
+
+      #igv-panel:not(.hidden) {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #flex-plot-panel.hidden,
+      #igv-panel.hidden,
+      #viewer-plot-row.hidden,
+      #variant-table-container.hidden {
+        display: none !important;
+      }
+
+      #igv-container {
+        flex: 1 1 auto;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      #sample-report-layout {
+        min-height: calc(100vh - 8.5rem);
+      }
+
+      #flex-plot {
+        width: 100%;
+        min-height: 0;
+      }
+
+      #flex-plot-controls-drawer {
+        width: 0;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        transition: width 160ms ease;
+      }
+
+      #flex-plot-controls-drawer::-webkit-scrollbar {
+        width: 0.45rem;
+      }
+
+      #flex-plot-controls-drawer::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: #cbd5e1;
+      }
+
+      #flex-plot-controls-drawer::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      #flex-plot-panel.controls-open #flex-plot-controls-drawer {
+        width: 13rem;
+      }
+
+    </style>
+
+    <script>
+      const embeddedData = {
+        variantsJson: "{{VARIANTS_JSON_B64}}",
+        vcf: "{{VCF_B64}}",
+        referenceFasta: "{{REFERENCE_FASTA_B64}}",
+        referenceIndex: "{{REFERENCE_INDEX_B64}}",
+        cram: "{{CRAM_B64}}",
+        crai: "{{CRAI_B64}}",
+        referenceName: "{{REFERENCE_NAME}}",
+        vcfName: "{{VCF_NAME}}",
+        cramName: "{{CRAM_NAME}}",
+        craiName: "{{CRAI_NAME}}",
+      };
+
+      function decodeBase64ToBlobUrl(value, type = "application/octet-stream") {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return URL.createObjectURL(new Blob([bytes], { type }));
+      }
+
+      function decodeBase64ToText(value) {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder().decode(bytes);
+      }
+
+      function parseEmbeddedJson(value) {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return JSON.parse(new TextDecoder().decode(bytes));
+      }
+    </script>
+  </head>
+
+  <body class="bg-slate-50 text-slate-900">
+    <div class="flex flex-row justify-between w-full border bg-white shadow p-2 items-center">
+      <div class="p-2">
+        <h1 class="text-2xl font-bold">{{REPORT_NAME}}</h1>
+        <h2 class="text-sm text-slate-500 mt-1">{{DATETIME}}</h2>
+      </div>
+      <div
+        class="p-2 hover:text-blue-300 text-slate-500 transition-colors duration-200 cursor-pointer"
+        id="info-panel"
+        aria-label="About this report"
+        role="button"
+        tabindex="0"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-7"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+          />
+        </svg>
+      </div>
+    </div>
+
+    <div
+      id="about-modal"
+      class="fixed inset-0 z-[3000] hidden"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="about-modal-title"
+    >
+      <div class="absolute inset-0 bg-slate-900/60" id="about-modal-backdrop"></div>
+      <div class="relative flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-4xl rounded-lg bg-white shadow-xl border">
+          <div class="flex items-center justify-between border-b px-4 py-3">
+            <h3 id="about-modal-title" class="text-lg font-semibold text-slate-900">About</h3>
+            <button
+              id="about-modal-close"
+              type="button"
+              class="rounded p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              aria-label="Close about modal"
+            >
+              x
+            </button>
+          </div>
+          <div class="max-h-[70vh] overflow-auto p-4 bg-slate-100">
+            <div class="mb-4 text-sm text-slate-700">
+	              <ul class="space-y-2">
+	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Inspect variants:</b> Click a table row to move the embedded IGV viewer to that position.</li>
+	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and export the table as CSV or XLSX.</li>
+	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>IGV tracks:</b> The report embeds the selected VCF, reference FASTA/index, and a CRAM/index cropped to the variant windows so the viewer works client-side with less alignment data.</li>
+	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Read cropping:</b> Alignments are hard-cropped to the report windows before embedding; reads crossing separate windows may appear as separate cropped segments.</li>
+	                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Panel shortcuts:</b> Press <b>C</b> to show or hide the chart, <b>I</b> to show or hide IGV, and <b>D</b> to show or hide the variant table.</li>
+	              </ul>
+            </div>
+          </div>
+          <footer class="flex flex-row border-t px-4 py-3 text-xs text-slate-500 justify-between">
+            <p class="text-slate-700">
+              This report was generated using Snippy-NG (v{{VERSION}}) at {{DATETIME}}.
+            </p>
+            <a
+              href="https://github.com/centre-pathogen-genomics/snippy-ng"
+              target="_blank"
+              class="text-blue-600 hover:underline"
+              >GitHub
+            </a>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <div id="sample-report-layout" class="p-4">
+      <div class="grid grid-cols-1 gap-2">
+        <div id="viewer-plot-row" class="flex flex-col gap-2 md:flex-row">
+          <div
+            id="flex-plot-panel"
+            class="controls-open h-[42vh] min-h-[260px] min-w-0 border rounded-lg bg-white shadow overflow-hidden flex flex-col"
+          >
+            <div class="flex items-center justify-between gap-3 border-b bg-slate-100 px-3 pb-1 pt-1">
+              <h3 class="whitespace-nowrap text-sm font-semibold text-slate-700">Variant Plot</h3>
+              <div class="flex min-w-0 items-center gap-2">
+                <span id="flex-plot-status" class="truncate text-xs text-slate-500"></span>
+                <button
+                  id="flex-plot-download"
+                  type="button"
+                  class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  title="Download plot image"
+                >
+                  Download
+                </button>
+                <button
+                  id="flex-plot-controls-toggle"
+                  type="button"
+                  class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-controls="flex-plot-controls-drawer"
+                  aria-expanded="false"
+                >
+                  Controls
+                </button>
+              </div>
+            </div>
+            <div class="flex min-h-0 flex-1">
+              <div
+                id="flex-plot-controls-drawer"
+                class="border-r bg-slate-100"
+              >
+                <div
+	                  id="flex-plot-footer"
+	                  class="flex w-52 flex-col gap-2 py-3 pl-3 pr-4 text-sm text-slate-700"
+                >
+                  <label class="font-semibold" for="flex-plot-type">Chart</label>
+                  <select id="flex-plot-type" class="w-full rounded border border-slate-300 bg-white px-2 py-1">
+                    <option value="bar">Bar</option>
+                    <option value="pie">Pie</option>
+                    <option value="line">Line</option>
+                    <option value="area">Area</option>
+                    <option value="histogram">Histogram</option>
+                    <option value="boxplot">Boxplot</option>
+                    <option value="scatter">Scatter</option>
+                  </select>
+
+                  <span id="flex-plot-single-controls" class="flex flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-column">Column</label>
+                    <select id="flex-plot-column" class="w-full rounded border border-slate-300 bg-white px-2 py-1"></select>
+                  </span>
+
+                  <span id="flex-plot-xy-controls" class="hidden flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-x">X</label>
+                    <select id="flex-plot-x" class="w-full rounded border border-slate-300 bg-white px-2 py-1"></select>
+                    <label class="font-semibold" for="flex-plot-y">Y</label>
+                    <select id="flex-plot-y" class="w-full rounded border border-slate-300 bg-white px-2 py-1"></select>
+                  </span>
+
+                  <span id="flex-plot-aggregation-controls" class="flex flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-aggregation">Aggregation</label>
+                    <select id="flex-plot-aggregation" class="w-full rounded border border-slate-300 bg-white px-2 py-1">
+                      <option value="count">Count</option>
+                      <option value="sum">Sum</option>
+                      <option value="mean">Mean</option>
+                      <option value="median">Median</option>
+                      <option value="min">Min</option>
+                      <option value="max">Max</option>
+                    </select>
+                  </span>
+
+                  <span id="flex-plot-value-controls" class="flex flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-value">Value</label>
+                    <select id="flex-plot-value" class="w-full rounded border border-slate-300 bg-white px-2 py-1"></select>
+                  </span>
+
+                  <span id="flex-plot-bin-controls" class="hidden flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-bins">Bins</label>
+                    <input id="flex-plot-bins" class="w-full rounded border border-slate-300 bg-white px-2 py-1" type="number" min="2" max="100" value="20" />
+                  </span>
+
+                  <span id="flex-plot-sort-controls" class="flex flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-sort">Sort</label>
+                    <select id="flex-plot-sort" class="w-full rounded border border-slate-300 bg-white px-2 py-1">
+                      <option value="value-desc">Value desc</option>
+                      <option value="value-asc">Value asc</option>
+                      <option value="label-asc">Label asc</option>
+                      <option value="none">VCF order</option>
+                    </select>
+                  </span>
+
+                  <span id="flex-plot-window-controls" class="hidden flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-window">Window</label>
+                    <select id="flex-plot-window" class="w-full rounded border border-slate-300 bg-white px-2 py-1">
+                      <option value="100">100 bp</option>
+                      <option value="1000" selected>1 kb</option>
+                      <option value="10000">10 kb</option>
+                      <option value="100000">100 kb</option>
+                    </select>
+                  </span>
+
+                  <span id="flex-plot-colour-controls" class="flex flex-col gap-2">
+                    <label class="font-semibold" for="flex-plot-colour">Colour by</label>
+                    <select id="flex-plot-colour" class="w-full rounded border border-slate-300 bg-white px-2 py-1"></select>
+                  </span>
+
+                  <label id="flex-plot-log-controls" class="flex items-center gap-2 font-semibold">
+                    <input id="flex-plot-log" class="h-4 w-4" type="checkbox" />
+                    Log scale
+                  </label>
+                </div>
+              </div>
+              <div id="flex-plot" class="min-w-0 flex-1"></div>
+            </div>
+          </div>
+
+          <div
+            id="col-resizer"
+            class="h-2 w-16 self-center rounded bg-slate-300 hover:border-2 border-slate-200 cursor-row-resize touch-none md:h-16 md:w-2 md:cursor-col-resize"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize plot and IGV panels"
+          >
+          </div>
+
+          <div
+            id="igv-panel"
+            class="h-[42vh] min-h-[260px] min-w-0 border rounded-lg bg-white shadow"
+          >
+            <div id="igv-container"></div>
+          </div>
+        </div>
+
+        <div class="flex flex-row justify-center">
+          <div
+            id="row-resizer"
+            class="h-2 w-16 rounded bg-slate-300 hover:border-2 border-slate-200 cursor-row-resize"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize top panels"
+          ></div>
+        </div>
+
+        <div
+          id="variant-table-container"
+          class="border rounded-lg bg-white shadow"
+        >
+          <div class="relative z-20 flex items-center justify-between gap-3 border-b bg-slate-100 px-3 pb-1 pt-1">
+            <h3 class="whitespace-nowrap text-sm font-semibold text-slate-700">Variant Table</h3>
+            <div class="flex min-w-0 items-center justify-end gap-2">
+              <div>
+                <button
+                  type="button"
+                  class="tabulator-filter-menu-toggle inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-expanded="false"
+                >
+                  <span>Filters</span>
+                  <span class="tabulator-filter-count rounded bg-slate-200 px-1.5 py-0.5 text-[0.65rem] leading-none text-slate-700">0</span>
+                </button>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  class="tabulator-column-menu-toggle inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-expanded="false"
+                >
+                  <span>Columns</span>
+                  <span class="tabulator-column-count rounded bg-slate-200 px-1.5 py-0.5 text-[0.65rem] leading-none text-slate-700">0/0</span>
+                </button>
+              </div>
+            </div>
+            <div
+              class="tabulator-filter-menu absolute left-2 right-2 top-full z-[2500] mt-1 hidden max-h-[min(60vh,28rem)] overflow-auto rounded-md border border-slate-300 bg-white p-3 text-sm shadow-lg sm:left-auto sm:right-2 sm:w-[min(36rem,72vw)]"
+            ></div>
+            <div
+              class="tabulator-column-menu absolute left-2 right-2 top-full z-[2500] mt-1 hidden max-h-[min(60vh,16rem)] overflow-auto rounded-lg border border-slate-200 bg-white p-[0.65rem] text-sm shadow-lg sm:left-auto sm:right-2 sm:w-80 sm:max-w-[min(20rem,calc(100vw-1rem))]"
+            ></div>
+          </div>
+          <div id="variant-table" class="w-full"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      const variantsPayload = parseEmbeddedJson(embeddedData.variantsJson);
+      const variants = Array.isArray(variantsPayload) ? variantsPayload : variantsPayload.variants || [];
+      const sampleFields = Array.isArray(variantsPayload) ? [] : variantsPayload.sampleFields || [];
+      const infoFields = Array.isArray(variantsPayload) ? [] : variantsPayload.infoFields || [];
+      variants.forEach((variant, index) => {
+        variant._sample_report_index = index;
+      });
+      const defaultVariant =
+        variants.find((variant) => String(variant.type).toUpperCase() === "SNP") ||
+        variants[0];
+
+      const referenceUrl = decodeBase64ToBlobUrl(embeddedData.referenceFasta);
+      const referenceIndexUrl = decodeBase64ToBlobUrl(embeddedData.referenceIndex);
+      const vcfUrl = decodeBase64ToBlobUrl(embeddedData.vcf, "text/plain");
+      const cramUrl = decodeBase64ToBlobUrl(embeddedData.cram);
+      const craiUrl = decodeBase64ToBlobUrl(embeddedData.crai);
+      const referenceContigs = new Map(
+        decodeBase64ToText(embeddedData.referenceIndex)
+          .trim()
+          .split(/\n+/)
+          .filter(Boolean)
+          .map((line) => {
+            const fields = line.split("\t");
+            return [fields[0], Number(fields[1]) || 0];
+          }),
+      );
+
+      let browser;
+      let table = null;
+      let isResizingRows = false;
+      let isResizingCols = false;
+      const MIN_PANEL_SIZE = 180;
+      const ROW_RESIZER_OFFSET_PX = 8;
+      const IGV_STATIC_HEIGHT_PX = 150;
+      const MIN_VARIANT_TRACK_HEIGHT = 32;
+      const MAX_VARIANT_TRACK_HEIGHT = 70;
+      const MIN_ALIGNMENT_TRACK_HEIGHT = 70;
+      const DEFAULT_PLOT_WIDTH_PCT = 35;
+      const MIN_PLOT_WIDTH_PCT = 20;
+      const MAX_PLOT_WIDTH_PCT = 70;
+      const TOP_PANEL_ROW_MIN_WIDTH_PX = 768;
+      const MAX_CATEGORICAL_LEVELS = 100;
+      const igvPanel = document.getElementById("igv-panel");
+      const igvContainer = document.getElementById("igv-container");
+      const viewerPlotRow = document.getElementById("viewer-plot-row");
+      const variantTableContainer = document.getElementById("variant-table-container");
+      const flexPlotElement = document.getElementById("flex-plot");
+      const flexPlotPanel = document.getElementById("flex-plot-panel");
+      const flexPlotStatus = document.getElementById("flex-plot-status");
+      const flexPlotType = document.getElementById("flex-plot-type");
+      const flexPlotColumn = document.getElementById("flex-plot-column");
+      const flexPlotValue = document.getElementById("flex-plot-value");
+      const flexPlotX = document.getElementById("flex-plot-x");
+      const flexPlotY = document.getElementById("flex-plot-y");
+      const flexPlotAggregation = document.getElementById("flex-plot-aggregation");
+      const flexPlotBins = document.getElementById("flex-plot-bins");
+      const flexPlotSort = document.getElementById("flex-plot-sort");
+      const flexPlotWindow = document.getElementById("flex-plot-window");
+      const flexPlotColour = document.getElementById("flex-plot-colour");
+      const flexPlotSingleControls = document.getElementById("flex-plot-single-controls");
+      const flexPlotValueControls = document.getElementById("flex-plot-value-controls");
+      const flexPlotXyControls = document.getElementById("flex-plot-xy-controls");
+      const flexPlotAggregationControls = document.getElementById("flex-plot-aggregation-controls");
+      const flexPlotBinControls = document.getElementById("flex-plot-bin-controls");
+      const flexPlotSortControls = document.getElementById("flex-plot-sort-controls");
+      const flexPlotWindowControls = document.getElementById("flex-plot-window-controls");
+      const flexPlotColourControls = document.getElementById("flex-plot-colour-controls");
+      const flexPlotLogControls = document.getElementById("flex-plot-log-controls");
+      const flexPlotLog = document.getElementById("flex-plot-log");
+      const flexPlotDownload = document.getElementById("flex-plot-download");
+      const flexPlotControlsToggle = document.getElementById("flex-plot-controls-toggle");
+      const sampleReportLayout = document.getElementById("sample-report-layout");
+      const rowResizer = document.getElementById("row-resizer");
+      const colResizer = document.getElementById("col-resizer");
+      let resizeRefreshPending = false;
+      let flexPlot = null;
+      let flexPlotClickHandlerBound = false;
+      let selectedVariantIndex = undefined;
+      let currentPlotWidthPct = DEFAULT_PLOT_WIDTH_PCT;
+      let previousFlexPlotType = "";
+      let flexPlotRefreshPending = false;
+      let initialLargeScreenPanelHeightApplied = false;
+      let panelHeightManuallyAdjusted = false;
+      const plotPalette = ["#3C7383", "#D97706", "#2563EB", "#7C3AED", "#16A34A", "#DC2626", "#64748B", "#0891B2"];
+      const basePlotFields = [
+        { title: "Contig", field: "chrom" },
+        { title: "Pos", field: "pos", numeric: true },
+        { title: "Ref", field: "ref" },
+        { title: "Alt", field: "alt" },
+        { title: "Qual", field: "qual", numeric: true },
+        { title: "Filter", field: "filter" },
+        { title: "Type", field: "type" },
+        { title: "Consequence", field: "consequence" },
+      ];
+      const samplePlotFields = sampleFields.map((field) => ({
+        title: field.id,
+        field: field.id,
+        numeric: ["Integer", "Float"].includes(field.type),
+      }));
+      const infoPlotFields = infoFields.map((field) => ({
+        title: field.id,
+        field: field.field || `INFO:${field.id}`,
+        numeric: ["Integer", "Float"].includes(field.type),
+      }));
+      const plotFields = [...basePlotFields, ...samplePlotFields, ...infoPlotFields];
+      const numericPlotFields = plotFields.filter((field) => field.numeric);
+      const categoricalLevelCounts = new Map(
+        plotFields.map((field) => [field.field, new Set(variants.map((row) => valueLabel(row[field.field]))).size]),
+      );
+
+      function syncIgvContainerToPanel() {
+        if (!igvPanel || !igvContainer) return;
+        if (igvPanel.classList.contains("hidden")) return;
+        const panelHeight = Math.max(
+          MIN_PANEL_SIZE,
+          Math.floor(igvPanel.clientHeight || igvPanel.getBoundingClientRect().height),
+        );
+        igvContainer.style.height = `${panelHeight}px`;
+      }
+
+      function countByField(rows, field) {
+        return rows.reduce((counts, row) => {
+          const value = row[field] === undefined || row[field] === null || row[field] === "" ? "Unknown" : String(row[field]);
+          counts[value] = (counts[value] || 0) + 1;
+          return counts;
+        }, {});
+      }
+
+      function valueLabel(value) {
+        return value === undefined || value === null || value === "" ? "Unknown" : String(value);
+      }
+
+      function asNumber(value) {
+        if (value === undefined || value === null || value === "") return undefined;
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) ? numberValue : undefined;
+      }
+
+      function populatePlotSelect(select, includeNone = false, fields = plotFields) {
+        if (!select) return;
+        select.replaceChildren();
+        if (includeNone) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "None";
+          select.appendChild(option);
+        }
+        fields.forEach((field) => {
+          const option = document.createElement("option");
+          option.value = field.field;
+          option.textContent = field.disabled ? `${field.title} (${field.disabledReason || "unavailable"})` : field.title;
+          option.disabled = Boolean(field.disabled);
+          select.appendChild(option);
+        });
+      }
+
+      function hasRenderableCategoryCount(field) {
+        return (categoricalLevelCounts.get(field) || 0) <= MAX_CATEGORICAL_LEVELS;
+      }
+
+      function disableTooManyValues(field) {
+        return {
+          ...field,
+          disabled: true,
+          disabledReason: "too many values",
+        };
+      }
+
+      function categoricalPlotFieldsForChart(chartType) {
+        return plotFields.map((field) => {
+          if (field.field === "pos" && ["bar", "line", "area"].includes(chartType)) return field;
+          return hasRenderableCategoryCount(field.field) ? field : disableTooManyValues(field);
+        });
+      }
+
+      function colourPlotFieldsForChart(chartType) {
+        if (!["bar", "line", "area", "scatter"].includes(chartType)) return [];
+        return plotFields.map((field) => {
+          if (field.numeric || hasRenderableCategoryCount(field.field)) return field;
+          return disableTooManyValues(field);
+        });
+      }
+
+      function syncSelectOptions(select, fields, includeNone = false, fallback = "") {
+        if (!select) return;
+        const previousValue = select.value;
+        populatePlotSelect(select, includeNone, fields);
+        const enabledFields = fields.filter((field) => !field.disabled);
+        if (includeNone && previousValue === "") {
+          select.value = "";
+        } else if (enabledFields.some((field) => field.field === previousValue)) {
+          select.value = previousValue;
+        } else if (fallback && enabledFields.some((field) => field.field === fallback)) {
+          select.value = fallback;
+        } else if (!includeNone && enabledFields.length > 0) {
+          select.value = enabledFields[0].field;
+        }
+      }
+
+      function initPlotControls() {
+        populatePlotSelect(flexPlotColumn, false, categoricalPlotFieldsForChart("bar"));
+        [flexPlotValue, flexPlotX, flexPlotY].forEach((select) => populatePlotSelect(select, false, numericPlotFields));
+        populatePlotSelect(flexPlotColour, true, colourPlotFieldsForChart("bar"));
+        if (flexPlotColumn) flexPlotColumn.value = "type";
+        if (flexPlotValue) flexPlotValue.value = "qual";
+        if (flexPlotX) flexPlotX.value = "pos";
+        if (flexPlotY) flexPlotY.value = "qual";
+        if (flexPlotColour) flexPlotColour.value = "type";
+        [
+          flexPlotType,
+          flexPlotColumn,
+          flexPlotValue,
+          flexPlotX,
+          flexPlotY,
+          flexPlotAggregation,
+          flexPlotBins,
+          flexPlotSort,
+          flexPlotWindow,
+          flexPlotColour,
+          flexPlotLog,
+        ].forEach((control) => {
+          if (!control) return;
+          control.addEventListener("change", renderFlexPlot);
+          control.addEventListener("input", renderFlexPlot);
+        });
+      }
+
+      function syncFlexPlotControls() {
+        const chartType = flexPlotType ? flexPlotType.value : "bar";
+        syncSelectOptions(flexPlotColumn, categoricalPlotFieldsForChart(chartType), false, "type");
+        syncSelectOptions(flexPlotColour, colourPlotFieldsForChart(chartType), true, "type");
+        const categoryField = flexPlotColumn ? flexPlotColumn.value : "type";
+        const aggregation = flexPlotAggregation ? flexPlotAggregation.value : "count";
+        const usesPositionWindows = ["bar", "line", "area"].includes(chartType) && categoryField === "pos";
+        const needsCategory = ["bar", "line", "area", "pie", "boxplot"].includes(chartType);
+        const needsValue =
+          ["histogram", "boxplot"].includes(chartType) ||
+          (["bar", "line", "area"].includes(chartType) && aggregation !== "count");
+        const needsAggregation = ["bar", "line", "area"].includes(chartType);
+        const needsBins = chartType === "histogram";
+        const needsSort = ["bar", "line", "area", "pie", "boxplot"].includes(chartType) && !usesPositionWindows;
+        const needsColour = ["bar", "line", "area", "scatter"].includes(chartType);
+        const needsLog = ["bar", "line", "area", "histogram", "boxplot", "scatter"].includes(chartType);
+        const needsXY = chartType === "scatter";
+        if (flexPlotSingleControls) {
+          flexPlotSingleControls.classList.toggle("hidden", !needsCategory);
+          flexPlotSingleControls.classList.toggle("flex", needsCategory);
+        }
+        if (flexPlotValueControls) {
+          flexPlotValueControls.classList.toggle("hidden", !needsValue);
+          flexPlotValueControls.classList.toggle("flex", needsValue);
+        }
+        if (flexPlotXyControls) {
+          flexPlotXyControls.classList.toggle("hidden", !needsXY);
+          flexPlotXyControls.classList.toggle("flex", needsXY);
+        }
+        if (flexPlotAggregationControls) {
+          flexPlotAggregationControls.classList.toggle("hidden", !needsAggregation);
+          flexPlotAggregationControls.classList.toggle("flex", needsAggregation);
+        }
+        if (flexPlotBinControls) {
+          flexPlotBinControls.classList.toggle("hidden", !needsBins);
+          flexPlotBinControls.classList.toggle("flex", needsBins);
+        }
+        if (flexPlotSortControls) {
+          flexPlotSortControls.classList.toggle("hidden", !needsSort);
+          flexPlotSortControls.classList.toggle("flex", needsSort);
+        }
+        if (flexPlotWindowControls) {
+          flexPlotWindowControls.classList.toggle("hidden", !usesPositionWindows);
+          flexPlotWindowControls.classList.toggle("flex", usesPositionWindows);
+        }
+        if (flexPlotColourControls) {
+          flexPlotColourControls.classList.toggle("hidden", !needsColour);
+          flexPlotColourControls.classList.toggle("flex", needsColour);
+        }
+        if (flexPlotLogControls) {
+          flexPlotLogControls.classList.toggle("hidden", !needsLog);
+          flexPlotLogControls.classList.toggle("flex", needsLog);
+        }
+      }
+
+      function syncXyFieldOptions(chartType, plotTypeChanged) {
+        const fields = numericPlotFields;
+        [flexPlotX, flexPlotY].forEach((select) => {
+          if (!select) return;
+          const previousValue = select.value;
+          populatePlotSelect(select, false, fields);
+          if (fields.some((field) => field.field === previousValue)) {
+            select.value = previousValue;
+          }
+        });
+        if (plotTypeChanged && chartType === "scatter") {
+          if (flexPlotX) flexPlotX.value = "pos";
+          if (flexPlotY) flexPlotY.value = "qual";
+        } else {
+          if (flexPlotX && !flexPlotX.value) flexPlotX.value = fields[0]?.field || "";
+          if (flexPlotY && !flexPlotY.value) flexPlotY.value = fields[1]?.field || fields[0]?.field || "";
+        }
+      }
+
+      function resizeFlexPlotSoon() {
+        if (!flexPlotElement || !flexPlot) return;
+        requestAnimationFrame(() => {
+          Plotly.Plots.resize(flexPlotElement);
+          requestAnimationFrame(() => Plotly.Plots.resize(flexPlotElement));
+          window.setTimeout(() => Plotly.Plots.resize(flexPlotElement), 180);
+        });
+      }
+
+      function syncFlexPlotControlsDrawer() {
+        if (!flexPlotPanel || !flexPlotControlsToggle) return;
+        const isOpen = flexPlotPanel.classList.contains("controls-open");
+        flexPlotControlsToggle.setAttribute("aria-expanded", String(isOpen));
+        resizeFlexPlotSoon();
+      }
+
+      function initFlexPlotControlsDrawer() {
+        if (!flexPlotPanel || !flexPlotControlsToggle) return;
+        flexPlotControlsToggle.addEventListener("click", () => {
+          flexPlotPanel.classList.toggle("controls-open");
+          syncFlexPlotControlsDrawer();
+        });
+        syncFlexPlotControlsDrawer();
+      }
+
+      function downloadFlexPlotImage() {
+        if (!flexPlotElement || !flexPlot) return;
+        const chartType = flexPlotType ? flexPlotType.value : "plot";
+        Plotly.toImage(flexPlotElement, {
+          format: "png",
+          scale: 2,
+          width: Math.max(1, Math.round(flexPlotElement.clientWidth || 900)),
+          height: Math.max(1, Math.round(flexPlotElement.clientHeight || 500)),
+        }).then((url) => {
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `variant-${chartType}-plot.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        });
+      }
+
+      function initFlexPlotDownload() {
+        if (!flexPlotDownload) return;
+        flexPlotDownload.addEventListener("click", downloadFlexPlotImage);
+      }
+
+      function makeCountEntries(rows, field) {
+        return Object.entries(countByField(rows, field)).sort((a, b) => b[1] - a[1]);
+      }
+
+      function sortEntries(entries, sortMode) {
+        const sortValue = (entry) => Number.isFinite(entry.value) ? entry.value : Number.NEGATIVE_INFINITY;
+        if (sortMode === "value-desc") return entries.sort((a, b) => sortValue(b) - sortValue(a));
+        if (sortMode === "value-asc") return entries.sort((a, b) => sortValue(a) - sortValue(b));
+        if (sortMode === "label-asc") return entries.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        return entries;
+      }
+
+      function median(values) {
+        if (values.length === 0) return undefined;
+        const sorted = [...values].sort((a, b) => a - b);
+        const middle = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+      }
+
+      function quantile(sortedValues, q) {
+        if (sortedValues.length === 0) return undefined;
+        const position = (sortedValues.length - 1) * q;
+        const base = Math.floor(position);
+        const rest = position - base;
+        if (sortedValues[base + 1] === undefined) return sortedValues[base];
+        return sortedValues[base] + rest * (sortedValues[base + 1] - sortedValues[base]);
+      }
+
+      function aggregateValues(values, aggregation) {
+        if (aggregation === "count") return values.length;
+        const numericValues = values.map(asNumber).filter((value) => value !== undefined);
+        if (numericValues.length === 0) return null;
+        if (aggregation === "sum") return numericValues.reduce((total, value) => total + value, 0);
+        if (aggregation === "mean") return numericValues.reduce((total, value) => total + value, 0) / numericValues.length;
+        if (aggregation === "median") return median(numericValues);
+        if (aggregation === "min") return Math.min(...numericValues);
+        if (aggregation === "max") return Math.max(...numericValues);
+        return numericValues.length;
+      }
+
+      function isNumericPlotField(field) {
+        return numericPlotFields.some((item) => item.field === field);
+      }
+
+      function isContinuousColourField(field) {
+        return Boolean(field && isNumericPlotField(field));
+      }
+
+      function continuousColourConfig(values, field) {
+        return {
+          color: values,
+          colorscale: "Viridis",
+          showscale: true,
+          colorbar: { title: plotFieldTitle(field) },
+        };
+      }
+
+      function aggregateColourValue(rows, field) {
+        const values = rows.map((row) => asNumber(row[field])).filter((value) => value !== undefined);
+        if (values.length === 0) return null;
+        return values.reduce((total, value) => total + value, 0) / values.length;
+      }
+
+      function aggregateRows(rows, categoryField, valueField, aggregation, colourField, sortMode) {
+        const categoryOrder = [];
+        const groups = colourField ? [...new Set(rows.map((row) => valueLabel(row[colourField])))].sort() : ["All variants"];
+        const buckets = new Map();
+        rows.forEach((row) => {
+          const category = valueLabel(row[categoryField]);
+          const group = colourField ? valueLabel(row[colourField]) : "All variants";
+          if (!buckets.has(category)) {
+            buckets.set(category, new Map());
+            categoryOrder.push(category);
+          }
+          const groupMap = buckets.get(category);
+          if (!groupMap.has(group)) groupMap.set(group, []);
+          groupMap.get(group).push(row);
+        });
+
+        let entries = categoryOrder.map((category) => {
+          const groupMap = buckets.get(category);
+          const groupValues = groups
+            .map((group) => {
+              const bucketRows = groupMap.get(group) || [];
+              const values = aggregation === "count" ? bucketRows.map(() => 1) : bucketRows.map((row) => row[valueField]);
+              return aggregateValues(values, aggregation);
+            })
+            .filter((value) => value !== null);
+          const total = groupValues.length === 0 ? null : groupValues.reduce((sum, value) => sum + value, 0);
+          return { name: category, value: total };
+        });
+        entries = sortEntries(entries, sortMode);
+        const categories = entries.map((entry) => entry.name);
+
+        return {
+          categories,
+          groups,
+          valuesByGroup: groups.map((group) =>
+            categories.map((category) => {
+              const bucketRows = (buckets.get(category)?.get(group)) || [];
+              const values = aggregation === "count" ? bucketRows.map(() => 1) : bucketRows.map((row) => row[valueField]);
+              return {
+                value: aggregateValues(values, aggregation),
+                variant: bucketRows.length === 1 ? bucketRows[0] : undefined,
+              };
+            }),
+          ),
+        };
+      }
+
+      function variantFromPlotlyPoint(point) {
+        if (!point) return undefined;
+        if (point.customdata && point.customdata.variant) return point.customdata.variant;
+        if (point.data && Array.isArray(point.data.customdata)) {
+          const data = point.data.customdata[point.pointIndex];
+          return data && data.variant;
+        }
+        return undefined;
+      }
+
+      function bindFlexPlotClickHandler() {
+        if (!flexPlotElement || flexPlotClickHandlerBound || typeof flexPlotElement.on !== "function") return;
+        flexPlotClickHandlerBound = true;
+        flexPlotElement.on("plotly_click", (event) => {
+          const point = event && event.points && event.points[0];
+          const variant = variantFromPlotlyPoint(point);
+          if (!variant) return;
+          selectVariant(variant, { scrollTable: true });
+        });
+      }
+
+      function plotFieldTitle(field) {
+        return plotFields.find((item) => item.field === field)?.title || field || "";
+      }
+
+      function plotlyAxisTitle(text) {
+        return text ? { text, standoff: 16 } : undefined;
+      }
+
+      function plotlyBaseLayout(chartType, hasLegend, logScale, yTitle = "", xTitle = "") {
+        const needsExtraBottomSpace = hasLegend || ["scatter", "histogram", "boxplot"].includes(chartType);
+        return {
+          margin: { l: 68, r: 18, t: 8, b: 8 },
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff",
+          font: { color: "#475569", family: "ui-sans-serif, system-ui, sans-serif" },
+          showlegend: hasLegend,
+          legend: { orientation: "h", y: -0.15 },
+          hovermode: chartType === "scatter" ? "closest" : "x",
+          xaxis: { automargin: 'height', title: plotlyAxisTitle(xTitle), zeroline: false },
+          yaxis: { automargin: true, type: logScale ? "log" : "linear", title: plotlyAxisTitle(yTitle), zeroline: false },
+        };
+      }
+
+      function plotlyConfig() {
+        return {
+          responsive: true,
+          displaylogo: false,
+          modeBarButtonsToRemove: ["lasso2d", "select2d"],
+        };
+      }
+
+      function withColourbarMargin(layout) {
+        return {
+          ...layout,
+          margin: { ...layout.margin, r: 86 },
+        };
+      }
+
+      function applyColourbarMargin(layout, enabled) {
+        return enabled ? withColourbarMargin(layout) : layout;
+      }
+
+      function renderCategoricalPlot(rows, chartType, categoryField, valueField, aggregation, colourField, sortMode, logScale) {
+        const useContinuousColour = isContinuousColourField(colourField);
+        const useColour = Boolean(colourField && colourField !== categoryField && !useContinuousColour);
+        const { categories, groups, valuesByGroup } = aggregateRows(
+          rows,
+          categoryField,
+          valueField,
+          aggregation,
+          useColour ? colourField : "",
+          sortMode,
+        );
+        const traceType = chartType === "line" ? "scattergl" : chartType === "area" ? "scatter" : "bar";
+        const mode = chartType === "bar" ? undefined : "lines+markers";
+        const continuousColourValues = useContinuousColour
+          ? categories.map((category) => {
+              const bucketRows = rows.filter((row) => valueLabel(row[categoryField]) === category);
+              return aggregateColourValue(bucketRows, colourField);
+            })
+          : [];
+        return {
+          data: groups.map((group, index) => ({
+            name: useColour ? group : aggregation === "count" ? "Count" : aggregation,
+            type: traceType,
+            mode,
+            fill: chartType === "area" ? "tozeroy" : undefined,
+            x: categories,
+            y: valuesByGroup[index].map((item) => item.value),
+            customdata: valuesByGroup[index].map((item) => ({ variant: item.variant })),
+            marker: useContinuousColour
+              ? continuousColourConfig(continuousColourValues, colourField)
+              : { color: plotPalette[index % plotPalette.length] },
+            line: { color: plotPalette[index % plotPalette.length] },
+            hovertemplate: "%{x}<br>%{fullData.name}: %{y}<extra></extra>",
+          })),
+          layout: {
+            ...applyColourbarMargin(plotlyBaseLayout(
+              chartType,
+              useColour,
+              logScale,
+              aggregation === "count" ? "Count" : aggregation,
+              plotFieldTitle(categoryField),
+            ), useContinuousColour),
+            barmode: useColour && chartType === "bar" ? "stack" : "group",
+          },
+        };
+      }
+
+      function contigSortIndex(contig) {
+        const contigs = [...referenceContigs.keys()];
+        const index = contigs.indexOf(String(contig));
+        return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+      }
+
+      function windowLabel(chrom, start, end) {
+        return `${chrom}:${start.toLocaleString()}-${end.toLocaleString()}`;
+      }
+
+      function buildPositionWindowBuckets(rows, windowSize, colourField) {
+        const buckets = new Map();
+        rows.forEach((row) => {
+          const pos = asNumber(row.pos);
+          if (pos === undefined) return;
+          const chrom = valueLabel(row.chrom);
+          const start = Math.floor((Math.max(1, pos) - 1) / windowSize) * windowSize + 1;
+          const end = start + windowSize - 1;
+          const group = colourField ? valueLabel(row[colourField]) : "All variants";
+          const key = `${chrom}\t${start}\t${group}`;
+          if (!buckets.has(key)) {
+            buckets.set(key, { chrom, start, end, midpoint: start + (windowSize - 1) / 2, group, rows: [] });
+          }
+          buckets.get(key).rows.push(row);
+        });
+        return [...buckets.values()].sort((a, b) => {
+          const contigDelta = contigSortIndex(a.chrom) - contigSortIndex(b.chrom);
+          if (contigDelta !== 0) return contigDelta;
+          const chromDelta = String(a.chrom).localeCompare(String(b.chrom));
+          if (contigSortIndex(a.chrom) === Number.MAX_SAFE_INTEGER && chromDelta !== 0) return chromDelta;
+          if (a.start !== b.start) return a.start - b.start;
+          return String(a.group).localeCompare(String(b.group));
+        });
+      }
+
+      function renderPositionWindowPlot(rows, chartType, valueField, aggregation, colourField, windowSize, logScale) {
+        const useContinuousColour = isContinuousColourField(colourField);
+        const useColour = Boolean(colourField && colourField !== "pos" && !useContinuousColour);
+        const safeWindowSize = Math.max(1, Number(windowSize) || 1000);
+        const buckets = buildPositionWindowBuckets(rows, safeWindowSize, useColour ? colourField : "");
+        const groups = useColour ? [...new Set(buckets.map((bucket) => bucket.group))].sort() : ["All variants"];
+        const bucketLookup = new Map(
+          buckets.map((bucket) => [`${bucket.chrom}\t${bucket.start}\t${bucket.group}`, bucket]),
+        );
+        const windows = [];
+        const windowKeys = new Set();
+        buckets.forEach((bucket) => {
+          const key = `${bucket.chrom}\t${bucket.start}`;
+          if (windowKeys.has(key)) return;
+          windowKeys.add(key);
+          windows.push({
+            chrom: bucket.chrom,
+            start: bucket.start,
+            end: bucket.end,
+            midpoint: bucket.midpoint,
+            label: windowLabel(bucket.chrom, bucket.start, bucket.end),
+          });
+        });
+        const singleContig = new Set(windows.map((window) => window.chrom)).size <= 1;
+        const xValues = singleContig ? windows.map((window) => window.midpoint) : windows.map((window) => window.label);
+        const yTitle = aggregation === "count" ? "Count" : aggregation;
+        const traceType = chartType === "line" ? "scattergl" : chartType === "area" ? "scatter" : "bar";
+        const mode = chartType === "bar" ? undefined : "lines+markers";
+        return {
+          data: groups.map((group, index) => {
+            const values = [];
+            const colourValues = [];
+            const customdata = [];
+            windows.forEach((window) => {
+              const bucket = bucketLookup.get(`${window.chrom}\t${window.start}\t${group}`);
+              const bucketRows = bucket ? bucket.rows : [];
+              const rawValues = aggregation === "count" ? bucketRows.map(() => 1) : bucketRows.map((row) => row[valueField]);
+              values.push(aggregateValues(rawValues, aggregation));
+              colourValues.push(useContinuousColour ? aggregateColourValue(bucketRows, colourField) : null);
+              customdata.push({
+                variant: bucketRows.length === 1 ? bucketRows[0] : undefined,
+                label: window.label,
+              });
+            });
+            return {
+              name: useColour ? group : yTitle,
+              type: traceType,
+              mode,
+              fill: chartType === "area" ? "tozeroy" : undefined,
+              x: xValues,
+              y: values,
+              customdata,
+              marker: useContinuousColour
+                ? continuousColourConfig(colourValues, colourField)
+                : { color: plotPalette[index % plotPalette.length] },
+              line: { color: plotPalette[index % plotPalette.length] },
+              hovertemplate: "%{customdata.label}<br>%{fullData.name}: %{y}<extra></extra>",
+            };
+          }),
+          layout: {
+            ...applyColourbarMargin(
+              plotlyBaseLayout(chartType, useColour, logScale, yTitle),
+              useContinuousColour,
+            ),
+            barmode: useColour && chartType === "bar" ? "stack" : "group",
+            hovermode: "closest",
+            xaxis: {
+              automargin: true,
+              tickangle: singleContig ? 0 : -35,
+              title: plotlyAxisTitle(singleContig ? "Position" : "Window"),
+              type: singleContig ? "linear" : "category",
+              zeroline: false,
+            },
+          },
+        };
+      }
+
+      function renderPiePlot(rows, field, sortMode) {
+        const data = sortEntries(makeCountEntries(rows, field).map(([name, value]) => {
+          const bucketRows = rows.filter((row) => valueLabel(row[field]) === name);
+          return {
+            name,
+            value,
+            variant: bucketRows.length === 1 ? bucketRows[0] : undefined,
+          };
+        }), sortMode);
+        return {
+          data: [{
+            type: "pie",
+            labels: data.map((item) => item.name),
+            values: data.map((item) => item.value),
+            customdata: data.map((item) => ({ variant: item.variant })),
+            hole: 0.38,
+            marker: { colors: data.map((_item, index) => plotPalette[index % plotPalette.length]) },
+            textinfo: "label+percent",
+            hovertemplate: "%{label}: %{value}<extra></extra>",
+          }],
+          layout: { ...plotlyBaseLayout("pie", true, false), margin: { l: 10, r: 10, t: 8, b: 36 }, showlegend: true },
+        };
+      }
+
+      function renderHistogramPlot(rows, valueField, binCount, logScale) {
+        const numericRows = rows
+          .map((row) => ({ row, value: asNumber(row[valueField]) }))
+          .filter((entry) => entry.value !== undefined);
+        if (numericRows.length === 0) {
+          return { data: [], layout: plotlyBaseLayout("histogram", false, logScale, "Count") };
+        }
+        const values = numericRows.map((entry) => entry.value);
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const bins = Math.max(2, Math.min(100, Number(binCount) || 20));
+        const width = maxValue === minValue ? 1 : (maxValue - minValue) / bins;
+        const bucketRows = Array.from({ length: bins }, () => []);
+        numericRows.forEach(({ row, value }) => {
+          const index = Math.min(bins - 1, Math.max(0, Math.floor((value - minValue) / width)));
+          bucketRows[index].push(row);
+        });
+        const labels = bucketRows.map((_rows, index) => {
+          const start = minValue + index * width;
+          const end = start + width;
+          return `${start.toFixed(2)}-${end.toFixed(2)}`;
+        });
+        return {
+          data: [{
+            name: "Count",
+            type: "bar",
+            x: labels,
+            y: bucketRows.map((bucket) => bucket.length),
+            customdata: bucketRows.map((bucket) => ({ variant: bucket.length === 1 ? bucket[0] : undefined })),
+            marker: { color: plotPalette[0] },
+            hovertemplate: "%{x}<br>Count: %{y}<extra></extra>",
+          }],
+          layout: plotlyBaseLayout("histogram", false, logScale, "Count", plotFieldTitle(valueField)),
+        };
+      }
+
+      function renderBoxplotPlot(rows, categoryField, valueField, sortMode, logScale) {
+        const groups = new Map();
+        rows.forEach((row) => {
+          const value = asNumber(row[valueField]);
+          if (value === undefined) return;
+          const category = valueLabel(row[categoryField]);
+          if (!groups.has(category)) groups.set(category, []);
+          groups.get(category).push({ row, value });
+        });
+        let entries = [...groups.entries()].map(([name, values]) => {
+          const sorted = values.sort((a, b) => a.value - b.value);
+          const sortedValues = sorted.map((entry) => entry.value);
+          return {
+            name,
+            value: median(sortedValues) || 0,
+            values: sortedValues,
+            customdata: sorted.map((entry) => ({ variant: sorted.length === 1 ? entry.row : undefined })),
+          };
+        });
+        entries = sortEntries(entries, sortMode);
+        const x = [];
+        const y = [];
+        const customdata = [];
+        entries.forEach((entry) => {
+          entry.values.forEach((value, index) => {
+            x.push(entry.name);
+            y.push(value);
+            customdata.push(entry.customdata[index]);
+          });
+        });
+        return {
+          data: [{
+            name: valueField,
+            type: "box",
+            x,
+            y,
+            customdata,
+            marker: { color: plotPalette[0] },
+            boxpoints: false,
+            hovertemplate: "%{x}<br>" + valueField + ": %{y}<extra></extra>",
+          }],
+          layout: plotlyBaseLayout("boxplot", false, logScale, plotFieldTitle(valueField), plotFieldTitle(categoryField)),
+        };
+      }
+
+      function renderScatterPlot(rows, xField, yField, colourField, logScale) {
+        if (isContinuousColourField(colourField)) {
+          const entries = rows
+            .map((row) => ({
+              row,
+              x: asNumber(row[xField]),
+              y: asNumber(row[yField]),
+              colour: asNumber(row[colourField]),
+            }))
+            .filter((entry) => entry.x !== undefined && entry.y !== undefined && entry.colour !== undefined);
+          return {
+            data: [{
+              name: plotFieldTitle(colourField),
+              type: "scattergl",
+              mode: "markers",
+              x: entries.map((entry) => entry.x),
+              y: entries.map((entry) => entry.y),
+              customdata: entries.map((entry) => ({ variant: entry.row })),
+              marker: {
+                ...continuousColourConfig(entries.map((entry) => entry.colour), colourField),
+                size: 7,
+              },
+              hovertemplate: `${xField}: %{x}<br>${yField}: %{y}<br>${plotFieldTitle(colourField)}: %{marker.color}<extra></extra>`,
+            }],
+            layout: withColourbarMargin(plotlyBaseLayout("scatter", false, logScale, plotFieldTitle(yField), plotFieldTitle(xField))),
+          };
+        }
+        const groups = colourField
+          ? [...new Set(rows.map((row) => valueLabel(row[colourField])))].sort()
+          : ["All variants"];
+        return {
+          data: groups.map((group, index) => {
+            const entries = rows
+              .filter((row) => !colourField || valueLabel(row[colourField]) === group)
+              .map((row) => ({ row, x: asNumber(row[xField]), y: asNumber(row[yField]) }))
+              .filter((entry) => entry.x !== undefined && entry.y !== undefined);
+            return {
+              name: group,
+              type: "scattergl",
+              mode: "markers",
+              x: entries.map((entry) => entry.x),
+              y: entries.map((entry) => entry.y),
+              customdata: entries.map((entry) => ({ variant: entry.row })),
+              marker: { color: plotPalette[index % plotPalette.length], size: 7 },
+              hovertemplate: `${xField}: %{x}<br>${yField}: %{y}<extra></extra>`,
+            };
+          }),
+          layout: plotlyBaseLayout("scatter", true, logScale, plotFieldTitle(yField), plotFieldTitle(xField)),
+        };
+      }
+
+      function currentTableRowsForPlot() {
+        if (!table || typeof table.getRows !== "function") return variants;
+        try {
+          return table.getRows("active").map((row) => row.getData());
+        } catch (_error) {
+          return variants;
+        }
+      }
+
+      function renderFlexPlot() {
+        if (!flexPlotElement || typeof Plotly === "undefined") return;
+        syncFlexPlotControls();
+        const rows = currentTableRowsForPlot();
+        const chartType = flexPlotType ? flexPlotType.value : "bar";
+        const plotTypeChanged = chartType !== previousFlexPlotType;
+        syncXyFieldOptions(chartType, plotTypeChanged);
+        previousFlexPlotType = chartType;
+        const dataField = flexPlotColumn ? flexPlotColumn.value : "type";
+        const valueField = flexPlotValue ? flexPlotValue.value : "qual";
+        const xField = flexPlotX ? flexPlotX.value : "pos";
+        const yField = flexPlotY ? flexPlotY.value : "qual";
+        const aggregation = flexPlotAggregation ? flexPlotAggregation.value : "count";
+        const binCount = flexPlotBins ? flexPlotBins.value : 20;
+        const sortMode = flexPlotSort ? flexPlotSort.value : "value-desc";
+        const windowSize = flexPlotWindow ? flexPlotWindow.value : 1000;
+        const colourField = flexPlotColour ? flexPlotColour.value : "";
+        const logScale = Boolean(flexPlotLog && flexPlotLog.checked);
+        const plotConfig =
+          chartType === "scatter"
+            ? renderScatterPlot(rows, xField, yField, colourField, logScale)
+            : chartType === "histogram"
+                ? renderHistogramPlot(rows, valueField, binCount, logScale)
+                : chartType === "boxplot"
+                  ? renderBoxplotPlot(rows, dataField, valueField, sortMode, logScale)
+                  : chartType === "pie"
+                    ? renderPiePlot(rows, dataField, sortMode)
+                    : ["bar", "line", "area"].includes(chartType) && dataField === "pos"
+                      ? renderPositionWindowPlot(rows, chartType, valueField, aggregation, colourField, windowSize, logScale)
+                      : renderCategoricalPlot(rows, chartType, dataField, valueField, aggregation, colourField, sortMode, logScale);
+
+        if (flexPlotStatus) {
+          flexPlotStatus.textContent = `${rows.length} variants`;
+        }
+        Plotly.react(flexPlotElement, plotConfig.data, plotConfig.layout, plotlyConfig()).then(() => {
+          flexPlot = true;
+          bindFlexPlotClickHandler();
+          resizeFlexPlotSoon();
+        });
+      }
+
+      function renderFlexPlotSoon() {
+        if (flexPlotRefreshPending) return;
+        flexPlotRefreshPending = true;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            flexPlotRefreshPending = false;
+            renderFlexPlot();
+          });
+        });
+      }
+
+      function removeIgvInternalPadding() {
+        const root = igvContainer && igvContainer.shadowRoot;
+        if (!root) return;
+        root.querySelectorAll(".igv-container").forEach((element) => {
+          element.style.padding = "0";
+        });
+        root.querySelectorAll(".igv-navbar").forEach((element) => {
+          element.style.marginTop = "0";
+        });
+        const hiddenNavbarButtons = new Set([
+          // "Crosshairs",
+          // "Center Line",
+          // "Track Labels",
+          // "Sample Names",
+        ]);
+        root.querySelectorAll("[title]").forEach((element) => {
+          if (hiddenNavbarButtons.has(element.getAttribute("title"))) {
+            element.style.display = "none";
+          }
+        });
+      }
+
+      function computeIgvTrackHeights() {
+        const panelHeight = Math.max(
+          MIN_PANEL_SIZE,
+          Math.round(igvPanel ? igvPanel.getBoundingClientRect().height : 0),
+        );
+        const trackSpace = Math.max(
+          MIN_VARIANT_TRACK_HEIGHT + MIN_ALIGNMENT_TRACK_HEIGHT,
+          panelHeight - IGV_STATIC_HEIGHT_PX,
+        );
+        const variantHeight = Math.max(
+          MIN_VARIANT_TRACK_HEIGHT,
+          Math.min(MAX_VARIANT_TRACK_HEIGHT, Math.round(trackSpace * 0.2)),
+        );
+        const alignmentHeight = Math.max(
+          MIN_ALIGNMENT_TRACK_HEIGHT,
+          trackSpace - variantHeight,
+        );
+        return { variantHeight, alignmentHeight };
+      }
+
+      function setTrackHeightByName(trackName, height) {
+        if (!browser || !Array.isArray(browser.trackViews)) return;
+        browser.trackViews.forEach((trackView) => {
+          if (!trackView || !trackView.track || trackView.track.name !== trackName) return;
+          trackView.track.height = height;
+          if (trackView.track.config) {
+            trackView.track.config.height = height;
+          }
+          if (typeof trackView.setTrackHeight === "function") {
+            trackView.setTrackHeight(height, true);
+          } else if (typeof trackView.repaintViews === "function") {
+            trackView.repaintViews();
+          }
+        });
+      }
+
+      function syncIgvTrackHeightsToPanel() {
+        if (igvPanel && igvPanel.classList.contains("hidden")) return;
+        const { variantHeight, alignmentHeight } = computeIgvTrackHeights();
+        setTrackHeightByName(embeddedData.vcfName, variantHeight);
+        setTrackHeightByName(embeddedData.cramName, alignmentHeight);
+      }
+
+      function isEditableTarget(target) {
+        if (!target || !target.tagName) return false;
+        const tag = target.tagName.toUpperCase();
+        return (
+          target.isContentEditable ||
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT"
+        );
+      }
+
+      function syncPanelVisibilityLayout() {
+        const plotVisible = flexPlotPanel && !flexPlotPanel.classList.contains("hidden");
+        const igvVisible = igvPanel && !igvPanel.classList.contains("hidden");
+        const showTopPanels = plotVisible || igvVisible;
+
+        if (viewerPlotRow) {
+          viewerPlotRow.classList.toggle("hidden", !showTopPanels);
+        }
+        if (rowResizer) {
+          rowResizer.parentElement.classList.toggle("hidden", !showTopPanels);
+        }
+        if (colResizer) {
+          const showColResizer = plotVisible && igvVisible;
+          colResizer.classList.toggle("hidden", !showColResizer);
+          colResizer.setAttribute("aria-orientation", window.innerWidth < 768 ? "horizontal" : "vertical");
+        }
+        setPlotIgvWidths(currentPlotWidthPct);
+        refreshIgvLayoutAfterPanelChange();
+      }
+
+      function togglePanelVisibility(panel) {
+        if (!panel) return;
+        panel.classList.toggle("hidden", !panel.classList.contains("hidden"));
+      }
+
+      function setPlotIgvWidths(plotPercent) {
+        if (!flexPlotPanel || !igvPanel) return;
+        const plotHidden = flexPlotPanel.classList.contains("hidden");
+        const igvHidden = igvPanel.classList.contains("hidden");
+        if (window.innerWidth < 768) {
+          flexPlotPanel.style.width = "";
+          igvPanel.style.width = "";
+          flexPlotPanel.style.flex = "0 0 auto";
+          igvPanel.style.flex = "0 0 auto";
+          return;
+        }
+        if (plotHidden || igvHidden) {
+          flexPlotPanel.style.width = "";
+          igvPanel.style.width = "";
+          flexPlotPanel.style.flex = plotHidden ? "0 0 auto" : "1 1 100%";
+          igvPanel.style.flex = igvHidden ? "0 0 auto" : "1 1 100%";
+          return;
+        }
+        if (window.innerWidth < 768) {
+          flexPlotPanel.style.width = "";
+          igvPanel.style.width = "";
+          flexPlotPanel.style.flex = "1 1 0px";
+          igvPanel.style.flex = "1 1 0px";
+          return;
+        }
+        const clamped = Math.max(MIN_PLOT_WIDTH_PCT, Math.min(MAX_PLOT_WIDTH_PCT, plotPercent));
+        currentPlotWidthPct = clamped;
+        flexPlotPanel.style.width = "";
+        igvPanel.style.width = "";
+        flexPlotPanel.style.flex = `${clamped} 1 0px`;
+        igvPanel.style.flex = `${100 - clamped} 1 0px`;
+      }
+
+      function initKeyboardShortcuts() {
+        document.addEventListener("keydown", (event) => {
+          if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+          if (isEditableTarget(event.target)) return;
+
+          const key = String(event.key || "").toLowerCase();
+          if (key === "c" && flexPlotPanel) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            togglePanelVisibility(flexPlotPanel);
+            syncPanelVisibilityLayout();
+          } else if (key === "i" && igvPanel) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            togglePanelVisibility(igvPanel);
+            syncPanelVisibilityLayout();
+          } else if (key === "d" && variantTableContainer) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            variantTableContainer.classList.toggle("hidden");
+            refreshPanelSizes();
+          }
+        }, true);
+      }
+
+      function findVariantTableRow(variant) {
+        if (!table || !variant) return undefined;
+        if (variant._sample_report_index !== undefined && typeof table.getRow === "function") {
+          const indexedRow = table.getRow(variant._sample_report_index);
+          if (indexedRow) return indexedRow;
+        }
+        return table.getRows().find((candidate) => candidate.getData() === variant);
+      }
+
+      function variantHasReferenceLocus(variant) {
+        if (!variant || !variant.chrom || !variant.pos) return false;
+        const contigLength = referenceContigs.get(String(variant.chrom));
+        if (!contigLength) return false;
+        return Number(variant.pos) >= 1 && Number(variant.pos) <= contigLength;
+      }
+
+      function variantLocusString(variant) {
+        if (!variantHasReferenceLocus(variant)) return undefined;
+        const contigLength = referenceContigs.get(String(variant.chrom));
+        const pos = Number(variant.pos);
+        const refLength = Math.max(1, String(variant.ref || "").length);
+        const start = Math.max(1, pos - 20);
+        const end = Math.min(contigLength, pos + Math.max(20, refLength + 20));
+        return `${variant.chrom}:${start}-${end}`;
+      }
+
+      function refreshVariantRowHighlights() {
+        if (!table) return;
+        table.getRows().forEach((row) => {
+          const element = row.getElement && row.getElement();
+          if (!element) return;
+          const isActive = row.getData()._sample_report_index === selectedVariantIndex;
+          element.classList.toggle("sample-report-active-row", isActive);
+        });
+      }
+
+      function scrollVariantRowIntoView(row) {
+        if (!table || !row) return;
+        const scrollResult = table.scrollToRow(row, "center", false);
+        if (scrollResult && typeof scrollResult.then === "function") {
+          scrollResult.then(refreshVariantRowHighlights).catch(refreshVariantRowHighlights);
+        } else {
+          refreshVariantRowHighlights();
+        }
+      }
+
+      function jumpToVariant(variant) {
+        const locus = variantLocusString(variant);
+        if (browser && locus) {
+          Promise.resolve(browser.search(locus)).catch(() => undefined);
+        }
+      }
+
+      function selectVariant(variant, options = {}) {
+        selectedVariantIndex = variant ? variant._sample_report_index : undefined;
+        const row = findVariantTableRow(variant);
+        if (row && table) {
+          table.deselectRow();
+          row.select();
+          refreshVariantRowHighlights();
+          if (options.scrollTable) {
+            scrollVariantRowIntoView(row);
+          }
+        }
+        refreshVariantRowHighlights();
+        jumpToVariant(variant);
+      }
+
+      function selectDefaultVariantRow() {
+        if (!defaultVariant) return;
+        selectedVariantIndex = defaultVariant._sample_report_index;
+        const row = findVariantTableRow(defaultVariant);
+        if (!row) return;
+        table.deselectRow();
+        row.select();
+        scrollVariantRowIntoView(row);
+        refreshVariantRowHighlights();
+      }
+
+      function initializeLargeScreenPanelHeights() {
+        if (initialLargeScreenPanelHeightApplied || panelHeightManuallyAdjusted) return;
+        if (window.innerWidth < TOP_PANEL_ROW_MIN_WIDTH_PX) return;
+        if (!viewerPlotRow || !flexPlotPanel || !igvPanel) return;
+        if (viewerPlotRow.classList.contains("hidden")) return;
+
+        const tableHeight = variantTableContainer && !variantTableContainer.classList.contains("hidden")
+          ? variantTableContainer.getBoundingClientRect().height
+          : 0;
+        const rowResizerHeight = rowResizer && rowResizer.parentElement && !rowResizer.parentElement.classList.contains("hidden")
+          ? rowResizer.parentElement.getBoundingClientRect().height
+          : 0;
+        const viewerTop = viewerPlotRow.getBoundingClientRect().top;
+        const layoutStyle = sampleReportLayout ? window.getComputedStyle(sampleReportLayout) : null;
+        const bottomPadding = layoutStyle ? parseFloat(layoutStyle.paddingBottom) || 0 : 0;
+        const gridGap = viewerPlotRow.parentElement
+          ? parseFloat(window.getComputedStyle(viewerPlotRow.parentElement).rowGap) || 0
+          : 0;
+        const reservedHeight = tableHeight + rowResizerHeight + (gridGap * 2) + bottomPadding;
+        const nextHeight = Math.max(
+          MIN_PANEL_SIZE,
+          Math.floor(window.innerHeight - viewerTop - reservedHeight),
+        );
+
+        flexPlotPanel.style.height = `${nextHeight}px`;
+        igvPanel.style.height = `${nextHeight}px`;
+        initialLargeScreenPanelHeightApplied = true;
+        refreshPanelSizes();
+      }
+
+      function refreshPanelSizes() {
+        if (resizeRefreshPending) return;
+        resizeRefreshPending = true;
+        setPlotIgvWidths(currentPlotWidthPct);
+        syncIgvContainerToPanel();
+        requestAnimationFrame(() => {
+          try {
+            setPlotIgvWidths(currentPlotWidthPct);
+            syncIgvContainerToPanel();
+            removeIgvInternalPadding();
+            syncIgvTrackHeightsToPanel();
+            if (browser && typeof browser.resize === "function") {
+              browser.resize();
+            }
+            if (browser && typeof browser.repaint === "function") {
+              browser.repaint();
+            }
+            if (browser && Array.isArray(browser.trackViews)) {
+              browser.trackViews.forEach((trackView) => {
+                if (trackView && typeof trackView.repaintViews === "function") {
+                  trackView.repaintViews();
+                }
+              });
+            }
+            if (table && typeof table.redraw === "function") {
+              table.redraw(true);
+            }
+            resizeFlexPlotSoon();
+          } finally {
+            resizeRefreshPending = false;
+          }
+        });
+      }
+
+      function refreshIgvLayoutAfterPanelChange() {
+        requestAnimationFrame(() => {
+          syncIgvContainerToPanel();
+          setPlotIgvWidths(currentPlotWidthPct);
+          if (browser && typeof browser.layoutChange === "function") {
+            browser.layoutChange();
+          } else {
+            refreshPanelSizes();
+          }
+          requestAnimationFrame(() => {
+            if (browser && typeof browser.layoutChange === "function") {
+              browser.layoutChange();
+            }
+            refreshPanelSizes();
+          });
+        });
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        const resizeObserver = new ResizeObserver(() => {
+          refreshPanelSizes();
+        });
+        if (igvPanel) {
+          resizeObserver.observe(igvPanel);
+        }
+        if (igvContainer) {
+          resizeObserver.observe(igvContainer);
+        }
+        if (flexPlotPanel) {
+          resizeObserver.observe(flexPlotPanel);
+        }
+      }
+
+      function initRowResizer() {
+        if (!rowResizer) return;
+
+        const onPointerMove = (event) => {
+          if (!isResizingRows) return;
+          const resizePanel =
+            igvPanel && !igvPanel.classList.contains("hidden")
+              ? igvPanel
+              : flexPlotPanel;
+          if (!resizePanel) return;
+          const top = resizePanel.getBoundingClientRect().top;
+          const nextHeight = Math.max(
+            MIN_PANEL_SIZE,
+            event.clientY - top - ROW_RESIZER_OFFSET_PX,
+          );
+          if (igvPanel) {
+            igvPanel.style.height = `${Math.round(nextHeight)}px`;
+          }
+          if (flexPlotPanel) {
+            flexPlotPanel.style.height = `${Math.round(nextHeight)}px`;
+          }
+          refreshPanelSizes();
+        };
+
+        const stopResize = () => {
+          if (!isResizingRows) return;
+          isResizingRows = false;
+          document.body.classList.remove("select-none", "cursor-row-resize");
+          refreshPanelSizes();
+        };
+
+        rowResizer.addEventListener("pointerdown", (event) => {
+          isResizingRows = true;
+          panelHeightManuallyAdjusted = true;
+          document.body.classList.add("select-none", "cursor-row-resize");
+          if (rowResizer.setPointerCapture) {
+            rowResizer.setPointerCapture(event.pointerId);
+          }
+          event.preventDefault();
+        });
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", stopResize);
+        window.addEventListener("pointercancel", stopResize);
+        window.addEventListener("resize", refreshPanelSizes);
+      }
+
+      function initColResizer() {
+        if (!colResizer || !viewerPlotRow || !flexPlotPanel || !igvPanel) return;
+
+        const onPointerMove = (event) => {
+          if (!isResizingCols) return;
+          const plotRect = flexPlotPanel.getBoundingClientRect();
+          const igvRect = igvPanel.getBoundingClientRect();
+          if (window.innerWidth < 768) {
+            const totalHeight = Math.max(
+              MIN_PANEL_SIZE * 2,
+              plotRect.height + igvRect.height,
+            );
+            const nextPlotHeight = Math.max(
+              MIN_PANEL_SIZE,
+              Math.min(totalHeight - MIN_PANEL_SIZE, event.clientY - plotRect.top),
+            );
+            const nextIgvHeight = Math.max(MIN_PANEL_SIZE, totalHeight - nextPlotHeight);
+            flexPlotPanel.style.height = `${Math.round(nextPlotHeight)}px`;
+            igvPanel.style.height = `${Math.round(nextIgvHeight)}px`;
+            refreshIgvLayoutAfterPanelChange();
+            return;
+          }
+          const spanLeft = plotRect.left;
+          const spanRight = igvRect.right;
+          const spanWidth = Math.max(1, spanRight - spanLeft);
+          const nextPercent = ((event.clientX - spanLeft) / spanWidth) * 100;
+          setPlotIgvWidths(nextPercent);
+          refreshIgvLayoutAfterPanelChange();
+        };
+
+        const stopResize = () => {
+          if (!isResizingCols) return;
+          isResizingCols = false;
+          document.body.classList.remove("select-none", "cursor-col-resize", "cursor-row-resize");
+          refreshIgvLayoutAfterPanelChange();
+        };
+
+        colResizer.addEventListener("pointerdown", (event) => {
+          if (
+            flexPlotPanel.classList.contains("hidden") ||
+            igvPanel.classList.contains("hidden")
+          ) {
+            return;
+          }
+          isResizingCols = true;
+          if (window.innerWidth < 768) {
+            panelHeightManuallyAdjusted = true;
+          }
+          document.body.classList.add(
+            "select-none",
+            window.innerWidth < 768 ? "cursor-row-resize" : "cursor-col-resize",
+          );
+          if (colResizer.setPointerCapture) {
+            colResizer.setPointerCapture(event.pointerId);
+          }
+          event.preventDefault();
+        });
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", stopResize);
+        window.addEventListener("pointercancel", stopResize);
+        window.addEventListener("resize", () => {
+          if (colResizer) {
+            colResizer.setAttribute("aria-orientation", window.innerWidth < 768 ? "horizontal" : "vertical");
+          }
+          setPlotIgvWidths(currentPlotWidthPct);
+          refreshIgvLayoutAfterPanelChange();
+        });
+      }
+
+      const baseTableColumns = [
+        { title: "Contig", field: "chrom", headerFilter: "input" },
+        { title: "Pos", field: "pos", sorter: "number", headerFilter: "input" },
+        { title: "Ref", field: "ref", headerFilter: "input" },
+        { title: "Alt", field: "alt", headerFilter: "input" },
+        { title: "Qual", field: "qual", sorter: "number", headerFilter: "input" },
+        { title: "Filter", field: "filter", headerFilter: "input" },
+        { title: "Type", field: "type", headerFilter: "input" },
+        { title: "Consequence", field: "consequence", headerFilter: "input" },
+      ];
+      const sampleTableColumns = sampleFields.map((field) => ({
+        title: field.id,
+        field: field.id,
+        sorter: ["Integer", "Float"].includes(field.type) ? "number" : "string",
+        headerFilter: "input",
+        headerTooltip: field.description || undefined,
+      }));
+      const infoTableColumns = infoFields.map((field) => ({
+        title: field.id,
+        field: field.field || `INFO:${field.id}`,
+        sorter: ["Integer", "Float"].includes(field.type) ? "number" : "string",
+        headerFilter: "input",
+        headerTooltip: field.description || undefined,
+        visible: false,
+      }));
+      const tableColumns = [...baseTableColumns, ...sampleTableColumns, ...infoTableColumns];
+
+      table = new Tabulator("#variant-table", {
+        data: variants,
+        index: "_sample_report_index",
+        layout: "fitColumns",
+        selectableRows: 1,
+        pagination: true,
+        paginationSize: 5,
+        paginationSizeSelector: [5, 10, 25, 50, 100],
+        movableColumns: true,
+        placeholder: "No variants found",
+        footerElement:
+          '<div class="flex w-full flex-wrap items-center justify-start gap-2 px-2">' +
+          '<div class="flex flex-wrap justify-start gap-2">' +
+          '<button type="button" class="tabulator-export-csv rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">Export CSV</button>' +
+          '<button type="button" class="tabulator-export-xlsx rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">Export XLSX</button>' +
+          '</div>' +
+          '</div>',
+        columns: tableColumns,
+        rowFormatter: (row) => {
+          const element = row.getElement();
+          const isActive = row.getData()._sample_report_index === selectedVariantIndex;
+          element.classList.toggle("sample-report-active-row", isActive);
+        },
+      });
+
+      table.on("rowClick", (_event, row) => {
+        selectVariant(row.getData());
+      });
+
+      function bindTableControls() {
+        const tableElement = document.getElementById("variant-table");
+        const controlsElement = variantTableContainer || document;
+        const csvButton = tableElement && tableElement.querySelector(".tabulator-export-csv");
+        const xlsxButton = tableElement && tableElement.querySelector(".tabulator-export-xlsx");
+        const columnToggle = controlsElement.querySelector(".tabulator-column-menu-toggle");
+        const columnMenu = controlsElement.querySelector(".tabulator-column-menu");
+        const filterToggle = controlsElement.querySelector(".tabulator-filter-menu-toggle");
+        const filterMenu = controlsElement.querySelector(".tabulator-filter-menu");
+        const columnCount = controlsElement.querySelector(".tabulator-column-count");
+        const filterCount = controlsElement.querySelector(".tabulator-filter-count");
+
+        const closeTableMenu = (toggle, menu) => {
+          if (!toggle || !menu) return;
+          menu.classList.add("hidden");
+          toggle.setAttribute("aria-expanded", "false");
+        };
+
+        const toggleTableMenu = (toggle, menu) => {
+          if (!toggle || !menu) return;
+          if (menu.classList.contains("hidden")) {
+            menu.classList.remove("hidden");
+            toggle.setAttribute("aria-expanded", "true");
+          } else {
+            closeTableMenu(toggle, menu);
+          }
+        };
+        if (csvButton && !csvButton.dataset.bound) {
+          csvButton.dataset.bound = "1";
+          csvButton.addEventListener("click", () => {
+            table.download("csv", "variants.csv");
+          });
+        }
+        if (xlsxButton && !xlsxButton.dataset.bound) {
+          xlsxButton.dataset.bound = "1";
+          xlsxButton.addEventListener("click", () => {
+            table.download("xlsx", "variants.xlsx", { sheetName: "Variants" });
+          });
+        }
+        if (columnMenu && !columnMenu.dataset.rendered) {
+          columnMenu.dataset.rendered = "1";
+          const header = document.createElement("div");
+          header.className = "mb-2 flex items-center justify-between";
+
+          const title = document.createElement("div");
+          title.className = "text-xs font-semibold text-slate-700";
+          title.textContent = "Columns";
+
+          const showAllButton = document.createElement("button");
+          showAllButton.type = "button";
+          showAllButton.className = "text-xs text-blue-600 hover:underline";
+          showAllButton.textContent = "Hide all";
+
+          const list = document.createElement("div");
+          list.className = "flex flex-col gap-1";
+
+          header.appendChild(title);
+          header.appendChild(showAllButton);
+          columnMenu.appendChild(header);
+          columnMenu.appendChild(list);
+
+          const columnButtons = [];
+          const syncColumnCountBadge = () => {
+            if (!columnCount) return;
+            const visibleCount = columnButtons.filter((button) => button.classList.contains("active")).length;
+            columnCount.textContent = `${visibleCount}/${columnButtons.length}`;
+          };
+          const syncColumnToggleLabel = () => {
+            const allVisible = columnButtons.length > 0 && columnButtons.every((button) => button.classList.contains("active"));
+            showAllButton.textContent = allVisible ? "Hide all" : "Show all";
+            syncColumnCountBadge();
+          };
+          tableColumns.forEach((columnDefinition) => {
+            if (!columnDefinition.field) return;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = `sample-column-option${columnDefinition.visible === false ? "" : " active"}`;
+            const columnTitle = columnDefinition.title || columnDefinition.field;
+            const columnDescription = columnDefinition.headerTooltip || "";
+            const columnLabel = columnDescription ? `${columnTitle}: ${columnDescription}` : columnTitle;
+            button.title = columnLabel;
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "sample-column-title";
+            titleSpan.textContent = columnTitle;
+            button.appendChild(titleSpan);
+            if (columnDescription) {
+              const descriptionSpan = document.createElement("span");
+              descriptionSpan.className = "sample-column-description";
+              descriptionSpan.textContent = columnDescription;
+              button.appendChild(descriptionSpan);
+            }
+            button.dataset.field = columnDefinition.field;
+            button.addEventListener("click", () => {
+              const column = table.getColumn(columnDefinition.field);
+              if (!column) return;
+              if (button.classList.contains("active")) {
+                column.hide();
+                button.classList.remove("active");
+              } else {
+                column.show();
+                button.classList.add("active");
+              }
+              syncColumnToggleLabel();
+              refreshPanelSizes();
+            });
+            columnButtons.push(button);
+            list.appendChild(button);
+          });
+
+          showAllButton.addEventListener("click", () => {
+            const hideAll = columnButtons.length > 0 && columnButtons.every((button) => button.classList.contains("active"));
+            columnButtons.forEach((button) => {
+              const column = table.getColumn(button.dataset.field);
+              if (!column) return;
+              if (hideAll) {
+                column.hide();
+                button.classList.remove("active");
+              } else {
+                column.show();
+                button.classList.add("active");
+              }
+            });
+            syncColumnToggleLabel();
+            refreshPanelSizes();
+          });
+          syncColumnToggleLabel();
+        }
+        if (columnToggle && columnMenu && !columnToggle.dataset.bound) {
+          columnToggle.dataset.bound = "1";
+          columnToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeTableMenu(filterToggle, filterMenu);
+            toggleTableMenu(columnToggle, columnMenu);
+          });
+          columnMenu.addEventListener("click", (event) => {
+            event.stopPropagation();
+          });
+          document.addEventListener("click", () => {
+            closeTableMenu(columnToggle, columnMenu);
+          });
+        }
+        if (filterMenu && !filterMenu.dataset.rendered) {
+          filterMenu.dataset.rendered = "1";
+
+          const filterRows = document.createElement("div");
+          filterRows.className = "flex flex-col gap-2";
+          const appliedFilters = [];
+          const syncFilterCountBadge = () => {
+            if (!filterCount) return;
+            filterCount.textContent = String(appliedFilters.length);
+          };
+
+          const applyActiveFilters = () => {
+            if (appliedFilters.length === 0) {
+              table.clearFilter();
+            } else {
+              table.setFilter(appliedFilters.map((filter) => ({ ...filter })));
+            }
+            syncFilterCountBadge();
+            renderFlexPlotSoon();
+          };
+
+          const makeOption = (value, label) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            return option;
+          };
+
+          const makeFilterControls = (filter, buttonText, onButtonClick, onFilterChange) => {
+            const row = document.createElement("div");
+            row.className = "tabulator-filter-row grid grid-cols-1 gap-2 sm:grid-cols-[minmax(9rem,1fr)_minmax(7rem,0.7fr)_minmax(10rem,1.3fr)_auto]";
+
+            const fieldSelect = document.createElement("select");
+            fieldSelect.className = "tabulator-filter-field min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-700";
+            tableColumns.forEach((columnDefinition) => {
+              if (!columnDefinition.field) return;
+              fieldSelect.appendChild(makeOption(columnDefinition.field, columnDefinition.title || columnDefinition.field));
+            });
+            fieldSelect.value = filter.field || tableColumns.find((column) => column.field)?.field || "";
+
+            const typeSelect = document.createElement("select");
+            typeSelect.className = "tabulator-filter-type min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-700";
+            [
+              ["=", "="],
+              ["!=", "!="],
+              ["like", "contains"],
+              ["<", "<"],
+              ["<=", "<="],
+              [">", ">"],
+              [">=", ">="],
+            ].forEach(([value, label]) => typeSelect.appendChild(makeOption(value, label)));
+            typeSelect.value = filter.type || "=";
+
+            const valueInput = document.createElement("input");
+            valueInput.className = "tabulator-filter-value min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-700";
+            valueInput.type = "text";
+            valueInput.value = filter.value || "";
+
+            const actionButton = document.createElement("button");
+            actionButton.type = "button";
+            actionButton.className = "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50";
+            actionButton.textContent = buttonText;
+
+            const readFilter = () => ({
+              field: fieldSelect.value,
+              type: typeSelect.value || "=",
+              value: valueInput.value,
+            });
+
+            if (onFilterChange) {
+              const updateFilter = () => {
+                Object.assign(filter, readFilter());
+                onFilterChange();
+              };
+              [fieldSelect, typeSelect].forEach((control) => control.addEventListener("change", updateFilter));
+              valueInput.addEventListener("input", updateFilter);
+            }
+            actionButton.addEventListener("click", () => onButtonClick(readFilter()));
+
+            row.appendChild(fieldSelect);
+            row.appendChild(typeSelect);
+            row.appendChild(valueInput);
+            row.appendChild(actionButton);
+            return row;
+          };
+
+          const renderFilterRows = () => {
+            filterRows.replaceChildren();
+            appliedFilters.forEach((filter, index) => {
+              filterRows.appendChild(makeFilterControls(
+                filter,
+                "Remove",
+                () => {
+                  appliedFilters.splice(index, 1);
+                  renderFilterRows();
+                  applyActiveFilters();
+                },
+                applyActiveFilters,
+              ));
+            });
+            filterRows.appendChild(makeFilterControls(
+              { field: tableColumns.find((column) => column.field)?.field || "", type: "=", value: "" },
+              "Add Filter",
+              (filter) => {
+                if (!filter.field) return;
+                appliedFilters.push(filter);
+                renderFilterRows();
+                applyActiveFilters();
+              },
+            ));
+          };
+
+          filterMenu.appendChild(filterRows);
+          renderFilterRows();
+          syncFilterCountBadge();
+        }
+        if (filterToggle && filterMenu && !filterToggle.dataset.bound) {
+          filterToggle.dataset.bound = "1";
+          filterToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeTableMenu(columnToggle, columnMenu);
+            toggleTableMenu(filterToggle, filterMenu);
+          });
+          filterMenu.addEventListener("click", (event) => {
+            event.stopPropagation();
+          });
+          document.addEventListener("click", () => {
+            closeTableMenu(filterToggle, filterMenu);
+          });
+        }
+      }
+
+      table.on("tableBuilt", () => {
+        bindTableControls();
+        selectDefaultVariantRow();
+        requestAnimationFrame(initializeLargeScreenPanelHeights);
+        renderFlexPlot();
+      });
+      table.on("renderComplete", refreshVariantRowHighlights);
+      table.on("dataFiltered", renderFlexPlotSoon);
+      table.on("dataSorted", renderFlexPlotSoon);
+      table.on("pageLoaded", renderFlexPlotSoon);
+      table.on("dataChanged", renderFlexPlotSoon);
+      requestAnimationFrame(bindTableControls);
+
+      const infoPanel = document.getElementById("info-panel");
+      const aboutModal = document.getElementById("about-modal");
+      const aboutBackdrop = document.getElementById("about-modal-backdrop");
+      const aboutClose = document.getElementById("about-modal-close");
+
+      function openAboutModal() {
+        aboutModal.classList.remove("hidden");
+        aboutModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeAboutModal() {
+        aboutModal.classList.add("hidden");
+        aboutModal.setAttribute("aria-hidden", "true");
+      }
+
+      infoPanel.addEventListener("click", openAboutModal);
+      infoPanel.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openAboutModal();
+        }
+      });
+      aboutBackdrop.addEventListener("click", closeAboutModal);
+      aboutClose.addEventListener("click", closeAboutModal);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeAboutModal();
+        }
+      });
+
+      const initialTrackHeights = computeIgvTrackHeights();
+      setPlotIgvWidths(currentPlotWidthPct);
+      const initialIgvLocus = variantLocusString(defaultVariant);
+
+      const igvOptions = {
+        loadDefaultGenomes: false,
+        search: false,
+        locus: initialIgvLocus,
+        reference: {
+          id: embeddedData.referenceName,
+          name: embeddedData.referenceName,
+          fastaURL: referenceUrl,
+          indexURL: referenceIndexUrl,
+          wholeGenomeView: false,
+        },
+        tracks: [
+          {
+            name: embeddedData.vcfName,
+            type: "variant",
+            format: "vcf",
+            url: vcfUrl,
+            displayMode: "expanded",
+            height: initialTrackHeights.variantHeight,
+            visibilityWindow: 50000,
+          },
+          {
+            name: embeddedData.cramName,
+            type: "alignment",
+            format: "cram",
+            url: cramUrl,
+            indexURL: craiUrl,
+            height: initialTrackHeights.alignmentHeight,
+            showCoverage: true,
+            showAlignments: true,
+            visibilityWindow: 50000,
+          },
+        ],
+      };
+
+      function finishIgvBrowserSetup(createdBrowser) {
+        browser = createdBrowser;
+        removeIgvInternalPadding();
+        refreshIgvLayoutAfterPanelChange();
+        window.setTimeout(refreshIgvLayoutAfterPanelChange, 100);
+        window.setTimeout(refreshIgvLayoutAfterPanelChange, 350);
+      }
+
+      function createIgvBrowser(options) {
+        return igv.createBrowser(document.getElementById("igv-container"), options)
+          .then(finishIgvBrowserSetup)
+          .catch((error) => {
+            if (options.locus === undefined) {
+              throw error;
+            }
+            const fallbackOptions = { ...options };
+            delete fallbackOptions.locus;
+            return igv.createBrowser(document.getElementById("igv-container"), fallbackOptions)
+              .then(finishIgvBrowserSetup);
+          });
+      }
+
+      createIgvBrowser(igvOptions).catch((error) => {
+        console.warn("IGV browser failed to initialize", error);
+      });
+
+      setPlotIgvWidths(currentPlotWidthPct);
+      syncIgvContainerToPanel();
+      initPlotControls();
+      renderFlexPlot();
+      initFlexPlotControlsDrawer();
+      initFlexPlotDownload();
+      initRowResizer();
+      initColResizer();
+      initKeyboardShortcuts();
+    </script>
+  </body>
+</html>

@@ -13,6 +13,7 @@ from snippy_ng.cli.gather_cli import gather
 from snippy_ng.cli.samclip_cli import samclip
 from snippy_ng.cli.samcrop_cli import samcrop
 from snippy_ng.cli.report_tree_cli import report_tree
+from snippy_ng.cli.sample_report_cli import sample_report
 from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.cnv_cli import cnv
 from snippy_ng.cli.vcf_cli import vcf
@@ -84,5 +85,6 @@ utils.add_command(gather)
 utils.add_command(samclip)
 utils.add_command(samcrop)
 utils.add_command(report_tree)
+utils.add_command(sample_report)
 utils.add_command(cnv)
 utils.add_command(vcf)
