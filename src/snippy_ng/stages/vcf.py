@@ -10,6 +10,10 @@ from snippy_ng.envvars import EnvVarField
 from snippy_ng.logging import logger
 from pydantic import Field
 
+HET_GT = {"0/1", "1/0", "0|1", "1|0"}
+MIXED_SITE_GT_FILTER = ' || '.join(f'GT="{gt}"' for gt in HET_GT)
+
+
 class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
@@ -78,7 +82,7 @@ class CollapseDiploidGenotypes(BaseStage):
     def _collapse_gt(gt: str) -> str:
         if gt in {"1/1", "1|1"}:
             return "1"
-        if gt in {"0/1", "1/0", "0|1", "1|0"}:
+        if gt in HET_GT:
             return "."
         return gt
 
@@ -450,8 +454,8 @@ class VcfFilterShort(VcfFilter):
                     description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", 'GT="0/1"', "-"],
-                    description="Mark heterozygous 0/1 genotypes as MixedSite and preserve existing FILTER labels",
+                    ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
+                    description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
                 ),
             ]
         bcftools_pipeline = self.shell_pipe(
@@ -568,8 +572,8 @@ class VcfFilterLong(VcfFilter):
                 description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
             ),
             self.shell_cmd(
-                ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", 'GT="0/1"', "-"],
-                description="Mark heterozygous 0/1 genotypes as MixedSite and preserve existing FILTER labels",
+                ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
+                description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
             ),
         ])
 
