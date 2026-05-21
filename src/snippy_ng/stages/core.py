@@ -54,9 +54,9 @@ class CombineFastaFile(BaseStage):
         ]
 
     def _find_pseudo_fasta(self, snippy_dir: Path) -> Path:
-        pseudo_fna_files = sorted(snippy_dir.glob("*.pseudo.fna"))
+        pseudo_fna_files = sorted(snippy_dir.glob("*.fna"))
         if not pseudo_fna_files:
-            raise MissingInputError(f"No *.pseudo.fna file found in {snippy_dir}")
+            raise MissingInputError(f"No *.fna file found in {snippy_dir}")
         return pseudo_fna_files[0]
 
     def build_concatenated_alignment(

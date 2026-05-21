@@ -549,7 +549,7 @@ class SampleReport(BaseStage):
                                     "--threads",
                                     str(ctx.cpus),
                                     "-T",
-                                    f"{self.prefix}.sample-report.sort.tmp",
+                                    f"{self.prefix}.report.sort.tmp",
                                     "-O",
                                     "cram,level=9",
                                     "--reference",

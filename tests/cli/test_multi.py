@@ -105,7 +105,7 @@ def _materialize_mock_sample_outputs(outdir, prefix, sample_names):
         sample_dir = outdir / "samples" / sample_name
         sample_dir.mkdir(parents=True, exist_ok=True)
         seq = f"{variant_bases[(idx + 1) % len(variant_bases)]}TCG"
-        (sample_dir / f"{prefix}.pseudo.fna").write_text(f">dummy\n{seq}\n")
+        (sample_dir / f"{prefix}.fna").write_text(f">dummy\n{seq}\n")
         (sample_dir / f"{prefix}.vcf.summary.tsv").write_text(
             "sample\ttotal\tpass\n"
             f"{sample_name}\t1\t1\n"

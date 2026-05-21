@@ -25,7 +25,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     Call pseudo-alignment using Bcftools consensus.
     """
     vcf: Path = Field(..., description="Input VCF file")
-    iupac_ambiguity_codes: bool = Field(True, description="Use IUPAC ambiguity codes for heterozygous sites")
+    iupac_ambiguity_codes: bool = Field(False, description="Use IUPAC ambiguity codes for heterozygous sites")
     ref_metadata: ReferenceMetadata = Field(..., description="Metadata for the run")
 
     _dependencies = [
@@ -35,7 +35,7 @@ class BcftoolsPseudoAlignment(PseudoAlignment):
     @property
     def output(self) -> BcftoolsPseudoAlignmentOutput:
         return BcftoolsPseudoAlignmentOutput(
-            fasta=Path(f"{self.prefix}.pseudo.raw.fna"),
+            fasta=Path(f"{self.prefix}.pseudo.raw.fa"),
             vcf_gz=self.vcf.with_suffix(".vcf.gz"),
             vcf_index=self.vcf.with_suffix(".vcf.gz.csi"),
         )

@@ -169,15 +169,15 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "sort",
         "-k1,1",
         "-k2,2n",
-        "sample.sample-report.regions.bed",
+        "sample.report.regions.bed",
     ]
     assert commands[1].processes[1].command == ["bedtools", "merge", "-i", "-"]
-    assert commands[1].output_file == Path("sample.sample-report.regions.merged.bed")
+    assert commands[1].output_file == Path("sample.report.regions.merged.bed")
     assert commands[2].command == [
         "samtools",
         "index",
         str(tmp_path / "sample.bam"),
-        "sample.sample-report.alignment.index",
+        "sample.report.alignment.index",
     ]
     assert commands[3].processes[0].command == [
         "samtools",
@@ -190,9 +190,9 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "-T",
         str(tmp_path / "ref.fa"),
         "-L",
-        "sample.sample-report.regions.merged.bed",
+        "sample.report.regions.merged.bed",
         str(tmp_path / "sample.bam"),
-        "sample.sample-report.alignment.index",
+        "sample.report.alignment.index",
     ]
     assert commands[3].processes[1].command == [
         sys.executable,
@@ -202,7 +202,7 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "aln",
         "samcrop",
         "--bed",
-        "sample.sample-report.regions.merged.bed",
+        "sample.report.regions.merged.bed",
     ]
     assert commands[3].processes[2].command == [
         "samtools",
@@ -210,20 +210,20 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "--threads",
         "4",
         "-T",
-        "sample.sample-report.sort.tmp",
+        "sample.report.sort.tmp",
         "-O",
         "cram,level=9",
         "--reference",
         str(tmp_path / "ref.fa"),
         "-o",
-        "sample.sample-report.cram",
+        "sample.report.cram",
         "-",
     ]
     assert commands[4].command == [
         "samtools",
         "index",
-        "sample.sample-report.cram",
-        "sample.sample-report.cram.crai",
+        "sample.report.cram",
+        "sample.report.cram.crai",
     ]
 
 

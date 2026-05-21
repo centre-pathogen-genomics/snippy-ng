@@ -169,7 +169,7 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     deletion_records = []
-    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
+    with gzip.open(outdir / "snippy.all.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
@@ -251,7 +251,7 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
     variant_records = []
-    with gzip.open(outdir / "snippy.vcf.gz", "rt", encoding="utf-8") as handle:
+    with gzip.open(outdir / "snippy.all.vcf.gz", "rt", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#"):
                 continue
@@ -263,7 +263,7 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     assert any(record[6] != "PASS" for record in variant_records), variant_records
 
     reference_seq = _read_fasta_sequence(request.reference, variant.chrom)
-    consensus_seq = _read_fasta_sequence(outdir / "snippy.pseudo.fna", variant.chrom)
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == reference_seq[variant.pos - 1]
 
 
@@ -393,7 +393,7 @@ def test_core_sample_asm_variants_are_recovered(simulated_dataset, sample_name, 
         required_filter="PASS",
     )
 
-    consensus_seq = _read_fasta_sequence(dataset.outdir / "snippy.pseudo.fna", variant.chrom)
+    consensus_seq = _read_fasta_sequence(dataset.outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == variant.alt.lower(), (
         f"Consensus base at {variant.chrom}:{variant.pos} should be {variant.alt.lower()}, "
         f"found {consensus_seq[variant.pos - 1]}"

@@ -35,7 +35,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             lambda p: [
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
-                "--aligner",   "nucmer",
+                "--caller",   "nucmer",
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
@@ -47,8 +47,7 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             lambda p: [
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
-                "--aligner",   "minimap2",
-                "--minimap-preset", "asm5",
+                "--caller",   "paftools",
                 "--outdir",    p["out"],
                 "--skip-check",
             ],
