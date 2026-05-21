@@ -14,7 +14,7 @@ def samcrop(sam_file, bed):
 
     Examples:
 
-        $ samtools view -h input.bam | snippy-ng utils samcrop --bed windows.bed | samtools view -b -o cropped.bam -
+        $ samtools view -h input.bam | snippy-ng utils aln samcrop --bed windows.bed | samtools view -b -o cropped.bam -
     """
     from snippy_ng.utils.samcrop import samcrop_filter_lines, load_bed
 

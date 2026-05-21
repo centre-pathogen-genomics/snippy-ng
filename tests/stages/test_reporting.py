@@ -199,6 +199,7 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
         "-m",
         "snippy_ng",
         "utils",
+        "aln",
         "samcrop",
         "--bed",
         "sample.sample-report.regions.merged.bed",

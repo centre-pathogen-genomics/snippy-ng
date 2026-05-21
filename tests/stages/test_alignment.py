@@ -16,8 +16,8 @@ def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
 
     assert commands[0][:4] == ["minimap2", "-a", "-x", "sr"]
     assert commands[1][:5] == ["samtools", "sort", "-n", "-O", "sam"]
-    assert commands[2][1:4] == ["-m", "snippy_ng", "utils"]
-    assert commands[2][4] == "samclip"
+    assert commands[2][1:5] == ["-m", "snippy_ng", "utils", "aln"]
+    assert commands[2][5] == "samclip"
     assert "--fix-mate" in commands[2]
     assert commands[3][:2] == ["samtools", "fixmate"]
     assert commands[4][:2] == ["samtools", "sort"]

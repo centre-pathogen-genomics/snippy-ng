@@ -12,7 +12,7 @@ from snippy_ng.cli.utils.globals import (
 )
 
 
-@click.command("sample-report", cls=CommandWithGlobals, context_settings={"show_default": True})
+@click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for the sample report", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="sample-report", help="Prefix for HTML report", cls=GlobalOption)
 @add_snippy_global_options(exclude=["prefix", "outdir"])
@@ -23,7 +23,7 @@ from snippy_ng.cli.utils.globals import (
 @click.option("--window-size", default=100, type=click.IntRange(min=0), help="Base pairs of context around each variant")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Sample Report", help="Title for the HTML report")
 @click.option("--sample-name", required=False, type=click.STRING, help="Optional sample name override")
-def sample_report(
+def sample(
     vcf: Path,
     alignment: Path,
     reference: Path,

@@ -23,7 +23,7 @@ def samclip(
 
     Examples:
 
-        $ snippy-ng utils samclip --index ref.fa.fai input.sam > clipped.sam
+        $ snippy-ng utils aln samclip --index ref.fa.fai input.sam > clipped.sam
     """
     import sys
     from snippy_ng.utils.samclip import samclip_filter_lines, fai_to_dict

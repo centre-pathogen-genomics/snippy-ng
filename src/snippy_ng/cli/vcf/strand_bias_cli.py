@@ -5,13 +5,8 @@ import click
 from snippy_ng.cli.utils import AbsolutePath
 
 
-@click.group(context_settings={"show_default": True})
-def vcf():
-    """VCF utility commands for Snippy-NG."""
-    pass
 
-
-@vcf.command("strand-bias", context_settings={"show_default": True})
+@click.command("strand-bias", context_settings={"show_default": True})
 @click.option("--alignment", "--bam", "--cram", required=True, type=AbsolutePath(exists=True, readable=True), help="Input BAM or CRAM used to derive strand counts")
 @click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA for samtools mpileup")
 @click.option("--output", "-o", required=False, type=click.Path(path_type=Path, dir_okay=False, writable=True), help="Output VCF path. Defaults to stdout")

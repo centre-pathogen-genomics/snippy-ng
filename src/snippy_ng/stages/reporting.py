@@ -443,13 +443,13 @@ class SampleReport(BaseStage):
     @property
     def output(self) -> SampleReportOutput:
         return SampleReportOutput(
-            rendered=Path(f"{self.prefix}.sample-report.html"),
-            variants_json=Path(f"{self.prefix}.sample-report.variants.json"),
-            regions_bed=Path(f"{self.prefix}.sample-report.regions.bed"),
-            merged_regions_bed=Path(f"{self.prefix}.sample-report.regions.merged.bed"),
-            alignment_index=Path(f"{self.prefix}.sample-report.alignment.index"),
-            cram=Path(f"{self.prefix}.sample-report.cram"),
-            crai=Path(f"{self.prefix}.sample-report.cram.crai"),
+            rendered=Path(f"{self.prefix}.report.html"),
+            variants_json=Path(f"{self.prefix}.report.variants.json"),
+            regions_bed=Path(f"{self.prefix}.report.regions.bed"),
+            merged_regions_bed=Path(f"{self.prefix}.report.regions.merged.bed"),
+            alignment_index=Path(f"{self.prefix}.report.alignment.index"),
+            cram=Path(f"{self.prefix}.report.cram"),
+            crai=Path(f"{self.prefix}.report.cram.crai"),
         )
 
     def create_commands(self, ctx) -> List:
@@ -533,6 +533,7 @@ class SampleReport(BaseStage):
                                     "-m",
                                     "snippy_ng",
                                     "utils",
+                                    "aln",
                                     "samcrop",
                                     "--bed",
                                     str(self.output.merged_regions_bed),

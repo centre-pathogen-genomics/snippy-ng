@@ -26,7 +26,8 @@ def test_sample_report_cli_builds_pipeline(monkeypatch, tmp_path):
     result = run_cli_command(
         [
             "utils",
-            "sample-report",
+            "report",
+            "sample",
             str(vcf),
             "--alignment",
             str(alignment),
@@ -65,7 +66,8 @@ def test_sample_report_cli_builds_vcf_only_pipeline(monkeypatch, tmp_path):
     result = run_cli_command(
         [
             "utils",
-            "sample-report",
+            "report",
+            "sample",
             str(vcf),
             "--outdir",
             str(outdir),
@@ -92,7 +94,8 @@ def test_sample_report_cli_requires_reference_with_alignment(tmp_path):
     result = run_cli_command(
         [
             "utils",
-            "sample-report",
+            "report",
+            "sample",
             str(vcf),
             "--alignment",
             str(alignment),
@@ -147,7 +150,7 @@ def test_long_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
         reads=None,
         bam=bam,
         caller="freebayes",
-        sample_report=False,
+        report=False,
         prefix="sample",
     ).build()
 

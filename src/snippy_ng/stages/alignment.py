@@ -70,6 +70,7 @@ class ShortReadAligner(Aligner):
                     "-m",
                     "snippy_ng",
                     "utils",
+                    "aln",
                     "samclip",
                     "--index",
                     f"{self.reference}.fai",
