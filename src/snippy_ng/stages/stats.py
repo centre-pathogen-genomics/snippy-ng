@@ -90,8 +90,8 @@ class VcfStats(BaseStage):
     @property
     def output(self) -> VcfStatsOutput:
         return VcfStatsOutput(
-            summary_tsv=Path(f"{self.prefix}.vcf.summary.tsv"),
-            breakdown_tsv=Path(f"{self.prefix}.vcf.breakdown.tsv"),
+            summary_tsv=Path(f"{self.vcf.name}.summary.tsv"),
+            breakdown_tsv=Path(f"{self.vcf.name}.breakdown.tsv"),
         )
 
     def create_commands(self, ctx) -> List[PythonCommand]:
