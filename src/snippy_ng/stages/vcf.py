@@ -24,7 +24,7 @@ class VcfPassFilterOutput(BaseOutput):
 
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
-    no_insertions: bool = Field(True, description="Remove insertions from the output VCF")
+    no_insertions: bool = Field(False, description="Remove insertions from the output VCF")
 
     _dependencies = [bcftools]
 
@@ -35,13 +35,13 @@ class VcfPassFilter(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        include_expr = 'FMT/GT="1/1" || FMT/GT="0/1"'
+        cmd = ["bcftools", "view", "-f", "PASS", str(self.vcf)]
         if self.no_insertions:
             # Exclude insertions while retaining deletions, including symbolic DEL blocks.
-            include_expr = f'({include_expr}) && (strlen(ALT)<=strlen(REF) || ALT="<DEL>")'
+            cmd.extend(["-i", '(strlen(ALT)<=strlen(REF) || ALT="<DEL>")'])
         return [
             self.shell_cmd(
-                ["bcftools", "view", "-f", "PASS", "-i", include_expr, str(self.vcf)],
+                cmd,
                 description="Filter VCF to PASS variants only",
                 output_file=self.output.vcf,
             )
