@@ -945,10 +945,12 @@ class FormatHTMLReportTemplate(BaseStage):
         for k, v in context.items():
             if callable(v):
                 context[k] = v()
-            elif isinstance(context[k], Path):
-                context[k] = v.read_text().strip()
         # Custom validation logic
         self.validate_context(context)
+        for k, v in context.items():
+            # Read any remaining file-backed template variables.
+            if isinstance(v, Path):
+                context[k] = v.read_text().strip()
         # load template
         with open(template, "r") as f:
             template_content = f.read()

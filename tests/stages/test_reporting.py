@@ -25,6 +25,38 @@ def test_epi_report_preserves_small_branch_lengths():
     assert "sample_a:0.0000000400" in context["NEWICK"]
 
 
+def test_tree_report_render_converts_metadata_path_during_validation(tmp_path):
+    tree = tmp_path / "tree.nwk"
+    metadata = tmp_path / "metadata.csv"
+    logs = tmp_path / "LOG.txt"
+    template = tmp_path / "template.html"
+
+    tree.write_text("(sample_a:0.1,sample_b:0.2);\n")
+    metadata.write_text("sample,group\nsample_a,A\nsample_b,B\n")
+    logs.write_text("tree report log\n")
+    template.write_text("{{NEWICK}}\n{{METADATA_JSON}}\n{{LOGS}}\n{{COLOR_BY_COLUMN}}")
+
+    report = TreeReport(
+        template_path=template,
+        context={
+            "NEWICK": tree,
+            "REPORT_NAME": "test-report",
+            "METADATA": metadata,
+            "LOGS": logs,
+            "COLOR_BY_COLUMN": "group",
+        },
+        prefix=str(tmp_path / "tree-report"),
+    )
+
+    report.render_template()
+
+    rendered = (tmp_path / "tree-report.html").read_text()
+    assert "sample_a" in rendered
+    assert '"group": "A"' in rendered
+    assert "tree report log" in rendered
+    assert "group" in rendered
+
+
 def test_sample_report_parses_vcf_records_and_scope(tmp_path):
     vcf = tmp_path / "sample.vcf"
     vcf.write_text(
