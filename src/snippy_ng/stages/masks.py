@@ -6,7 +6,6 @@ from snippy_ng.dependencies import bedtools, bcftools, samtools
 
 from pydantic import Field
 
-
 class DepthBedsFromBamOutput(BaseOutput):
     """Output from combined depth BED generation."""
     zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
@@ -79,6 +78,7 @@ class DepthBedsFromBam(BaseStage):
                 output_file=self.output.min_depth_bed,
             )
         ]
+
 
 class DepthMaskFromBedOutput(BaseOutput):
     """Output from applying a precomputed minimum-depth mask."""
@@ -162,5 +162,72 @@ class ApplyMask(BaseStage):
             self.shell_cmd([
                 "rm", str(temp_fasta)
             ], description="Remove temporary FASTA file")
+        ]
+
+
+class MaskMixedSitesOutput(BaseOutput):
+    mixed_site_bed: TempPath = Field(..., description="BED file of sites flagged with the MixedSite VCF filter")
+    masked_fasta: Path = Field(..., description="FASTA with MixedSite positions masked")
+
+
+class MaskMixedSites(BaseStage):
+    """Mask sites flagged with the MixedSite VCF filter using bedtools maskfasta."""
+
+    fasta: Path = Field(..., description="Consensus FASTA to mask")
+    vcf: Path = Field(..., description="VCF containing MixedSite-filtered records")
+    mask_char: str = Field("n", description="Character to use for masking")
+
+    _dependencies = [
+        bcftools,
+        bedtools,
+    ]
+
+    @property
+    def output(self) -> MaskMixedSitesOutput:
+        return MaskMixedSitesOutput(
+            mixed_site_bed=Path(f"{self.prefix}.mixed_sites.bed"),
+            masked_fasta=Path(f"{self.prefix}.mixed_masked.fasta"),
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_pipe(
+                [
+                    self.shell_cmd(
+                        [
+                            "bcftools", "query",
+                            "-i", 'FILTER="MixedSite"',
+                            "-f", r"%CHROM\t%POS0\t%REF\n",
+                            str(self.vcf),
+                        ],
+                        description="Extract MixedSite VCF records",
+                    ),
+                    self.shell_cmd(
+                        ["awk", '{print $1"\\t"$2"\\t"($2+length($3))}'],
+                        description="Convert MixedSite records to BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["sort", "-k1,1", "-k2,2n"],
+                        description="Sort MixedSite BED intervals",
+                    ),
+                    self.shell_cmd(
+                        ["bedtools", "merge", "-i", "-"],
+                        description="Merge adjacent MixedSite BED intervals",
+                    ),
+                ],
+                description="Create BED file for MixedSite positions",
+                output_file=self.output.mixed_site_bed,
+            ),
+            self.shell_cmd(
+                [
+                    "bedtools", "maskfasta",
+                    "-fi", str(self.fasta),
+                    "-bed", str(self.output.mixed_site_bed),
+                    "-fo", str(self.output.masked_fasta),
+                    "-fullHeader",
+                    "-mc", self.mask_char,
+                ],
+                description="Mask MixedSite positions in consensus FASTA",
+            ),
         ]
 

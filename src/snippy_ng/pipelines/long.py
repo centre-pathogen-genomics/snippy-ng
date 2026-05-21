@@ -13,7 +13,7 @@ from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.utils.gather import guess_sample_id
@@ -264,6 +264,15 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
+
+        # Mask sites flagged with the MixedSite VCF filter using the full-call VCF
+        mixed_sites = MaskMixedSites(
+            fasta=current_fasta,
+            vcf=variants_file,
+            **globals,
+        )
+        stages.append(mixed_sites)
+        current_fasta = mixed_sites.output.masked_fasta
 
         # Apply minimum-depth masking after consensus so the reference bases still
         # match VCF REF alleles while bcftools consensus is running.

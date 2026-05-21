@@ -7,7 +7,7 @@ from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
-from snippy_ng.stages.masks import ApplyMask
+from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
@@ -168,6 +168,18 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         # Track the current reference/fasta through the masking stages
         current_fasta = pseudo.output.fasta
+
+        # Mask sites flagged with the MixedSite VCF filter using the full-call VCF
+        # I think this is very unlikely in assembly-based calling but there is a
+        # theoretical possibility of contigs being collapsed in the assembly and showing 
+        # up as heterozygous sites in the VCF, so we will mask them just in case.
+        mixed_sites = MaskMixedSites(
+            fasta=current_fasta,
+            vcf=variants_file,
+            prefix=self.prefix
+        )
+        stages.append(mixed_sites)
+        current_fasta = mixed_sites.output.masked_fasta
 
         # Apply user mask if provided
         if self.mask:
