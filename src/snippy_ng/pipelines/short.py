@@ -14,7 +14,7 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta
-from snippy_ng.stages.copy import FinaliseFasta
+from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.utils.gather import guess_sample_id
 
@@ -191,8 +191,15 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        final_vcf = CopyFile(
+            input=consequences.output.annotated_vcf,
+            output_path=f"{self.prefix}.all.vcf",
+        )
+        stages.append(final_vcf)
+        variants_file = final_vcf.output.copied_file
+
         vcf_stats = VcfStats(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             sample_name=sample_name,
             **globals
         )
@@ -200,14 +207,14 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         # Compress VCF
         gzip_vcf = VcfCompressor(
-            input=consequences.output.annotated_vcf,
+            input=variants_file,
             **globals
         )
         stages.append(gzip_vcf)
         
         # Filter to PASS-only variants
         pass_filter = VcfPassFilter(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             **globals
         )
         stages.append(pass_filter)
@@ -251,7 +258,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         # Copy final masked consensus to standard output location
         copy_final = FinaliseFasta(
             input=current_fasta,
-            output_path=f"{self.prefix}.pseudo.fna",
+            output_path=f"{self.prefix}.fna",
             **globals
         )
         stages.append(copy_final)
@@ -265,7 +272,7 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         sample_report_stage = None
         if self.report:
-            sample_report_vcf = pass_filter.output.vcf if self.report_scope == "pass" else consequences.output.annotated_vcf
+            sample_report_vcf = pass_filter.output.vcf if self.report_scope == "pass" else variants_file
             sample_report_stage = SampleReport(
                 vcf=sample_report_vcf,
                 alignment=aligned_reads,

@@ -8,7 +8,7 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, QualMask
-from snippy_ng.stages.copy import FinaliseFasta
+from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
@@ -30,6 +30,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
     min_qual: int = Field(default=60, description="Minimum QUAL score for variants to retain in VCF")
     report: bool = Field(default=True, description="Create a per-sample HTML report")
+    report_scope: str = Field(default="pass", description="Variant scope for the sample report: pass or all")
 
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
@@ -118,8 +119,15 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(consequences)
 
+        final_vcf = CopyFile(
+            input=consequences.output.annotated_vcf,
+            output_path=f"{self.prefix}.all.vcf",
+        )
+        stages.append(final_vcf)
+        variants_file = final_vcf.output.copied_file
+
         vcf_stats = VcfStats(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             sample_name=sample_name,
             prefix=self.prefix
         )
@@ -127,15 +135,15 @@ class AsmPipelineBuilder(PipelineBuilder):
         
         # Filter to PASS-only variants
         pass_filter = VcfPassFilter(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             prefix=self.prefix
         )
         stages.append(pass_filter)
 
         # Compress VCF
         gzip_vcf = VcfCompressor(
-            input=consequences.output.annotated_vcf,
-            prefix=self.prefix
+            input=variants_file,
+            prefix=self.prefix,
         )
         stages.append(gzip_vcf)
         
@@ -153,7 +161,7 @@ class AsmPipelineBuilder(PipelineBuilder):
 
         # Apply heterozygous and low quality sites masking
         het_mask = QualMask(
-            vcf=consequences.output.annotated_vcf,
+            vcf=variants_file,
             fasta=current_fasta,
             prefix=self.prefix,
             min_qual=self.min_qual
@@ -174,7 +182,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         # Copy final masked consensus to standard output location
         copy_final = FinaliseFasta(
             input=current_fasta,
-            output_path=f"{self.prefix}.pseudo.fna",
+            output_path=f"{self.prefix}.fna",
             prefix=self.prefix
         )
         stages.append(copy_final)
@@ -189,7 +197,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         sample_report_stage = None
         if self.report:
             sample_report_stage = SampleReport(
-                vcf=pass_filter.output.vcf,
+                vcf=pass_filter.output.vcf if self.report_scope == "pass" else variants_file,
                 title="Snippy-NG Sample Report",
                 sample_name=sample_name,
                 variant_scope="pass",
