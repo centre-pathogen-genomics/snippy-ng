@@ -237,6 +237,35 @@ def test_gather_prepared_reference_directory_is_accepted_and_excluded(tmp_path):
     assert len(samples) == 1
 
 
+def test_gather_applies_defaults_to_missing_and_none_values(monkeypatch, tmp_path):
+    """Defaults should be applied during gather_samples_config, without overwriting set values."""
+    monkeypatch.setattr("snippy_ng.utils.gather.scan_sequence_files", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "snippy_ng.utils.gather.build_samples_config",
+        lambda _seqfiles: {
+            "sample_a": {"type": "short"},
+            "sample_b": {"type": "long", "clair3_model": None},
+            "sample_c": {"type": "long", "platform": "nanopore"},
+        },
+    )
+
+    cfg = gather_samples_config(
+        [tmp_path],
+        defaults={
+            "platform": "illumina",
+            "clair3_model": "clair3_models/r1041_e82_400bps_sup_v520",
+        },
+    )
+    samples = cfg["samples"]
+
+    assert samples["sample_a"]["platform"] == "illumina"
+    assert samples["sample_a"]["clair3_model"] == "clair3_models/r1041_e82_400bps_sup_v520"
+    assert samples["sample_b"]["platform"] == "illumina"
+    assert samples["sample_b"]["clair3_model"] == "clair3_models/r1041_e82_400bps_sup_v520"
+    assert samples["sample_c"]["platform"] == "nanopore"
+    assert samples["sample_c"]["clair3_model"] == "clair3_models/r1041_e82_400bps_sup_v520"
+
+
 def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
     """If a sample ID clashes with reference ID, sample must be renamed, not dropped."""
     ref = tmp_path / "ref.fasta"

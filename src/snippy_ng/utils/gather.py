@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Literal, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Literal, Mapping, Optional, Tuple, Union
 from snippy_ng.exceptions import SnippyError
 import gzip
 import io
@@ -429,6 +429,22 @@ def build_samples_config(
     return samples
 
 
+def apply_sample_defaults(
+    samples: Dict[str, Dict],
+    defaults: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Dict]:
+    """Apply default values to each sample when the key is missing or None."""
+    if not defaults:
+        return samples
+
+    for sample_data in samples.values():
+        for key, value in defaults.items():
+            if sample_data.get(key) is None:
+                sample_data[key] = value
+
+    return samples
+
+
 def gather_samples_config(
     inputs: Iterable[Union[str, Path]],
     *,
@@ -437,6 +453,7 @@ def gather_samples_config(
     exclude_name_regex: Optional[str] = r"^(Undetermined|NTC|PTC)",
     exclude_files: Optional[List[Path]] = None,
     reference: Optional[Union[str, Path]] = None,
+    defaults: Optional[Mapping[str, str]] = None,
 ) -> Dict[Literal["samples", "reference"], Union[Dict[str, Dict], Optional[str]]]:
     """
     Scan inputs for sequence files, build config dict, and return it.
@@ -471,6 +488,7 @@ def gather_samples_config(
     samples = build_samples_config(
         seqfiles,
     )
+    apply_sample_defaults(samples, defaults)
     return {
         "reference": str(normalized_reference) if normalized_reference else None,
         "samples": samples,
