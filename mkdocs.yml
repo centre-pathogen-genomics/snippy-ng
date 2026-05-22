@@ -10,8 +10,8 @@ nav:
   - Copy Number Variation: cnv.md
   - Report:
       - report/index.md
-      - Tree report: report/tree.md
-      - Sample report: report/sample.md
+      - Tree report: report/tree/index.md
+      - Sample report: report/sample/index.md
   - GUI: gui.md
   - Development:
       - development/index.md
