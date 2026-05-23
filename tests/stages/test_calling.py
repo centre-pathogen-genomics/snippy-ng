@@ -150,6 +150,65 @@ def test_paf_caller_disables_paftools_mapping_quality_prefilter(tmp_path):
     ] == "0"
 
 
+def test_paf_caller_sorts_aligned_bed_by_reference_dict_before_complement(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1\t0\t1\t2\n")
+    ref_dict = tmp_path / "ref.dict"
+    ref_dict.write_text("chr1\t1\n")
+    paf = tmp_path / "alignments.paf"
+    paf.write_text("")
+
+    stage = PAFCaller(
+        paf=paf,
+        ref_dict=ref_dict,
+        reference=reference,
+        reference_index=reference_index,
+        prefix="snippy",
+    )
+
+    commands = stage.create_commands(Context(cpus=1))
+    missing_bed_pipeline = commands[1]
+
+    assert [process.command for process in missing_bed_pipeline.processes] == [
+        ["bedtools", "sort", "-g", str(ref_dict), "-i", "snippy.aln.bed"],
+        ["bedtools", "complement", "-g", str(ref_dict), "-i", "-"],
+    ]
+    assert missing_bed_pipeline.output_file == Path("snippy.missing.bed")
+
+
+def test_show_snps_caller_sorts_aligned_bed_by_reference_dict_before_complement(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1\t0\t1\t2\n")
+    ref_dict = tmp_path / "ref.dict"
+    ref_dict.write_text("chr1\t1\n")
+    delta = tmp_path / "alignments.delta"
+    delta.write_text("")
+    assembly = tmp_path / "assembly.fa"
+    assembly.write_text(">chr1\nA\n")
+
+    stage = ShowSnpsCaller(
+        delta=delta,
+        ref_dict=ref_dict,
+        assembly=assembly,
+        reference=reference,
+        reference_index=reference_index,
+        prefix="snippy",
+    )
+
+    commands = stage.create_commands(Context(cpus=1))
+    missing_bed_pipeline = commands[3]
+
+    assert [process.command for process in missing_bed_pipeline.processes] == [
+        ["bedtools", "sort", "-g", str(ref_dict), "-i", "snippy.aln.bed"],
+        ["bedtools", "complement", "-g", str(ref_dict), "-i", "-"],
+    ]
+    assert missing_bed_pipeline.output_file == Path("snippy.missing.bed")
+
+
 def test_paf_vcf_annotation_marks_repetitive_mapping_lowqual(tmp_path):
     input_vcf = tmp_path / "input.vcf"
     input_vcf.write_text(

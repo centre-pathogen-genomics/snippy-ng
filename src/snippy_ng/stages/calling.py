@@ -290,14 +290,16 @@ class PAFCaller(Caller):
         )
 
         # 5) Compute unaligned (missing) reference regions
-        compute_missing_bed_cmd = self.shell_cmd(
-            [
-                "bedtools",
-                "complement",
-                "-g",
-                str(self.ref_dict),
-                "-i",
-                str(self.output.aln_bed),
+        compute_missing_bed_cmd = self.shell_pipe(
+            commands=[
+                self.shell_cmd(
+                    ["bedtools", "sort", "-g", str(self.ref_dict), "-i", str(self.output.aln_bed)],
+                    description="Sort aligned reference intervals using reference dictionary order",
+                ),
+                self.shell_cmd(
+                    ["bedtools", "complement", "-g", str(self.ref_dict), "-i", "-"],
+                    description="Compute unaligned (missing) reference regions",
+                ),
             ],
             description="Compute unaligned (missing) reference regions",
             output_file=self.output.missing_bed,
@@ -689,14 +691,16 @@ class ShowSnpsCaller(Caller):
             args=[self.output.coords_tsv, self.output.aln_bed],
             description="Convert show-coords output to merged BED intervals",
         )
-        compute_missing_bed_cmd = self.shell_cmd(
-            [
-                "bedtools",
-                "complement",
-                "-g",
-                str(self.ref_dict),
-                "-i",
-                str(self.output.aln_bed),
+        compute_missing_bed_cmd = self.shell_pipe(
+            commands=[
+                self.shell_cmd(
+                    ["bedtools", "sort", "-g", str(self.ref_dict), "-i", str(self.output.aln_bed)],
+                    description="Sort aligned reference intervals using reference dictionary order",
+                ),
+                self.shell_cmd(
+                    ["bedtools", "complement", "-g", str(self.ref_dict), "-i", "-"],
+                    description="Compute unaligned (missing) reference regions",
+                ),
             ],
             description="Compute unaligned (missing) reference regions",
             output_file=self.output.missing_bed,
