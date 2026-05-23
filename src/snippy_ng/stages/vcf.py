@@ -428,7 +428,7 @@ class VcfFilterShort(VcfFilter):
                         "-f",
                         str(self.reference),
                         "--check-ref", "e",
-                        "--remove-duplicates",
+                        "--multiallelics", "-", # Split multiallelics
                         "-Ou",
                     ],
                     description="Normalize and split multiallelic variants",
@@ -546,7 +546,7 @@ class VcfFilterLong(VcfFilter):
                     "-f",
                     str(self.reference),
                     "--check-ref", "e",
-                    "--remove-duplicates",
+                    "--multiallelics", "-", # split multiallelics
                     "-Ou",
                 ],
                 description="Normalize and split multiallelic variants",

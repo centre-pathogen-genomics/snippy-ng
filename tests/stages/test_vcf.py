@@ -153,6 +153,29 @@ def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
     ]
 
 
+def test_vcf_filter_short_splits_multiallelic_sites_before_collapse():
+    stage = VcfFilterShort(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    norm_cmd = commands[0].processes[1]
+    assert norm_cmd.command == [
+        "bcftools",
+        "norm",
+        "-f",
+        "ref.fa",
+        "--check-ref",
+        "e",
+        "-m",
+        "-both",
+        "-Ou",
+    ]
+
+
 def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
     stage = VcfFilterLong(
         vcf=Path("calls.vcf"),
@@ -174,6 +197,30 @@ def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
         "-e",
         MIXED_SITE_GT_FILTER,
         "-",
+    ]
+
+
+def test_vcf_filter_long_splits_multiallelic_sites_before_collapse():
+    stage = VcfFilterLong(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        reference_index=Path("ref.fa.fai"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    norm_cmd = commands[2].processes[2]
+    assert norm_cmd.command == [
+        "bcftools",
+        "norm",
+        "-f",
+        "ref.fa",
+        "--check-ref",
+        "e",
+        "-m",
+        "-both",
+        "-Ou",
     ]
 
 
