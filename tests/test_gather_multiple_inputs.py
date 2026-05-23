@@ -2,8 +2,8 @@
 import gzip
 from pathlib import Path
 import pytest
-from snippy_ng.utils.gather import gather_samples_config
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import gather
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 def write_fastq(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
@@ -38,7 +38,7 @@ def test_gather_multiple_directories_with_same_basename(tmp_path):
     (data_dir / "JKD6159.fasta").write_text(">contig2\nTGCA\n")
     
     # Scan both directories - should create separate samples
-    cfg = gather_samples_config([samples_dir, data_dir])
+    cfg = gather([samples_dir, data_dir])
     samples = cfg["samples"]
     
     # Should have two different sample IDs
@@ -57,7 +57,7 @@ def test_gather_single_directory_no_prefix(tmp_path):
     (samples_dir / "JKD6159.fasta").write_text(">contig1\nACGT\n")
     
     # Scan single directory - should not prefix
-    cfg = gather_samples_config([samples_dir])
+    cfg = gather([samples_dir])
     samples = cfg["samples"]
     
     assert cfg["reference"] is None
@@ -83,7 +83,7 @@ def test_gather_multiple_directories_with_subdirs(tmp_path):
     write_fastq(sample1b_dir / "R2.fastq")
     
     # Scan both - duplicate sample IDs should be disambiguated
-    cfg = gather_samples_config([samples_dir, data_dir])
+    cfg = gather([samples_dir, data_dir])
     samples = cfg["samples"]
 
     assert len(samples) == 2
@@ -102,7 +102,7 @@ def test_gather_same_filename_with_compression_keeps_extension(tmp_path):
     with gzip.open(data_dir / "Sample.fa.gz", "wt") as fh:
         fh.write(">contig1\nACGT\n")
 
-    cfg = gather_samples_config([data_dir])
+    cfg = gather([data_dir])
     samples = cfg["samples"]
 
     assert "Sample.fa" in samples
@@ -119,7 +119,7 @@ def test_gather_r1_r2_in_sample_dirs_uses_directory_name(tmp_path):
         write_fastq(sample_dir / "R1")
         write_fastq(sample_dir / "R2", seq="TGCA")
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert "sample1" in samples
@@ -136,7 +136,7 @@ def test_gather_mutant_r1_r2_in_sample_dirs_prefixes_parent(tmp_path):
         write_fastq(sample_dir / "mutant_R1")
         write_fastq(sample_dir / "mutant_R2", seq="TGCA")
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert "sample1-mutant" in samples
@@ -152,7 +152,7 @@ def test_gather_same_filename_in_outbreak_dirs_prefixes_outbreak(tmp_path):
         outbreak_dir.mkdir()
         (outbreak_dir / "sample1.fa").write_text(">contig1\nACGT\n")
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert "outbreak1-sample1" in samples
@@ -170,7 +170,7 @@ def test_gather_respects_symlink_paths(tmp_path):
     link_dir = tmp_path / "outbreak_link"
     link_dir.symlink_to(real_dir, target_is_directory=True)
 
-    cfg = gather_samples_config([real_dir, link_dir])
+    cfg = gather([real_dir, link_dir])
     samples = cfg["samples"]
 
     assert "outbreak_real-sample1" in samples
@@ -191,7 +191,7 @@ def test_gather_mixed_kinds_keep_extension_with_cross_parent_collision(tmp_path)
     long_ref.mkdir(parents=True)
     (long_ref / "JKD6159.fa").write_text(">contig2\nTGCA\n")
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert "JKD6159.fastq.gz" in samples
@@ -210,7 +210,7 @@ def test_gather_reference_special_case_excluded_from_samples(tmp_path):
     sample_dir.mkdir()
     write_fastq(sample_dir / "reference.fastq")
 
-    cfg = gather_samples_config([tmp_path], reference=ref)
+    cfg = gather([tmp_path], reference=ref)
     samples = cfg["samples"]
 
     assert cfg["reference"] == str(ref.absolute())
@@ -229,7 +229,7 @@ def test_gather_prepared_reference_directory_is_accepted_and_excluded(tmp_path):
     sample_dir.mkdir()
     write_fastq(sample_dir / "sample.fastq")
 
-    cfg = gather_samples_config([tmp_path], reference=ref_dir)
+    cfg = gather([tmp_path], reference=ref_dir)
     samples = cfg["samples"]
 
     assert cfg["reference"] == str(ref_dir.absolute())
@@ -238,7 +238,7 @@ def test_gather_prepared_reference_directory_is_accepted_and_excluded(tmp_path):
 
 
 def test_gather_applies_defaults_to_missing_and_none_values(monkeypatch, tmp_path):
-    """Defaults should be applied during gather_samples_config, without overwriting set values."""
+    """Defaults should be applied during gather, without overwriting set values."""
     monkeypatch.setattr("snippy_ng.utils.gather.scan_sequence_files", lambda *args, **kwargs: [])
     monkeypatch.setattr(
         "snippy_ng.utils.gather.build_samples_config",
@@ -249,7 +249,7 @@ def test_gather_applies_defaults_to_missing_and_none_values(monkeypatch, tmp_pat
         },
     )
 
-    cfg = gather_samples_config(
+    cfg = gather(
         [tmp_path],
         defaults={
             "platform": "illumina",
@@ -275,7 +275,7 @@ def test_gather_reference_id_conflict_is_disambiguated(tmp_path):
     data_dir.mkdir()
     (data_dir / "ref.fasta").write_text(">contig\nACGT\n")
 
-    cfg = gather_samples_config([data_dir], reference=ref)
+    cfg = gather([data_dir], reference=ref)
     samples = cfg["samples"]
 
     assert cfg["reference"] == str(ref.absolute())
@@ -292,7 +292,7 @@ def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
     for name in ("mutant_1.trim.fastq.gz", "mutant_2.trim.fastq.gz"):
         write_fastq_gz(data_dir / name)
 
-    cfg = gather_samples_config([data_dir])
+    cfg = gather([data_dir])
     samples = cfg["samples"]
 
     assert_short_sample(
@@ -310,18 +310,37 @@ def test_gather_trimmed_illumina_pair_groups_into_single_sample(tmp_path):
 @pytest.mark.parametrize(
     ("filename", "expected"),
     [
-        ("sample_1.fastq.gz", "sample"),
-        ("sample_2.fastq.gz", "sample"),
-        ("sample_R1.fastq.gz", "sample"),
-        ("sample_R2.fastq.gz", "sample"),
-        ("sample_R1_001.fastq.gz", "sample"),
-        ("sample_1.trim.fastq.gz", "sample"),
-        ("sample_2.trimmed.fastq.gz", "sample"),
-        ("sample_R1.clean.fastq.gz", "sample"),
+        ("sample_1.fastq.gz", "sample_1"),
+        ("sample_2.fastq.gz", "sample_2"),
+        ("sample_R1.fastq.gz", "sample_R1"),
+        ("sample_R2.fastq.gz", "sample_R2"),
+        ("sample_R1_001.fastq.gz", "sample_R1_001"),
+        ("sample_1.trim.fastq.gz", "sample_1.trim"),
+        ("sample_2.trimmed.fastq.gz", "sample_2.trimmed"),
+        ("sample_R1.clean.fastq.gz", "sample_R1.clean"),
+        ("sample_1.trim.fastq", "sample_1.trim"),
     ],
 )
-def test_guess_sample_id_strips_common_read_suffix_variants(filename, expected):
-    assert guess_sample_id(filename) == expected
+def test_strip_bio_suffixes_keeps_read_suffix_variants(filename, expected):
+    assert strip_bio_suffixes(filename) == expected
+
+
+def test_gather_non_illumina_files_keep_read_suffix_like_ids(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "assembly_001.fasta").write_text(">contig\nACGT\n")
+    write_fastq_gz(
+        data_dir / "nanopore_R2.fastq.gz",
+        header="@550e8400-e29b-41d4-a716-446655440000",
+    )
+
+    cfg = gather([data_dir])
+    samples = cfg["samples"]
+
+    assert "assembly_001" in samples
+    assert samples["assembly_001"]["type"] == "asm"
+    assert "nanopore_R2" in samples
+    assert samples["nanopore_R2"]["type"] == "long"
 
 
 def test_gather_single_short_read_keeps_right_as_none(tmp_path):
@@ -329,7 +348,7 @@ def test_gather_single_short_read_keeps_right_as_none(tmp_path):
     reads = tmp_path / "single.fastq"
     write_fastq(reads)
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert_short_sample(samples, "single", left_suffix="single.fastq")
@@ -343,7 +362,7 @@ def test_gather_srr_pair_with_numeric_sample_id_groups_r1_r2_correctly(tmp_path)
     write_fastq(r1)
     write_fastq(r2, seq="TGCA")
 
-    cfg = gather_samples_config([tmp_path])
+    cfg = gather([tmp_path])
     samples = cfg["samples"]
 
     assert_short_sample(samples, "SRR6171131", left_suffix="SRR6171131_1.fastq", right_suffix="SRR6171131_2.fastq")
@@ -402,7 +421,7 @@ def test_gather_kitchen_sink_mixed_layouts_and_naming_styles(tmp_path):
     # Sample that would clash with reference id should be disambiguated.
     write_fastq(outbreak_b / "reference.fastq")
 
-    cfg = gather_samples_config([outbreak_a, outbreak_b, misc], reference=ref)
+    cfg = gather([outbreak_a, outbreak_b, misc], reference=ref)
     samples = cfg["samples"]
 
     assert cfg["reference"] == str(ref.absolute())
@@ -431,3 +450,24 @@ def test_gather_kitchen_sink_mixed_layouts_and_naming_styles(tmp_path):
     assert "outbreak_b-reference" in samples
     assert samples["outbreak_b-reference"]["type"] == "short"
     assert "reference" not in samples
+
+
+def test_gather_many_directories_deep_with_same_basename(tmp_path):
+    """Deeply nested duplicate basenames should be disambiguated by full parent labels."""
+    left = tmp_path / "cohort_a" / "batch_01" / "lane_x" / "assemblies"
+    right = tmp_path / "cohort_b" / "batch_01" / "lane_x" / "assemblies"
+    left.mkdir(parents=True)
+    right.mkdir(parents=True)
+
+    (left / "JKD6159.fasta").write_text(">contig1\nACGT\n")
+    (right / "JKD6159.fasta").write_text(">contig2\nTGCA\n")
+
+    cfg = gather([tmp_path], max_depth=5)
+    samples = cfg["samples"]
+
+    assert cfg["reference"] is None
+    assert len(samples) == 2
+    assert "cohort_a-batch_01-lane_x-assemblies-JKD6159" in samples
+    assert "cohort_b-batch_01-lane_x-assemblies-JKD6159" in samples
+    assert samples["cohort_a-batch_01-lane_x-assemblies-JKD6159"]["type"] == "asm"
+    assert samples["cohort_b-batch_01-lane_x-assemblies-JKD6159"]["type"] == "asm"

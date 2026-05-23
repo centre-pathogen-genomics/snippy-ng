@@ -16,7 +16,6 @@ from snippy_ng.cli.utils import AbsolutePath
     help="Set a default key/value for all samples; can be repeated",
     show_default=True,
 )
-@click.option("--aggressive-ids", "-a", is_flag=True, default=False, help="Aggressively parse sample IDs from file paths", show_default=True)
 @click.option("--json", "-j", is_flag=True, default=False, help="Output JSON instead of TSV", show_default=True)
 def gather(**config):
     """
@@ -26,7 +25,7 @@ def gather(**config):
 
         $ snippy-ng utils gather > samples.csv
     """
-    from snippy_ng.utils.gather import gather_samples_config
+    from snippy_ng.utils.gather import gather
     from snippy_ng.logging import logger
     from collections import Counter
     import os
@@ -34,10 +33,9 @@ def gather(**config):
     inputs = config["input_files"] if config.get("input_files") else [os.getcwd()]
     
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in inputs)}")
-    gathered = gather_samples_config(
+    gathered = gather(
         inputs=inputs,
         max_depth=config["max_depth"],
-        aggressive_ids=config["aggressive_ids"],
         exclude_name_regex=config["exclude"],
         reference=config.get("reference"),
         defaults=dict(config.get("defaults") or ()),

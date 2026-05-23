@@ -16,7 +16,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class LongPipelineBuilder(PipelineBuilder):
@@ -101,7 +101,7 @@ class LongPipelineBuilder(PipelineBuilder):
         # Aligner
         if self.bam:
             if sample_name is None:
-                sample_name = guess_sample_id(Path(self.bam).name)
+                sample_name = strip_bio_suffixes(Path(self.bam).name)
             aligned_reads = self.bam
         else:
             # SeqKit read statistics
@@ -124,7 +124,7 @@ class LongPipelineBuilder(PipelineBuilder):
             else:
                 raise ValueError(f"Unsupported aligner '{self.aligner}'")
             if current_reads and sample_name is None:
-                sample_name = guess_sample_id(Path(current_reads[0]).name)
+                sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
             

@@ -16,7 +16,7 @@ from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import load_or_prepare_reference
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class ShortPipelineBuilder(PipelineBuilder):
@@ -97,7 +97,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         if self.bam:
             if sample_name is None:
-                sample_name = guess_sample_id(Path(self.bam).name)
+                sample_name = strip_bio_suffixes(Path(self.bam).name)
             aligned_reads = Path(self.bam).absolute()  
         else:
             # SeqKit read statistics
@@ -127,7 +127,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 )
             
             if current_reads and sample_name is None:
-                sample_name = guess_sample_id(Path(current_reads[0]).name)
+                sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
         

@@ -14,7 +14,7 @@ from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import VcfStats
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class AsmPipelineBuilder(PipelineBuilder):
@@ -36,7 +36,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = self.sample_name or guess_sample_id(Path(self.assembly).name)
+        sample_name = self.sample_name or strip_bio_suffixes(Path(self.assembly).name)
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(

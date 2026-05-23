@@ -11,7 +11,7 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
     (tmp_path / "reference.fasta").write_text(">ref\nACGT\n")
 
     monkeypatch.setattr(
-        "snippy_ng.utils.gather.gather_samples_config",
+        "snippy_ng.utils.gather.gather",
         lambda **_: {"samples": samples},
     )
 

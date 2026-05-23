@@ -40,7 +40,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     from snippy_ng.pipelines.common import load_or_prepare_reference
     from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
-    from snippy_ng.utils.gather import gather_samples_config
+    from snippy_ng.utils.gather import gather
     from snippy_ng.exceptions import PipelineExecutionError, InvalidReferenceError
 
     logger.warning(
@@ -65,7 +65,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     # look for file called reference or ref with fasta, fa, fna, gbk, genbank extension
     if reference is None:
         for search_dir in directories:
-            for ext in ["fasta", "fa", "fna", "gbk", "genbank"]:
+            for ext in ["gbk", "genbank", "fasta", "fa", "fna"]:
                 for name in ["reference", "ref"]:
                     candidates = list(search_dir.rglob(f"{name}.{ext}"))
                     if candidates:
@@ -83,10 +83,9 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
 
     # find all samples in the directory and create config
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in directories)}")
-    gathered = gather_samples_config(
+    gathered = gather(
         inputs=directories,
         max_depth=4,
-        aggressive_ids=False,
         exclude_name_regex=None,
         reference=reference,
         defaults={"report": True}, # YOLO: enable reports by default 
@@ -104,13 +103,9 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     with open(Path(outdir) / "samples.json", "w") as f:
         f.write(json.dumps(gathered, indent=2))
 
-    cfg = {
-        "reference": str(reference),
-        "samples": samples,
-    }
     # create reusable reference
     ref_stage = load_or_prepare_reference(
-        reference_path=cfg["reference"],
+        reference_path=reference,
         output_directory=outdir / "reference",
     )
     ref_pipeline = SnippyPipeline(stages=[ref_stage])
@@ -131,7 +126,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     try:
         successful_samples, failures = run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
-            samples=cfg["samples"],
+            samples=samples,
             prefix=prefix,
             run_ctx=run_ctx,
             cpus_per_sample=cpus_per_sample,

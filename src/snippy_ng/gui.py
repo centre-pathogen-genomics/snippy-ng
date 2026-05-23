@@ -9,7 +9,7 @@ from typing import Any, Optional
 import gradio as gr
 
 from snippy_ng.cli.multi_cli import run_multi_config
-from snippy_ng.utils.gather import gather_samples_config
+from snippy_ng.utils.gather import gather
 from snippy_ng.utils.system import available_cpu_count
 
 
@@ -188,7 +188,6 @@ def run_snippy_multi_gui(
     cpus_per_sample: int,
     ram: int,
     max_depth: int,
-    aggressive_ids: bool,
     exclude_name_regex: str,
     core: float,
     inclusion_threshold: float,
@@ -215,10 +214,9 @@ def run_snippy_multi_gui(
         if not inputs:
             raise gr.Error("Upload sample files or enter one or more server sample paths.")
 
-        config = gather_samples_config(
+        config = gather(
             inputs,
             max_depth=max(0, int(max_depth)),
-            aggressive_ids=bool(aggressive_ids),
             exclude_name_regex=exclude_name_regex.strip() or None,
             reference=reference,
         )
@@ -316,7 +314,6 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
             cpus_per_sample = gr.Number(label="CPUs per sample", value=default_cpus_per_sample, precision=0, minimum=1)
             ram = gr.Number(label="RAM limit in GB", value=8, precision=0, minimum=1)
             max_depth = gr.Number(label="Maximum directory depth", value=4, precision=0, minimum=0)
-            aggressive_ids = gr.Checkbox(label="Aggressive sample ID parsing", value=False)
             exclude_name_regex = gr.Textbox(label="Exclude filename regex", value=r"^(Undetermined|NTC|PTC)")
             core = gr.Slider(label="Core alignment threshold", minimum=0, maximum=1, value=0.95, step=0.01)
             inclusion_threshold = gr.Slider(label="Cluster inclusion threshold", minimum=0, maximum=1, value=0.1, step=0.01)
@@ -374,7 +371,6 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 cpus_per_sample,
                 ram,
                 max_depth,
-                aggressive_ids,
                 exclude_name_regex,
                 core,
                 inclusion_threshold,
