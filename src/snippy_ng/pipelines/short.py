@@ -7,7 +7,7 @@ from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
-from snippy_ng.stages.filtering import SamtoolsFilter
+from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
@@ -98,7 +98,13 @@ class ShortPipelineBuilder(PipelineBuilder):
         if self.bam:
             if sample_name is None:
                 sample_name = strip_bio_suffixes(Path(self.bam).name)
-            aligned_reads = Path(self.bam).absolute()  
+            aligned_reads = Path(self.bam).absolute()
+            stages.append(BamReferenceValidator(
+                bam=aligned_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                **globals,
+            ))
         else:
             # SeqKit read statistics
             stats_stage = SeqKitReadStatsBasic(

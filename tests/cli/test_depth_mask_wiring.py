@@ -4,6 +4,7 @@ import pytest
 
 import snippy_ng.pipelines as _pl
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
+from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta
 from snippy_ng.stages.vcf import AddDeletionsToVCF
 from tests.cli.helpers import assert_cli_result, run_cli_command, write_dummy_files
@@ -108,6 +109,26 @@ def test_short_pipeline_depth_mask_zero_keeps_zero_depth_deletions_only(tmp_path
     assert ApplyDepthMaskToFasta not in _stage_types()
 
 
+def test_short_pipeline_validates_user_bam_before_filtering(tmp_path):
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "bam": tmp_path / "reads.bam",
+        "out": tmp_path / "output",
+    }
+    write_dummy_files(paths, ["ref", "bam"])
+
+    result = run_cli_command([
+        "short",
+        "--reference", str(paths["ref"]),
+        "--bam", str(paths["bam"]),
+        "--outdir", str(paths["out"]),
+        "--skip-check",
+    ])
+
+    assert_cli_result(result, 0, True)
+    assert _stage_types().index(BamReferenceValidator) < _stage_types().index(SamtoolsFilter)
+
+
 def test_long_pipeline_uses_combined_depth_beds(tmp_path):
     paths = {
         "ref": tmp_path / "ref.fa",
@@ -163,3 +184,24 @@ def test_long_pipeline_threads_min_mapping_quality_to_freebayes_and_depth_beds(t
     depth_beds = _stage_instances(DepthBedsFromBam)[0]
 
     assert depth_beds.min_mapping_quality == 30
+
+
+def test_long_pipeline_validates_user_bam_before_filtering(tmp_path):
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "bam": tmp_path / "reads.bam",
+        "out": tmp_path / "output",
+    }
+    write_dummy_files(paths, ["ref", "bam"])
+
+    result = run_cli_command([
+        "long",
+        "--reference", str(paths["ref"]),
+        "--bam", str(paths["bam"]),
+        "--outdir", str(paths["out"]),
+        "--caller", "freebayes",
+        "--skip-check",
+    ])
+
+    assert_cli_result(result, 0, True)
+    assert _stage_types().index(BamReferenceValidator) < _stage_types().index(SamtoolsFilter)
