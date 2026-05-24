@@ -120,13 +120,17 @@ def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():
     commands = stage.create_commands(Context())
 
     assert len(commands) == 1
-    assert commands[0].command == [
+    assert commands[0].processes[0].command == [
         "bcftools",
         "query",
+        "--allow-undef-tags",
         "-f",
-        "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
+        "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\t%INFO/BCSQ\\n",
         "sample.vcf",
     ]
+    assert commands[0].processes[1].command[0] == "awk"
+    assert 'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"' in commands[0].processes[1].command[1]
+    assert 'split(selected, bcsq, "|")' in commands[0].processes[1].command[1]
     assert commands[0].output_file == Path("snps.tab")
 
 

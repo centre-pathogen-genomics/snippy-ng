@@ -17,6 +17,7 @@ class DummyPipeline:
 
     def __init__(self, *_, **__):
         self.stages     = __.get("stages", []) if __ else []
+        self.outputs_to_keep = __.get("outputs_to_keep", []) if __ else []
         self.validated = False
         self.ran       = False
         DummyPipeline.last = self      # remember myself

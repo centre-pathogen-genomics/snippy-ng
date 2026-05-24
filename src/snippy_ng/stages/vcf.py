@@ -44,16 +44,42 @@ class VcfToTab(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
+        split_bcsq_awk = (
+            'BEGIN {'
+            'FS=OFS="\t"; '
+            'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"'
+            '} '
+            '{'
+            'selected=""; '
+            'split($6, annotations, ","); '
+            'for (i = 1; i <= length(annotations); i++) { '
+            'if (annotations[i] != "" && annotations[i] != "." && annotations[i] !~ /^@/) { selected=annotations[i]; break } '
+            '} '
+            'split(selected, bcsq, "|"); '
+            'for (i = 1; i <= 7; i++) { if (!(i in bcsq)) bcsq[i]="" } '
+            'print $1,$2,$3,$4,$5,bcsq[1],bcsq[2],bcsq[3],bcsq[4],bcsq[5],bcsq[6],bcsq[7]'
+            '}'
+        )
         return [
-            self.shell_cmd(
-                [
-                    "bcftools",
-                    "query",
-                    "-f",
-                    "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
-                    str(self.vcf),
+            self.shell_pipe(
+                commands=[
+                    self.shell_cmd(
+                        [
+                            "bcftools",
+                            "query",
+                            "--allow-undef-tags",
+                            "-f",
+                            "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\t%INFO/BCSQ\\n",
+                            str(self.vcf),
+                        ],
+                        description="Query variant records and consequence annotations from VCF",
+                    ),
+                    self.shell_cmd(
+                        ["awk", split_bcsq_awk],
+                        description="Split BCSQ annotations into tab-delimited consequence columns",
+                    ),
                 ],
-                description="Convert VCF records into a simple tab-delimited table",
+                description="Convert VCF records into a tab-delimited table with split BCSQ annotations",
                 output_file=self.output.tab,
             )
         ]

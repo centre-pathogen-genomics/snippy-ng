@@ -8,7 +8,7 @@ from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -235,6 +235,12 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(pass_filter)
 
+        variants_tab = VcfToTab(
+            vcf=pass_filter.output.vcf,
+            **globals
+        )
+        stages.append(variants_tab)
+
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
@@ -319,6 +325,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             copy_final.output.fasta, 
             gzip_vcf.output.gz,
             pass_filter.output.vcf, 
+            variants_tab.output.tab,
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,

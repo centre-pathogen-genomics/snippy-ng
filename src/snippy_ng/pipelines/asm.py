@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes
+from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
@@ -150,6 +150,12 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(pass_filter)
 
+        variants_tab = VcfToTab(
+            vcf=pass_filter.output.vcf,
+            prefix=self.prefix
+        )
+        stages.append(variants_tab)
+
         # Compress VCF
         gzip_vcf = VcfCompressor(
             input=variants_file,
@@ -222,6 +228,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             copy_final.output.fasta, 
             gzip_vcf.output.gz,
             pass_filter.output.vcf,
+            variants_tab.output.tab,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
