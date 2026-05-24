@@ -330,6 +330,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        keep_files.extend(setup.output.paths)
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         if stats_tsv is not None:
