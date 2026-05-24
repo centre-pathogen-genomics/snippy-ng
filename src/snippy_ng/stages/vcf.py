@@ -11,6 +11,8 @@ from snippy_ng.logging import logger
 from pydantic import Field
 
 HET_GT = {"0/1", "1/0", "0|1", "1|0"}
+HOM_REF_GT = {"0/0", "0|0"}
+HOM_ALT_GT = {"1/1", "1|1"}
 MIXED_SITE_GT_FILTER = ' || '.join(f'GT="{gt}"' for gt in HET_GT)
 
 
@@ -80,11 +82,13 @@ class CollapseDiploidGenotypes(BaseStage):
 
     @staticmethod
     def _collapse_gt(gt: str) -> str:
-        if gt in {"1/1", "1|1"}:
+        if gt in HOM_REF_GT:
+            return "0"
+        if gt in HOM_ALT_GT:
             return "1"
         if gt in HET_GT:
             return "."
-        return gt
+        return "."
 
     @classmethod
     def collapse_genotypes(cls, input_vcf: Path, output_vcf: Path) -> None:

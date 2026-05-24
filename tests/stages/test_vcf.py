@@ -170,8 +170,8 @@ def test_vcf_filter_short_splits_multiallelic_sites_before_collapse():
         "ref.fa",
         "--check-ref",
         "e",
-        "-m",
-        "-both",
+        "--multiallelics",
+        "-",
         "-Ou",
     ]
 
@@ -218,8 +218,8 @@ def test_vcf_filter_long_splits_multiallelic_sites_before_collapse():
         "ref.fa",
         "--check-ref",
         "e",
-        "-m",
-        "-both",
+        "--multiallelics",
+        "-",
         "-Ou",
     ]
 
@@ -237,6 +237,7 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
                 "chr1\t12\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0/0:10",
                 "chr1\t13\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|1:7",
                 "chr1\t14\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|0:5",
+                "chr1\t15\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0|0:3",
             ]
         ) + "\n",
         encoding="utf-8",
@@ -247,6 +248,7 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
     records = _records(output_vcf)
     assert records[0][9] == "1:12"
     assert records[1][9] == ".:9"
-    assert records[2][9] == "0/0:10"
+    assert records[2][9] == "0:10"
     assert records[3][9] == "1:7"
     assert records[4][9] == ".:5"
+    assert records[5][9] == "0:3"
