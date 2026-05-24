@@ -70,7 +70,7 @@ def test_sample_report_parses_vcf_records_and_scope(tmp_path):
         '##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele Fraction">\n'
         '##FORMAT=<ID=AO,Number=A,Type=Integer,Description="Alternate observations">\n'
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample1\n"
-        "chr1\t10\t.\tA\tG\t99\tPASS\tTYPE=SNP;BCSQ=missense|gene1|x;SB_ALT_FWD_FRAC=0.75\tGT:DP:AF\t1/1:20:0.9\n"
+        "chr1\t10\t.\tA\tG\t99\tPASS\tTYPE=SNP;BCSQ=missense|gene1|transcript1|protein_coding|+|p.Lys1Arg|c.2A>G;SB_ALT_FWD_FRAC=0.75\tGT:DP:AF\t1/1:20:0.9\n"
         "chr1\t20\t.\tAT\tA\t12\tLowQual\tDP=5\tGT:AO\t0/1:2\n"
     )
 
@@ -96,6 +96,19 @@ def test_sample_report_parses_vcf_records_and_scope(tmp_path):
     assert "sb_alt_fwd_frac" not in pass_records[0]
     assert pass_records[0]["INFO:SB_ALT_FWD_FRAC"] == 0.75
     assert pass_records[0]["consequence"] == "missense"
+    assert pass_records[0]["gene"] == "gene1"
+    assert pass_records[0]["transcript"] == "transcript1"
+    assert pass_records[0]["biotype"] == "protein_coding"
+    assert pass_records[0]["strand"] == "+"
+    assert pass_records[0]["amino_acid_change"] == "p.Lys1Arg"
+    assert pass_records[0]["dna_change"] == "c.2A>G"
+    assert "consequence" not in all_records[1]
+    assert "gene" not in all_records[1]
+    assert "transcript" not in all_records[1]
+    assert "biotype" not in all_records[1]
+    assert "strand" not in all_records[1]
+    assert "amino_acid_change" not in all_records[1]
+    assert "dna_change" not in all_records[1]
 
 
 def test_sample_report_writes_variant_json_and_bed_windows(tmp_path):

@@ -557,6 +557,12 @@
         { title: "Filter", field: "filter" },
         { title: "Type", field: "type" },
         { title: "Consequence", field: "consequence" },
+        { title: "Gene", field: "gene" },
+        { title: "Transcript", field: "transcript" },
+        { title: "Biotype", field: "biotype" },
+        { title: "Strand", field: "strand" },
+        { title: "Amino acid change", field: "amino_acid_change" },
+        { title: "DNA change", field: "dna_change" },
       ];
       const samplePlotFields = sampleFields.map((field) => ({
         title: field.id,
@@ -1823,6 +1829,12 @@
         { title: "Filter", field: "filter", headerFilter: "input" },
         { title: "Type", field: "type", headerFilter: "input" },
         { title: "Consequence", field: "consequence", headerFilter: "input" },
+        { title: "Gene", field: "gene", headerFilter: "input" },
+        { title: "Transcript", field: "transcript", headerFilter: "input" },
+        { title: "Biotype", field: "biotype", headerFilter: "input" },
+        { title: "Strand", field: "strand", headerFilter: "input" },
+        { title: "Amino acid change", field: "amino_acid_change", headerFilter: "input" },
+        { title: "DNA change", field: "dna_change", headerFilter: "input" },
       ];
       const sampleTableColumns = sampleFields.map((field) => ({
         title: field.id,
