@@ -486,6 +486,7 @@
             return [fields[0], Number(fields[1]) || 0];
           }),
       );
+      const referenceChromosomeOrder = Array.from(referenceContigs.keys());
 
       let browser;
       let table = null;
@@ -2199,7 +2200,8 @@
             name: embeddedData.referenceName,
             fastaURL: referenceUrl,
             indexURL: referenceIndexUrl,
-            wholeGenomeView: false,
+            chromosomeOrder: referenceChromosomeOrder,
+            wholeGenomeView: true,
           },
           tracks: [
             {

@@ -161,6 +161,14 @@ def test_sample_report_render_embeds_payloads(tmp_path):
     assert "sample.vcf" in html
 
 
+def test_sample_report_template_passes_reference_chromosome_order_to_igv():
+    template = SampleReport(vcf=Path("sample.vcf")).template_path.read_text(encoding="utf-8")
+
+    assert "const referenceChromosomeOrder = Array.from(referenceContigs.keys());" in template
+    assert "chromosomeOrder: referenceChromosomeOrder," in template
+    assert "wholeGenomeView: true," in template
+
+
 def test_sample_report_render_without_igv_assets(tmp_path):
     template = tmp_path / "template.html"
     output = tmp_path / "report.html"
