@@ -1,4 +1,5 @@
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Tuple
 from dataclasses import dataclass
 from shutil import which
 import subprocess
@@ -27,14 +28,15 @@ class Dependency:
     less_then: Optional[str] = None
     exclude_versions: tuple[str, ...] = ()
 
-    def check(self):
+    def check(self) -> Tuple[Path, Version]:
         command = self.command or self.name
-        if not which(command):
+        dependency_path = which(command)
+        if not dependency_path:
             raise MissingDependencyError(
                 f"Could not find {command}! Please ensure it is installed and in your PATH."
             )
         version = self.get_version_from_cli()
-        return self._base_validator(version)
+        return Path(dependency_path), self._base_validator(version)
 
     def format_version_requirements(self):
         requirements = []
@@ -105,17 +107,30 @@ class Dependency:
         return parsed_version
  
 class PythonDependency(Dependency):
-    def check(self):
-        from importlib.metadata import version
+    def check(self) -> Tuple[Path, Version]:
+        from importlib.metadata import version, files 
         from importlib.metadata import PackageNotFoundError
-
         try:
             version = version(self.name)
+            pkg_files = files(self.name)
+            if not pkg_files:
+                raise InvalidDependencyError(f"Could not find files for Python package {self.name}.")
+            for file_ref in pkg_files:
+                location_str = str(file_ref.locate())
+                
+                if "site-packages" in location_str:
+                    site_packages, package_suffix = location_str.split("site-packages", 1)
+                    first_dir = Path(package_suffix).parts[1]
+                    
+                    # Skip the .dist-info folder metadata
+                    if not first_dir.endswith(".dist-info"):
+                        location = Path(site_packages) / "site-packages" / first_dir
+                        break
         except PackageNotFoundError:
             raise MissingDependencyError(
                 f"Could not find {self.name}! Please install it."
             )
-        return self._base_validator(version)
+        return Path(location), self._base_validator(version)
 
 # Python Dependencies
 biopython = PythonDependency(

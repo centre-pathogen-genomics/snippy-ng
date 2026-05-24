@@ -1,4 +1,6 @@
 """Tests for dependencies module."""
+from pathlib import Path
+
 import pytest
 from unittest.mock import patch, MagicMock
 from snippy_ng.dependencies import Dependency, PythonDependency
@@ -73,7 +75,8 @@ def test_dependency_check_valid_version(mock_run, mock_which):
     mock_run.return_value = MagicMock(stdout="test_tool version 1.2.3\n")
     
     dep = Dependency("test_tool", min_version="1.0.0")
-    version = dep.check()
+    location, version = dep.check()
+    assert location == Path("/usr/bin/test_tool")
     assert str(version) == "1.2.3"
 
 
@@ -157,7 +160,8 @@ def test_dependency_custom_version_pattern(mock_run, mock_which):
     mock_run.return_value = MagicMock(stdout="v2.17-r123\n")
     
     dep = Dependency("test_tool", version_pattern=r"v(\d+\.\d+)", min_version="2.0")
-    version = dep.check()
+    location, version = dep.check()
+    assert location == Path("/usr/bin/test_tool")
     assert str(version) == "2.17"
 
 
@@ -169,17 +173,23 @@ def test_dependency_no_version_arg(mock_run, mock_which):
     mock_run.return_value = MagicMock(stdout="Version: 1.5.0\n")
     
     dep = Dependency("test_tool", version_arg=None)
-    version = dep.check()
+    location, version = dep.check()
+    assert location == Path("/usr/bin/test_tool")
     assert str(version) == "1.5.0"
 
 
 @patch('importlib.metadata.version')
-def test_python_dependency_found(mock_version):
+@patch('importlib.metadata.files')
+def test_python_dependency_found(mock_files, mock_version):
     """Test checking a Python dependency that exists."""
     mock_version.return_value = "1.2.3"
+    mock_files.return_value = [
+        MagicMock(locate=MagicMock(return_value="/venv/lib/python/site-packages/test_package/__init__.py")),
+    ]
     
     dep = PythonDependency("test_package")
-    version = dep.check()
+    location, version = dep.check()
+    assert location == Path("/venv/lib/python/site-packages/test_package")
     assert str(version) == "1.2.3"
 
 
@@ -195,9 +205,13 @@ def test_python_dependency_not_found(mock_version):
 
 
 @patch('importlib.metadata.version')
-def test_python_dependency_version_constraints(mock_version):
+@patch('importlib.metadata.files')
+def test_python_dependency_version_constraints(mock_files, mock_version):
     """Test Python dependency with version constraints."""
     mock_version.return_value = "1.0.0"
+    mock_files.return_value = [
+        MagicMock(locate=MagicMock(return_value="/venv/lib/python/site-packages/test_package/__init__.py")),
+    ]
     
     dep = PythonDependency("test_package", min_version="1.5.0")
     with pytest.raises(InvalidDependencyError, match="minimum version allowed is 1.5.0"):

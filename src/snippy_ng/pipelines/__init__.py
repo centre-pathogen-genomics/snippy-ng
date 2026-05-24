@@ -128,8 +128,8 @@ class SnippyPipeline:
                     continue
                 checked.add(dependency.name)
                 try:
-                    version = dependency.check()
-                    self.log(f"{dependency.name} v{version}")
+                    location, version = dependency.check()
+                    self.log(f"{dependency.name} v{version}\n{location}")
                 except DependencyError as e:
                     # Capture general dependency error
                     self.error(f"{e}")
