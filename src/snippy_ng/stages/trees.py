@@ -173,12 +173,14 @@ class ScaleTreeToSNPs(BaseStage):
 
         for clade in scaled_tree.find_clades():
             if clade.branch_length is not None:
-                clade.branch_length *= alignment_sites
+                # Scale branch length from substitutions per site to expected SNP count
+                # round to nearest integer since we expect SNP counts to be whole numbers
+                clade.branch_length = round(clade.branch_length * alignment_sites)
 
         with output_tree.open("w") as handle:
             Phylo.write(
                 scaled_tree,
                 handle,
                 "newick",
-                format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT,
+                format_branch_length="%1.1f",
             )

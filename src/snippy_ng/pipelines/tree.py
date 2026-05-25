@@ -37,4 +37,4 @@ class TreePipelineBuilder(PipelineBuilder):
         )
         stages.append(snp_tree_stage)
 
-        return SnippyPipeline(stages=stages, outputs_to_keep=[snp_tree_stage.output.tree])
+        return SnippyPipeline(stages=stages, outputs_to_keep=[snp_tree_stage.output.tree, iqtree_stage.output.tree])
