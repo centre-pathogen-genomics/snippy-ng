@@ -55,7 +55,7 @@ class VcfToTab(BaseStage):
             'for (i = 1; i <= length(annotations); i++) { '
             'if (annotations[i] != "" && annotations[i] != "." && annotations[i] !~ /^@/) { selected=annotations[i]; break } '
             '} '
-            'split(selected, bcsq, "|"); '
+            'split(selected, bcsq, "\\|"); '
             'for (i = 1; i <= 7; i++) { if (!(i in bcsq)) bcsq[i]="" } '
             'print $1,$2,$3,$4,$5,bcsq[1],bcsq[2],bcsq[3],bcsq[4],bcsq[5],bcsq[6],bcsq[7]'
             '}'
