@@ -6,8 +6,6 @@ from pydantic import Field
 from snippy_ng.stages import BaseOutput, BaseStage
 from snippy_ng.dependencies import biopython, iqtree
 from snippy_ng.exceptions import StageExecutionError
-from snippy_ng.constants import NEWICK_BRANCH_LENGTH_FORMAT
-
 
 class TreeBuildingError(StageExecutionError):
     """Custom exception for errors during tree building stage execution."""
@@ -182,5 +180,5 @@ class ScaleTreeToSNPs(BaseStage):
                 scaled_tree,
                 handle,
                 "newick",
-                format_branch_length="%1.1f",
+                format_branch_length="%1.0f",
             )
