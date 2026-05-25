@@ -130,7 +130,7 @@ def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():
     ]
     assert commands[0].processes[1].command[0] == "awk"
     assert 'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"' in commands[0].processes[1].command[1]
-    assert 'split(selected, bcsq, "|")' in commands[0].processes[1].command[1]
+    assert 'split(selected, bcsq, "\\|")' in commands[0].processes[1].command[1]
     assert commands[0].output_file == Path("snps.tab")
 
 
