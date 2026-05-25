@@ -15,13 +15,14 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class LongPipelineBuilder(PipelineBuilder):
     """Builder for long-read SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome file path")
+    reference: Optional[Path] = Field(default=None, description="Reference genome file path")
+    reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     prefix: str = Field(default="snippy", description="Output file prefix")
@@ -54,10 +55,20 @@ class LongPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        reference_input = self.reference
+
+        if self.reference_accession:
+            reference_input = download_assembly(
+                self.reference_accession,
+                stages,
+                output_directory=Path("reference"),
+            )
+        if reference_input is None:
+            raise ValueError("Reference genome path or reference accession must be provided.")
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference,
+            reference_path=reference_input,
             output_directory=Path("reference"),
         )
         reference_file = setup.output.reference

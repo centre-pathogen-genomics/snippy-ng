@@ -15,13 +15,14 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome file path")
+    reference: Optional[Path] = Field(default=None, description="Reference genome file path")
+    reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
@@ -50,10 +51,20 @@ class ShortPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        reference_input = self.reference
+
+        if self.reference_accession:
+            reference_input = download_assembly(
+                self.reference_accession,
+                stages,
+                output_directory=Path("reference"),
+            )
+        if reference_input is None:
+            raise ValueError("Reference genome path or reference accession must be provided.")
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference,
+            reference_path=reference_input,
             output_directory=Path("reference"),
         )
         reference_file = setup.output.reference

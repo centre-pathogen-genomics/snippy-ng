@@ -3,6 +3,7 @@ Shared fixtures and stubs for CLI tests.
 """
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -79,7 +80,15 @@ def stage_factory(output):
         def all_outputs(self):
             return self.non_temporary_outputs()
 
+        @property
+        def paths(self):
+            return [value for _, value in self.all_outputs()]
+
     class _Stage:
+        @property
+        def name(self):
+            return self.__class__.__name__
+
         def __init__(self, *_, **__):
             self.output = DummyOutput(
                 **{out_key: out_val for out_key, out_val in output.items()}
@@ -110,6 +119,14 @@ def stub_pipeline(monkeypatch):
     
     monkeypatch.setattr(DummyPipeline, "__init__", patched_init)
     monkeypatch.setattr(_pl, "SnippyPipeline", mock_snippy_pipeline)
+    for module_name in (
+        "snippy_ng.pipelines.asm",
+        "snippy_ng.pipelines.long",
+        "snippy_ng.pipelines.short",
+    ):
+        module = sys.modules.get(module_name)
+        if module is not None:
+            monkeypatch.setattr(module, "SnippyPipeline", mock_snippy_pipeline, raising=False)
     
     return DummyPipeline
 

@@ -90,6 +90,10 @@ def stub_load_or_prepare_reference(monkeypatch, ref_file: Path, target: str = "s
         def all_outputs(self):
             return self.non_temporary_outputs()
 
+        @property
+        def paths(self):
+            return [value for _, value in self.all_outputs()]
+
     ref_dir = ref_file.parent
     metadata = ref_dir / "metadata.json"
     gff = next(ref_dir.glob("*.gff"), ref_dir / "genomic.gff")

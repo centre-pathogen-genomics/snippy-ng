@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Optional
 import click
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 
 
@@ -18,7 +18,11 @@ def run_multi_config(
     prefix: str,
     context: dict[str, Any],
 ):
-    from snippy_ng.pipelines.common import load_or_prepare_reference
+    from snippy_ng.pipelines.common import (
+        download_assembly,
+        is_reference_accession,
+        load_or_prepare_reference,
+    )
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.exceptions import PipelineExecutionError
     from snippy_ng.pipelines.multi import run_multi_pipeline
@@ -30,11 +34,20 @@ def run_multi_config(
     if "reference" not in cfg or not cfg["reference"]:
         raise click.ClickException("Reference genome must be specified either in the config file or as a command line option")
     # create reusable reference
+    reference_stages = []
+    reference_input = cfg["reference"]
+    if is_reference_accession(reference_input):
+        reference_input = download_assembly(
+            reference_input,
+            reference_stages,
+            output_directory=outdir / "reference",
+        )
     ref_stage = load_or_prepare_reference(
-        reference_path=cfg["reference"],
+        reference_path=reference_input,
         output_directory=outdir / "reference",
     )
-    ref_pipeline = SnippyPipeline(stages=[ref_stage])
+    reference_stages.append(ref_stage)
+    ref_pipeline = SnippyPipeline(stages=reference_stages)
     root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
     context["log_path"] = derive_log_path(root_log_path, outdir / "reference")
     context["outdir"] = outdir / 'reference'
@@ -98,11 +111,12 @@ def run_multi_config(
     "--reference",
     "--ref",
     required=False,
-    type=AbsolutePath(exists=True, readable=True),
+    type=click.STRING,
+    callback=reference_or_accession_callback,
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
 @click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
-def multi(config: click.File, reference: Optional[Path], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+def multi(config: click.File, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction 
 

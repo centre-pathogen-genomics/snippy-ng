@@ -140,3 +140,25 @@ def test_gather_accepts_reference_directory(monkeypatch, tmp_path):
     payload = json.loads(result.output)
     assert payload["reference"] == str(reference_dir)
     assert captured["reference"] == reference_dir
+
+
+def test_gather_accepts_reference_accession(monkeypatch, tmp_path):
+    monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
+
+    captured = {}
+
+    def fake_gather(**kwargs):
+        captured.update(kwargs)
+        return {"reference": kwargs["reference"], "samples": {}}
+
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
+
+    result = CliRunner().invoke(
+        snippy_ng,
+        ["utils", "gather", str(tmp_path), "--ref", "SAMN16246485", "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["reference"] == "SAMN16246485"
+    assert captured["reference"] == "SAMN16246485"

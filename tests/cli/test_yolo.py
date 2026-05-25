@@ -132,6 +132,52 @@ def test_yolo_skips_tree_when_less_than_three_samples(monkeypatch, tmp_path):
     assert captured_pipeline["run_contexts"][0].log_path == ((tmp_path / "out") / "reference" / "LOG.txt").absolute()
 
 
+def test_yolo_accepts_reference_accession(monkeypatch, tmp_path):
+    samples = {
+        "s1": {"type": "short"},
+        "s2": {"type": "short"},
+    }
+    _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples)
+
+    captured_gather = {}
+
+    def fake_gather(**kwargs):
+        captured_gather.update(kwargs)
+        return {"samples": samples}
+
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
+
+    captured_download = {}
+
+    def fake_download_assembly(reference_accession, stages, output_directory):
+        captured_download["reference_accession"] = reference_accession
+        captured_download["output_directory"] = output_directory
+        downloaded_reference = Path(output_directory) / f"{reference_accession}.fa"
+        stages.append(SimpleNamespace(output=SimpleNamespace(fasta=downloaded_reference)))
+        return downloaded_reference
+
+    monkeypatch.setattr("snippy_ng.pipelines.common.download_assembly", fake_download_assembly)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
+
+    class ShouldNotBeCalledTreePipelineBuilder:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("TreePipelineBuilder should not be called when sample count < 3")
+
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.tree.TreePipelineBuilder",
+        ShouldNotBeCalledTreePipelineBuilder,
+    )
+
+    outdir, result = _run_yolo(tmp_path, "--reference", "SAMN123456")
+
+    assert result.exit_code == 0, result.output
+    assert captured_gather["reference"] is None
+    assert captured_download == {
+        "reference_accession": "SAMN123456",
+        "output_directory": outdir / "reference",
+    }
+
+
 def test_yolo_preserves_long_sample_caller_and_sets_cpus_per_sample(monkeypatch, tmp_path):
     samples = {
         "short_1": {"type": "short"},

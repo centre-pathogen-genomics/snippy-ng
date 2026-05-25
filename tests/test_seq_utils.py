@@ -63,11 +63,9 @@ def test_guess_format_gzipped_embl(tmp_path):
 
 
 def test_guess_format_nonexistent_file(tmp_path):
-    """Test detection raises error for non-existent files."""
+    """Test detection falls back to suffix for non-existent files."""
+    nonexistent_genbank = tmp_path / "does_not_exist.gbff"
+    assert guess_reference_format(str(nonexistent_genbank)) == "genbank"
+
     nonexistent = tmp_path / "does_not_exist.txt"
-    try:
-        guess_reference_format(str(nonexistent))
-    except FileNotFoundError:
-        pass
-    else:
-        assert False, "Expected FileNotFoundError"
+    assert guess_reference_format(str(nonexistent)) is None

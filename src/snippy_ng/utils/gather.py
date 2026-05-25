@@ -201,7 +201,7 @@ def _iter_directory_files(root: Path, *, max_depth: int) -> Iterable[Path]:
         yield candidate
 
 
-def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optional[Path], list[Path]]:
+def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optional[PathLike], list[Path]]:
     """
     Normalize the reference path and return files that should be ignored while scanning.
 
@@ -211,6 +211,11 @@ def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optiona
 
     if reference is None:
         return None, []
+
+    from snippy_ng.pipelines.common import is_reference_accession
+
+    if is_reference_accession(reference):
+        return str(reference), []
 
     normalized = _absolute(reference)
 
