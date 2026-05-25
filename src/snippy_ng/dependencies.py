@@ -107,12 +107,13 @@ class Dependency:
         return parsed_version
  
 class PythonDependency(Dependency):
-    def check(self) -> Tuple[Path, Version]:
+    def check(self) -> Tuple[Optional[Path], Version]:
         from importlib.metadata import version, files 
         from importlib.metadata import PackageNotFoundError
         try:
             version = version(self.name)
             pkg_files = files(self.name)
+            location = None
             if not pkg_files:
                 raise InvalidDependencyError(f"Could not find files for Python package {self.name}.")
             for file_ref in pkg_files:
@@ -130,7 +131,7 @@ class PythonDependency(Dependency):
             raise MissingDependencyError(
                 f"Could not find {self.name}! Please install it."
             )
-        return Path(location), self._base_validator(version)
+        return location, self._base_validator(version)
 
 # Python Dependencies
 biopython = PythonDependency(
