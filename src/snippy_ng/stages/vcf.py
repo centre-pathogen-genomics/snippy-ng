@@ -114,7 +114,9 @@ class CollapseDiploidGenotypes(BaseStage):
             return "1"
         if gt in HET_GT:
             return "."
-        return "."
+        # return unmodified if GT is missing or in an unexpected format
+        # this may break downstream stages that expect haploid GTs
+        return gt
 
     @classmethod
     def collapse_genotypes(cls, input_vcf: Path, output_vcf: Path) -> None:
