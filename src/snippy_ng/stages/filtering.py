@@ -1,8 +1,180 @@
 from pathlib import Path
 from typing import List, Optional
-from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand
+from snippy_ng.stages import BaseStage, BaseOutput, ShellCommand, TempPath
 from snippy_ng.dependencies import samtools
+from snippy_ng.exceptions import StageExecutionError
 from pydantic import Field, field_validator
+
+
+class BamReferenceValidationOutput(BaseOutput):
+    header: TempPath = Field(..., description="Temporary BAM/CRAM header")
+    mapped_count: TempPath = Field(..., description="Temporary mapped-read count")
+
+
+class BamReferenceValidator(BaseStage):
+    """
+    Validate that a user-provided BAM/CRAM is aligned and uses the selected reference.
+    """
+
+    bam: Path = Field(..., description="Input BAM/CRAM file to validate")
+    reference_index: Path = Field(..., description="Reference FASTA index (.fai)")
+    reference: Path = Field(..., description="Reference FASTA file")
+
+    _dependencies = [samtools]
+
+    @property
+    def output(self) -> BamReferenceValidationOutput:
+        return BamReferenceValidationOutput(
+            header=f"{self.prefix}.bam_header.txt",
+            mapped_count=f"{self.prefix}.mapped_count.txt",
+        )
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                ["samtools", "view", "-H", str(self.bam)],
+                description=f"Read BAM/CRAM header: {self.bam}",
+                output_file=self.output.header,
+            ),
+            self.shell_cmd(
+                ["samtools", "view", "-c", "-F", "4", "-T", str(self.reference), str(self.bam)],
+                description=f"Count mapped reads in BAM/CRAM: {self.bam}",
+                output_file=self.output.mapped_count,
+            ),
+            self.python_cmd(
+                func=self.validate_bam_reference,
+                description=f"Validate BAM/CRAM alignment and reference compatibility: {self.bam}",
+            )
+        ]
+
+    def validate_bam_reference(self) -> None:
+        reference_sequences = self._read_fai(self.reference_index)
+        bam_sequences = self._read_bam_header_sequences(self.output.header)
+
+        if not bam_sequences:
+            raise StageExecutionError(
+                f"Input alignment '{self.bam}' has no @SQ reference records. "
+                "This looks like an unaligned BAM/CRAM; provide FASTQ reads or align "
+                "the BAM to the selected reference first."
+            )
+
+        self._validate_reference_sequences_match(bam_sequences, reference_sequences)
+
+        mapped_count = self._read_mapped_count(self.output.mapped_count)
+        if mapped_count == 0:
+            raise StageExecutionError(
+                f"Input alignment '{self.bam}' has no mapped reads. "
+                "Provide an aligned BAM/CRAM, or provide reads so Snippy-NG can align them."
+            )
+
+    @staticmethod
+    def _read_fai(reference_index: Path) -> dict[str, int]:
+        sequences: dict[str, int] = {}
+        try:
+            with open(reference_index, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    fields = line.rstrip("\n").split("\t")
+                    if len(fields) >= 2:
+                        sequences[fields[0]] = int(fields[1])
+        except FileNotFoundError as exc:
+            raise StageExecutionError(f"Reference index does not exist: {reference_index}") from exc
+        except ValueError as exc:
+            raise StageExecutionError(f"Reference index has invalid sequence lengths: {reference_index}") from exc
+
+        if not sequences:
+            raise StageExecutionError(f"Reference index has no sequences: {reference_index}")
+        return sequences
+
+    @staticmethod
+    def _read_bam_header_sequences(header_path: Path) -> dict[str, int]:
+        sequences: dict[str, int] = {}
+        try:
+            with open(header_path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.startswith("@SQ\t"):
+                        continue
+                    fields = {}
+                    for item in line.rstrip("\n").split("\t")[1:]:
+                        if ":" not in item:
+                            continue
+                        key, value = item.split(":", 1)
+                        fields[key] = value
+                    name = fields.get("SN")
+                    length = fields.get("LN")
+                    if name is None or length is None:
+                        continue
+                    try:
+                        sequences[name] = int(length)
+                    except ValueError as exc:
+                        raise StageExecutionError(f"BAM/CRAM header has invalid length for contig '{name}'") from exc
+        except FileNotFoundError as exc:
+            raise StageExecutionError(f"BAM/CRAM header output does not exist: {header_path}") from exc
+        return sequences
+
+    @staticmethod
+    def _read_mapped_count(mapped_count_path: Path) -> int:
+        try:
+            with open(mapped_count_path, "r", encoding="utf-8") as handle:
+                count_text = handle.read().strip()
+        except FileNotFoundError as exc:
+            raise StageExecutionError(f"Mapped-read count output does not exist: {mapped_count_path}") from exc
+
+        try:
+            return int(count_text)
+        except ValueError as exc:
+            raise StageExecutionError(
+                f"samtools returned an invalid mapped-read count in '{mapped_count_path}'"
+            ) from exc
+
+    @staticmethod
+    def _validate_reference_sequences_match(
+        bam_sequences: dict[str, int],
+        reference_sequences: dict[str, int],
+    ) -> None:
+        bam_names = set(bam_sequences)
+        reference_names = set(reference_sequences)
+        missing_from_bam = sorted(reference_names - bam_names)
+        missing_from_reference = sorted(bam_names - reference_names)
+        length_mismatches = sorted(
+            name
+            for name in bam_names & reference_names
+            if bam_sequences[name] != reference_sequences[name]
+        )
+
+        if not missing_from_bam and not missing_from_reference and not length_mismatches:
+            return
+
+        details = []
+        if missing_from_bam:
+            details.append(
+                "reference contigs absent from BAM header: "
+                f"{BamReferenceValidator._summarise_names(missing_from_bam)}"
+            )
+        if missing_from_reference:
+            details.append(
+                "BAM contigs absent from reference: "
+                f"{BamReferenceValidator._summarise_names(missing_from_reference)}"
+            )
+        if length_mismatches:
+            examples = [
+                f"{name} (BAM={bam_sequences[name]}, reference={reference_sequences[name]})"
+                for name in length_mismatches[:5]
+            ]
+            if len(length_mismatches) > 5:
+                examples.append(f"... {len(length_mismatches) - 5} more")
+            details.append(f"contig length mismatches: {', '.join(examples)}")
+
+        raise StageExecutionError(
+            "Input BAM/CRAM was not aligned to the selected reference. "
+            + "; ".join(details)
+            + ". Re-align the reads to this reference or rerun with the matching reference."
+        )
+
+    @staticmethod
+    def _summarise_names(names: list[str]) -> str:
+        shown = names[:5]
+        suffix = f", ... {len(names) - 5} more" if len(names) > 5 else ""
+        return ", ".join(shown) + suffix
 
 
 class SamtoolsFilterOutput(BaseOutput):

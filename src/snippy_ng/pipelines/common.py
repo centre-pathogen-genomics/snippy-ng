@@ -1,9 +1,50 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
+
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
+
+NCBI_ASSEMBLY_ACCESSION_RE = re.compile(r"^(GC[AF]_\d{9})(?:\.\d+)?$")
+ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM[END]A?)[0-9]+$")
+
+
+def is_ncbi_assembly_accession(reference) -> bool:
+    return NCBI_ASSEMBLY_ACCESSION_RE.fullmatch(str(reference)) is not None
+
+
+def is_atb_assembly_accession(reference) -> bool:
+    return ATB_ASSEMBLY_ACCESSION_RE.fullmatch(str(reference)) is not None
+
+
+def is_reference_accession(reference) -> bool:
+    return is_ncbi_assembly_accession(reference) or is_atb_assembly_accession(reference)
+
+
+def download_assembly(reference_accession, stages: list, output_directory: Path | None = None) -> Path:
+    from snippy_ng.stages.setup import DownloadAtbAssemblyReference, DownloadNcbiGenbankReference
+
+    if is_ncbi_assembly_accession(reference_accession):
+        download_reference = DownloadNcbiGenbankReference(
+            accession=str(reference_accession),
+            output_directory=output_directory,
+        )
+        stages.append(download_reference)
+        return download_reference.output.genbank
+
+    if is_atb_assembly_accession(reference_accession):
+        download_reference = DownloadAtbAssemblyReference(
+            accession=str(reference_accession),
+            output_directory=output_directory,
+        )
+        stages.append(download_reference)
+        return download_reference.output.fasta
+
+    raise InvalidReferenceError(
+        f"Unsupported assembly accession '{reference_accession}'. Supported accessions are NCBI GCF/GCA and AllTheBacteria SAMN/SAMEA/SAMD IDs."
+    )
 
 
 def load_or_prepare_reference(

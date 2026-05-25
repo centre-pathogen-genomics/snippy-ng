@@ -708,17 +708,26 @@ class SampleReport(BaseStage):
         return "COMPLEX"
 
     @staticmethod
-    def _extract_consequence(info_map: Dict[str, str]) -> str:
+    def _extract_bcsq_fields(info_map: Dict[str, str]) -> Dict[str, str]:
         bcsq = info_map.get("BCSQ", "")
         if not bcsq:
-            return ""
-        consequences = []
+            return {}
         for annotation in bcsq.split(","):
+            # Skip empty annotations and those starting
             if not annotation or annotation.startswith("@"):
                 continue
-            term_field = annotation.split("|", 1)[0]
-            consequences.extend(term for term in term_field.split("&") if term)
-        return ",".join(sorted(set(consequences)))
+            parts = annotation.split("|")
+            parts += [""] * (7 - len(parts))
+            return {
+                "consequence": parts[0],
+                "gene": parts[1],
+                "transcript": parts[2],
+                "biotype": parts[3],
+                "strand": parts[4],
+                "amino_acid_change": parts[5],
+                "dna_change": parts[6],
+            }
+        return {}
 
     @classmethod
     def parse_vcf_records(
@@ -778,6 +787,7 @@ class SampleReport(BaseStage):
                 types = [t for t in info_map.get("TYPE", "").split(",") if t]
                 if not types:
                     types = [cls._infer_type(ref, alt) for alt in alts]
+                bcsq_fields = cls._extract_bcsq_fields(info_map)
 
                 record = {
                     "sample": sample,
@@ -789,8 +799,9 @@ class SampleReport(BaseStage):
                     "qual": "" if qual_field == "." else cls._cast_vcf_value(qual_field, "Float"),
                     "filter": "PASS" if filter_field == "." else filter_field,
                     "type": ",".join(types),
-                    "consequence": cls._extract_consequence(info_map),
                 }
+                if bcsq_fields:
+                    record.update(bcsq_fields)
                 for key, value in info_map.items():
                     if key not in seen_info_fields:
                         info_fields.append(

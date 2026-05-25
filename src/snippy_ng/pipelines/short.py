@@ -7,21 +7,22 @@ from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
-from snippy_ng.stages.filtering import SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes
+from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
+from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import load_or_prepare_reference
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome file path")
+    reference: Optional[Path] = Field(default=None, description="Reference genome file path")
+    reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
@@ -50,10 +51,20 @@ class ShortPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        reference_input = self.reference
+
+        if self.reference_accession:
+            reference_input = download_assembly(
+                self.reference_accession,
+                stages,
+                output_directory=Path("reference"),
+            )
+        if reference_input is None:
+            raise ValueError("Reference genome path or reference accession must be provided.")
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference,
+            reference_path=reference_input,
             output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
@@ -97,8 +108,14 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         if self.bam:
             if sample_name is None:
-                sample_name = guess_sample_id(Path(self.bam).name)
-            aligned_reads = Path(self.bam).absolute()  
+                sample_name = strip_bio_suffixes(Path(self.bam).name)
+            aligned_reads = Path(self.bam).absolute()
+            stages.append(BamReferenceValidator(
+                bam=aligned_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                **globals,
+            ))
         else:
             # SeqKit read statistics
             stats_stage = SeqKitReadStatsBasic(
@@ -127,7 +144,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 )
             
             if current_reads and sample_name is None:
-                sample_name = guess_sample_id(Path(current_reads[0]).name)
+                sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
         
@@ -229,6 +246,12 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(pass_filter)
 
+        variants_tab = VcfToTab(
+            vcf=pass_filter.output.vcf,
+            **globals
+        )
+        stages.append(variants_tab)
+
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
@@ -313,10 +336,12 @@ class ShortPipelineBuilder(PipelineBuilder):
             copy_final.output.fasta, 
             gzip_vcf.output.gz,
             pass_filter.output.vcf, 
+            variants_tab.output.tab,
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        keep_files.extend(setup.output.paths)
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         if stats_tsv is not None:

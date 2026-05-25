@@ -1,13 +1,13 @@
 import click
 from typing import Any, Optional
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
@@ -27,7 +27,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def long(
-    reference: Path,
+    reference: Path | str,
     reads: Optional[Path],
     bam: Optional[Path],
     downsample: Optional[float],
@@ -66,6 +66,10 @@ def long(
     if caller == "clair3" and not clair3_model and not reads:
         raise click.UsageError("Please provide --clair3-model when using Clair3 with BAM/CRAM input only.")
     
+    # Convert reference to accession if it's a string, otherwise keep as Path
+    reference_accession = reference if isinstance(reference, str) else None
+    reference_path = None if reference_accession else reference
+    
     if min_qual is None and caller == "freebayes":
         min_qual = 100.0
     
@@ -74,7 +78,8 @@ def long(
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = LongPipelineBuilder(
-        reference=reference,
+        reference=reference_path,
+        reference_accession=reference_accession,
         reads=reads,
         prefix=prefix,
         bam=bam,

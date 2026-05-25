@@ -3,23 +3,24 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes
+from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import VcfStats
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import strip_bio_suffixes
 
 
 class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
-    reference: Path = Field(..., description="Reference genome (FASTA or GenBank) or prepared reference directory")
+    reference: Optional[Path] = Field(default=None, description="Reference genome (FASTA or GenBank) or prepared reference directory")
+    reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     assembly: Path = Field(..., description="Assembly file path")
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
@@ -36,11 +37,21 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = self.sample_name or guess_sample_id(Path(self.assembly).name)
+        sample_name = self.sample_name or strip_bio_suffixes(Path(self.assembly).name)
+        reference_input = self.reference
+
+        if self.reference_accession:
+            reference_input = download_assembly(
+                self.reference_accession,
+                stages,
+                output_directory=Path("reference"),
+            )
+        if reference_input is None:
+            raise ValueError("Reference genome path or reference accession must be provided.")
         
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
-            reference_path=self.reference,
+            reference_path=reference_input,
             output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
@@ -150,6 +161,12 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(pass_filter)
 
+        variants_tab = VcfToTab(
+            vcf=pass_filter.output.vcf,
+            prefix=self.prefix
+        )
+        stages.append(variants_tab)
+
         # Compress VCF
         gzip_vcf = VcfCompressor(
             input=variants_file,
@@ -222,9 +239,11 @@ class AsmPipelineBuilder(PipelineBuilder):
             copy_final.output.fasta, 
             gzip_vcf.output.gz,
             pass_filter.output.vcf,
+            variants_tab.output.tab,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
         ]
+        keep_files.extend(setup.output.paths)
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

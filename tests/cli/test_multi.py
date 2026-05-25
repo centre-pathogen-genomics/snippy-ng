@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from snippy_ng.cli import snippy_ng
 import snippy_ng.pipelines as _pl
@@ -689,3 +690,71 @@ def test_multi_cli_uses_existing_prepared_reference_directory(monkeypatch, tmp_p
 
     assert result.exit_code == 0, result.output
     assert captured_multi["snippy_reference_dir"] == prepared_ref_dir
+
+
+def test_multi_cli_accepts_reference_accession(monkeypatch, tmp_path):
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.csv"
+    config_file.write_text(
+        "sample,type,left,right\n"
+        f"sample1,short,{r1},{r2}\n"
+    )
+
+    _stub_multi_reference_loader(monkeypatch, tmp_path)
+
+    captured_download = {}
+
+    def fake_download_assembly(reference_accession, stages, output_directory):
+        captured_download["reference_accession"] = reference_accession
+        captured_download["output_directory"] = output_directory
+        downloaded_reference = Path(output_directory) / f"{reference_accession}.fa"
+        stages.append(SimpleNamespace(output=SimpleNamespace(fasta=downloaded_reference)))
+        return downloaded_reference
+
+    monkeypatch.setattr("snippy_ng.pipelines.common.download_assembly", fake_download_assembly)
+
+    captured_multi = {}
+
+    def fake_run_multi_pipeline(**kwargs):
+        captured_multi.update(kwargs)
+        return ["sample1"], []
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
+
+    class DummyCorePipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            pass
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    result = CliRunner().invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            "SAMN123456",
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured_download == {
+        "reference_accession": "SAMN123456",
+        "output_directory": outdir / "reference",
+    }
+    assert captured_multi["snippy_reference_dir"] == tmp_path / "reference"

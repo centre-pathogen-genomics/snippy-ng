@@ -120,13 +120,17 @@ def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():
     commands = stage.create_commands(Context())
 
     assert len(commands) == 1
-    assert commands[0].command == [
+    assert commands[0].processes[0].command == [
         "bcftools",
         "query",
+        "--allow-undef-tags",
         "-f",
-        "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\n",
+        "%CHROM\\t%POS\\t%TYPE\\t%REF\\t%ALT\\t%INFO/BCSQ\\n",
         "sample.vcf",
     ]
+    assert commands[0].processes[1].command[0] == "awk"
+    assert 'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"' in commands[0].processes[1].command[1]
+    assert 'split(selected, bcsq, "\\|")' in commands[0].processes[1].command[1]
     assert commands[0].output_file == Path("snps.tab")
 
 
@@ -150,6 +154,29 @@ def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
         "-e",
         MIXED_SITE_GT_FILTER,
         "-",
+    ]
+
+
+def test_vcf_filter_short_splits_multiallelic_sites_before_collapse():
+    stage = VcfFilterShort(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    norm_cmd = commands[0].processes[1]
+    assert norm_cmd.command == [
+        "bcftools",
+        "norm",
+        "-f",
+        "ref.fa",
+        "--check-ref",
+        "e",
+        "--multiallelics",
+        "-",
+        "-Ou",
     ]
 
 
@@ -177,6 +204,30 @@ def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
     ]
 
 
+def test_vcf_filter_long_splits_multiallelic_sites_before_collapse():
+    stage = VcfFilterLong(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        reference_index=Path("ref.fa.fai"),
+        prefix="snps",
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    norm_cmd = commands[2].processes[2]
+    assert norm_cmd.command == [
+        "bcftools",
+        "norm",
+        "-f",
+        "ref.fa",
+        "--check-ref",
+        "e",
+        "--multiallelics",
+        "-",
+        "-Ou",
+    ]
+
+
 def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
     input_vcf = tmp_path / "input.vcf"
     output_vcf = tmp_path / "output.vcf"
@@ -190,6 +241,7 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
                 "chr1\t12\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0/0:10",
                 "chr1\t13\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|1:7",
                 "chr1\t14\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|0:5",
+                "chr1\t15\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0|0:3",
             ]
         ) + "\n",
         encoding="utf-8",
@@ -200,6 +252,7 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
     records = _records(output_vcf)
     assert records[0][9] == "1:12"
     assert records[1][9] == ".:9"
-    assert records[2][9] == "0/0:10"
+    assert records[2][9] == "0:10"
     assert records[3][9] == "1:7"
     assert records[4][9] == ".:5"
+    assert records[5][9] == "0:3"

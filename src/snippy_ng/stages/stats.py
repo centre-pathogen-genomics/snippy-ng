@@ -10,7 +10,7 @@ from snippy_ng.stages import PythonCommand
 from snippy_ng.dependencies import seqkit
 from snippy_ng.dependencies import biopython
 from snippy_ng.context import Context 
-from snippy_ng.utils.gather import guess_sample_id
+from snippy_ng.utils.gather import strip_bio_suffixes
 from pydantic import Field, field_validator
 
 
@@ -533,7 +533,7 @@ class SeqKitReadStats(BaseStage):
         Returns:
             List[ShellCommand]: List containing the seqkit stats command.
         """
-        sample_name = self.sample_name or guess_sample_id(Path(self.reads[0]).name)
+        sample_name = self.sample_name or strip_bio_suffixes(Path(self.reads[0]).name)
         return [
             self.build_seqkit_stats_command(ctx),
             self.python_cmd(

@@ -10,7 +10,7 @@ from snippy_ng.cli import snippy_ng
 def test_gather_default_applies_to_csv_rows(monkeypatch, tmp_path):
     monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
 
-    def fake_gather_samples_config(**kwargs):
+    def fake_gather(**kwargs):
         defaults = kwargs.get("defaults") or {}
         samples = {
             "sample_a": {"type": "short", "reads1": "a_R1.fastq.gz"},
@@ -22,7 +22,7 @@ def test_gather_default_applies_to_csv_rows(monkeypatch, tmp_path):
                     sample_data[key] = value
         return {"samples": samples}
 
-    monkeypatch.setattr("snippy_ng.utils.gather.gather_samples_config", fake_gather_samples_config)
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
 
     result = CliRunner().invoke(
         snippy_ng,
@@ -40,7 +40,7 @@ def test_gather_default_applies_to_csv_rows(monkeypatch, tmp_path):
 def test_gather_default_keeps_existing_value_and_supports_multiple(monkeypatch, tmp_path):
     monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
 
-    def fake_gather_samples_config(**kwargs):
+    def fake_gather(**kwargs):
         defaults = kwargs.get("defaults") or {}
         samples = {
             "sample_a": {"type": "short", "platform": "nanopore"},
@@ -52,7 +52,7 @@ def test_gather_default_keeps_existing_value_and_supports_multiple(monkeypatch, 
                     sample_data[key] = value
         return {"samples": samples}
 
-    monkeypatch.setattr("snippy_ng.utils.gather.gather_samples_config", fake_gather_samples_config)
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
 
     result = CliRunner().invoke(
         snippy_ng,
@@ -83,7 +83,7 @@ def test_gather_default_keeps_existing_value_and_supports_multiple(monkeypatch, 
 def test_gather_default_replaces_none_values(monkeypatch, tmp_path):
     monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
 
-    def fake_gather_samples_config(**kwargs):
+    def fake_gather(**kwargs):
         defaults = kwargs.get("defaults") or {}
         samples = {
             "sample_a": {"type": "long", "clair3_model": None},
@@ -95,7 +95,7 @@ def test_gather_default_replaces_none_values(monkeypatch, tmp_path):
                     sample_data[key] = value
         return {"samples": samples}
 
-    monkeypatch.setattr("snippy_ng.utils.gather.gather_samples_config", fake_gather_samples_config)
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
 
     result = CliRunner().invoke(
         snippy_ng,
@@ -125,11 +125,11 @@ def test_gather_accepts_reference_directory(monkeypatch, tmp_path):
 
     captured = {}
 
-    def fake_gather_samples_config(**kwargs):
+    def fake_gather(**kwargs):
         captured.update(kwargs)
         return {"reference": str(reference_dir), "samples": {}}
 
-    monkeypatch.setattr("snippy_ng.utils.gather.gather_samples_config", fake_gather_samples_config)
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
 
     result = CliRunner().invoke(
         snippy_ng,
@@ -140,3 +140,25 @@ def test_gather_accepts_reference_directory(monkeypatch, tmp_path):
     payload = json.loads(result.output)
     assert payload["reference"] == str(reference_dir)
     assert captured["reference"] == reference_dir
+
+
+def test_gather_accepts_reference_accession(monkeypatch, tmp_path):
+    monkeypatch.setattr("snippy_ng.logging.logger.info", lambda *_args, **_kwargs: None)
+
+    captured = {}
+
+    def fake_gather(**kwargs):
+        captured.update(kwargs)
+        return {"reference": kwargs["reference"], "samples": {}}
+
+    monkeypatch.setattr("snippy_ng.utils.gather.gather", fake_gather)
+
+    result = CliRunner().invoke(
+        snippy_ng,
+        ["utils", "gather", str(tmp_path), "--ref", "SAMN16246485", "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["reference"] == "SAMN16246485"
+    assert captured["reference"] == "SAMN16246485"

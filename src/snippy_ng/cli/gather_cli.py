@@ -1,11 +1,18 @@
 import click
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
 
 
 @click.command(context_settings={'show_default': True})
 @click.argument("input_files", required=False, type=AbsolutePath(exists=True, readable=True), nargs=-1)
-@click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True, dir_okay=True, file_okay=True), help="Reference genome or prepared reference directory to include in JSON output and exclude from the search")
+@click.option(
+    "--reference",
+    "--ref",
+    required=False,
+    type=click.STRING,
+    callback=reference_or_accession_callback,
+    help="Reference genome, prepared reference directory, or supported assembly accession to include in JSON output and exclude from the search",
+)
 @click.option("--max-depth", "-d", type=click.INT, default=4, help="Maximum directory depth to search for sequence files", show_default=True)
 @click.option("--exclude", "-e", type=click.STRING, default=None, help="Regular expression to exclude files based on their name", show_default=True)
 @click.option(
@@ -16,7 +23,6 @@ from snippy_ng.cli.utils import AbsolutePath
     help="Set a default key/value for all samples; can be repeated",
     show_default=True,
 )
-@click.option("--aggressive-ids", "-a", is_flag=True, default=False, help="Aggressively parse sample IDs from file paths", show_default=True)
 @click.option("--json", "-j", is_flag=True, default=False, help="Output JSON instead of TSV", show_default=True)
 def gather(**config):
     """
@@ -26,7 +32,7 @@ def gather(**config):
 
         $ snippy-ng utils gather > samples.csv
     """
-    from snippy_ng.utils.gather import gather_samples_config
+    from snippy_ng.utils.gather import gather
     from snippy_ng.logging import logger
     from collections import Counter
     import os
@@ -34,10 +40,9 @@ def gather(**config):
     inputs = config["input_files"] if config.get("input_files") else [os.getcwd()]
     
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in inputs)}")
-    gathered = gather_samples_config(
+    gathered = gather(
         inputs=inputs,
         max_depth=config["max_depth"],
-        aggressive_ids=config["aggressive_ids"],
         exclude_name_regex=config["exclude"],
         reference=config.get("reference"),
         defaults=dict(config.get("defaults") or ()),

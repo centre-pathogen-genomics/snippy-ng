@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable, List
 import click
 
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, GlobalOption, add_snippy_global_options
 from snippy_ng.utils.system import available_cpu_count
 
@@ -16,14 +16,14 @@ from snippy_ng.utils.system import available_cpu_count
 )
 @click.option("--cpus", "-c", default=None, required=False, type=int, help="Maximum number of CPUs to use. By default, uses all available CPUs.", cls=GlobalOption)
 @add_snippy_global_options(['cpus'])
-@click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--reference", "--ref", required=False, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI/AllTheBacteria assembly accession")
 @click.argument(
     "directory",
     required=False,
     type=AbsolutePath(exists=True, readable=True),
     nargs=-1
 )
-def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, **context: Any):
+def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix: str, **context: Any):
     """
     Pipeline that automates everything.
 
@@ -37,10 +37,14 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     from collections import Counter
     from snippy_ng.context import Context
     from snippy_ng.logging import logger, derive_log_path
-    from snippy_ng.pipelines.common import load_or_prepare_reference
+    from snippy_ng.pipelines.common import (
+        download_assembly,
+        is_reference_accession,
+        load_or_prepare_reference,
+    )
     from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
-    from snippy_ng.utils.gather import gather_samples_config
+    from snippy_ng.utils.gather import gather
     from snippy_ng.exceptions import PipelineExecutionError, InvalidReferenceError
 
     logger.warning(
@@ -65,7 +69,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     # look for file called reference or ref with fasta, fa, fna, gbk, genbank extension
     if reference is None:
         for search_dir in directories:
-            for ext in ["fasta", "fa", "fna", "gbk", "genbank"]:
+            for ext in ["gbk", "genbank", "fasta", "fa", "fna"]:
                 for name in ["reference", "ref"]:
                     candidates = list(search_dir.rglob(f"{name}.{ext}"))
                     if candidates:
@@ -80,15 +84,15 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
         raise InvalidReferenceError(
             "No reference file found! Please provide `--reference` or ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk"
         )
+    reference_is_accession = is_reference_accession(reference)
 
     # find all samples in the directory and create config
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in directories)}")
-    gathered = gather_samples_config(
+    gathered = gather(
         inputs=directories,
         max_depth=4,
-        aggressive_ids=False,
         exclude_name_regex=None,
-        reference=reference,
+        reference=None if reference_is_accession else reference,
         defaults={"report": True}, # YOLO: enable reports by default 
     )
     samples = gathered["samples"]
@@ -104,16 +108,21 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     with open(Path(outdir) / "samples.json", "w") as f:
         f.write(json.dumps(gathered, indent=2))
 
-    cfg = {
-        "reference": str(reference),
-        "samples": samples,
-    }
     # create reusable reference
+    reference_stages = []
+    reference_input = reference
+    if reference_is_accession:
+        reference_input = download_assembly(
+            reference,
+            reference_stages,
+            output_directory=outdir / "reference",
+        )
     ref_stage = load_or_prepare_reference(
-        reference_path=cfg["reference"],
+        reference_path=reference_input,
         output_directory=outdir / "reference",
     )
-    ref_pipeline = SnippyPipeline(stages=[ref_stage])
+    reference_stages.append(ref_stage)
+    ref_pipeline = SnippyPipeline(stages=reference_stages)
     if context["cpus"] is None:
         context["cpus"] = available_cpu_count()  # YOLO: use all available CPUs by default
     root_log_path = context.get("log_path") or Context.model_fields["log_path"].default
@@ -131,7 +140,7 @@ def yolo(directory: Iterable[Path], reference: Path, outdir: Path, prefix: str, 
     try:
         successful_samples, failures = run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
-            samples=cfg["samples"],
+            samples=samples,
             prefix=prefix,
             run_ctx=run_ctx,
             cpus_per_sample=cpus_per_sample,

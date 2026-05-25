@@ -1,13 +1,13 @@
 import click
 from typing import Any, Optional
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference genome (FASTA or GenBank) or prepared reference directory")
+@click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
@@ -24,7 +24,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Mark variants below this QUAL threshold as LowQual in the output VCF")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def short(
-    reference: Path,
+    reference: Path | str,
     r1: Optional[Path],
     r2: Optional[Path],
     bam: Optional[Path],
@@ -62,12 +62,17 @@ def short(
     if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
     
+    # Convert reference to accession if it's a string, otherwise keep as Path
+    reference_accession = reference if isinstance(reference, str) else None
+    reference_path = None if reference_accession else reference
+    
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
     # before starting the pipeline
     pipeline = ShortPipelineBuilder(
-        reference=reference,
+        reference=reference_path,
+        reference_accession=reference_accession,
         reads=reads,
         prefix=prefix,
         bam=bam,

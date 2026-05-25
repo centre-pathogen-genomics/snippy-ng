@@ -39,3 +39,23 @@ def absolute_path_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return value
     return absolute_path(value)
+
+
+def reference_or_accession_callback(ctx, param, value):
+    if ctx.resilient_parsing or value is None:
+        return value
+
+    reference = absolute_path(value)
+    if reference.exists():
+        return reference
+
+    from snippy_ng.pipelines.common import is_reference_accession
+
+    if is_reference_accession(value):
+        return value
+    
+    raise click.BadParameter(
+        f"Reference path does not exist: {reference}",
+        ctx=ctx,
+        param=param,
+    )
