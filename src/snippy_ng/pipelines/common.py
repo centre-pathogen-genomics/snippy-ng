@@ -8,7 +8,7 @@ from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
 
 NCBI_ASSEMBLY_ACCESSION_RE = re.compile(r"^(GC[AF]_\d{9})(?:\.\d+)?$")
-ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM[END]A?)[0-9]+$")
+ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM(E|D|N)[A-Z]?[0-9]+$")
 
 
 def is_ncbi_assembly_accession(reference) -> bool:
