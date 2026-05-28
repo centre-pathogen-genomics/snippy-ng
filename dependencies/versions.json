@@ -1,7 +1,7 @@
 {
       "conda": {
             "bcbio-gff": "0.7.1",
-            "click": "8.4.0",
+            "click": "8.4.1",
             "packaging": "26.2",
             "pydantic": "2.13.4",
             "biopython": "1.87",
@@ -21,7 +21,7 @@
             "python": "3.15.0a8",
             "numpy": "2.4.6",
             "longbow": "2.3.1",
-            "gradio": "6.14.0",
+            "gradio": "6.15.1",
             "pytz": "2026.2",
             "distle": "0.3.0",
             "mummer4": "4.0.1"
