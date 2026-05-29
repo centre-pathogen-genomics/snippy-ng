@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.vcf import AddDeletionsToVCF
 
 
@@ -214,3 +214,21 @@ def test_depth_mask_from_bed_uses_maskfasta_with_n():
         "-mc", "N",
     ]
 
+
+def test_mixed_site_mask_uses_maskfasta_with_lowercase_n():
+    stage = MaskMixedSites(
+        fasta=Path("sample.consensus.fasta"),
+        vcf=Path("sample.all.vcf"),
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert commands[1].command == [
+        "bedtools", "maskfasta",
+        "-fi", "sample.consensus.fasta",
+        "-bed", "sample.mixed_sites.bed",
+        "-fo", "sample.mixed_masked.fasta",
+        "-fullHeader",
+        "-mc", "n",
+    ]

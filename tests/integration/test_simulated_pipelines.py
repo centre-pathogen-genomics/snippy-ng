@@ -13,9 +13,13 @@ from tests.integration.simulation import (
     PROJECT_ROOT,
     SimulationRequest,
     VariantRecord,
+    apply_truth_vcf,
+    ensure_commands_available,
     materialize_scenario,
     normalize_variant,
     parse_vcf_records,
+    simulate_short_reads,
+    write_truth_vcf,
 )
 
 
@@ -213,6 +217,26 @@ def _read_fasta_sequence(path: Path, contig: str) -> str:
     raise AssertionError(f"Contig {contig!r} not found in {path}")
 
 
+def _concat_files(inputs: tuple[Path, ...], output: Path) -> None:
+    with output.open("wb") as out_handle:
+        for input_path in inputs:
+            with input_path.open("rb") as in_handle:
+                out_handle.write(in_handle.read())
+
+
+def _variant_rows(path: Path, chrom: str, pos: int) -> list[list[str]]:
+    rows = []
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("#"):
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if cols[0] == chrom and cols[1] == str(pos):
+                rows.append(cols)
+    return rows
+
+
 def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_root):
     variant = VariantRecord("Wildtype", 20, "A", "C")
     request = SimulationRequest(
@@ -268,6 +292,70 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
     reference_seq = _read_fasta_sequence(request.reference, variant.chrom)
     consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == reference_seq[variant.pos - 1]
+
+
+def test_short_mixed_sites_are_masked_with_ns(tmp_path):
+    ensure_commands_available("short")
+
+    variant = VariantRecord("Wildtype", 120, "A", "C")
+    request = SimulationRequest(
+        name="short_mixed_site_mask",
+        reference=DEFAULT_REFERENCE,
+        truth_variants=(variant,),
+        short_coverage=20,
+    )
+    truth_vcf = tmp_path / "mixed.truth.vcf"
+    alt_reference = tmp_path / "mixed.alt.fasta"
+    write_truth_vcf(request.truth_variants, truth_vcf)
+    apply_truth_vcf(request.reference, truth_vcf, alt_reference)
+
+    ref_r1, ref_r2 = simulate_short_reads(
+        request,
+        request.reference,
+        tmp_path / "ref.R",
+    )
+    alt_r1, alt_r2 = simulate_short_reads(
+        request,
+        alt_reference,
+        tmp_path / "alt.R",
+    )
+    mixed_r1 = tmp_path / "mixed.R1.fq"
+    mixed_r2 = tmp_path / "mixed.R2.fq"
+    _concat_files((ref_r1, alt_r1), mixed_r1)
+    _concat_files((ref_r2, alt_r2), mixed_r2)
+
+    outdir = tmp_path / "short-mixed-site-mask"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "short",
+            "--reference", str(request.reference),
+            "--R1", str(mixed_r1),
+            "--R2", str(mixed_r2),
+            "--outdir", str(outdir),
+            "--prefix", "snippy",
+            "--skip-check",
+            "--cpus", "1",
+            "--ram", "4",
+            "--min-qual", "0",
+            "--depth-mask", "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
+    assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
+    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
+    assert consensus_seq[variant.pos - 1] == "n"
 
 
 def _read_fasta_records(path: Path) -> dict[str, str]:
