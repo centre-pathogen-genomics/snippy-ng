@@ -40,6 +40,7 @@ def test_estimate_copy_numbers_uses_largest_contig_as_copy_one_baseline():
             CoverageRow(contig_id="chr1", length=1000, read_depth=30.0),
             CoverageRow(contig_id="chr2_dup", length=800, read_depth=61.0),
             CoverageRow(contig_id="plasmid", length=100, read_depth=136.0),
+            CoverageRow(contig_id="low_depth", length=60, read_depth=7.0),
             CoverageRow(contig_id="missing", length=50, read_depth=0.0),
         ]
     )
@@ -48,6 +49,7 @@ def test_estimate_copy_numbers_uses_largest_contig_as_copy_one_baseline():
         ("chr1", 1),
         ("chr2_dup", 2),
         ("plasmid", 5),
+        ("low_depth", 1),
         ("missing", 0),
     ]
 
@@ -170,6 +172,7 @@ def test_parse_samtools_depth_and_estimate_feature_copy_numbers_uses_median_dept
             "chr1\t3\t1000",
             "chr1\t4\t29",
             "chr1\t5\t30",
+            "chr1\t6\t7",
             "plasmid\t1\t90",
             "plasmid\t2\t91",
             "plasmid\t3\t89",
@@ -179,6 +182,7 @@ def test_parse_samtools_depth_and_estimate_feature_copy_numbers_uses_median_dept
         [
             FeatureRow(feature_id="cds1", contig_id="chr1", start=1, end=5),
             FeatureRow(feature_id="cds2", contig_id="plasmid", start=1, end=3),
+            FeatureRow(feature_id="low_depth", contig_id="chr1", start=6, end=6),
             FeatureRow(feature_id="missing", contig_id="chr1", start=10, end=11),
         ],
         depths,
@@ -188,6 +192,7 @@ def test_parse_samtools_depth_and_estimate_feature_copy_numbers_uses_median_dept
     assert [(row.feature_id, row.read_depth, row.copy_number) for row in rows] == [
         ("cds1", 30.0, 1),
         ("cds2", 90.0, 3),
+        ("low_depth", 7.0, 1),
         ("missing", 0.0, 0),
     ]
 

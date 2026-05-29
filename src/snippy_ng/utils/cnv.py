@@ -57,7 +57,9 @@ class SingleCopyRegion:
 
 
 def _round_half_up(value: float) -> int:
-    return int(math.floor(value + 0.5))
+    if value <= 0:
+        return 0
+    return max(1, int(math.floor(value + 0.5)))
 
 
 def parse_samtools_coverage(lines: Iterable[str]) -> list[CoverageRow]:
