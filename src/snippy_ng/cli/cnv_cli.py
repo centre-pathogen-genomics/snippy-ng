@@ -8,13 +8,13 @@ from snippy_ng.cli.utils import AbsolutePath
 @click.command(context_settings={"show_default": True})
 @click.argument("alignment", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--gff", type=AbsolutePath(exists=True, readable=True), help="Reference GFF for per-feature CNV estimates")
-@click.option("--feature", "feature_type", default="gene", help="GFF feature type to use when --gff is supplied")
+@click.option("--feature", "feature_type", help="GFF feature type to use when --gff is supplied; defaults to the first feature type in the GFF")
 @click.option("--known-single-copy", help="Single-copy baseline region as START,END on the largest contig or CONTIG:START-END")
 @click.option("--no-header", is_flag=True, default=False, help="Do not print the TSV header")
 def cnv(
     alignment: Path,
     gff: Path | None,
-    feature_type: str,
+    feature_type: str | None,
     known_single_copy: str | None,
     no_header: bool,
 ):

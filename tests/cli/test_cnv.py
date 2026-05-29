@@ -140,6 +140,63 @@ def test_cnv_cli_gff_outputs_feature_copy_number_table(monkeypatch, tmp_path):
     )
 
 
+def test_cnv_cli_gff_defaults_to_first_feature_type(monkeypatch, tmp_path):
+    alignment = tmp_path / "sample.cram"
+    alignment.write_text("cram")
+    gff = tmp_path / "reference.gff"
+    gff.write_text(
+        "chr1\t.\tgene\t1\t3\t.\t+\t.\tID=gene1\n"
+        "chr1\t.\tCDS\t1\t3\t.\t+\t0\tID=cds1\n"
+        "plasmid\t.\tgene\t1\t3\t.\t+\t.\tID=gene2\n"
+    )
+
+    def fake_run(command, check, stdout, stderr, text):
+        if command[1] == "coverage":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=(
+                    "#rname\tstartpos\tendpos\tnumreads\tcovbases\tcoverage\tmeandepth\tmeanbaseq\tmeanmapq\n"
+                    "chr1\t1\t1000\t100\t1000\t100\t30\t40\t60\n"
+                    "plasmid\t1\t100\t100\t100\t100\t90\t40\t60\n"
+                ),
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "chr1\t1\t29\n"
+                "chr1\t2\t30\n"
+                "chr1\t3\t1000\n"
+                "plasmid\t1\t89\n"
+                "plasmid\t2\t90\n"
+                "plasmid\t3\t91\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("snippy_ng.utils.cnv.subprocess.run", fake_run)
+
+    result = CliRunner().invoke(
+        snippy_ng,
+        [
+            "utils",
+            "aln", "cnv",
+            str(alignment),
+            "--gff",
+            str(gff),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == (
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\n"
+        "gene1\tchr1\t1\t3\t30\t1\n"
+        "gene2\tplasmid\t1\t3\t90\t3\n"
+    )
+
+
 def test_cnv_cli_known_single_copy_overrides_contig_baseline(monkeypatch, tmp_path):
     alignment = tmp_path / "sample.cram"
     alignment.write_text("cram")

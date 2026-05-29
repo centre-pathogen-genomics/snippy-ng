@@ -185,8 +185,9 @@ def parse_gff_attributes(attributes: str) -> dict[str, str]:
     return parsed
 
 
-def parse_gff_features(gff: Path, feature_type: str = "CDS") -> list[FeatureRow]:
+def parse_gff_features(gff: Path, feature_type: str | None = None) -> list[FeatureRow]:
     features: list[FeatureRow] = []
+    selected_feature_type = feature_type
 
     with gff.open() as handle:
         for line in handle:
@@ -197,7 +198,9 @@ def parse_gff_features(gff: Path, feature_type: str = "CDS") -> list[FeatureRow]
             fields = line.split("\t")
             if len(fields) != 9:
                 continue
-            if fields[2] != feature_type:
+            if selected_feature_type is None:
+                selected_feature_type = fields[2]
+            if fields[2] != selected_feature_type:
                 continue
 
             try:
@@ -226,6 +229,8 @@ def parse_gff_features(gff: Path, feature_type: str = "CDS") -> list[FeatureRow]
             )
 
     if not features:
+        if feature_type is None:
+            raise CNVError(f"No features found in {gff}")
         raise CNVError(f"No '{feature_type}' features found in {gff}")
 
     return features
@@ -380,7 +385,7 @@ def median_depth_for_region(
 def copy_number_variation(
     alignment: Path,
     gff: Path | None = None,
-    feature_type: str = "gene",
+    feature_type: str | None = None,
     known_single_copy: str | None = None,
 ) -> list[CNVRow] | list[FeatureCNVRow]:
     coverage_output = samtools_coverage(alignment)

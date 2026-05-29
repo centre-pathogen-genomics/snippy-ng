@@ -124,6 +124,20 @@ def test_parse_gff_features_extracts_selected_feature_type(tmp_path):
     ]
 
 
+def test_parse_gff_features_defaults_to_first_feature_type(tmp_path):
+    gff = tmp_path / "ref.gff"
+    gff.write_text(
+        "chr1\t.\tgene\t1\t10\t.\t+\t.\tID=gene1\n"
+        "chr1\t.\tCDS\t2\t9\t.\t+\t0\tID=cds1;gene=abc\n"
+        "chr2\t.\tgene\t5\t7\t.\t-\t.\tName=gene2\n"
+    )
+
+    assert parse_gff_features(gff) == [
+        FeatureRow(feature_id="gene1", contig_id="chr1", start=1, end=10),
+        FeatureRow(feature_id="gene2", contig_id="chr2", start=5, end=7),
+    ]
+
+
 def test_parse_samtools_depth_and_estimate_feature_copy_numbers_uses_median_depth():
     depths = parse_samtools_depth(
         [

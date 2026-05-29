@@ -21,8 +21,8 @@ contig_id	read_depth	copy_number
 
 ## Feature Copy Number
 
-Supply a GFF to estimate copy number for each selected feature. The default
-feature type is `gene`.
+Supply a GFF to estimate copy number for each selected feature. By default,
+the first feature type in the GFF is used.
 
 ```console
 snippy-ng utils aln cnv sample.cram --gff reference.gff > sample.features.cnv.tsv
@@ -74,6 +74,6 @@ The baseline is the median per-base depth across the known single-copy region.
 | --- | --- |
 | `ALIGNMENT` | Input BAM or CRAM. |
 | `--gff PATH` | Estimate copy number per selected GFF feature instead of per contig. |
-| `--feature TEXT` | GFF feature type to use with `--gff`; default `gene`. |
+| `--feature TEXT` | GFF feature type to use with `--gff`; defaults to the first feature type in the GFF. |
 | `--known-single-copy TEXT` | Baseline interval as `START,END` on the largest contig or `CONTIG:START-END`. |
 | `--no-header` | Do not print the TSV header. |
