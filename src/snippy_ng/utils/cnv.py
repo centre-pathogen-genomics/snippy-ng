@@ -5,7 +5,7 @@ import math
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
 from typing import Iterable, TextIO
@@ -35,6 +35,7 @@ class FeatureRow:
     contig_id: str
     start: int
     end: int
+    attributes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class FeatureCNVRow:
     end: int
     read_depth: float
     copy_number: int
+    attributes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -225,6 +227,7 @@ def parse_gff_features(gff: Path, feature_type: str | None = None) -> list[Featu
                     contig_id=fields[0],
                     start=start,
                     end=end,
+                    attributes=attributes,
                 )
             )
 
@@ -289,6 +292,7 @@ def estimate_feature_copy_numbers(
                 end=feature.end,
                 read_depth=read_depth,
                 copy_number=_round_half_up(read_depth / baseline),
+                attributes=feature.attributes,
             )
         )
 
@@ -301,8 +305,23 @@ def write_feature_cnv_table(
     include_header: bool = True,
 ) -> None:
     writer = csv.writer(output, delimiter="\t", lineterminator="\n")
+    attribute_columns = list(
+        dict.fromkeys(
+            column
+            for row in rows
+            for column in row.attributes
+        )
+    )
+    base_columns = [
+        "feature_id",
+        "contig_id",
+        "start",
+        "end",
+        "read_depth",
+        "copy_number",
+    ]
     if include_header:
-        writer.writerow(["feature_id", "contig_id", "start", "end", "read_depth", "copy_number"])
+        writer.writerow(base_columns + attribute_columns)
     for row in rows:
         writer.writerow(
             [
@@ -313,6 +332,7 @@ def write_feature_cnv_table(
                 f"{row.read_depth:g}",
                 row.copy_number,
             ]
+            + [row.attributes.get(column, "") for column in attribute_columns]
         )
 
 

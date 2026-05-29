@@ -119,8 +119,20 @@ def test_parse_gff_features_extracts_selected_feature_type(tmp_path):
     )
 
     assert parse_gff_features(gff, feature_type="CDS") == [
-        FeatureRow(feature_id="cds1", contig_id="chr1", start=2, end=9),
-        FeatureRow(feature_id="cds2", contig_id="chr2", start=5, end=7),
+        FeatureRow(
+            feature_id="cds1",
+            contig_id="chr1",
+            start=2,
+            end=9,
+            attributes={"ID": "cds1", "gene": "abc"},
+        ),
+        FeatureRow(
+            feature_id="cds2",
+            contig_id="chr2",
+            start=5,
+            end=7,
+            attributes={"Name": "cds2"},
+        ),
     ]
 
 
@@ -133,8 +145,20 @@ def test_parse_gff_features_defaults_to_first_feature_type(tmp_path):
     )
 
     assert parse_gff_features(gff) == [
-        FeatureRow(feature_id="gene1", contig_id="chr1", start=1, end=10),
-        FeatureRow(feature_id="gene2", contig_id="chr2", start=5, end=7),
+        FeatureRow(
+            feature_id="gene1",
+            contig_id="chr1",
+            start=1,
+            end=10,
+            attributes={"ID": "gene1"},
+        ),
+        FeatureRow(
+            feature_id="gene2",
+            contig_id="chr2",
+            start=5,
+            end=7,
+            attributes={"Name": "gene2"},
+        ),
     ]
 
 
@@ -170,7 +194,22 @@ def test_parse_samtools_depth_and_estimate_feature_copy_numbers_uses_median_dept
 
 def test_write_feature_cnv_table_outputs_requested_columns():
     rows = estimate_feature_copy_numbers(
-        [FeatureRow(feature_id="cds1", contig_id="chr1", start=1, end=3)],
+        [
+            FeatureRow(
+                feature_id="cds1",
+                contig_id="chr1",
+                start=1,
+                end=3,
+                attributes={"ID": "cds1", "biotype": "protein_coding"},
+            ),
+            FeatureRow(
+                feature_id="cds2",
+                contig_id="chr1",
+                start=1,
+                end=3,
+                attributes={"ID": "cds2", "Name": "dnaA"},
+            ),
+        ],
         {"chr1": {1: 30, 2: 31, 3: 32}},
         baseline=30.0,
     )
@@ -179,8 +218,9 @@ def test_write_feature_cnv_table_outputs_requested_columns():
     write_feature_cnv_table(rows, output)
 
     assert output.getvalue() == (
-        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\n"
-        "cds1\tchr1\t1\t3\t31\t1\n"
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\tbiotype\tName\n"
+        "cds1\tchr1\t1\t3\t31\t1\tcds1\tprotein_coding\t\n"
+        "cds2\tchr1\t1\t3\t31\t1\tcds2\t\tdnaA\n"
     )
 
 

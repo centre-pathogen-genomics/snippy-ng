@@ -134,9 +134,9 @@ def test_cnv_cli_gff_outputs_feature_copy_number_table(monkeypatch, tmp_path):
     assert commands[1][:5] == ["samtools", "depth", "-aa", "-b", commands[1][4]]
     assert commands[1][5:] == [str(alignment.resolve())]
     assert result.output == (
-        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\n"
-        "cds1\tchr1\t1\t3\t30\t1\n"
-        "cds2\tplasmid\t1\t3\t90\t3\n"
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\n"
+        "cds1\tchr1\t1\t3\t30\t1\tcds1\n"
+        "cds2\tplasmid\t1\t3\t90\t3\tcds2\n"
     )
 
 
@@ -191,9 +191,9 @@ def test_cnv_cli_gff_defaults_to_first_feature_type(monkeypatch, tmp_path):
 
     assert result.exit_code == 0, result.output
     assert result.output == (
-        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\n"
-        "gene1\tchr1\t1\t3\t30\t1\n"
-        "gene2\tplasmid\t1\t3\t90\t3\n"
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\n"
+        "gene1\tchr1\t1\t3\t30\t1\tgene1\n"
+        "gene2\tplasmid\t1\t3\t90\t3\tgene2\n"
     )
 
 
@@ -317,6 +317,6 @@ def test_cnv_cli_known_single_copy_named_region_overrides_feature_baseline(monke
     assert result.exit_code == 0, result.output
     assert commands[1][0:5] == ["samtools", "depth", "-aa", "-r", "chr1:10-12"]
     assert result.output == (
-        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\n"
-        "cds1\tplasmid\t1\t3\t120\t4\n"
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\n"
+        "cds1\tplasmid\t1\t3\t120\t4\tcds1\n"
     )

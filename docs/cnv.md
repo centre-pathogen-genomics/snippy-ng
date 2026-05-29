@@ -35,12 +35,13 @@ snippy-ng utils aln cnv sample.cram --gff reference.gff --feature gene > sample.
 ```
 
 Feature mode uses `samtools depth -aa -b` and reports the median per-base
-depth for each feature.
+depth for each feature. Parsed GFF attributes are appended as additional
+columns. Missing attributes are reported as empty fields.
 
 Output:
 
 ```text
-feature_id	contig_id	start	end	read_depth	copy_number
+feature_id	contig_id	start	end	read_depth	copy_number	ID	biotype	Name
 ```
 
 ## Known Single-Copy Baseline
