@@ -1,6 +1,6 @@
 from pathlib import Path
 import sys
-from typing import List
+from typing import List, Optional
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
 from snippy_ng.envvars import EnvVarField
@@ -321,6 +321,7 @@ class AssemblyAligner(BaseStage):
 
 class AssemblyNucmerAlignerOutput(BaseOutput):
     delta: Path = Field(..., description="Delta file of assembly-to-reference alignments produced by nucmer")
+    assembly: Optional[Path] = Field(None, description="Uncompressed assembly FASTA used as the nucmer query")
 
 
 class AssemblyNucmerAligner(BaseStage):
@@ -340,10 +341,27 @@ class AssemblyNucmerAligner(BaseStage):
 
     @property
     def output(self) -> AssemblyNucmerAlignerOutput:
-        return AssemblyNucmerAlignerOutput(delta=Path(f"{self.prefix}.delta"))
+        assembly = Path(f"{self.prefix}.assembly.fa") if self.assembly.suffix.lower() == ".gz" else None
+        return AssemblyNucmerAlignerOutput(
+            delta=Path(f"{self.prefix}.delta"),
+            assembly=assembly,
+        )
+
+    @property
+    def nucmer_assembly(self) -> Path:
+        return self.output.assembly or self.assembly
 
     def create_commands(self, ctx) -> List:
-        return [
+        commands = []
+        if self.output.assembly is not None:
+            commands.append(
+                self.shell_cmd(
+                    ["gunzip", "-c", str(self.assembly)],
+                    description="Decompress assembly FASTA for nucmer",
+                    output_file=self.output.assembly,
+                )
+            )
+        commands.append(
             self.shell_cmd(
                 [
                     "nucmer",
@@ -362,11 +380,12 @@ class AssemblyNucmerAligner(BaseStage):
                     "--minalign",
                     str(self.minalign),
                     str(self.reference),
-                    str(self.assembly),
+                    str(self.nucmer_assembly),
                 ],
                 description="Align assembly to reference with nucmer",
             )
-        ]
+        )
+        return commands
 
     def test_delta_output(self):
         delta_path = self.output.delta
