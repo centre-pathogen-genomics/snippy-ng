@@ -27,7 +27,7 @@ def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
 def test_nucmer_assembly_aligner_honours_configured_tunables(tmp_path):
     stage = AssemblyNucmerAligner(
         reference=Path("reference.fa"),
-        assembly=Path("assembly.fa"),
+        assembly=Path("assembly.fa.gz"),
         breaklen=250,
         mincluster=80,
         maxgap=120,
@@ -36,9 +36,11 @@ def test_nucmer_assembly_aligner_honours_configured_tunables(tmp_path):
         prefix="sample",
     )
 
-    command = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))[0].command
+    commands = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))
 
-    assert command == [
+    assert commands[0].command == ["gunzip", "-c", "assembly.fa.gz"]
+    assert commands[0].output_file == Path("sample.assembly.fa")
+    assert commands[1].command == [
         "nucmer",
         "--prefix",
         "sample",
@@ -55,8 +57,21 @@ def test_nucmer_assembly_aligner_honours_configured_tunables(tmp_path):
         "--minalign",
         "500",
         "reference.fa",
-        "assembly.fa",
+        "sample.assembly.fa",
     ]
+
+
+def test_nucmer_assembly_aligner_uses_plain_fasta_directly(tmp_path):
+    stage = AssemblyNucmerAligner(
+        reference=Path("reference.fa"),
+        assembly=Path("assembly.fa"),
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))
+
+    assert len(commands) == 1
+    assert commands[0].command[-2:] == ["reference.fa", "assembly.fa"]
 
 
 def test_minimap2_assembly_aligner_uses_configured_preset(tmp_path):
