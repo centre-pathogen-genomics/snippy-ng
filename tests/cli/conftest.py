@@ -93,6 +93,8 @@ def stage_factory(output):
             self.output = DummyOutput(
                 **{out_key: out_val for out_key, out_val in output.items()}
             )
+            if hasattr(self.output, "assembly"):
+                self.nucmer_assembly = self.output.assembly
     return _Stage
 
 
@@ -187,7 +189,10 @@ def stub_asm_stages(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "snippy_ng.stages.alignment.AssemblyNucmerAligner",
-        stage_factory({"delta": tmp_path / "align.delta"}),
+        stage_factory({
+            "delta": tmp_path / "align.delta",
+            "assembly": tmp_path / "align.assembly.fa",
+        }),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.calling.PAFCaller",
