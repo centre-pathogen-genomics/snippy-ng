@@ -241,6 +241,21 @@ def parse_gff_features(gff: Path, feature_type: str | None = None) -> list[Featu
     return features
 
 
+def find_feature(features: list[FeatureRow], feature: str) -> FeatureRow:
+    matches = [
+        row
+        for row in features
+        if row.feature_id == feature or feature in row.attributes.values()
+    ]
+
+    if not matches:
+        raise CNVError(f"Feature '{feature}' not found in GFF")
+    if len(matches) > 1:
+        raise CNVError(f"Feature '{feature}' matches multiple GFF features")
+
+    return matches[0]
+
+
 def write_feature_bed(features: list[FeatureRow], output: TextIO) -> None:
     writer = csv.writer(output, delimiter="\t", lineterminator="\n")
     for feature in features:
@@ -351,7 +366,34 @@ def samtools_coverage(alignment: Path) -> str:
     return result.stdout
 
 
+def alignment_index_paths(alignment: Path) -> list[Path]:
+    suffix = alignment.suffix.lower()
+    if suffix == ".cram":
+        return [alignment.with_suffix(".cram.crai"), alignment.with_suffix(".crai")]
+    if suffix == ".bam":
+        return [alignment.with_suffix(".bam.bai"), alignment.with_suffix(".bai")]
+    return [
+        alignment.with_suffix(f"{alignment.suffix}.bai"),
+        alignment.with_suffix(f"{alignment.suffix}.crai"),
+    ]
+
+
+def ensure_alignment_index(alignment: Path) -> None:
+    if any(index.exists() for index in alignment_index_paths(alignment)):
+        return
+
+    command = ["samtools", "index", str(alignment)]
+    subprocess.run(
+        command,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
 def samtools_depth(alignment: Path, bed: Path) -> str:
+    ensure_alignment_index(alignment)
     command = ["samtools", "depth", "-aa", "-b", str(bed), str(alignment)]
 
     result = subprocess.run(
@@ -365,6 +407,7 @@ def samtools_depth(alignment: Path, bed: Path) -> str:
 
 
 def samtools_region_depth(alignment: Path, contig_id: str, start: int, end: int) -> str:
+    ensure_alignment_index(alignment)
     command = ["samtools", "depth", "-aa", "-r", f"{contig_id}:{start}-{end}", str(alignment)]
 
     result = subprocess.run(
@@ -380,27 +423,51 @@ def samtools_region_depth(alignment: Path, contig_id: str, start: int, end: int)
 def median_depth_for_region(
     alignment: Path,
     coverage_rows: list[CoverageRow],
-    known_single_copy: str,
+    known_single_copy_region: str,
 ) -> float:
-    region = parse_known_single_copy_region(known_single_copy)
+    region = parse_known_single_copy_region(known_single_copy_region)
     contig_id = region.contig_id or largest_contig_id(coverage_rows)
-    depth_output = samtools_region_depth(
+    return median_depth_for_coordinates(
         alignment,
         contig_id=contig_id,
         start=region.start,
         end=region.end,
+        label=f"known single-copy region {contig_id}:{region.start}-{region.end}",
+    )
+
+
+def median_depth_for_feature(alignment: Path, feature: FeatureRow) -> float:
+    return median_depth_for_coordinates(
+        alignment,
+        contig_id=feature.contig_id,
+        start=feature.start,
+        end=feature.end,
+        label=f"known single-copy feature '{feature.feature_id}'",
+    )
+
+
+def median_depth_for_coordinates(
+    alignment: Path,
+    contig_id: str,
+    start: int,
+    end: int,
+    label: str,
+) -> float:
+    depth_output = samtools_region_depth(
+        alignment,
+        contig_id=contig_id,
+        start=start,
+        end=end,
     )
     depths = parse_samtools_depth(depth_output.splitlines())
     contig_depths = depths.get(contig_id, {})
     values = [
         contig_depths.get(pos, 0)
-        for pos in range(region.start, region.end + 1)
+        for pos in range(start, end + 1)
     ]
     baseline = float(median(values))
     if baseline <= 0:
-        raise CNVError(
-            f"Known single-copy region {contig_id}:{region.start}-{region.end} has zero median depth"
-        )
+        raise CNVError(f"{label} has zero median depth")
     return baseline
 
 
@@ -408,16 +475,30 @@ def copy_number_variation(
     alignment: Path,
     gff: Path | None = None,
     feature_type: str | None = None,
-    known_single_copy: str | None = None,
+    known_single_copy_region: str | None = None,
+    known_single_copy_feature: str | None = None,
 ) -> list[CNVRow] | list[FeatureCNVRow]:
+    if known_single_copy_region and known_single_copy_feature:
+        raise CNVError(
+            "Use either a known single-copy region or known single-copy feature, not both"
+        )
+
     coverage_output = samtools_coverage(alignment)
     coverage_rows = parse_samtools_coverage(coverage_output.splitlines())
+    features = parse_gff_features(gff, feature_type=feature_type) if gff else None
 
-    if known_single_copy:
+    if known_single_copy_feature:
+        if features is None:
+            raise CNVError("Known single-copy feature requires --gff")
+        baseline = median_depth_for_feature(
+            alignment,
+            find_feature(features, known_single_copy_feature),
+        )
+    elif known_single_copy_region:
         baseline = median_depth_for_region(
             alignment,
             coverage_rows,
-            known_single_copy=known_single_copy,
+            known_single_copy_region=known_single_copy_region,
         )
     else:
         baseline = baseline_depth(coverage_rows)
@@ -425,7 +506,7 @@ def copy_number_variation(
     if gff is None:
         return estimate_copy_numbers(coverage_rows, baseline=baseline)
 
-    features = parse_gff_features(gff, feature_type=feature_type)
+    assert features is not None
     with tempfile.NamedTemporaryFile("w", suffix=".bed") as bed_handle:
         write_feature_bed(features, bed_handle)
         bed_handle.flush()

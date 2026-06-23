@@ -49,13 +49,13 @@ feature_id	contig_id	start	end	read_depth	copy_number	ID	biotype	Name
 Use a known single-copy interval on the largest contig as the baseline:
 
 ```console
-snippy-ng utils aln cnv sample.cram --known-single-copy 4518,5000 > sample.cnv.tsv
+snippy-ng utils aln cnv sample.cram --known-single-copy-region 4518,5000 > sample.cnv.tsv
 ```
 
 Use an explicit contig:
 
 ```console
-snippy-ng utils aln cnv sample.cram --known-single-copy chr1:4518-5000 > sample.cnv.tsv
+snippy-ng utils aln cnv sample.cram --known-single-copy-region chr1:4518-5000 > sample.cnv.tsv
 ```
 
 The known single-copy interval can also be used with feature mode:
@@ -63,11 +63,22 @@ The known single-copy interval can also be used with feature mode:
 ```console
 snippy-ng utils aln cnv sample.cram \
   --gff reference.gff \
-  --known-single-copy 4518,5000 \
+  --known-single-copy-region 4518,5000 \
   > sample.features.cnv.tsv
 ```
 
-The baseline is the median per-base depth across the known single-copy region.
+Use a known single-copy feature from the GFF as the baseline:
+
+```console
+snippy-ng utils aln cnv sample.cram \
+  --gff reference.gff \
+  --known-single-copy-feature gene:WILD_00001 \
+  > sample.features.cnv.tsv
+```
+
+The baseline is the median per-base depth across the known single-copy region
+or feature. Feature matching uses the reported feature ID or any exact GFF
+attribute value, such as `ID`, `Name`, `gene`, or `locus_tag`.
 
 ## Options
 
@@ -76,5 +87,6 @@ The baseline is the median per-base depth across the known single-copy region.
 | `ALIGNMENT` | Input BAM or CRAM. |
 | `--gff PATH` | Estimate copy number per selected GFF feature instead of per contig. |
 | `--feature TEXT` | GFF feature type to use with `--gff`; defaults to the first feature type in the GFF. |
-| `--known-single-copy TEXT` | Baseline interval as `START,END` on the largest contig or `CONTIG:START-END`. |
+| `--known-single-copy-region TEXT` | Baseline interval as `START,END` on the largest contig or `CONTIG:START-END`. |
+| `--known-single-copy-feature TEXT` | Baseline feature ID or GFF attribute value from `--gff`. |
 | `--no-header` | Do not print the TSV header. |

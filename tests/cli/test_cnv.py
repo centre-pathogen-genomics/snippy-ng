@@ -131,8 +131,9 @@ def test_cnv_cli_gff_outputs_feature_copy_number_table(monkeypatch, tmp_path):
         "coverage",
         str(alignment.resolve()),
     ]
-    assert commands[1][:5] == ["samtools", "depth", "-aa", "-b", commands[1][4]]
-    assert commands[1][5:] == [str(alignment.resolve())]
+    assert commands[1] == ["samtools", "index", str(alignment.resolve())]
+    assert commands[2][:5] == ["samtools", "depth", "-aa", "-b", commands[2][4]]
+    assert commands[2][5:] == [str(alignment.resolve())]
     assert result.output == (
         "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\n"
         "cds1\tchr1\t1\t3\t30\t1\tcds1\n"
@@ -197,7 +198,7 @@ def test_cnv_cli_gff_defaults_to_first_feature_type(monkeypatch, tmp_path):
     )
 
 
-def test_cnv_cli_known_single_copy_overrides_contig_baseline(monkeypatch, tmp_path):
+def test_cnv_cli_known_single_copy_region_overrides_contig_baseline(monkeypatch, tmp_path):
     alignment = tmp_path / "sample.cram"
     alignment.write_text("cram")
     commands = []
@@ -234,13 +235,14 @@ def test_cnv_cli_known_single_copy_overrides_contig_baseline(monkeypatch, tmp_pa
             "utils",
             "aln", "cnv",
             str(alignment),
-            "--known-single-copy",
+            "--known-single-copy-region",
             "10,12",
         ],
     )
 
     assert result.exit_code == 0, result.output
-    assert commands[1] == [
+    assert commands[1] == ["samtools", "index", str(alignment.resolve())]
+    assert commands[2] == [
         "samtools",
         "depth",
         "-aa",
@@ -309,14 +311,95 @@ def test_cnv_cli_known_single_copy_named_region_overrides_feature_baseline(monke
             str(gff),
             "--feature",
             "CDS",
-            "--known-single-copy",
+            "--known-single-copy-region",
             "chr1:10-12",
         ],
     )
 
     assert result.exit_code == 0, result.output
-    assert commands[1][0:5] == ["samtools", "depth", "-aa", "-r", "chr1:10-12"]
+    assert commands[1] == ["samtools", "index", str(alignment.resolve())]
+    assert commands[2][0:5] == ["samtools", "depth", "-aa", "-r", "chr1:10-12"]
     assert result.output == (
         "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\n"
         "cds1\tplasmid\t1\t3\t120\t4\tcds1\n"
+    )
+
+
+def test_cnv_cli_known_single_copy_feature_overrides_feature_baseline(monkeypatch, tmp_path):
+    alignment = tmp_path / "sample.cram"
+    alignment.write_text("cram")
+    gff = tmp_path / "reference.gff"
+    gff.write_text(
+        "chr1\t.\tgene\t10\t12\t.\t+\t.\tID=gene:baseline;Name=dnaA\n"
+        "plasmid\t.\tgene\t1\t3\t.\t+\t.\tID=gene:target\n"
+    )
+    commands = []
+
+    def fake_run(command, check, stdout, stderr, text):
+        commands.append(command)
+        if command[1] == "coverage":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=(
+                    "#rname\tstartpos\tendpos\tnumreads\tcovbases\tcoverage\tmeandepth\tmeanbaseq\tmeanmapq\n"
+                    "chr1\t1\t1000\t100\t1000\t100\t60\t40\t60\n"
+                    "plasmid\t1\t100\t100\t100\t100\t120\t40\t60\n"
+                ),
+                stderr="",
+            )
+        if "-r" in command:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=(
+                    "chr1\t10\t29\n"
+                    "chr1\t11\t30\n"
+                    "chr1\t12\t31\n"
+                ),
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "chr1\t10\t29\n"
+                "chr1\t11\t30\n"
+                "chr1\t12\t31\n"
+                "plasmid\t1\t119\n"
+                "plasmid\t2\t120\n"
+                "plasmid\t3\t121\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("snippy_ng.utils.cnv.subprocess.run", fake_run)
+
+    result = CliRunner().invoke(
+        snippy_ng,
+        [
+            "utils",
+            "aln", "cnv",
+            str(alignment),
+            "--gff",
+            str(gff),
+            "--known-single-copy-feature",
+            "gene:baseline",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert commands[1] == ["samtools", "index", str(alignment.resolve())]
+    assert commands[2] == [
+        "samtools",
+        "depth",
+        "-aa",
+        "-r",
+        "chr1:10-12",
+        str(alignment.resolve()),
+    ]
+    assert result.output == (
+        "feature_id\tcontig_id\tstart\tend\tread_depth\tcopy_number\tID\tName\n"
+        "gene:baseline\tchr1\t10\t12\t30\t1\tgene:baseline\tdnaA\n"
+        "gene:target\tplasmid\t1\t3\t120\t4\tgene:target\t\n"
     )

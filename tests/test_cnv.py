@@ -6,7 +6,9 @@ from snippy_ng.utils.cnv import (
     CNVError,
     CoverageRow,
     FeatureRow,
+    alignment_index_paths,
     copy_number_variation,
+    ensure_alignment_index,
     estimate_copy_numbers,
     estimate_feature_copy_numbers,
     parse_known_single_copy_region,
@@ -95,6 +97,50 @@ def test_estimate_copy_numbers_accepts_known_baseline_depth():
         ("chr1", 2),
         ("plasmid", 4),
     ]
+
+
+def test_alignment_index_paths_include_standard_sidecars(tmp_path):
+    assert alignment_index_paths(tmp_path / "sample.cram") == [
+        tmp_path / "sample.cram.crai",
+        tmp_path / "sample.crai",
+    ]
+    assert alignment_index_paths(tmp_path / "sample.bam") == [
+        tmp_path / "sample.bam.bai",
+        tmp_path / "sample.bai",
+    ]
+
+
+def test_ensure_alignment_index_runs_samtools_index_when_missing(monkeypatch, tmp_path):
+    alignment = tmp_path / "sample.cram"
+    alignment.write_text("cram")
+    commands = []
+
+    def fake_run(command, check, stdout, stderr, text):
+        commands.append(command)
+        return None
+
+    monkeypatch.setattr("snippy_ng.utils.cnv.subprocess.run", fake_run)
+
+    ensure_alignment_index(alignment)
+
+    assert commands == [["samtools", "index", str(alignment)]]
+
+
+def test_ensure_alignment_index_skips_existing_index(monkeypatch, tmp_path):
+    alignment = tmp_path / "sample.cram"
+    alignment.write_text("cram")
+    (tmp_path / "sample.cram.crai").write_text("index")
+    commands = []
+
+    def fake_run(command, check, stdout, stderr, text):
+        commands.append(command)
+        return None
+
+    monkeypatch.setattr("snippy_ng.utils.cnv.subprocess.run", fake_run)
+
+    ensure_alignment_index(alignment)
+
+    assert commands == []
 
 
 def test_parse_known_single_copy_region_accepts_largest_contig_coordinate_form():
