@@ -70,7 +70,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             caller = ShowSnpsCaller(
                 delta=aligner.output.delta,
                 ref_dict=setup.output.reference_dict,
-                assembly=Path(self.assembly),
+                assembly=aligner.nucmer_assembly,
                 reference=reference_file,
                 reference_index=reference_index,
                 additional_options=self.caller_opts,
