@@ -7,15 +7,19 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Iterable, Literal, Mapping, Optional, TypeAlias, Union
+from typing import Callable, Iterable, Literal, Mapping, Optional, TypeAlias, TypedDict, Union
 
 from snippy_ng.exceptions import SnippyError
 
 
 SeqKind: TypeAlias = Literal["ILL", "ONT", "ASM"]
 SampleEntry: TypeAlias = dict[str, object]
-SamplesConfig: TypeAlias = dict[Literal["reference", "samples"], object]
 PathLike: TypeAlias = Union[str, Path]
+
+
+class SamplesConfig(TypedDict):
+    reference: str | None
+    samples: dict[str, SampleEntry]
 
 
 class GatherSamplesError(SnippyError):
