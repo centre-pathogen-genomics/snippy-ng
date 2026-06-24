@@ -138,7 +138,7 @@ integration = { features = ["integration-test"], solve-group = "integration" }
 
 [tool.pixi.tasks]
 test = "hatch run test"
-test-integration = "hatch run integration"
+test-integration = { cmd = "hatch run integration", default-environment = "integration" }
 
 [tool.pixi.dependencies]
 # python dependencies
