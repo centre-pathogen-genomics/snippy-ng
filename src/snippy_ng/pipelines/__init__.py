@@ -1,6 +1,6 @@
 import random
 from collections import OrderedDict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TypeVar
 import os
 from pathlib import Path
 import time
@@ -11,6 +11,9 @@ from snippy_ng.__about__ import __version__, DOCS_URL, GITHUB_URL
 from snippy_ng.stages import BaseStage, Context
 from snippy_ng.utils.files import human_readable_size
 from pydantic import BaseModel, ConfigDict, Field
+
+
+StageT = TypeVar("StageT", bound=BaseStage)
 
 
 class PipelineBuilder(BaseModel):
@@ -86,6 +89,13 @@ class SnippyPipeline:
     
     def add_stage(self, stage):
         self.stages.append(stage)
+
+    def get_stage(self, stage_class: type[StageT]) -> Optional[StageT]:
+        """Return the last stage instance matching the given class, if present."""
+        for stage in reversed(self.stages):
+            if isinstance(stage, stage_class):
+                return stage
+        return None
 
     @property
     def dependencies(self):

@@ -44,6 +44,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     )
     from snippy_ng.pipelines.multi import run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
+    from snippy_ng.stages import BaseStage
     from snippy_ng.utils.gather import gather
     from snippy_ng.exceptions import PipelineExecutionError, InvalidReferenceError
 
@@ -109,7 +110,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         f.write(json.dumps(gathered, indent=2))
 
     # create reusable reference
-    reference_stages = []
+    reference_stages: list[BaseStage] = []
     reference_input = reference
     if reference_is_accession:
         reference_input = download_assembly(
@@ -161,6 +162,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
 
     # core alignment
     from snippy_ng.pipelines.core import CorePipelineBuilder
+    from snippy_ng.stages.core import SoftCoreFilter
 
     snippy_dirs = [
         Path(outdir / "samples" / sample)
@@ -180,20 +182,13 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
 
-    soft_core_stage = next(
-        (
-            stage
-            for stage in reversed(aln_pipeline.stages)
-            if hasattr(getattr(stage, "output", None), "soft_core")
-            and hasattr(getattr(stage, "output", None), "constant_sites")
-        ),
-        None,
-    )
+    soft_core_stage = aln_pipeline.get_stage(SoftCoreFilter)
     if soft_core_stage is None:
         raise PipelineExecutionError("Core pipeline did not produce soft-core alignment outputs.")
 
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
+    from snippy_ng.stages.trees import ScaleTreeToSNPs
 
 
     context["ram"] = None # YOLO: disable RAM limiting for this step
@@ -207,12 +202,15 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     context["outdir"] = tree_outdir
     tree_run_ctx = Context(**context)
     tree_pipeline.run(tree_run_ctx)
+    snp_tree_stage = tree_pipeline.get_stage(ScaleTreeToSNPs)
+    if snp_tree_stage is None:
+        raise PipelineExecutionError("Tree pipeline did not produce SNP-scaled tree output.")
 
     # report
     from snippy_ng.pipelines.reports import TreeReportPipelineBuilder
 
     report_pipeline = TreeReportPipelineBuilder(
-        tree=tree_outdir / tree_pipeline.stages[-1].output.tree,
+        tree=tree_outdir / snp_tree_stage.output.tree,
         title="Snippy-NG Report",
         metadata=Path(outdir) / f"{prefix}.vcf.summary.tsv",
         prefix="report",
