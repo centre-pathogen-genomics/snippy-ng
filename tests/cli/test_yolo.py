@@ -4,6 +4,8 @@ from types import SimpleNamespace
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng
+from snippy_ng.stages.core import SoftCoreFilter
+from snippy_ng.stages.trees import ScaleTreeToSNPs
 from tests.cli.helpers import make_prepared_reference, stub_load_or_prepare_reference
 
 
@@ -23,6 +25,12 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
         def __init__(self, stages=None, outputs_to_keep=None):
             self.stages = stages or []
 
+        def get_stage(self, stage_class):
+            for stage in reversed(self.stages):
+                if isinstance(stage, stage_class):
+                    return stage
+            return None
+
         def run(self, _ctx):
             captured.setdefault("run_contexts", []).append(_ctx.model_copy(deep=True))
             return 0
@@ -32,13 +40,18 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
     class DummyCorePipeline:
         def __init__(self):
             self.stages = [
-                SimpleNamespace(
-                    output=SimpleNamespace(
-                        soft_core=Path("core.095.aln"),
-                        constant_sites=Path("core.095.fconst"),
-                    )
+                SoftCoreFilter(
+                    aln=Path("core.full.aln"),
+                    core_threshold=0.95,
+                    prefix="core",
                 )
             ]
+
+        def get_stage(self, stage_class):
+            for stage in reversed(self.stages):
+                if isinstance(stage, stage_class):
+                    return stage
+            return None
 
         def run(self, ctx):
             outdir = Path(ctx.outdir)
@@ -90,7 +103,12 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
             captured["fast_mode"] = fast_mode
 
         def build(self):
-            return SimpleNamespace(run=lambda _ctx: 0, stages=[SimpleNamespace(output=SimpleNamespace(tree=Path("tree.newick")))])
+            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.095.aln"), prefix="tree")
+            return SimpleNamespace(
+                run=lambda _ctx: 0,
+                stages=[stage],
+                get_stage=lambda stage_class: stage if isinstance(stage, stage_class) else None,
+            )
 
     monkeypatch.setattr(
         "snippy_ng.pipelines.tree.TreePipelineBuilder",
@@ -199,7 +217,12 @@ def test_yolo_preserves_long_sample_caller_and_sets_cpus_per_sample(monkeypatch,
             pass
 
         def build(self):
-            return SimpleNamespace(run=lambda _ctx: 0, stages=[SimpleNamespace(output=SimpleNamespace(tree=Path("tree.newick")))])
+            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.095.aln"), prefix="tree")
+            return SimpleNamespace(
+                run=lambda _ctx: 0,
+                stages=[stage],
+                get_stage=lambda stage_class: stage if isinstance(stage, stage_class) else None,
+            )
 
     monkeypatch.setattr(
         "snippy_ng.pipelines.tree.TreePipelineBuilder",

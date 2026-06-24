@@ -25,6 +25,10 @@ class MockStage(BaseStage):
         return []
 
 
+class OtherMockStage(MockStage):
+    pass
+
+
 def test_snippy_init_empty():
     """Test Snippy initialization with no stages."""
     snippy = SnippyPipeline()
@@ -46,6 +50,24 @@ def test_snippy_add_stage():
     snippy.add_stage(stage)
     assert len(snippy.stages) == 1
     assert snippy.stages[0] == stage
+
+
+def test_snippy_get_stage_returns_none_when_missing():
+    """Test finding a stage when no matching class exists."""
+    snippy = SnippyPipeline(stages=[MockStage()])
+
+    assert snippy.get_stage(OtherMockStage) is None
+
+
+def test_snippy_get_stage_returns_last_matching_instance():
+    """Test finding the most recent stage matching a class."""
+    first = MockStage(prefix="first")
+    other = OtherMockStage(prefix="other")
+    last = MockStage(prefix="last")
+    snippy = SnippyPipeline(stages=[first, other, last])
+
+    assert snippy.get_stage(MockStage) is last
+    assert snippy.get_stage(OtherMockStage) is other
 
 
 def test_snippy_dependencies():
@@ -236,6 +258,5 @@ def test_output_descriptions_includes_human_readable_size(tmp_path):
     assert row["output"] == "test_file"
     assert row["path"] == str(output_path)
     assert row["size"] == "1.5 KB"
-
 
 
