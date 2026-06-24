@@ -929,7 +929,7 @@ class AddDeletionsToVCF(BaseStage):
                     "TYPE=INDEL;"
                     f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
                 )
-                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "ZERODEPTH", info]
+                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "PASS;ZERODEPTH", info]
 
                 if sample_count > 0:
                     base_cols.extend(["GT", *(["1/1"] * sample_count)])
