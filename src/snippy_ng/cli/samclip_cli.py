@@ -40,7 +40,7 @@ def samclip(
             contig_lengths=contig_lengths,
             max_clip=max,
             invert=invert,
-            on_debug=lambda msg: click.echo(msg, err=True) if debug else None,
+            on_debug=lambda msg: click.echo(message=msg, err=True) if debug else None,
             fix_mate=fix_mate,
         ):
             output_buffer.append(line)
@@ -48,7 +48,7 @@ def samclip(
                 sys.stdout.write("".join(output_buffer))
                 output_buffer.clear()
             line_count += 1
-            if line_count % 100000 == 0:
+            if line_count % 1000000 == 0:
                 click.echo(f"[samclip] Processed {line_count} lines...", err=True)
         if output_buffer:
             sys.stdout.write("".join(output_buffer))
