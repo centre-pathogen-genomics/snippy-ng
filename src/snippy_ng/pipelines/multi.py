@@ -27,11 +27,13 @@ def run_multi_pipeline(
     """
 
     total_cpus = int(run_ctx.cpus)
+    if cpus_per_sample is None:
+        # Assign at least 4 CPUs per sample or divide total CPUs by number of samples, whichever is higher
+        cpus_per_sample = max(4, total_cpus // len(samples))
+    
     # cap cpus_per_sample to total_cpus
-    if cpus_per_sample is not None:
-        cpus_per_sample = min(int(cpus_per_sample), total_cpus)
-    else:
-        cpus_per_sample = total_cpus
+    cpus_per_sample = min(cpus_per_sample, total_cpus)
+
     # Limit max parallelism to avoid oversubscription
     max_parallel = max(1, total_cpus // cpus_per_sample)
 
