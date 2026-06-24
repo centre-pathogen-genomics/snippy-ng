@@ -13,8 +13,8 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
-@click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
+@click.option("--min-read-len", type=click.INT, default=15, help="Minimum read length to keep when cleaning reads")
+@click.option("--min-read-qual", type=click.FLOAT, default=20, help="Minimum read quality to keep when cleaning reads")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
@@ -64,7 +64,7 @@ def short(
     
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
-    reference_path = None if reference_accession else reference
+    reference_path = None if reference_accession else Path(reference)
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid

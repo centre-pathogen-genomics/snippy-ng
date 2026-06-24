@@ -33,7 +33,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner: str = Field(default="minimap2", description="Aligner to use (minimap2 or bwamem)")
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=100, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     min_mapping_quality: int = Field(default=30, description="Minimum mapping quality for FreeBayes calls and depth masks")
@@ -289,7 +289,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         if self.mask:
             user_mask = ApplyMask(
                 fasta=current_fasta,
-                mask_bed=Path(self.mask),
+                mask_bed=self.mask,
                 **globals
             )
             stages.append(user_mask)
@@ -317,7 +317,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 alignment=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
-                title=f"{sample_name.title() or self.prefix.title()} Sample Report",
+                title=f"{sample_name.title()} Sample Report" if sample_name else f"{self.prefix.title()} Sample Report",
                 sample_name=sample_name,
                 variant_scope=self.report_scope,
                 window_size=self.report_window_size,
