@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from snippy_ng.stages.stats import (
     SeqKitReadStats,
     SeqKitReadStatsBasic,
-    SeqKitReadStatsDetailed
+    SeqKitReadStatsDetailed,
 )
 from snippy_ng.context import Context
 

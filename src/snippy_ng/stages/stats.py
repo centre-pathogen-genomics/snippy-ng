@@ -218,7 +218,6 @@ class VcfStats(BaseStage):
         sample = sample_name or vcf_path.stem
         filter_counts: Counter = Counter()
         type_counts: Counter = Counter()
-        contig_counts: Counter = Counter()
         substitution_counts: Counter = Counter()
         consequence_counts: Counter = Counter()
 
@@ -260,7 +259,6 @@ class VcfStats(BaseStage):
                 sample_field = fields[9] if len(fields) > 9 else "."
 
                 total_records += 1
-                contig_counts[chrom] += 1
                 contigs_with_variants.add(chrom)
 
                 filter_labels = ["PASS"] if filter_field in (".", "PASS") else filter_field.split(";")
@@ -354,7 +352,6 @@ class VcfStats(BaseStage):
             writer.writerow(["sample", "section", "label", "count"])
             VcfStats._write_breakdown_rows(writer, sample, "filter", filter_counts)
             VcfStats._write_breakdown_rows(writer, sample, "type", type_counts)
-            VcfStats._write_breakdown_rows(writer, sample, "contig", contig_counts)
             VcfStats._write_breakdown_rows(writer, sample, "substitution", substitution_counts)
             VcfStats._write_breakdown_rows(writer, sample, "consequence", consequence_counts)
 
