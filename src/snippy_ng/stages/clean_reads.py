@@ -150,7 +150,7 @@ class SeqkitCleanLongReads(BaseStage):
     
     reads: str = Field(..., description="Long read file (FASTQ format)")
     min_length: int = Field(1000, description="Minimum read length")
-    min_qscore: int = Field(10, description="Minimum average quality score for reads")
+    min_qscore: float = Field(10, description="Minimum average quality score for reads")
 
     _dependencies = [seqkit]
     
