@@ -3,7 +3,7 @@ Thanks for looking at the source code! You found a hidden command :D
 """
 
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Optional
 import click
 
 from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
@@ -23,7 +23,7 @@ from snippy_ng.utils.system import available_cpu_count
     type=AbsolutePath(exists=True, readable=True),
     nargs=-1
 )
-def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix: str, **context: Any):
+def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Path, prefix: str, **context: Any):
     """
     Pipeline that automates everything.
 
