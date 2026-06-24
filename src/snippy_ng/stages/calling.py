@@ -1452,7 +1452,6 @@ class Clair3Caller(Caller):
     bam: Path = Field(..., description="Input BAM file")
     clair3_model: Path = Field(..., description="Path to Clair3 model")
     platform: str = Field("ont", description="Sequencing platform (e.g., ont, hifi)")
-    fast_mode: bool = Field(True, description="Enable fast mode for Clair3")
     min_mapping_quality: int = Field(30, description="Minimum mapping quality for Clair3 to count reads")
 
     _dependencies = [clair3]
@@ -1499,8 +1498,6 @@ class Clair3Caller(Caller):
             clair3_cmd_parts,
             description="Call variants with Clair3",
         )
-        if self.fast_mode:
-            clair3_cmd.command.append("--fast_mode")
         unzip_cmd = self.shell_cmd(
             [
                 "gunzip",

@@ -36,8 +36,7 @@ class LongPipelineBuilder(PipelineBuilder):
     caller: str = Field(default="clair3", description="Variant caller (clair3 or freebayes)")
     caller_opts: str = Field(default="", description="Additional caller options")
     clair3_model: Optional[Path] = Field(default=None, description="Clair3 model path")
-    clair3_fast_mode: bool = Field(default=False, description="Use Clair3 fast mode")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for FreeBayes calls and depth masks")
@@ -79,7 +78,7 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # Track current reads through potential cleaning and downsampling
         # Always keep as strings for Pydantic validation
-        current_reads = [str(self.reads)] if self.reads else []
+        current_reads: list[Path] = [self.reads] if self.reads else []
         
         # Clean reads
         if self.clean_reads and current_reads:
@@ -90,7 +89,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 **globals
             )
             # Update reads to use cleaned reads (convert to strings for Pydantic)
-            current_reads = [str(clean_reads_stage.output.cleaned_reads)]
+            current_reads = [clean_reads_stage.output.cleaned_reads]
             stages.append(clean_reads_stage)
 
         if self.downsample and current_reads:
@@ -104,9 +103,9 @@ class LongPipelineBuilder(PipelineBuilder):
                 **globals
             )
             # Update reads to use downsampled reads (convert to strings for Pydantic)
-            current_reads = [str(downsample_stage.output.downsampled_r1)]
+            current_reads = [downsample_stage.output.downsampled_r1]
             if downsample_stage.output.downsampled_r2:
-                current_reads.append(str(downsample_stage.output.downsampled_r2))
+                current_reads.append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
 
         # Aligner
@@ -176,7 +175,6 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference=reference_file,
                 reference_index=reference_index,
                 clair3_model=clair3_model,
-                fast_mode=self.clair3_fast_mode,
                 additional_options=self.caller_opts,
                 platform=platform,
                 **globals
@@ -244,7 +242,7 @@ class LongPipelineBuilder(PipelineBuilder):
 
         final_vcf = CopyFile(
             input=variants_file,
-            output_path=f"{self.prefix}.all.vcf",
+            output_path=Path(f"{self.prefix}.all.vcf"),
         )
         stages.append(final_vcf)
         variants_file = final_vcf.output.copied_file
@@ -314,7 +312,7 @@ class LongPipelineBuilder(PipelineBuilder):
         if self.mask:
             user_mask = ApplyMask(
                 fasta=current_fasta,
-                mask_bed=Path(self.mask),
+                mask_bed=self.mask,
                 **globals
             )
             stages.append(user_mask)
