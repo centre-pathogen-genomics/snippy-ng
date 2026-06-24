@@ -34,10 +34,9 @@ class DepthBedsFromBam(BaseStage):
 
     def create_commands(self, ctx) -> List:
         depth_cmd = [
-            "samtools", "depth",
+            "samtools",
+            "depth",
             "-aa",
-            "--min-BQ", str(self.min_base_quality),
-            "--min-MQ", str(self.min_mapping_quality),
             str(self.bam),
         ]
         return [
