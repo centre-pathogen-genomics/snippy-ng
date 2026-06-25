@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.stages import BaseStage, BaseOutput
-from snippy_ng.dependencies import rasusa
+from snippy_ng.dependencies import rasusa, samtools
 from pydantic import Field, field_validator, model_validator
 
 
@@ -312,3 +312,49 @@ class RasusaDownsampleReadsByCount(RasusaDownsampleReads):
         if v is not None:
             raise ValueError("Cannot specify coverage in count-based downsampling variant")
         return v
+
+
+class SamtoolsDownsampleAlignmentOutput(BaseOutput):
+    """Output model for alignment downsampling."""
+
+    bam: Path = Field(..., description="Downsampled BAM alignment")
+
+
+class SamtoolsDownsampleAlignment(BaseStage):
+    """Downsample a BAM/CRAM alignment by random template fraction."""
+
+    alignment: Path = Field(..., description="Input BAM/CRAM alignment")
+    fraction: float = Field(..., gt=0, lt=1, description="Fraction of alignments to keep")
+    seed: int = Field(default=42, description="Random seed for reproducible downsampling")
+    reference: Optional[Path] = Field(default=None, description="Reference FASTA for CRAM input")
+
+    _dependencies = [samtools]
+
+    @property
+    def output(self) -> SamtoolsDownsampleAlignmentOutput:
+        return SamtoolsDownsampleAlignmentOutput(
+            bam=Path(f"{self.prefix}.downsampled.bam")
+        )
+
+    def create_commands(self, ctx) -> List:
+        fraction_digits = f"{self.fraction:.12f}".split(".", 1)[1].rstrip("0")
+        command = [
+            "samtools",
+            "view",
+            "--threads",
+            str(ctx.cpus),
+            "-b",
+            "-s",
+            f"{self.seed}.{fraction_digits}",
+            "-o",
+            str(self.output.bam),
+        ]
+        if self.reference is not None:
+            command.extend(["-T", str(self.reference)])
+        command.append(str(self.alignment))
+        return [
+            self.shell_cmd(
+                command,
+                description=f"Downsample alignment to {self.fraction:g} fraction with samtools",
+            )
+        ]

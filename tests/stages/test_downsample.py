@@ -7,10 +7,11 @@ from pydantic import ValidationError
 
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.context import Context
-from snippy_ng.stages.downsample_reads import (
+from snippy_ng.stages.downsample import (
     RasusaDownsampleReads,
     RasusaDownsampleReadsByCoverage,
-    RasusaDownsampleReadsByCount
+    RasusaDownsampleReadsByCount,
+    SamtoolsDownsampleAlignment,
 )
 
 
@@ -315,3 +316,39 @@ class TestRasusaDownsampleReadsByCount:
                 tmpdir=tmp_path
             )
         assert "Cannot specify coverage in count-based downsampling" in str(excinfo.value)
+
+
+class TestSamtoolsDownsampleAlignment:
+    """Test samtools alignment downsampling stage"""
+
+    def test_command_with_reference(self, tmp_path):
+        alignment = tmp_path / "sample.bam"
+        reference = tmp_path / "ref.fa"
+        alignment.touch()
+        reference.touch()
+
+        stage = SamtoolsDownsampleAlignment(
+            alignment=alignment,
+            fraction=0.25,
+            seed=7,
+            reference=reference,
+            prefix="sample",
+        )
+
+        commands = stage.create_commands(Context(cpus=3))
+
+        assert len(commands) == 1
+        assert commands[0].command == [
+            "samtools",
+            "view",
+            "--threads",
+            "3",
+            "-b",
+            "-s",
+            "7.25",
+            "-o",
+            "sample.downsampled.bam",
+            "-T",
+            str(reference),
+            str(alignment),
+        ]

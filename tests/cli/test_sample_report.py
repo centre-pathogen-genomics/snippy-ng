@@ -2,6 +2,7 @@ from pathlib import Path
 
 import snippy_ng.pipelines.reports as report_pipeline_module
 from snippy_ng.stages.copy import CopyFile
+from snippy_ng.stages.downsample import SamtoolsDownsampleAlignment
 from snippy_ng.stages.reporting import SampleReport
 from snippy_ng.stages.stats import VcfStats
 from snippy_ng.stages.vcf import CollapseDiploidGenotypes, VcfPassFilter, VcfToTab
@@ -53,6 +54,76 @@ def test_sample_report_cli_builds_pipeline(monkeypatch, tmp_path):
     assert stage.variant_scope == "all"
     assert stage.window_size == 500
     assert stage.reference_index == Path("reference/ref.fa.fai")
+    assert not any(isinstance(stage, SamtoolsDownsampleAlignment) for stage in pipeline.stages)
+
+
+def test_sample_report_cli_can_downsample_alignment(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        report_pipeline_module.pipelines,
+        "SnippyPipeline",
+        lambda stages=None, outputs_to_keep=None: DummyPipeline(stages=stages, outputs_to_keep=outputs_to_keep),
+    )
+
+    vcf = tmp_path / "sample.vcf"
+    alignment = tmp_path / "sample.bam"
+    reference = tmp_path / "ref.fa"
+    outdir = tmp_path / "report"
+    vcf.write_text("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+    alignment.write_text("bam")
+    reference.write_text(">chr1\nA\n")
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        reference,
+        target="snippy_ng.pipelines.reports.load_or_prepare_reference",
+    )
+
+    result = run_cli_command(
+        [
+            "utils",
+            "report",
+            "sample",
+            str(vcf),
+            "--alignment",
+            str(alignment),
+            "--reference",
+            str(reference),
+            "--downsample",
+            "0.25",
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    pipeline = DummyPipeline.last
+    downsample_stage = next(stage for stage in pipeline.stages if isinstance(stage, SamtoolsDownsampleAlignment))
+    report_stage = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+    assert downsample_stage.alignment == alignment
+    assert downsample_stage.fraction == 0.25
+    assert report_stage.alignment == downsample_stage.output.bam
+
+
+def test_sample_report_cli_rejects_downsample_without_alignment(tmp_path):
+    vcf = tmp_path / "sample.vcf"
+    vcf.write_text("##fileformat=VCFv4.2\n")
+
+    result = run_cli_command(
+        [
+            "utils",
+            "report",
+            "sample",
+            str(vcf),
+            "--downsample",
+            "0.25",
+            "--outdir",
+            str(tmp_path / "report"),
+            "--skip-check",
+        ]
+    )
+
+    assert result.exit_code == 2
+    assert "--alignment is required when --downsample is provided" in result.output
 
 
 def test_sample_report_cli_builds_vcf_only_pipeline(monkeypatch, tmp_path):

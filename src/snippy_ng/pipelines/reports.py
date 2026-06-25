@@ -4,6 +4,7 @@ from pydantic import Field
 import snippy_ng.pipelines as pipelines
 from snippy_ng.pipelines import PipelineBuilder
 from snippy_ng.pipelines.common import load_or_prepare_reference
+from snippy_ng.stages.downsample import SamtoolsDownsampleAlignment
 from snippy_ng.stages.reporting import SampleReport, TreeReport, Context
 
 
@@ -49,12 +50,15 @@ class SampleReportPipelineBuilder(PipelineBuilder):
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override")
     variant_scope: str = Field(default="pass", description="Variant scope to include: pass or all")
     window_size: int = Field(default=100, description="Base pairs of context to embed around each variant")
+    downsample: Optional[float] = Field(default=None, gt=0, lt=1, description="Optional fraction of alignments to keep before report windowing")
 
     def build(self):
         stages=[]
         
         if self.alignment and not self.reference:
             raise ValueError("--reference is required when --alignment is provided")
+        if self.downsample is not None and not self.alignment:
+            raise ValueError("alignment is required when downsample is provided")
 
         setup = None
         if self.alignment and self.reference:
@@ -64,9 +68,20 @@ class SampleReportPipelineBuilder(PipelineBuilder):
             )
             stages.append(setup)
 
+        report_alignment = self.alignment
+        if self.alignment and self.downsample is not None:
+            downsample_stage = SamtoolsDownsampleAlignment(
+                alignment=self.alignment,
+                fraction=self.downsample,
+                reference=setup.output.reference if setup else None,
+                prefix=self.prefix,
+            )
+            stages.append(downsample_stage)
+            report_alignment = downsample_stage.output.bam
+
         report_stage = SampleReport(
             vcf=self.vcf,
-            alignment=self.alignment,
+            alignment=report_alignment,
             reference=setup.output.reference if setup else None,
             reference_index=setup.output.reference_index if setup else None,
             title=self.title,

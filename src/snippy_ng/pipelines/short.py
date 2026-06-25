@@ -91,7 +91,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(clean_reads_stage)
 
         if self.downsample and current_reads:
-            from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
+            from snippy_ng.stages.downsample import RasusaDownsampleReadsByCoverage
             
             # We need the genome length at run time (once we know the reference)
             downsample_stage = RasusaDownsampleReadsByCoverage(
