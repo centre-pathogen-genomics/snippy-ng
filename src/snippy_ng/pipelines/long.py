@@ -206,7 +206,6 @@ class LongPipelineBuilder(PipelineBuilder):
         depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
             min_depth=self.depth_mask,
-            min_mapping_quality=self.min_mapping_quality if self.caller == "freebayes" else 0,
             **globals
         )
         stages.append(depth_beds)

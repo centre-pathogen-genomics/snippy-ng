@@ -156,7 +156,7 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
     assert len(commands) == 2
     assert len(commands[0].processes) == 3
     assert commands[0].processes[0].command == [
-        "samtools", "depth", "-aa", "--min-BQ", "13", "--min-MQ", "0", "sample.bam",
+        "samtools", "depth", "-aa", "sample.bam",
     ]
     assert commands[0].processes[1].command == [
         "awk", '$3==0 {print $1"\\t"($2-1)"\\t"$2}'
@@ -166,7 +166,7 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
 
     assert len(commands[1].processes) == 3
     assert commands[1].processes[0].command == [
-        "samtools", "depth", "-aa", "--min-BQ", "13", "--min-MQ", "0", "sample.bam",
+        "samtools", "depth", "-aa", "sample.bam",
     ]
     assert commands[1].processes[1].command == [
         "awk", '$3>0 && $3<10 {print $1"\\t"($2-1)"\\t"$2}'
@@ -179,18 +179,16 @@ def test_depth_beds_from_bam_can_match_variant_calling_quality_thresholds():
     stage = DepthBedsFromBam(
         bam=Path("sample.bam"),
         min_depth=10,
-        min_base_quality=13,
-        min_mapping_quality=30,
         prefix="sample",
     )
 
     commands = stage.create_commands(Context())
 
     assert commands[0].processes[0].command == [
-        "samtools", "depth", "-aa", "--min-BQ", "13", "--min-MQ", "30", "sample.bam",
+        "samtools", "depth", "-aa", "sample.bam",
     ], "Default quality thresholds should not be included in Zero-depth command"
     assert commands[1].processes[0].command == [
-        "samtools", "depth", "-aa", "--min-BQ", "13", "--min-MQ", "30", "sample.bam",
+        "samtools", "depth", "-aa", "sample.bam",
     ]
 
 

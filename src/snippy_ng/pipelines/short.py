@@ -183,8 +183,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
             min_depth=self.depth_mask,
-            min_base_quality=13,
-            min_mapping_quality=self.min_mapping_quality,
             **globals
         )
         stages.append(depth_beds)

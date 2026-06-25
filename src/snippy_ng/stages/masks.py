@@ -17,8 +17,6 @@ class DepthBedsFromBam(BaseStage):
 
     bam: Path = Field(..., description="Input BAM file")
     min_depth: int = Field(..., description="Minimum depth threshold")
-    min_base_quality: int = Field(13, description="Minimum base quality to include in depth calculation")
-    min_mapping_quality: int = Field(0, description="Minimum mapping quality to include in depth calculation")
 
     _dependencies = [
         bedtools,
