@@ -1,5 +1,6 @@
 import pytest
 from snippy_ng.stages.reporting import SampleReport
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary
 from snippy_ng.stages.vcf import VcfPassFilter, VcfToTab
 from tests.cli.helpers import apply_cli_case_overrides, assert_cli_result, get_bad_reference_target, run_cli_command, write_dummy_files
 
@@ -133,12 +134,19 @@ def test_asm_pipeline_includes_vcf_only_sample_report(monkeypatch, tmp_path):
     sample_report_stages = [stage for stage in pipeline.stages if isinstance(stage, SampleReport)]
     pass_filter = next(stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter))
     variants_tab = next(stage for stage in pipeline.stages if isinstance(stage, VcfToTab))
+    fasta_qc = next(stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats))
+    sample_qc = next(stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary))
     assert len(sample_report_stages) == 1
     assert sample_report_stages[0].alignment is None
     assert sample_report_stages[0].reference is None
     assert sample_report_stages[0].variant_scope == "all"
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
+    assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
+    assert sample_qc.pipeline_type == "asm"
+    assert sample_qc.reads_tsv is None
+    assert sample_qc.alignment_tsv is None
+    assert sample_qc.output.qc_tsv in pipeline.outputs_to_keep
 
 
 def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):

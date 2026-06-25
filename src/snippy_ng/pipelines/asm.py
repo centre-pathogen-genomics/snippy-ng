@@ -13,7 +13,7 @@ from snippy_ng.pipelines.common import download_assembly, load_or_prepare_refere
 from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
-from snippy_ng.stages.stats import VcfStats
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, VcfStats
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
@@ -216,6 +216,24 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        fasta_qc = FastaCompositionStats(
+            fasta=copy_final.output.fasta,
+            sample_name=sample_name,
+            prefix=self.prefix,
+        )
+        stages.append(fasta_qc)
+
+        sample_qc = SampleQcSummary(
+            sample_name=sample_name,
+            pipeline_type="asm",
+            reads_tsv=None,
+            alignment_tsv=None,
+            vcf_summary_tsv=vcf_stats.output.summary_tsv,
+            fasta_tsv=fasta_qc.output.summary_tsv,
+            prefix=self.prefix,
+        )
+        stages.append(sample_qc)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -242,6 +260,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             variants_tab.output.tab,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
+            sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
         if sample_report_stage is not None:

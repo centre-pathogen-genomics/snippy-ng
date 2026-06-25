@@ -25,7 +25,7 @@ def run_multi_config(
     )
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.exceptions import PipelineExecutionError
-    from snippy_ng.pipelines.multi import run_multi_pipeline
+    from snippy_ng.pipelines.multi import add_core_alignment_qc, run_multi_pipeline
     from snippy_ng.logging import derive_log_path
     from snippy_ng.context import Context
 
@@ -90,6 +90,10 @@ def run_multi_config(
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     result = aln_pipeline.run(core_run_ctx)
+    add_core_alignment_qc(
+        qc_tsv=Path(outdir) / f"{prefix}.qc.tsv",
+        core_aligned_tsv=core_outdir / "core.aligned.tsv",
+    )
     return {
         "result": result,
         "successful_samples": successful_samples,

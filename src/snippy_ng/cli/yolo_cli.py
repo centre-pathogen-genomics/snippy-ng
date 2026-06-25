@@ -42,7 +42,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         is_reference_accession,
         load_or_prepare_reference,
     )
-    from snippy_ng.pipelines.multi import run_multi_pipeline
+    from snippy_ng.pipelines.multi import add_core_alignment_qc, run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.stages import BaseStage
     from snippy_ng.utils.gather import gather
@@ -136,15 +136,13 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
 
     snippy_reference_dir = ref_stage.output.reference_directory
 
-    # each sample gets 4 CPUs or total_cpus / num_samples, whichever is higher
-    cpus_per_sample = max(4, context["cpus"] // len(samples))
     try:
         successful_samples, failures = run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=samples,
             prefix=prefix,
             run_ctx=run_ctx,
-            cpus_per_sample=cpus_per_sample,
+            cpus_per_sample=None,
             stop_on_failure=False,
         )
     except PipelineExecutionError as e:
@@ -181,6 +179,10 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
+    add_core_alignment_qc(
+        qc_tsv=Path(outdir) / f"{prefix}.qc.tsv",
+        core_aligned_tsv=core_outdir / "core.aligned.tsv",
+    )
 
     soft_core_stage = aln_pipeline.get_stage(SoftCoreFilter)
     if soft_core_stage is None:
@@ -212,7 +214,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     report_pipeline = TreeReportPipelineBuilder(
         tree=tree_outdir / snp_tree_stage.output.tree,
         title="Snippy-NG Report",
-        metadata=Path(outdir) / f"{prefix}.vcf.summary.tsv",
+        metadata=Path(outdir) / f"{prefix}.qc.tsv",
         prefix="report",
     ).build()
     report_outdir = Path(outdir) / "report"

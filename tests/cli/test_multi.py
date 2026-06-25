@@ -115,6 +115,142 @@ def _materialize_mock_sample_outputs(outdir, prefix, sample_names):
             "sample\tsection\tlabel\tcount\n"
             f"{sample_name}\tfilter\tPASS\t1\n"
         )
+        (sample_dir / f"{prefix}.qc.tsv").write_text(
+            "sample\tpipeline_type\tvcf_total\n"
+            f"{sample_name}\tshort\t1\n"
+        )
+
+
+def test_allocate_multi_cpus_uses_full_cpu_budget_for_single_auto_worker():
+    from snippy_ng.pipelines.multi import _allocate_multi_cpus
+
+    assert _allocate_multi_cpus(
+        total_cpus=6,
+        sample_count=2,
+        cpus_per_sample=None,
+    ) == (6, 1)
+
+
+def test_allocate_multi_cpus_keeps_even_auto_parallelism():
+    from snippy_ng.pipelines.multi import _allocate_multi_cpus
+
+    assert _allocate_multi_cpus(
+        total_cpus=8,
+        sample_count=2,
+        cpus_per_sample=None,
+    ) == (4, 2)
+    assert _allocate_multi_cpus(
+        total_cpus=12,
+        sample_count=3,
+        cpus_per_sample=None,
+    ) == (4, 3)
+
+
+def test_allocate_multi_cpus_reduces_auto_parallelism_to_avoid_idle_cpus():
+    from snippy_ng.pipelines.multi import _allocate_multi_cpus
+
+    assert _allocate_multi_cpus(
+        total_cpus=10,
+        sample_count=3,
+        cpus_per_sample=None,
+    ) == (5, 2)
+    assert _allocate_multi_cpus(
+        total_cpus=16,
+        sample_count=3,
+        cpus_per_sample=None,
+    ) == (8, 2)
+
+
+def test_allocate_multi_cpus_respects_explicit_cpus_per_sample():
+    from snippy_ng.pipelines.multi import _allocate_multi_cpus
+
+    assert _allocate_multi_cpus(
+        total_cpus=6,
+        sample_count=10,
+        cpus_per_sample=2,
+    ) == (2, 3)
+    assert _allocate_multi_cpus(
+        total_cpus=6,
+        sample_count=10,
+        cpus_per_sample=99,
+    ) == (6, 1)
+
+
+def test_add_core_alignment_qc_updates_combined_qc(tmp_path):
+    from snippy_ng.pipelines.multi import add_core_alignment_qc
+
+    qc_tsv = tmp_path / "snippy.qc.tsv"
+    core_aligned_tsv = tmp_path / "core.aligned.tsv"
+    qc_tsv.write_text(
+        "sample\tpipeline_type\tvcf_total\tcore_aligned_percent\n"
+        "sample1\tshort\t1\t\n"
+        "sample2\tlong\t2\t\n"
+    )
+    core_aligned_tsv.write_text(
+        "sequence\taligned\n"
+        "reference\t100.00\n"
+        "sample1\t99.50\n"
+        "sample2\t97.25\n"
+    )
+
+    add_core_alignment_qc(qc_tsv=qc_tsv, core_aligned_tsv=core_aligned_tsv)
+
+    rows = list(csv.DictReader(qc_tsv.open("r", newline=""), delimiter="\t"))
+    assert rows[0]["core_aligned_percent"] == "99.50"
+    assert rows[1]["core_aligned_percent"] == "97.25"
+
+
+def test_combine_sample_stats_only_writes_multi_breakdown_and_qc(tmp_path):
+    from snippy_ng.pipelines.multi import _combine_sample_stats
+
+    sample_names = ["sample1", "sample2"]
+    _materialize_mock_sample_outputs(tmp_path, "snippy", sample_names)
+
+    _combine_sample_stats(
+        samples_dir=tmp_path / "samples",
+        sample_names=sample_names,
+        prefix="snippy",
+        outdir=tmp_path,
+    )
+
+    assert not (tmp_path / "snippy.reads.tsv").exists()
+    assert not (tmp_path / "snippy.vcf.summary.tsv").exists()
+    assert (tmp_path / "snippy.vcf.breakdown.tsv").exists()
+    assert (tmp_path / "snippy.qc.tsv").exists()
+
+
+def test_combine_sample_stats_unions_variable_qc_headers(tmp_path):
+    from snippy_ng.pipelines.multi import _combine_sample_stats
+
+    samples_dir = tmp_path / "samples"
+    (samples_dir / "sample1").mkdir(parents=True)
+    (samples_dir / "sample2").mkdir(parents=True)
+    for sample in ("sample1", "sample2"):
+        (samples_dir / sample / "snippy.vcf.breakdown.tsv").write_text(
+            "sample\tsection\tlabel\tcount\n"
+            f"{sample}\tfilter\tPASS\t1\n"
+        )
+    (samples_dir / "sample1" / "snippy.qc.tsv").write_text(
+        "sample\tpipeline_type\tvcf_total\talignment_mapped_percent\n"
+        "sample1\tshort\t1\t99.0\n"
+    )
+    (samples_dir / "sample2" / "snippy.qc.tsv").write_text(
+        "sample\tpipeline_type\tvcf_total\tfinal_gap_fraction\n"
+        "sample2\tasm\t2\t0.01\n"
+    )
+
+    _combine_sample_stats(
+        samples_dir=samples_dir,
+        sample_names=["sample1", "sample2"],
+        prefix="snippy",
+        outdir=tmp_path,
+    )
+
+    rows = list(csv.DictReader((tmp_path / "snippy.qc.tsv").open("r", newline=""), delimiter="\t"))
+    assert rows[0]["alignment_mapped_percent"] == "99.0"
+    assert rows[0]["final_gap_fraction"] == ""
+    assert rows[1]["alignment_mapped_percent"] == ""
+    assert rows[1]["final_gap_fraction"] == "0.01"
 
 
 ##############################################################################

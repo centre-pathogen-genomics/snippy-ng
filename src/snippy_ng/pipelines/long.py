@@ -4,7 +4,7 @@ from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
-from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.alignment import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
@@ -153,6 +153,14 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         aligned_reads = align_filter.output.bam
         stages.append(align_filter)
+
+        alignment_qc = SamtoolsAlignmentQcStats(
+            bam=aligned_reads,
+            reference=reference_file,
+            sample_name=sample_name,
+            **globals,
+        )
+        stages.append(alignment_qc)
         
         # SNP calling
         if self.caller == "clair3":
@@ -325,6 +333,24 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        fasta_qc = FastaCompositionStats(
+            fasta=copy_final.output.fasta,
+            sample_name=sample_name,
+            **globals,
+        )
+        stages.append(fasta_qc)
+
+        sample_qc = SampleQcSummary(
+            sample_name=sample_name or self.prefix,
+            pipeline_type="long",
+            reads_tsv=stats_tsv,
+            alignment_tsv=alignment_qc.output.summary_tsv,
+            vcf_summary_tsv=vcf_stats.output.summary_tsv,
+            fasta_tsv=fasta_qc.output.summary_tsv,
+            **globals,
+        )
+        stages.append(sample_qc)
+
         # Compress BAM to CRAM with embedded reference
         cram_compressor = CramCompressor(
             input=aligned_reads,
@@ -362,10 +388,9 @@ class LongPipelineBuilder(PipelineBuilder):
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
+            sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
-        if stats_tsv is not None:
-            keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

@@ -196,7 +196,7 @@ def test_yolo_accepts_reference_accession(monkeypatch, tmp_path):
     }
 
 
-def test_yolo_preserves_long_sample_caller_and_sets_cpus_per_sample(monkeypatch, tmp_path):
+def test_yolo_preserves_long_sample_caller_and_delegates_auto_cpu_allocation(monkeypatch, tmp_path):
     samples = {
         "short_1": {"type": "short"},
         "long_1": {"type": "long", "caller": "clair3", "clair3_model": None},
@@ -233,7 +233,8 @@ def test_yolo_preserves_long_sample_caller_and_sets_cpus_per_sample(monkeypatch,
 
     assert result.exit_code == 0, result.output
     assert captured_multi["samples"]["long_1"]["caller"] == "clair3"
-    assert captured_multi["cpus_per_sample"] == 4
+    assert captured_multi["cpus_per_sample"] is None
+    assert captured_multi["run_ctx"].cpus == 8
     assert captured_multi["snippy_reference_dir"] == tmp_path / "prepared_reference"
 
 

@@ -4,7 +4,7 @@ import snippy_ng.pipelines.reports as report_pipeline_module
 from snippy_ng.stages.copy import CopyFile
 from snippy_ng.stages.downsample import SamtoolsDownsampleAlignment
 from snippy_ng.stages.reporting import SampleReport
-from snippy_ng.stages.stats import VcfStats
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, VcfStats
 from snippy_ng.stages.vcf import CollapseDiploidGenotypes, VcfPassFilter, VcfToTab
 from tests.cli.conftest import DummyPipeline
 from tests.cli.helpers import make_prepared_reference, run_cli_command, stub_load_or_prepare_reference
@@ -257,6 +257,9 @@ def test_short_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     pass_filter = next(stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter))
     variants_tab = next(stage for stage in pipeline.stages if isinstance(stage, VcfToTab))
     sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+    alignment_qc = next(stage for stage in pipeline.stages if isinstance(stage, SamtoolsAlignmentQcStats))
+    fasta_qc = next(stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats))
+    sample_qc = next(stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary))
 
     assert final_vcf.input == collapse_stage.output.vcf
     assert vcf_stats.vcf == final_vcf.output.copied_file
@@ -264,6 +267,11 @@ def test_short_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
     assert sample_report.vcf == final_vcf.output.copied_file
+    assert alignment_qc.bam == Path("sample.filtered.bam")
+    assert fasta_qc.fasta == Path("sample.fna")
+    assert sample_qc.output.qc_tsv in pipeline.outputs_to_keep
+    assert alignment_qc.output.summary_tsv not in pipeline.outputs_to_keep
+    assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
 
 
 def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
@@ -293,6 +301,9 @@ def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     pass_filter = next(stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter))
     variants_tab = next(stage for stage in pipeline.stages if isinstance(stage, VcfToTab))
     sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+    alignment_qc = next(stage for stage in pipeline.stages if isinstance(stage, SamtoolsAlignmentQcStats))
+    fasta_qc = next(stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats))
+    sample_qc = next(stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary))
 
     assert final_vcf.input == collapse_stage.output.vcf
     assert vcf_stats.vcf == final_vcf.output.copied_file
@@ -300,6 +311,11 @@ def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
     assert sample_report.vcf == final_vcf.output.copied_file
+    assert alignment_qc.bam == Path("sample.filtered.bam")
+    assert fasta_qc.fasta == Path("sample.fna")
+    assert sample_qc.output.qc_tsv in pipeline.outputs_to_keep
+    assert alignment_qc.output.summary_tsv not in pipeline.outputs_to_keep
+    assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
 
 
 def test_short_pipeline_skips_genotype_collapse_when_haploid_disabled(monkeypatch, tmp_path):

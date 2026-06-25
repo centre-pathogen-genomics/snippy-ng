@@ -523,10 +523,25 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
     failed_rows = (outdir / "snippy.failed.tsv").read_text(encoding="utf-8").splitlines()
     assert failed_rows == ["sample\terror"]
 
-    summary_rows = _read_tsv_rows(outdir / "snippy.vcf.summary.tsv")
     breakdown_rows = _read_tsv_rows(outdir / "snippy.vcf.breakdown.tsv")
-    assert {row["sample"] for row in summary_rows} == set(samples)
+    qc_rows = _read_tsv_rows(outdir / "snippy.qc.tsv")
+    assert not (outdir / "snippy.vcf.summary.tsv").exists()
+    assert not (outdir / "snippy.reads.tsv").exists()
     assert {row["sample"] for row in breakdown_rows} == set(samples)
+    assert {row["sample"] for row in qc_rows} == set(samples)
+    assert len(qc_rows) == len(samples)
+    for column in (
+        "sample",
+        "pipeline_type",
+        "vcf_total",
+        "vcf_pass",
+        "alignment_mapped_percent",
+        "alignment_mean_depth",
+        "final_gap_fraction",
+        "final_N_fraction",
+        "core_aligned_percent",
+    ):
+        assert column in qc_rows[0]
 
     full_aln = outdir / "core" / "core.full.aln"
     core_aln = outdir / "core" / "core.100.aln"
