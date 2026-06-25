@@ -54,6 +54,9 @@ plugins:
         options:
           docstring_style: "google"
 
+extra_css:
+  - overrides/contrast.css
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
