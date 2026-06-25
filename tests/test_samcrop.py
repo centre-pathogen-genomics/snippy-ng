@@ -112,12 +112,43 @@ def test_samcrop_drops_reads_with_no_overlap_or_no_retained_query():
 
 
 def test_samcrop_removes_stale_md_and_nm_tags():
-    record = make_sam(pos=101, cigar="100M", tags="MD:Z:100\tNM:i:0\tAS:i:42")
+    record = make_sam(
+        pos=101,
+        cigar="100M",
+        tags="MD:Z:100\tNM:i:0\tSA:Z:ref,500,+,100M,60,0;\tAS:i:42",
+    )
     out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(120, 180)]}))[0].split("\t")
 
     assert "MD:Z:100" not in out
     assert "NM:i:0" not in out
+    assert "SA:Z:ref,500,+,100M,60,0;" not in out
     assert any(field.startswith("AS:i:42") for field in out)
+
+
+def test_samcrop_keeps_hard_clips_at_cigar_ends_for_supplementary_records():
+    tags = "\t".join([
+        "SA:Z:ref,139245,+,4044M4D594S,60,39;",
+        "MD:Z:134T101",
+        "NM:i:12",
+        "AS:i:1120",
+    ])
+    record = make_sam(
+        qname="supplementary",
+        pos=1,
+        cigar="4044H192M11I326M2D65M",
+        tags=tags,
+    )
+
+    out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(91, 327)]}))[0].split("\t")
+    cigar_parts = re.findall(r"(\d+)([A-Z=])", out[5])
+    hard_clip_indexes = [index for index, (_length, op) in enumerate(cigar_parts) if op == "H"]
+
+    assert out[3] == "92"
+    assert out[5] == "4135H101M11I135M449H"
+    assert hard_clip_indexes == [0, len(cigar_parts) - 1]
+    assert len(out[9]) == 247
+    assert not any(field.startswith(("SA:Z:", "MD:Z:", "NM:i:")) for field in out[11:])
+    assert any(field.startswith("AS:i:1120") for field in out[11:])
 
 
 def test_samcrop_cli_accepts_file_and_bed(tmp_path):

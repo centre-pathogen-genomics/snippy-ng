@@ -117,7 +117,7 @@ def _first_reference_start(parts: List[Tuple[int, str, Optional[int]]], fallback
 def _strip_stale_tags(fields: List[str]) -> List[str]:
     return fields[:11] + [
         field for field in fields[11:]
-        if not (field.startswith("MD:Z:") or field.startswith("NM:i:"))
+        if not (field.startswith("MD:Z:") or field.startswith("NM:i:") or field.startswith("SA:Z:"))
     ]
 
 
