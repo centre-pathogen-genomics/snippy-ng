@@ -65,11 +65,23 @@ extract_arg_value() {
   return 1
 }
 
-for key in --model_path --bam_fn --ref_fn --bed_fn --vcf_fn --output; do
+for key in --bam_fn --ref_fn --bed_fn --vcf_fn --output; do
   if value="$(extract_arg_value "$key" "$@")"; then
     add_mount "$value"
   fi
 done
+
+# Check if the model path is specified in the command line arguments
+if value="$(extract_arg_value --model_path "$@")"; then
+  # Check if the model path exists and is a directory
+  if [[ -d "$value" ]]; then
+    echo "Mounting model path: $value"
+    add_mount "$value"
+  else
+    echo "Warning: The specified model path '$value' does not exist or is not a
+  directory. Assuming the model path is internal to the Docker image and not mounting it."
+  fi
+fi
 
 # Keep current working directory mounted for relative paths and log files.
 add_mount "$PWD"
