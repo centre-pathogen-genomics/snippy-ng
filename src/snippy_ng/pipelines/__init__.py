@@ -1,3 +1,4 @@
+import sys
 import random
 from collections import OrderedDict
 from typing import Dict, List, Optional, TypeVar
@@ -301,6 +302,8 @@ class SnippyPipeline:
     def welcome(self):
         self.hr()
         self.hr(f"Running Snippy-NG v{__version__}", style=" ", color="green")
+        self.hr()
+        self.log(" ".join(sys.argv))
         self.hr()
 
         self.log("Stages:")
