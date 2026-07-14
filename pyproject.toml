@@ -7,7 +7,7 @@ name = "snippy-nextgen"
 dynamic = ["version"]
 description = 'The Next Generation of Microbial Variant Calling with Snippy'
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 keywords = [
   "snippy",
@@ -22,7 +22,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -35,6 +34,7 @@ dependencies = [
   "pydantic",
   "biopython",
   "numpy",
+  "scikit-learn>=1.7",
 ]
 
 [project.optional-dependencies]
@@ -90,7 +90,7 @@ markers = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.10", "3.11", "3.12", "3.13"]
+python = ["3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.types]
 dependencies = [
@@ -142,12 +142,13 @@ test-integration = { cmd = "hatch run integration", default-environment = "integ
 
 [tool.pixi.dependencies]
 # python dependencies
-python = { version = ">=3.10", channel = "conda-forge" }
+python = { version = ">=3.11", channel = "conda-forge" }
 click   = { version = "*", channel = "conda-forge" }
 packaging =  { version = "*", channel = "conda-forge" }
 pydantic  = { version = "*", channel = "conda-forge" }
 biopython = { version = "*", channel = "conda-forge" }
 numpy = { version = "*", channel = "conda-forge" }
+scikit-learn = { version = ">=1.7", channel = "conda-forge" }
 gradio = {version = "*", channel = "conda-forge"}
 pytz = {version = "*", channel = "conda-forge"}
 
