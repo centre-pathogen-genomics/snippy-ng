@@ -5,7 +5,7 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
-from snippy_ng.stages.alignment import Minimap2LongReadAligner
+from snippy_ng.stages.mapping import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor

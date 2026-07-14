@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner, Minimap2ShortReadAligner
 
 
 def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):

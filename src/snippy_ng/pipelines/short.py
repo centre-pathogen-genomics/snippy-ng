@@ -6,7 +6,7 @@ from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
-from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.mapping import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.calling import FreebayesCaller

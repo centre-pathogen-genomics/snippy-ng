@@ -10,7 +10,7 @@ from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
-from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
+from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, VcfStats
