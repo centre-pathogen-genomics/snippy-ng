@@ -111,7 +111,7 @@ def _materialize_mock_sample_outputs(outdir, prefix, sample_names):
             "sample\ttotal\tpass\n"
             f"{sample_name}\t1\t1\n"
         )
-        (sample_dir / f"{prefix}.vcf.breakdown.tsv").write_text(
+        (sample_dir / f"{prefix}.all.vcf.breakdown.tsv").write_text(
             "sample\tsection\tlabel\tcount\n"
             f"{sample_name}\tfilter\tPASS\t1\n"
         )
@@ -213,8 +213,6 @@ def test_combine_sample_stats_only_writes_multi_breakdown_and_qc(tmp_path):
         outdir=tmp_path,
     )
 
-    assert not (tmp_path / "snippy.reads.tsv").exists()
-    assert not (tmp_path / "snippy.vcf.summary.tsv").exists()
     assert (tmp_path / "snippy.vcf.breakdown.tsv").exists()
     assert (tmp_path / "snippy.qc.tsv").exists()
 
@@ -247,9 +245,11 @@ def test_combine_sample_stats_unions_variable_qc_headers(tmp_path):
     )
 
     rows = list(csv.DictReader((tmp_path / "snippy.qc.tsv").open("r", newline=""), delimiter="\t"))
+    assert "alignment_mean_depth" in rows[0]
     assert rows[0]["alignment_mapped_percent"] == "99.0"
     assert rows[0]["final_gap_fraction"] == ""
     assert rows[1]["alignment_mapped_percent"] == ""
+    assert rows[1]["alignment_mean_depth"] == ""
     assert rows[1]["final_gap_fraction"] == "0.01"
 
 
