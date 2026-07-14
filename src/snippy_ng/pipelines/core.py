@@ -1,7 +1,7 @@
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
+from snippy_ng.stages.alignment_filter import CheckAlignmentClustersByPipelineType, FilterAlignmentByAlignedPercentage
 from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreFilter
 from snippy_ng.stages.stats import AlignmentAlignedPercentage
 from pathlib import Path
@@ -63,6 +63,18 @@ class CorePipelineBuilder(PipelineBuilder):
         )
         stages.append(alignment_filter)
         outputs_to_keep.extend(alignment_filter.output.paths)
+
+        technical_cluster_check = CheckAlignmentClustersByPipelineType(
+            filter_stats=alignment_filter.output.filter_stats,
+            qc_files=[
+                qc_file
+                for sample_dir in self.snippy_dirs
+                for qc_file in sorted(sample_dir.glob("*.qc.tsv"))
+            ],
+            prefix=self.prefix,
+        )
+        stages.append(technical_cluster_check)
+        outputs_to_keep.extend(technical_cluster_check.output.paths)
 
         # Stage to filter the alignment to create core alignment
         filter_stage = SoftCoreFilter(

@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from Bio import SeqIO
 from pydantic import Field
+from sklearn.metrics import adjusted_mutual_info_score
 from sklearn.mixture import GaussianMixture
 
 from snippy_ng.dependencies import biopython, numpy, scikit_learn
@@ -17,6 +18,10 @@ from snippy_ng.stages import BaseOutput, BaseStage
 class AlignmentSampleFilterOutput(BaseOutput):
     filtered_aln: Path = Field(..., description="MSA with low-alignment samples removed before soft core filtering")
     filter_stats: Path = Field(..., description="Per-sample alignment filtering decisions and mixture-model diagnostics")
+
+
+class AlignmentClusterTechnicalCheckOutput(BaseOutput):
+    summary_tsv: Path = Field(..., description="Association between alignment mixture components and sample pipeline types")
 
 
 class FilterAlignmentByAlignedPercentage(BaseStage):
@@ -194,6 +199,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         return [
             "sequence",
             "aligned",
+            "assigned_component",
             "probability_component_0",
             "probability_component_1",
             "probability_component_2",
@@ -229,6 +235,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         row = {
             "sequence": sequence,
             "aligned": f"{aligned:.2f}",
+            "assigned_component": "",
             "probability_component_0": "",
             "probability_component_1": "",
             "probability_component_2": "",
@@ -461,6 +468,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                         )
                         for component_idx, probability in enumerate(probs):
                             row[f"probability_component_{component_idx}"] = f"{float(probability):.4f}"
+                        row["assigned_component"] = str(int(np.argmax(probs)))
                         row["probability_retained"] = f"{probability_retained:.4f}"
                         row["probability_main"] = row["probability_retained"]
                         row["removed"] = str(removed).lower()
@@ -491,6 +499,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     probs = model_responsibilities[sample_idx]
                     for component_idx, probability in enumerate(probs):
                         row[f"probability_component_{component_idx}"] = f"{float(probability):.4f}"
+                    row["assigned_component"] = str(int(np.argmax(probs)))
                     probability_retained = float(probs[model_retained_components].sum())
                     row["probability_retained"] = f"{probability_retained:.4f}"
                     row["probability_main"] = row["probability_retained"]
@@ -509,3 +518,114 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         with filtered_aln.open("w") as handle:
             SeqIO.write(kept_records, handle, "fasta-2line")
         cls._rewrite_alignment_stats(filter_stats, stats_rows)
+
+
+class CheckAlignmentClustersByPipelineType(BaseStage):
+    """Check whether alignment mixture components track technical input type."""
+
+    filter_stats: Path = Field(..., description="Alignment filter statistics containing component assignments")
+    qc_files: list[Path] = Field(..., description="Per-sample QC TSV files containing pipeline_type")
+    warning_threshold: float = Field(0.8, ge=0.0, le=1.0, description="Adjusted mutual information threshold for warning")
+
+    _dependencies = [scikit_learn]
+
+    @property
+    def output(self) -> AlignmentClusterTechnicalCheckOutput:
+        return AlignmentClusterTechnicalCheckOutput(
+            summary_tsv=Path(f"{self.prefix}.alignment-cluster-technical-check.tsv")
+        )
+
+    def create_commands(self, ctx):
+        return [
+            self.python_cmd(
+                func=self.check_association,
+                args=(self.filter_stats, self.qc_files, self.output.summary_tsv, self.warning_threshold),
+                description="Check alignment mixture components for association with sample pipeline type",
+            )
+        ]
+
+    @staticmethod
+    def check_association(
+        filter_stats: Path,
+        qc_files: list[Path],
+        output_tsv: Path,
+        warning_threshold: float = 0.8,
+    ) -> None:
+        pipeline_types: dict[str, str] = {}
+        for qc_file in qc_files:
+            with qc_file.open("r", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter="\t")
+                required = {"sample", "pipeline_type"}
+                if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+                    raise ValueError(f"QC TSV is missing sample or pipeline_type columns: {qc_file}")
+                for row in reader:
+                    sample = row["sample"].strip()
+                    pipeline_type = row["pipeline_type"].strip()
+                    if sample and pipeline_type:
+                        if sample in pipeline_types:
+                            raise ValueError(f"Duplicate sample {sample!r} across QC files")
+                        pipeline_types[sample] = pipeline_type
+
+        matched_types: list[str] = []
+        assigned_types: list[str] = []
+        assigned_components: list[str] = []
+        with filter_stats.open("r", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            required = {"sequence", "assigned_component"}
+            if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+                raise ValueError(f"Alignment filter statistics are missing required columns: {filter_stats}")
+            for row in reader:
+                pipeline_type = pipeline_types.get(row["sequence"])
+                component = row["assigned_component"].strip()
+                if pipeline_type:
+                    matched_types.append(pipeline_type)
+                if pipeline_type and component:
+                    assigned_types.append(pipeline_type)
+                    assigned_components.append(component)
+
+        type_count = len(set(matched_types))
+        component_count = len(set(assigned_components))
+        score: float | None = None
+        reason = ""
+        if not matched_types:
+            reason = "no_matched_samples"
+        elif not assigned_components:
+            reason = "no_component_assignments"
+        elif len(assigned_components) < 2:
+            reason = "too_few_assigned_samples"
+        elif type_count < 2:
+            reason = "single_pipeline_type"
+        elif component_count < 2:
+            reason = "single_component"
+        else:
+            score = float(adjusted_mutual_info_score(assigned_types, assigned_components))
+
+        strong_association = score is not None and score >= warning_threshold
+        if strong_association:
+            logger.warning(
+                "Alignment mixture components are strongly associated with sample pipeline type "
+                f"(adjusted mutual information={score:.2f}); inspect technical input effects "
+                "before interpreting clusters as biological"
+            )
+
+        fieldnames = [
+            "matched_samples",
+            "component_assigned_samples",
+            "pipeline_type_count",
+            "component_count",
+            "adjusted_mutual_information",
+            "strong_association",
+            "reason",
+        ]
+        with output_tsv.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter="\t")
+            writer.writeheader()
+            writer.writerow({
+                "matched_samples": len(matched_types),
+                "component_assigned_samples": len(assigned_components),
+                "pipeline_type_count": type_count,
+                "component_count": component_count,
+                "adjusted_mutual_information": "" if score is None else f"{score:.4f}",
+                "strong_association": str(strong_association).lower(),
+                "reason": reason,
+            })

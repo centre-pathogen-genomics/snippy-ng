@@ -4,7 +4,7 @@ import pytest
 
 from snippy_ng.context import Context
 from snippy_ng.pipelines.core import CorePipelineBuilder
-from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
+from snippy_ng.stages.alignment_filter import CheckAlignmentClustersByPipelineType, FilterAlignmentByAlignedPercentage
 from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreError, SoftCoreFilter
 
 
@@ -19,6 +19,10 @@ def _build_core_pipeline(tmp_path):
 
     snippy_dir = tmp_path / "sample1"
     snippy_dir.mkdir()
+    (snippy_dir / "snippy.qc.tsv").write_text(
+        "sample\tpipeline_type\n"
+        "sample1\tshort\n"
+    )
 
     return CorePipelineBuilder(
         snippy_dirs=[snippy_dir],
@@ -32,11 +36,15 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
 
     soft_core_stage = next(stage for stage in pipeline.stages if isinstance(stage, SoftCoreFilter))
     filter_stage = next(stage for stage in pipeline.stages if isinstance(stage, FilterAlignmentByAlignedPercentage))
+    technical_check = next(stage for stage in pipeline.stages if isinstance(stage, CheckAlignmentClustersByPipelineType))
 
     assert soft_core_stage.aln == filter_stage.output.filtered_aln
     assert filter_stage.output.filtered_aln in pipeline.outputs_to_keep
     assert filter_stage.output.filter_stats in pipeline.outputs_to_keep
     assert filter_stage.inclusion_threshold == 0.20
+    assert technical_check.filter_stats == filter_stage.output.filter_stats
+    assert technical_check.qc_files == [tmp_path / "sample1" / "snippy.qc.tsv"]
+    assert technical_check.output.summary_tsv in pipeline.outputs_to_keep
 
 
 def test_distle_distance_matrix_uses_tabular_output(tmp_path):

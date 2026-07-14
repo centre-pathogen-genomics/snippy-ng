@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import snippy_ng.stages.alignment_filter as filter_module
 from snippy_ng.exceptions import MSAValidationError
 from snippy_ng.logging import logger
-from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
+from snippy_ng.stages.alignment_filter import CheckAlignmentClustersByPipelineType, FilterAlignmentByAlignedPercentage
 
 
 def _write_filter_files(tmp_path, sample_values):
@@ -26,6 +26,84 @@ def _write_filter_files(tmp_path, sample_values):
 
 def _filter_stats_path(filtered_aln):
     return filtered_aln.with_suffix(".stats.tsv")
+
+
+def test_alignment_cluster_technical_check_uses_qc_pipeline_types(tmp_path, monkeypatch):
+    filter_stats = tmp_path / "core.alignment-filter.tsv"
+    filter_stats.write_text(
+        "sequence\tassigned_component\n"
+        "reference\t\n"
+        "sample_a\t0\n"
+        "sample_b\t0\n"
+        "sample_c\t1\n"
+        "sample_d\t1\n"
+    )
+    qc_files = []
+    for sample, pipeline_type in (
+        ("sample_a", "asm"),
+        ("sample_b", "asm"),
+        ("sample_c", "short"),
+        ("sample_d", "short"),
+    ):
+        qc_file = tmp_path / f"{sample}.qc.tsv"
+        qc_file.write_text(
+            "sample\tpipeline_type\n"
+            f"{sample}\t{pipeline_type}\n"
+        )
+        qc_files.append(qc_file)
+    output_tsv = tmp_path / "core.alignment-cluster-technical-check.tsv"
+    messages: list[str] = []
+    monkeypatch.setattr(logger, "warning", messages.append)
+
+    CheckAlignmentClustersByPipelineType.check_association(
+        filter_stats,
+        qc_files,
+        output_tsv,
+    )
+
+    with output_tsv.open("r", newline="") as handle:
+        row = next(csv.DictReader(handle, delimiter="\t"))
+    assert row == {
+        "matched_samples": "4",
+        "component_assigned_samples": "4",
+        "pipeline_type_count": "2",
+        "component_count": "2",
+        "adjusted_mutual_information": "1.0000",
+        "strong_association": "true",
+        "reason": "",
+    }
+    assert any("strongly associated with sample pipeline type" in message for message in messages)
+
+
+def test_alignment_cluster_technical_check_distinguishes_missing_component_assignments(tmp_path):
+    filter_stats = tmp_path / "core.alignment-filter.tsv"
+    filter_stats.write_text(
+        "sequence\tassigned_component\n"
+        "sample_a\t\n"
+        "sample_b\t\n"
+    )
+    qc_file = tmp_path / "snippy.qc.tsv"
+    qc_file.write_text(
+        "sample\tpipeline_type\n"
+        "sample_a\tasm\n"
+        "sample_b\tshort\n"
+    )
+    output_tsv = tmp_path / "technical-check.tsv"
+
+    CheckAlignmentClustersByPipelineType.check_association(
+        filter_stats,
+        [qc_file],
+        output_tsv,
+    )
+
+    with output_tsv.open("r", newline="") as handle:
+        row = next(csv.DictReader(handle, delimiter="\t"))
+    assert row["matched_samples"] == "2"
+    assert row["component_assigned_samples"] == "0"
+    assert row["pipeline_type_count"] == "2"
+    assert row["component_count"] == "0"
+    assert row["adjusted_mutual_information"] == ""
+    assert row["reason"] == "no_component_assignments"
 
 
 def test_filter_alignment_retains_components_above_largest_gap(tmp_path, monkeypatch):

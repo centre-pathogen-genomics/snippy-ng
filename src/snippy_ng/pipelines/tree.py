@@ -57,5 +57,5 @@ class TreePipelineBuilder(PipelineBuilder):
 
         outputs_to_keep = [snp_tree_stage.output.tree, iqtree_stage.output.tree]
         if clonalframe_stage is not None:
-            outputs_to_keep.extend(clonalframe_stage.output.paths)
+            outputs_to_keep.append(clonalframe_stage.output.labelled_tree)
         return SnippyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)
