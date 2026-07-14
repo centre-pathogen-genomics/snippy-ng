@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from click.testing import CliRunner
 
 from snippy_ng.cli import snippy_ng
+from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
 from snippy_ng.stages.core import SoftCoreFilter
 from snippy_ng.stages.trees import ScaleTreeToSNPs
 from tests.cli.helpers import make_prepared_reference, stub_load_or_prepare_reference
@@ -40,6 +41,11 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
     class DummyCorePipeline:
         def __init__(self):
             self.stages = [
+                FilterAlignmentByAlignedPercentage(
+                    aln=Path("core.full.aln"),
+                    alignment_stats=Path("core.aligned.tsv"),
+                    prefix="core",
+                ),
                 SoftCoreFilter(
                     aln=Path("core.full.aln"),
                     core_threshold=0.95,
@@ -56,6 +62,7 @@ def _stub_common_yolo_dependencies(monkeypatch, tmp_path, samples):
         def run(self, ctx):
             outdir = Path(ctx.outdir)
             outdir.mkdir(parents=True, exist_ok=True)
+            (outdir / "core.filtered.aln").write_text(">s1\nACGT\n")
             (outdir / "core.095.aln").write_text(">s1\nACGT\n")
             (outdir / "core.095.fconst").write_text("1,2,3,4\n")
             return 0
@@ -83,7 +90,7 @@ def _run_yolo(tmp_path, *extra_args):
     return outdir, result
 
 
-def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
+def test_yolo_uses_sample_filtered_full_alignment_for_clonalframe(monkeypatch, tmp_path):
     # YOLO requires >=3 samples to proceed to tree stage
     samples = {
         "s1": {"type": "short"},
@@ -97,13 +104,13 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
     captured = {}
 
     class DummyTreePipelineBuilder:
-        def __init__(self, aln, fconst, fast_mode):
+        def __init__(self, aln, fast_mode, clonalframe):
             captured["aln"] = Path(aln)
-            captured["fconst"] = fconst
             captured["fast_mode"] = fast_mode
+            captured["clonalframe"] = clonalframe
 
         def build(self):
-            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.095.aln"), prefix="tree")
+            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.filtered.aln"), prefix="tree")
             return SimpleNamespace(
                 run=lambda _ctx: 0,
                 stages=[stage],
@@ -120,9 +127,9 @@ def test_yolo_uses_soft_core_output_for_tree(monkeypatch, tmp_path):
 
     # Assert
     assert result.exit_code == 0, result.output
-    assert captured["aln"] == outdir / "core" / "core.095.aln"
-    assert captured["fconst"] == "1,2,3,4"
+    assert captured["aln"] == outdir / "core" / "core.filtered.aln"
     assert captured["fast_mode"] is True
+    assert captured["clonalframe"] is True
     assert captured_pipeline["run_contexts"][0].log_path == (outdir / "reference" / "LOG.txt").absolute()
     assert captured_pipeline["run_contexts"][0].outdir == outdir / "reference"
 
@@ -213,11 +220,11 @@ def test_yolo_preserves_long_sample_caller_and_delegates_auto_cpu_allocation(mon
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", fake_run_multi_pipeline)
 
     class DummyTreePipelineBuilder:
-        def __init__(self, aln, fconst, fast_mode):
+        def __init__(self, aln, fast_mode, clonalframe):
             pass
 
         def build(self):
-            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.095.aln"), prefix="tree")
+            stage = ScaleTreeToSNPs(tree=Path("tree.treefile"), aln=Path("core.filtered.aln"), prefix="tree")
             return SimpleNamespace(
                 run=lambda _ctx: 0,
                 stages=[stage],

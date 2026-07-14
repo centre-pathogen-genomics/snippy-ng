@@ -160,7 +160,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
 
     # core alignment
     from snippy_ng.pipelines.core import CorePipelineBuilder
-    from snippy_ng.stages.core import SoftCoreFilter
+    from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
 
     snippy_dirs = [
         Path(outdir / "samples" / sample)
@@ -184,9 +184,9 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         core_aligned_tsv=core_outdir / "core.aligned.tsv",
     )
 
-    soft_core_stage = aln_pipeline.get_stage(SoftCoreFilter)
-    if soft_core_stage is None:
-        raise PipelineExecutionError("Core pipeline did not produce soft-core alignment outputs.")
+    alignment_filter_stage = aln_pipeline.get_stage(FilterAlignmentByAlignedPercentage)
+    if alignment_filter_stage is None:
+        raise PipelineExecutionError("Core pipeline did not produce a sample-filtered full alignment.")
 
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
@@ -195,9 +195,9 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
 
     context["ram"] = None # YOLO: disable RAM limiting for this step
     tree_pipeline = TreePipelineBuilder(
-        aln=core_outdir / soft_core_stage.output.soft_core,
-        fconst=(core_outdir / soft_core_stage.output.constant_sites).read_text().strip(),
+        aln=core_outdir / alignment_filter_stage.output.filtered_aln,
         fast_mode=True,
+        clonalframe=True,
     ).build()
     tree_outdir = Path(outdir) / "tree"
     context["log_path"] = derive_log_path(run_ctx.log_path, tree_outdir)

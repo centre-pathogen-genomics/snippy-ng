@@ -255,6 +255,14 @@ iqtree = Dependency(
     min_version="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
+clonalframeml = Dependency(
+    "clonalframeml",
+    command="ClonalFrameML",
+    citation="Didelot X, Wilson DJ. ClonalFrameML: Efficient Inference of Recombination in Whole Bacterial Genomes. PLoS Comput Biol. 2015;11(2):e1004041. doi:10.1371/journal.pcbi.1004041",
+    min_version="1.20",
+    version_arg="-version",
+    version_pattern=r"(\d+\.\d+)",
+)
 
 # Citations 
 @dataclass
