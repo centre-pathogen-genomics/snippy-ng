@@ -279,11 +279,7 @@ def _concat_qc_tsv_files(sample_files: list[Path], output_path: Path) -> None:
         output_path.unlink(missing_ok=True)
         return
 
-    fieldnames = [
-        column
-        for column in SAMPLE_QC_COLUMNS
-        if column in seen_fields
-    ]
+    fieldnames = list(SAMPLE_QC_COLUMNS)
     fieldnames.extend(sorted(seen_fields - set(fieldnames)))
 
     with output_path.open("w", newline="") as out_handle:
