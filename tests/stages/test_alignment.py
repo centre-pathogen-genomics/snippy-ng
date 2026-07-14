@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner, DoradoLongReadAligner, Minimap2ShortReadAligner
 
 
 def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
@@ -22,6 +22,30 @@ def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
     assert commands[3][:2] == ["samtools", "fixmate"]
     assert commands[4][:2] == ["samtools", "sort"]
     assert commands[5][:2] == ["samtools", "markdup"]
+
+
+def test_dorado_long_read_aligner_sorts_to_bam(tmp_path):
+    stage = DoradoLongReadAligner(
+        reference=Path("reference.fa"),
+        reads=[Path("reads.bam")],
+        prefix="sample",
+    )
+
+    pipeline = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))[0]
+    commands = [command.command for command in pipeline.processes]
+
+    assert commands[0] == ["dorado", "aligner", "reference.fa", "reads.bam"]
+    assert commands[1] == [
+        "samtools",
+        "sort",
+        "--threads",
+        "4",
+        "-O",
+        "bam",
+        "--reference",
+        "reference.fa",
+    ]
+    assert pipeline.output_file == Path("sample.bam")
 
 
 def test_nucmer_assembly_aligner_honours_configured_tunables(tmp_path):

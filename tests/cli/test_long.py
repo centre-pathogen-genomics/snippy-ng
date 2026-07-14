@@ -104,6 +104,30 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             True,
         ),
         (
+            "dorado_caller",
+            lambda p: [
+                "--reference", p["ref"],
+                "--bam",       p["bam"],
+                "--outdir",    p["out"],
+                "--caller",    "dorado",
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
+            "dorado_reads",
+            lambda p: [
+                "--reference", p["ref"],
+                "--reads",     p["reads"],
+                "--outdir",    p["out"],
+                "--caller",    "dorado",
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
             "bam_no_model",
             lambda p: [
                 "--reference", p["ref"],

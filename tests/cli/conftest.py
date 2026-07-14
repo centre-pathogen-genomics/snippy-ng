@@ -218,7 +218,15 @@ def stub_long_stages(monkeypatch, tmp_path):
         stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
+        "snippy_ng.stages.alignment.DoradoLongReadAligner",
+        stage_factory({"bam": tmp_path / "align.bam"}),
+    )
+    monkeypatch.setattr(
         "snippy_ng.stages.calling.FreebayesCallerLong",
+        stage_factory({"vcf": tmp_path / "calls.vcf"}),
+    )
+    monkeypatch.setattr(
+        "snippy_ng.stages.calling.DoradoPolishCaller",
         stage_factory({"vcf": tmp_path / "calls.vcf"}),
     )
     monkeypatch.setattr(

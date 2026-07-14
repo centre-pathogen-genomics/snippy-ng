@@ -7,6 +7,7 @@ from snippy_ng.context import Context
 from snippy_ng.stages.calling import (
     Clair3Caller,
     Clair3ModelSelectorError,
+    DoradoPolishCaller,
     FreebayesCaller,
     FreebayesCallerLong,
     LongbowClair3ModelSelector,
@@ -120,6 +121,39 @@ def test_freebayes_long_caller_uses_configured_mapping_quality(tmp_path):
     assert freebayes_command[
         freebayes_command.index("--min-mapping-quality") + 1
     ] == "30"
+
+
+def test_dorado_polish_caller_uses_bacteria_vcf_mode(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1\t0\t1\t2\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+
+    stage = DoradoPolishCaller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        prefix="snippy",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+
+    assert commands[0].command == [
+        "dorado",
+        "polish",
+        str(bam),
+        str(reference),
+        "--vcf",
+        "--threads",
+        "4",
+        "--bacteria",
+    ]
+    assert commands[0].output_file == Path("snippy.raw.vcf")
 
 
 def test_paf_caller_disables_paftools_mapping_quality_prefilter(tmp_path):
