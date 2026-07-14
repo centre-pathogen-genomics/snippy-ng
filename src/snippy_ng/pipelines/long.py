@@ -5,12 +5,12 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
-from snippy_ng.stages.alignment import Minimap2LongReadAligner
+from snippy_ng.stages.alignment import DoradoLongReadAligner, Minimap2LongReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
-from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
+from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, DoradoPolishCaller, LongbowClair3ModelSelector
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
@@ -32,8 +32,9 @@ class LongPipelineBuilder(PipelineBuilder):
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
     aligner: str = Field(default="minimap2", description="Aligner to use")
     aligner_opts: str = Field(default="", description="Additional aligner options")
+    filter_alignment: bool = Field(default=False, description="Filter alignment with Samtools")
     minimap_preset: str = Field(default="map-ont", description="Minimap2 preset")
-    caller: str = Field(default="clair3", description="Variant caller (clair3 or freebayes)")
+    caller: str = Field(default="clair3", description="Variant caller (clair3, dorado, or freebayes)")
     caller_opts: str = Field(default="", description="Additional caller options")
     clair3_model: Optional[Path] = Field(default=None, description="Clair3 model path")
     mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
@@ -128,8 +129,8 @@ class LongPipelineBuilder(PipelineBuilder):
             )
             stages.append(stats_stage)
             stats_tsv = getattr(stats_stage.output, "stats_tsv", None)
-            # Minimap2
-            if self.aligner == "minimap2":
+            aligner = "dorado" if self.caller == "dorado" else self.aligner
+            if aligner == "minimap2":
                 aligner_stage = Minimap2LongReadAligner(
                     reads=current_reads,
                     reference=reference_file,
@@ -137,22 +138,29 @@ class LongPipelineBuilder(PipelineBuilder):
                     minimap_preset=self.minimap_preset,
                     **globals
                 )
+            elif aligner == "dorado":
+                aligner_stage = DoradoLongReadAligner(
+                    reads=current_reads,
+                    reference=reference_file,
+                    aligner_opts=self.aligner_opts,
+                    **globals
+                )
             else:
-                raise ValueError(f"Unsupported aligner '{self.aligner}'")
+                raise ValueError(f"Unsupported aligner '{aligner}'")
             if current_reads and sample_name is None:
                 sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
             
-        
-        # Filter alignment
-        align_filter = SamtoolsFilter(
-            bam=aligned_reads,
-            reference=reference_file,
-            **globals
-        )
-        aligned_reads = align_filter.output.bam
-        stages.append(align_filter)
+        if self.filter_alignment:
+            # Filter alignment
+            align_filter = SamtoolsFilter(
+                bam=aligned_reads,
+                reference=reference_file,
+                **globals
+            )
+            aligned_reads = align_filter.output.bam
+            stages.append(align_filter) 
 
         alignment_qc = SamtoolsAlignmentQcStats(
             bam=aligned_reads,
@@ -187,7 +195,15 @@ class LongPipelineBuilder(PipelineBuilder):
                 platform=platform,
                 **globals
             )
-        else:
+        elif self.caller == "dorado":
+            caller_stage = DoradoPolishCaller(
+                bam=aligned_reads,
+                reference=reference_file,
+                reference_index=reference_index,
+                additional_options=self.caller_opts,
+                **globals
+            )
+        elif self.caller == "freebayes":
             caller_stage = FreebayesCallerLong(
                 bam=aligned_reads,
                 bam_index=align_filter.output.bai,
@@ -197,6 +213,8 @@ class LongPipelineBuilder(PipelineBuilder):
                 additional_options=self.caller_opts,
                 **globals
             )
+        else:
+            raise ValueError(f"Unsupported caller '{self.caller}'")
         stages.append(caller_stage)
         
         # Filter VCF

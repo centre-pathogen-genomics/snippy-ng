@@ -16,10 +16,10 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--depth-mask", default=0, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
-@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
+@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "dorado"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--minimap-preset", default="lr:hq", type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
-@click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
+@click.option("--caller", default="clair3", type=click.Choice(["clair3", "dorado", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
 @click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")
 @click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
@@ -38,7 +38,7 @@ def long(
     aligner: str,
     aligner_opts: str,
     minimap_preset: str,
-    caller: Literal["clair3", "freebayes"],
+    caller: Literal["clair3", "dorado", "freebayes"],
     caller_opts: str,
     caller_map_qual: int,
     clair3_model: Optional[Path],
@@ -63,7 +63,7 @@ def long(
 
     if caller == "clair3" and not clair3_model and not reads:
         raise click.UsageError("Please provide --clair3-model when using Clair3 with BAM/CRAM input only.")
-    
+
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
     reference_path = None if reference_accession else Path(reference)

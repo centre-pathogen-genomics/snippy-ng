@@ -193,6 +193,11 @@ clair3 = Dependency(
     min_version="1.1.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
+dorado = Dependency(
+    "dorado",
+    citation="Oxford Nanopore Technologies. Dorado: A high-performance, easy-to-use, open source analysis engine for Oxford Nanopore reads. https://github.com/nanoporetech/dorado",
+    version_pattern=r"(\d+\.\d+\.\d+)",
+)
 longbow = Dependency(
     "longbow",
     citation="Chae H, Ruan Y, Chun S, et al. Restoring flowcell type and basecaller configuration from FASTQ files of nanopore sequencing data. Nat Commun. 2025;16:4198. https://doi.org/10.1038/s41467-025-59378-x",

@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 from typing import List, Optional
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
-from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
+from snippy_ng.dependencies import samtools, bwa, minimap2, dorado, nucmer
 from snippy_ng.envvars import EnvVarField
 from pydantic import Field 
 
@@ -251,6 +251,53 @@ class Minimap2LongReadAligner(Aligner):
         )
 
         return [minimap_pipeline]
+
+
+class DoradoLongReadAligner(Aligner):
+    """
+    Align reads to a reference using Dorado aligner.
+    """
+
+    _dependencies = [dorado, samtools]
+
+    def create_commands(self, ctx) -> List:
+        """Constructs the Dorado alignment commands."""
+        dorado_cmd_parts = [
+            "dorado",
+            "aligner",
+        ]
+        if self.aligner_opts:
+            import shlex
+
+            dorado_cmd_parts.extend(shlex.split(self.aligner_opts))
+        dorado_cmd_parts.append(str(self.reference))
+        dorado_cmd_parts.extend([str(r) for r in self.reads])
+
+        dorado_pipeline = self.shell_pipe(
+            [
+                self.shell_cmd(
+                    dorado_cmd_parts,
+                    description=f"Align {len(self.reads)} read files with Dorado aligner",
+                ),
+                self.shell_cmd(
+                    [
+                        "samtools",
+                        "sort",
+                        "--threads",
+                        str(ctx.cpus),
+                        "-O",
+                        "bam",
+                        "--reference",
+                        str(self.reference),
+                    ],
+                    description="Sort and convert to BAM",
+                ),
+            ],
+            description="Dorado alignment pipeline",
+            output_file=self.output.bam,
+        )
+
+        return [dorado_pipeline]
 
 
 class AssemblyAlignerOutput(BaseOutput):

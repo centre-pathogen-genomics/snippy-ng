@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Annotated, Optional
 
 from snippy_ng.stages import BaseStage, BaseOutput, TempPath
-from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3, longbow, nucmer
+from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3, dorado, longbow, nucmer
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.logging import logger
 from snippy_ng.envvars import EnvVarField
@@ -1100,6 +1100,60 @@ class ShowSnpsCaller(Caller):
 
 class Clair3CallerOutput(BaseCallerOutput):
     vcf: Path = Field(..., description="VCF file containing raw variant calls produced by Clair3")
+
+
+class DoradoPolishCallerOutput(BaseCallerOutput):
+    vcf: Path = Field(..., description="VCF file containing raw variant calls produced by Dorado polish")
+    bam_index: Path = Field(..., description="Index file for the input BAM produced by Dorado polish")
+
+
+class DoradoPolishCaller(Caller):
+    """
+    Call variants using Dorado polish.
+    """
+    bam: Path = Field(..., description="Input BAM file aligned with Dorado aligner")
+    bacteria: bool = Field(True, description="Use Dorado bacterial polishing model resolution")
+
+    _dependencies = [dorado]
+
+    @property
+    def output(self) -> DoradoPolishCallerOutput:
+        return DoradoPolishCallerOutput(
+            vcf=Path(f"{self.prefix}.raw.vcf"),
+            bam_index=Path(f"{self.bam}.bai")
+        )
+    
+    def build_index_command(self):
+        """Returns the samtools index command."""
+        return self.shell_cmd([
+            "samtools", "index", str(self.bam)
+        ], description=f"Index BAM file: {self.bam}")
+
+    def create_commands(self, ctx) -> List:
+        """Constructs the Dorado polish variant calling command."""
+        dorado_cmd_parts = [
+            "dorado",
+            "polish",
+            str(self.bam),
+            str(self.reference),
+            "--vcf",
+            "--threads",
+            str(ctx.cpus),
+        ]
+        if self.bacteria:
+            dorado_cmd_parts.append("--bacteria")
+        if self.additional_options:
+            import shlex
+            dorado_cmd_parts.extend(shlex.split(self.additional_options))
+
+        return [
+            self.build_index_command(),
+            self.shell_cmd(
+                dorado_cmd_parts,
+                description="Call variants with Dorado polish",
+                output_file=self.output.vcf,
+            )
+        ]
 
 
 class Clair3ModelSelectorError(StageExecutionError):
