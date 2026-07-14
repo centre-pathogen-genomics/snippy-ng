@@ -167,7 +167,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         for sample in successful_samples
     ]
     soft_core_threshold = 0.95
-    inclusion_threshold = 0.3
+    inclusion_threshold = 0.20
     aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,

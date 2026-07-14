@@ -1,7 +1,8 @@
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, FilterAlignmentByAlignedPercentage, SoftCoreFilter
+from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
+from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreFilter
 from snippy_ng.stages.stats import AlignmentAlignedPercentage
 from pathlib import Path
 from pydantic import Field
@@ -12,7 +13,7 @@ class CorePipelineBuilder(PipelineBuilder):
     snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
-    inclusion_threshold: float = Field(default=0.1, description="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+    inclusion_threshold: float = Field(default=0.20, ge=0.0, le=1.0, description="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
     snp_distance_format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
     prefix: str = Field(default="core", description="Output file prefix")
 
@@ -61,6 +62,7 @@ class CorePipelineBuilder(PipelineBuilder):
             inclusion_threshold=self.inclusion_threshold,
         )
         stages.append(alignment_filter)
+        outputs_to_keep.extend(alignment_filter.output.paths)
 
         # Stage to filter the alignment to create core alignment
         filter_stage = SoftCoreFilter(

@@ -142,6 +142,11 @@ numpy = PythonDependency(
     "numpy",
     citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2."
 )
+scikit_learn = PythonDependency(
+    "scikit-learn",
+    min_version="1.7",
+    citation="Pedregosa, F. et al. Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research 12, 2825-2830 (2011).",
+)
 
 # Alignment
 samtools = Dependency(

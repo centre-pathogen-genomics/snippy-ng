@@ -1,23 +1,16 @@
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 from typing import Dict
 
-import numpy as np
-from pydantic import Field
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from pydantic import Field
 
-from snippy_ng.exceptions import StageExecutionError, MissingInputError
-from snippy_ng.logging import logger
-from snippy_ng.stages import BaseStage, BaseOutput
-from snippy_ng.dependencies import biopython, core_snp_filter, distle, numpy
-
-
-class MSAValidationError(StageExecutionError):
-    pass
+from snippy_ng.dependencies import biopython, core_snp_filter, distle
+from snippy_ng.exceptions import MSAValidationError, MissingInputError, StageExecutionError
+from snippy_ng.stages import BaseOutput, BaseStage
 
 
 class CombineFastaFileOutput(BaseOutput):
@@ -149,10 +142,6 @@ class DistleDistanceMatrixOutput(BaseOutput):
     phylip: Path = Field(..., description="Pairwise distance matrix in PHYLIP format")
 
 
-class AlignmentSampleFilterOutput(BaseOutput):
-    filtered_aln: Path = Field(..., description="MSA with low-alignment samples removed before soft core filtering")
-
-
 class DistleDistanceMatrix(BaseStage):
     """Convert an alignment into a PHYLIP distance matrix using distle."""
 
@@ -184,299 +173,9 @@ class DistleDistanceMatrix(BaseStage):
         ]
 
 
-class FilterAlignmentByAlignedPercentage(BaseStage):
-    """
-    Remove samples whose aligned percentage is unlikely to belong to the main sample cluster.
-    """
-
-    aln: Path = Field(..., description="Input multiple sequence alignment")
-    alignment_stats: Path = Field(..., description="TSV file of per-sequence aligned percentages")
-    inclusion_threshold: float = Field(
-        0.20,
-        ge=0.0,
-        le=1.0,
-        description="Posterior probability threshold for retaining membership in the main alignment cluster",
-    )
-    identical_alignment_spread: float = Field(
-        10.0,
-        ge=0.0,
-        le=100.0,
-        description="If the spread of aligned percentages is less than or equal to this value, keep all samples to avoid filtering when there are no clear outliers",
-    )
-
-    _dependencies = [biopython, numpy]
-
-    @property
-    def output(self) -> AlignmentSampleFilterOutput:
-        return AlignmentSampleFilterOutput(
-            filtered_aln=Path(f"{self.prefix}.filtered.aln"),
-        )
-
-    def create_commands(self, ctx):
-        return [
-            self.python_cmd(
-                func=self.filter_alignment,
-                args=(self.aln, self.alignment_stats, self.output.filtered_aln, self.inclusion_threshold, self.identical_alignment_spread),
-                description="Filter low-alignment samples from the MSA before soft core filtering",
-            )
-        ]
-
-    @classmethod
-    def _fit_gmm(
-        cls,
-        values: list[float],
-        max_iter: int = 100,
-        tol: float = 1e-6,
-        n_components: int = 2,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Fit a one-dimensional Gaussian mixture model with EM.
-
-        The input is treated as a single numeric feature, and the algorithm
-        estimates overlapping normal distributions that could have produced
-        those values. Each iteration alternates between:
-        1. estimating each sample's responsibility for each component, and
-        2. updating the component weights, means, and variances from those
-           responsibilities.
-
-        This helper is used to separate the main alignment-quality cluster from
-        a lower-quality tail without imposing a hard cutoff on aligned percentage.
-        """
-        x = np.asarray(values, dtype=float).reshape(-1, 1)
-        n = x.shape[0]
-        if n_components < 2:
-            raise ValueError("Need at least two components")
-        if n < n_components:
-            raise ValueError(f"Need at least {n_components} values to fit a {n_components}-component mixture")
-        if np.var(x[:, 0]) < 1e-12:
-            raise ValueError("Data are almost identical; mixture model is not identifiable")
-
-        sorted_values = np.sort(x[:, 0])
-        quantile_positions = np.linspace(0, n - 1, num=n_components)
-        means = np.array([sorted_values[int(round(pos))] for pos in quantile_positions], dtype=float)
-        if len(np.unique(np.round(means, 6))) < n_components:
-            unique_values = np.unique(sorted_values)
-            if unique_values.size < n_components:
-                raise ValueError(f"Need at least {n_components} distinct values to fit a {n_components}-component mixture")
-            means = np.linspace(unique_values[0], unique_values[-1], num=n_components, dtype=float)
-        overall_var = float(np.var(x[:, 0])) if n > 1 else 1.0
-        variances = np.full(n_components, max(overall_var, 1.0), dtype=float)
-        weights = np.full(n_components, 1.0 / n_components, dtype=float)
-        responsibilities = np.full((n, n_components), 1.0 / n_components, dtype=float)
-        previous_ll = None
-
-        for _ in range(max_iter):
-            safe_variances = np.maximum(variances, 1e-6)
-            scales = np.sqrt(2.0 * np.pi * safe_variances)
-            exponent = -((x - means) ** 2) / (2.0 * safe_variances)
-            pdf = np.exp(exponent) / scales
-            weighted_pdf = pdf * weights
-            totals = np.maximum(weighted_pdf.sum(axis=1, keepdims=True), 1e-12)
-            responsibilities = weighted_pdf / totals
-            log_likelihood = float(np.log(totals).sum())
-
-            if previous_ll is not None and abs(log_likelihood - previous_ll) < tol:
-                break
-            previous_ll = log_likelihood
-
-            component_mass = np.maximum(responsibilities.sum(axis=0), 1e-6)
-            weights = component_mass / n
-            means = (responsibilities * x).sum(axis=0) / component_mass
-            variances = np.maximum((responsibilities * ((x - means) ** 2)).sum(axis=0) / component_mass, 1e-6)
-
-        if not np.all(np.isfinite(responsibilities)):
-            raise ValueError("Mixture model produced non-finite responsibilities")
-        if not np.all(np.isfinite(means)):
-            raise ValueError("Mixture model produced non-finite means")
-        if not np.all(np.isfinite(weights)):
-            raise ValueError("Mixture model produced non-finite weights")
-        if np.any(weights < 0.05):
-            raise ValueError("Mixture model contains a near-empty component")
-
-        return weights, means, variances, responsibilities
-
-    @staticmethod
-    def _stats_fieldnames() -> list[str]:
-        return [
-            "sequence",
-            "aligned",
-            "probability_component_0",
-            "probability_component_1",
-            "probability_component_2",
-            "probability_main",
-            "removed",
-            "filter_reason",
-        ]
-
-    @classmethod
-    def _empty_stats_row(
-        cls,
-        sequence: str,
-        aligned: float,
-        filter_reason: str,
-    ) -> dict[str, str]:
-        return {
-            "sequence": sequence,
-            "aligned": f"{aligned:.2f}",
-            "probability_component_0": "",
-            "probability_component_1": "",
-            "probability_component_2": "",
-            "probability_main": "",
-            "removed": "false",
-            "filter_reason": filter_reason,
-        }
-
-    @staticmethod
-    def _aligned_percentage(
-        sequence: str,
-        aligned_by_sequence: dict[str, float],
-        alignment_stats: Path,
-        *,
-        default: float,
-    ) -> float:
-        aligned = aligned_by_sequence.get(sequence)
-        if aligned is not None:
-            return aligned
-        logger.warning(
-            f"Missing aligned percentage for sequence '{sequence}' in {alignment_stats}; "
-            f"treating it as {default:.2f}"
-        )
-        return default
-
-    @staticmethod
-    def _rewrite_alignment_stats(
-        alignment_stats: Path,
-        rows: list[dict[str, str]],
-    ) -> None:
-        with alignment_stats.open("w", newline="") as handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=FilterAlignmentByAlignedPercentage._stats_fieldnames(),
-                delimiter="\t",
-            )
-            writer.writeheader()
-            writer.writerows(rows)
-
-    @classmethod
-    def filter_alignment(
-        cls,
-        aln: Path,
-        alignment_stats: Path,
-        filtered_aln: Path,
-        inclusion_threshold: float = 0.20,
-        identical_alignment_spread: float = 10.0,
-    ) -> None:
-        records = list(SeqIO.parse(str(aln), "fasta"))
-        if not records:
-            raise MSAValidationError(f"No sequences found in alignment: {aln}")
-        record_ids = [record.id for record in records]
-        if len(record_ids) != len(set(record_ids)):
-            raise MSAValidationError(f"Duplicate sequence IDs found in alignment: {aln}")
-
-        aligned_by_sequence: dict[str, float] = {}
-        with alignment_stats.open("r", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="\t")
-            if reader.fieldnames is None:
-                raise ValueError(f"Alignment statistics file has no header: {alignment_stats}")
-            required_columns = {"sequence", "aligned"}
-            missing = required_columns - set(reader.fieldnames)
-            if missing:
-                raise ValueError(
-                    f"Alignment statistics file is missing columns: {sorted(missing)}"
-                )
-            for row in reader:
-                sequence = row["sequence"]
-                if sequence in aligned_by_sequence:
-                    raise ValueError(f"Duplicate sequence {sequence!r} in {alignment_stats}")
-                aligned = float(row["aligned"])
-                if not np.isfinite(aligned) or not 0.0 <= aligned <= 100.0:
-                    raise ValueError(
-                        f"Invalid aligned percentage for {sequence!r}: {aligned}"
-                    )
-                aligned_by_sequence[sequence] = aligned
-
-        reference_id = records[0].id
-        sample_records = records[1:]
-        reference_aligned = cls._aligned_percentage(
-            reference_id,
-            aligned_by_sequence,
-            alignment_stats,
-            default=100.0,
-        )
-        stats_rows = [cls._empty_stats_row(reference_id, reference_aligned, "reference")]
-
-        minimum_mixture_samples = 10
-        skip_reason: str | None = None
-        if len(sample_records) < minimum_mixture_samples:
-            kept_records = records
-            skip_reason = "too_few_samples"
-        else:
-            sample_values = []
-            for record in sample_records:
-                sample_values.append(
-                    cls._aligned_percentage(
-                        record.id,
-                        aligned_by_sequence,
-                        alignment_stats,
-                        default=0.0,
-                    )
-                )
-
-            if max(sample_values) - min(sample_values) <= identical_alignment_spread:
-                kept_records = records
-                skip_reason = "low_spread"
-            else:
-                _weights, means, _variances, responsibilities = cls._fit_gmm(
-                    sample_values,
-                    n_components=2,
-                )
-                main_component = int(np.argmax(means))
-
-                keep_ids = {reference_id}
-                removed_ids: list[str] = []
-
-                for record, aligned, probs in zip(sample_records, sample_values, responsibilities):
-                    probability_main = float(probs[main_component])
-                    removed = probability_main < inclusion_threshold
-                    filter_reason = "removed_by_gmm" if removed else "retained_by_gmm"
-                    row = cls._empty_stats_row(record.id, aligned, filter_reason)
-                    for component_idx, probability in enumerate(probs):
-                        row[f"probability_component_{component_idx}"] = f"{float(probability):.4f}"
-                    row["probability_main"] = f"{probability_main:.4f}"
-                    row["removed"] = str(removed).lower()
-                    stats_rows.append(
-                        row
-                    )
-                    if not removed:
-                        keep_ids.add(record.id)
-                    else:
-                        removed_ids.append(record.id)
-
-                kept_records = [record for record in records if record.id in keep_ids]
-                if removed_ids:
-                    logger.warning(
-                        "Filtered out "
-                        f"{len(removed_ids)} sample(s) from alignment {aln} "
-                        f"using inclusion threshold {inclusion_threshold:.2f}: "
-                        + ", ".join(removed_ids)
-                    )
-
-        if skip_reason is not None:
-            for record in sample_records:
-                aligned = cls._aligned_percentage(
-                    record.id,
-                    aligned_by_sequence,
-                    alignment_stats,
-                    default=0.0,
-                )
-                stats_rows.append(cls._empty_stats_row(record.id, aligned, skip_reason))
-
-        with filtered_aln.open("w") as handle:
-            SeqIO.write(kept_records, handle, "fasta-2line")
-        cls._rewrite_alignment_stats(alignment_stats, stats_rows)
-
 class SoftCoreError(StageExecutionError):
     pass
+
 
 class SoftCoreFilter(BaseStage):
     """
