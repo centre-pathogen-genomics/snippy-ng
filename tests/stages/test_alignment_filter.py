@@ -167,7 +167,7 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_no_outlie
     assert all(row["filter_reason"] == "low_spread" for row in rows[1:])
 
 
-def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_too_few_samples(tmp_path):
+def test_filter_alignment_by_aligned_percentage_keeps_non_outliers_in_small_cohort(tmp_path):
     aln = tmp_path / "core.full.aln"
     aln.write_text(
         ">reference\nAAAAAA\n"
@@ -197,7 +197,8 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_too_few_s
     assert [row["sequence"] for row in rows] == ["reference", "sample_a", "sample_b"]
     assert all(row["removed"] == "false" for row in rows)
     assert all(row["probability_main"] == "" for row in rows)
-    assert all(row["filter_reason"] == "too_few_samples" for row in rows[1:])
+    assert all(row["filter_reason"] == "retained_by_mad" for row in rows[1:])
+    assert all(row["mad_cutoff"] for row in rows)
 
 
 def test_filter_alignment_by_aligned_percentage_rejects_missing_sample_stats(tmp_path):
@@ -223,7 +224,7 @@ def test_filter_alignment_by_aligned_percentage_rejects_missing_sample_stats(tmp
         )
 
 
-def test_filter_alignment_by_aligned_percentage_does_not_fit_small_dataset(tmp_path):
+def test_filter_alignment_by_aligned_percentage_uses_mad_for_small_dataset(tmp_path):
     aln = tmp_path / "core.full.aln"
     aln.write_text(
         ">reference\nAAAAAA\n"
@@ -255,13 +256,19 @@ def test_filter_alignment_by_aligned_percentage_does_not_fit_small_dataset(tmp_p
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
-    assert kept_ids == ["reference", "sample_a", "sample_b", "sample_c", "sample_d", "sample_e", "sample_f"]
+    assert kept_ids == ["reference", "sample_a", "sample_b", "sample_c", "sample_d", "sample_f"]
     with _filter_stats_path(filtered_aln).open("r", newline="") as handle:
         rows = list(csv.DictReader(handle, delimiter="\t"))
-    assert all(row["removed"] == "false" for row in rows)
-    assert all(row["filter_reason"] == "too_few_samples" for row in rows[1:])
+    assert rows[5]["sequence"] == "sample_e"
+    assert rows[5]["removed"] == "true"
+    assert rows[5]["filter_reason"] == "removed_by_mad"
+    assert all(
+        row["filter_reason"] == "retained_by_mad"
+        for index, row in enumerate(rows[1:], start=1)
+        if index != 5
+    )
 
-def test_filter_alignment_by_aligned_percentage_keeps_samples_when_one_tail_outlier(tmp_path):
+def test_filter_alignment_by_aligned_percentage_handles_collapsed_mad(tmp_path):
     aln = tmp_path / "core.full.aln"
     aln.write_text(
         ">reference\nAAAAAA\n"
@@ -291,7 +298,26 @@ def test_filter_alignment_by_aligned_percentage_keeps_samples_when_one_tail_outl
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
-    assert kept_ids == ["reference", "sample_a", "sample_b", "sample_c", "sample_d", "sample_e"]
+    assert kept_ids == ["reference", "sample_a", "sample_b", "sample_c"]
+
+
+def test_filter_alignment_by_aligned_percentage_removes_zero_alignment_from_small_cohort(tmp_path):
+    values = [80.59, 99.88, 0.0, 99.88, 89.87, 89.90]
+    aln, aligned_tsv, filtered_aln = _write_filter_files(tmp_path, values)
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference", "sample_0", "sample_1", "sample_3", "sample_4", "sample_5"]
+    with _filter_stats_path(filtered_aln).open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert rows[3]["sequence"] == "sample_2"
+    assert rows[3]["removed"] == "true"
+    assert rows[3]["filter_reason"] == "removed_by_mad"
 
 def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_path, monkeypatch):
     aln, aligned_tsv, filtered_aln = _write_filter_files(
@@ -321,6 +347,7 @@ def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_p
         ("inclusion_threshold", 1.01),
         ("minimum_cluster_separation", -0.01),
         ("minimum_cluster_separation", 100.01),
+        ("mad_threshold", 0.0),
     ],
 )
 def test_filter_alignment_validates_configuration(tmp_path, field, value):

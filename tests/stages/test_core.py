@@ -1,9 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 from snippy_ng.context import Context
 from snippy_ng.pipelines.core import CorePipelineBuilder
 from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
-from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreFilter
+from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreError, SoftCoreFilter
 
 
 def _build_core_pipeline(tmp_path):
@@ -69,3 +71,18 @@ def test_core_pipeline_adds_distle_for_full_and_soft_core_alignments(tmp_path):
     assert distle_stages[0].output.phylip == Path("core.full.distance.tsv")
     assert distle_stages[1].aln == soft_core_stage.output.soft_core
     assert distle_stages[1].output.phylip == Path("core.095.distance.tsv")
+
+
+def test_soft_core_empty_error_describes_missing_aligned_calls(tmp_path):
+    stage = SoftCoreFilter(
+        aln=tmp_path / "core.filtered.aln",
+        core_threshold=0.95,
+        prefix=str(tmp_path / "core"),
+    )
+    stage.output.soft_core.write_text(">reference\n\n")
+
+    with pytest.raises(
+        SoftCoreError,
+        match="too few aligned or called bases",
+    ):
+        stage.test_soft_core_is_not_empty()
