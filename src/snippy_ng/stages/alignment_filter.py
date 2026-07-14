@@ -20,7 +20,7 @@ class AlignmentSampleFilterOutput(BaseOutput):
 
 
 class FilterAlignmentByAlignedPercentage(BaseStage):
-    """Remove samples assigned to clearly separated low-alignment clusters."""
+    """Remove clear low-alignment outliers using a mixture model or small-cohort MAD rule."""
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
     alignment_stats: Path = Field(..., description="TSV file of per-sequence aligned percentages")
@@ -36,9 +36,18 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         le=100.0,
         description="Minimum percentage-point separation between fitted component means required to filter samples",
     )
-    minimum_mixture_samples: int = Field(10, ge=2, description="Minimum number of samples required to fit mixture models")
+    minimum_mixture_samples: int = Field(
+        10,
+        ge=2,
+        description="Minimum number of samples required to fit mixture models; smaller cohorts use a one-sided MAD rule",
+    )
     minimum_samples_per_component: int = Field(5, ge=2, description="Minimum cohort size per candidate mixture component")
     bic_improvement: float = Field(6.0, ge=0.0, description="Minimum BIC improvement required to select a more complex mixture model")
+    mad_threshold: float = Field(
+        3.5,
+        gt=0.0,
+        description="One-sided robust z-score threshold for low-alignment outliers in cohorts too small for mixture modelling",
+    )
 
     _dependencies = [biopython, numpy, scikit_learn]
 
@@ -63,6 +72,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     self.minimum_mixture_samples,
                     self.minimum_samples_per_component,
                     self.bic_improvement,
+                    self.mad_threshold,
                 ),
                 description="Filter low-alignment samples from the MSA before soft core filtering",
             )
@@ -162,6 +172,24 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         )
 
     @staticmethod
+    def _lower_mad_outliers(
+        values: list[float],
+        *,
+        mad_threshold: float = 3.5,
+        minimum_separation: float = 10.0,
+    ) -> tuple[np.ndarray, float, float, float]:
+        """Identify extreme lower-tail values using a conservative MAD cutoff."""
+        x = np.asarray(values, dtype=float)
+        if x.size == 0:
+            return np.zeros(0, dtype=bool), float("nan"), float("nan"), float("nan")
+
+        median = float(np.median(x))
+        scaled_mad = float(1.4826 * np.median(np.abs(x - median)))
+        required_deviation = max(minimum_separation, mad_threshold * scaled_mad)
+        cutoff = median - required_deviation
+        return x < cutoff, median, scaled_mad, cutoff
+
+    @staticmethod
     def _stats_fieldnames() -> list[str]:
         return [
             "sequence",
@@ -185,6 +213,9 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             "bic_1",
             "bic_2",
             "bic_3",
+            "mad_median",
+            "mad_scaled",
+            "mad_cutoff",
         ]
 
     @classmethod
@@ -217,6 +248,9 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             "bic_1": "",
             "bic_2": "",
             "bic_3": "",
+            "mad_median": "",
+            "mad_scaled": "",
+            "mad_cutoff": "",
         }
         if model_stats is not None:
             row.update(model_stats)
@@ -261,6 +295,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         minimum_mixture_samples: int = 10,
         minimum_samples_per_component: int = 5,
         bic_improvement: float = 6.0,
+        mad_threshold: float = 3.5,
     ) -> None:
         if filter_stats is None:
             filter_stats = filtered_aln.with_suffix(".stats.tsv")
@@ -318,13 +353,49 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             "bic_1": "",
             "bic_2": "",
             "bic_3": "",
+            "mad_median": "",
+            "mad_scaled": "",
+            "mad_cutoff": "",
         }
         model_responsibilities: np.ndarray | None = None
         model_retained_components: np.ndarray | None = None
         skip_reason: str | None = None
-        if len(sample_records) < minimum_mixture_samples:
+        if not sample_records:
             kept_records = records
             skip_reason = "too_few_samples"
+        elif len(sample_records) < minimum_mixture_samples:
+            removed_by_mad, mad_median, mad_scaled, mad_cutoff = cls._lower_mad_outliers(
+                sample_values,
+                mad_threshold=mad_threshold,
+                minimum_separation=minimum_cluster_separation,
+            )
+            model_stats["mad_median"] = f"{mad_median:.4f}"
+            model_stats["mad_scaled"] = f"{mad_scaled:.4f}"
+            model_stats["mad_cutoff"] = f"{mad_cutoff:.4f}"
+            keep_ids = {reference_id}
+            removed_ids: list[str] = []
+            for record, aligned, removed in zip(sample_records, sample_values, removed_by_mad):
+                row = cls._empty_stats_row(
+                    record.id,
+                    aligned,
+                    "removed_by_mad" if removed else "retained_by_mad",
+                    model_stats,
+                )
+                row["removed"] = str(bool(removed)).lower()
+                stats_rows.append(row)
+                if removed:
+                    removed_ids.append(record.id)
+                else:
+                    keep_ids.add(record.id)
+
+            kept_records = [record for record in records if record.id in keep_ids]
+            if removed_ids:
+                logger.warning(
+                    "Filtered out "
+                    f"{len(removed_ids)} sample(s) from alignment {aln} "
+                    "using the small-cohort lower-tail MAD rule: "
+                    + ", ".join(removed_ids)
+                )
         elif max(sample_values) - min(sample_values) <= minimum_cluster_separation:
             kept_records = records
             skip_reason = "low_spread"

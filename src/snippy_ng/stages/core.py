@@ -202,7 +202,7 @@ class SoftCoreFilter(BaseStage):
         first_record = next(SeqIO.parse(str(self.output.soft_core), "fasta"), None)
         if first_record is None or len(first_record.seq) == 0:
             raise SoftCoreError(
-                f"Soft core MSA has no sites: {self.output.soft_core}. You likely have samples with no variant sites. Check the % alignment for each sample to the reference."
+                f"Soft core MSA has no sites: {self.output.soft_core}. One or more samples may have too few aligned or called bases for the requested core threshold. Check each sample's alignment percentage and the alignment-filter decisions."
             )
 
     def create_commands(self, ctx):
