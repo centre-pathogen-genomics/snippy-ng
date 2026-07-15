@@ -204,6 +204,13 @@ class Minimap2LongReadAligner(Aligner):
     minimap_preset: str = Field(
         "map-ont", description="Minimap2 preset to use for alignment"
     )
+    reference_index: Path = Field(..., description="Reference FASTA index (.fai)")
+    max_clip_fraction: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Optional maximum terminal clipping fraction for samclip",
+    )
     
     _dependencies = [minimap2, samtools]
 
@@ -226,27 +233,67 @@ class Minimap2LongReadAligner(Aligner):
         minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
+        processes = [
+            self.shell_cmd(
+                minimap_cmd_parts,
+                description=f"Align {len(self.reads)} read files with Minimap2",
+            ),
+        ]
+        if self.max_clip_fraction is not None:
+            processes.extend(
+                [
+                    self.shell_cmd(
+                        [
+                            "samtools",
+                            "sort",
+                            "-n",
+                            "-O",
+                            "sam",
+                            "--threads",
+                            str(ctx.cpus),
+                        ],
+                        description="Name-sort alignments for samclip",
+                    ),
+                    self.shell_cmd(
+                        [
+                            sys.executable,
+                            "-m",
+                            "snippy_ng",
+                            "utils",
+                            "aln",
+                            "samclip",
+                            "--index",
+                            str(self.reference_index),
+                            "--max-clip-fraction",
+                            str(self.max_clip_fraction),
+                        ],
+                        description="Filter long-read alignments by clipped-read fraction",
+                    ),
+                ]
+            )
+        processes.append(
+            self.shell_cmd(
+                [
+                    "samtools",
+                    "sort",
+                    "--threads",
+                    str(ctx.cpus),
+                    "-O",
+                    "bam",
+                    "--reference",
+                    str(self.reference),
+                ],
+                description="Coordinate-sort and convert to BAM",
+            )
+        )
+
         minimap_pipeline = self.shell_pipe(
-            [
-                self.shell_cmd(
-                    minimap_cmd_parts,
-                    description=f"Align {len(self.reads)} read files with Minimap2",
-                ),
-                self.shell_cmd(
-                    [
-                        "samtools",
-                        "sort",
-                        "--threads",
-                        str(ctx.cpus),
-                        "-O",
-                        "bam",
-                        "--reference",
-                        str(self.reference),
-                    ],
-                    description="Sort and convert to BAM",
-                ),
-            ],
-            description="Minimap2 alignment pipeline",
+            processes,
+            description=(
+                "Minimap2 alignment pipeline with fraction-based samclip"
+                if self.max_clip_fraction is not None
+                else "Minimap2 alignment pipeline"
+            ),
             output_file=self.output.bam,
         )
 

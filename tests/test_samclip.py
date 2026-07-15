@@ -125,3 +125,59 @@ def test_samclip_start_end_clipping():
     out = list(samclip_filter_lines(header + lines, CONTIGS, max_clip=5))
     assert len(out) == 2 # header + r1
     assert "r1" in out[1]
+
+
+def test_samclip_filters_by_total_clip_fraction():
+    header = ["@HD\tVN:1.6\tSO:queryname\n"]
+    lines = [
+        make_sam("at_limit", 0, cigar="50S50M"),
+        make_sam("over_limit", 0, cigar="51S49M"),
+    ]
+
+    out = list(
+        samclip_filter_lines(
+            header + lines,
+            CONTIGS,
+            max_clip=None,
+            max_clip_fraction=0.5,
+        )
+    )
+
+    assert len(out) == 2
+    assert "at_limit" in out[1]
+
+
+def test_samclip_fraction_includes_hard_clips_in_read_length():
+    header = ["@HD\tVN:1.6\tSO:queryname\n"]
+    lines = [
+        make_sam("at_limit", 0, cigar="50H50M", seq="A" * 50),
+        make_sam("over_limit", 0, cigar="51H49M", seq="A" * 49),
+    ]
+
+    out = list(
+        samclip_filter_lines(
+            header + lines,
+            CONTIGS,
+            max_clip=None,
+            max_clip_fraction=0.5,
+        )
+    )
+
+    assert len(out) == 2
+    assert "at_limit" in out[1]
+
+
+def test_samclip_combines_explicit_clip_limits():
+    header = ["@HD\tVN:1.6\tSO:queryname\n"]
+    lines = [make_sam("fails_absolute", 0, cigar="6S94M")]
+
+    out = list(
+        samclip_filter_lines(
+            header + lines,
+            CONTIGS,
+            max_clip=5,
+            max_clip_fraction=0.5,
+        )
+    )
+
+    assert out == header

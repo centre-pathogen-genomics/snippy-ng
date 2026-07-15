@@ -40,6 +40,12 @@ class LongPipelineBuilder(PipelineBuilder):
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for calls and depth masks")
+    max_clip_fraction: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Optional maximum terminal clipping fraction for long-read alignments",
+    )
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
@@ -133,8 +139,10 @@ class LongPipelineBuilder(PipelineBuilder):
                 aligner_stage = Minimap2LongReadAligner(
                     reads=current_reads,
                     reference=reference_file,
+                    reference_index=reference_index,
                     aligner_opts=self.aligner_opts,
                     minimap_preset=self.minimap_preset,
+                    max_clip_fraction=self.max_clip_fraction,
                     **globals
                 )
             else:

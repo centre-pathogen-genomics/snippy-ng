@@ -104,6 +104,19 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             True,
         ),
         (
+            "clip_fraction",
+            lambda p: [
+                "--reference", p["ref"],
+                "--reads", p["reads"],
+                "--outdir", p["out"],
+                "--clair3-model", p["model"],
+                "--max-clip-fraction", "0.5",
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
             "bam_no_model",
             lambda p: [
                 "--reference", p["ref"],

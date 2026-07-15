@@ -8,12 +8,21 @@ from snippy_ng.cli.utils import AbsolutePath
 @click.option("--index", "-i", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA index (.fai) file corresponding to the reference used for alignment")
 @click.option("--fix-mate/--no-fix-mate", default=True, help="Attempt to fix mate information for paired-end reads when one read is filtered out", show_default=True)
 @click.option("--max", "-m", type=click.INT, default=10, help="Maximum clip length to allow before filtering out the read", show_default=True)
+@click.option(
+    "--max-clip-fraction",
+    type=click.FloatRange(min=0, max=1),
+    default=None,
+    help="Maximum total terminal clipping as a fraction of the original read length, including hard clips",
+)
 @click.option("--invert", is_flag=True, default=False, help="Invert the filter to keep only clipped reads instead of filtering them out")
 @click.option("--debug", is_flag=True, default=False, help="Output debug information about clipped reads to stderr")
+@click.pass_context
 def samclip(
+    ctx,
     sam_file,
     index,
     max,
+    max_clip_fraction,
     fix_mate,
     invert,
     debug,
@@ -28,6 +37,14 @@ def samclip(
     import sys
     from snippy_ng.utils.samclip import samclip_filter_lines, fai_to_dict
 
+    # Keep the historical default absolute threshold for existing invocations.
+    # When a fraction is supplied on its own, it replaces that default; an
+    # explicitly supplied --max combines with the fraction criterion.
+    max_clip = max if (
+        max_clip_fraction is None
+        or ctx.get_parameter_source("max") != click.core.ParameterSource.DEFAULT
+    ) else None
+
     # Load reference index
     with open(index, 'r') as f:
         contig_lengths = fai_to_dict(f)
@@ -38,7 +55,8 @@ def samclip(
         for line in samclip_filter_lines(
             sam_lines,
             contig_lengths=contig_lengths,
-            max_clip=max,
+            max_clip=max_clip,
+            max_clip_fraction=max_clip_fraction,
             invert=invert,
             on_debug=lambda msg: click.echo(message=msg, err=True) if debug else None,
             fix_mate=fix_mate,

@@ -22,6 +22,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
 @click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")
+@click.option("--max-clip-fraction", default=None, type=click.FloatRange(min=0, max=1), help="Optional maximum terminal clipping fraction for long-read alignments")
 @click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
 @click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
@@ -41,6 +42,7 @@ def long(
     caller: Literal["clair3", "freebayes"],
     caller_opts: str,
     caller_map_qual: int,
+    max_clip_fraction: Optional[float],
     clair3_model: Optional[Path],
     min_qual: Optional[float],
     report: bool,
@@ -93,6 +95,7 @@ def long(
         min_read_qual=min_read_qual,
         min_qual=min_qual,
         min_mapping_quality=caller_map_qual,
+        max_clip_fraction=max_clip_fraction,
         mask=mask,
         depth_mask=depth_mask,
         report=report,
