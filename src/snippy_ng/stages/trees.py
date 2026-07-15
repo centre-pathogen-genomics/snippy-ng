@@ -55,7 +55,7 @@ class IQTreeBuildTree(BaseStage):
             iqtree = Path(f"{prefix}.iqtree")
             mldist = Path(f"{prefix}.mldist")
 
-        if not self.fast_mode:
+        if not self.fast_mode and not self.cmaple:
             contree = Path(f"{prefix}.contree")
             splits = Path(f"{prefix}.splits.nex")
 
@@ -114,7 +114,7 @@ class IQTreeBuildTree(BaseStage):
 
 
 class ClonalFrameMLCorrectTreeOutput(BaseOutput):
-    labelled_tree: Path = Field(..., description="ClonalFrameML tree with labelled internal nodes and recombination-corrected branches")
+    recombination_corrected_tree: Path = Field(..., description="ClonalFrameML tree with labelled internal nodes and recombination-corrected branches")
     importation_status: Path = Field(..., description="Recombination events inferred on each tree branch")
     em: Path = Field(..., description="Maximum-likelihood recombination parameter estimates")
     emsim: Optional[Path] = Field(None, description="Simulated uncertainty estimates when EM simulations are requested")
@@ -139,7 +139,7 @@ class ClonalFrameMLCorrectTree(BaseStage):
     def output(self) -> ClonalFrameMLCorrectTreeOutput:
         prefix = str(self.prefix)
         return ClonalFrameMLCorrectTreeOutput(
-            labelled_tree=Path(f"{prefix}.labelled_tree.newick"),
+            recombination_corrected_tree=Path(f"{prefix}.labelled_tree.newick"),
             importation_status=Path(f"{prefix}.importation_status.txt"),
             em=Path(f"{prefix}.em.txt"),
             emsim=Path(f"{prefix}.emsim.txt") if self.emsim else None,
@@ -173,7 +173,7 @@ class ClonalFrameMLCorrectTree(BaseStage):
 
 
 class ScaleTreeToSNPsOutput(BaseOutput):
-    tree: Path = Field(..., description="Tree with branch lengths scaled to expected SNP counts")
+    snp_scaled_tree: Path = Field(..., description="Tree with branch lengths scaled to expected SNP counts")
 
 
 class ScaleTreeToSNPs(BaseStage):
@@ -187,13 +187,13 @@ class ScaleTreeToSNPs(BaseStage):
 
     @property
     def output(self) -> ScaleTreeToSNPsOutput:
-        return ScaleTreeToSNPsOutput(tree=Path(f"{self.prefix}.snps.newick"))
+        return ScaleTreeToSNPsOutput(snp_scaled_tree=Path(f"{self.prefix}.snps.newick"))
 
     def create_commands(self, ctx):
         return [
             self.python_cmd(
                 func=self.scale_tree_to_snps,
-                args=[self.tree, self.aln, self.output.tree, self.fconst],
+                args=[self.tree, self.aln, self.output.snp_scaled_tree, self.fconst],
                 description="Scale tree branch lengths to expected SNP counts",
             )
         ]

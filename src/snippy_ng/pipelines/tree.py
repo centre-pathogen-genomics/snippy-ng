@@ -47,10 +47,10 @@ class TreePipelineBuilder(PipelineBuilder):
                 aln=self.aln,
                 kappa=self.clonalframe_kappa,
                 emsim=self.clonalframe_emsim,
-                prefix=f"{self.prefix}.clonalframe",
+                prefix=f"{self.prefix}.recombination_corrected",
             )
             stages.append(clonalframe_stage)
-            final_tree = clonalframe_stage.output.labelled_tree
+            final_tree = clonalframe_stage.output.recombination_corrected_tree
 
         snp_tree_stage = ScaleTreeToSNPs(
             tree=final_tree,
@@ -61,16 +61,16 @@ class TreePipelineBuilder(PipelineBuilder):
         stages.append(snp_tree_stage)
 
         distance_stage = TreeDistanceMatrix(
-            tree=snp_tree_stage.output.tree,
-            prefix=Path(snp_tree_stage.output.tree).stem,
+            tree=snp_tree_stage.output.snp_scaled_tree,
+            prefix=Path(snp_tree_stage.output.snp_scaled_tree).stem,
         )
         stages.append(distance_stage)
 
         outputs_to_keep = [
-            snp_tree_stage.output.tree,
+            snp_tree_stage.output.snp_scaled_tree,
             distance_stage.output.distance,
             iqtree_stage.output.tree,
         ]
         if clonalframe_stage is not None:
-            outputs_to_keep.append(clonalframe_stage.output.labelled_tree)
+            outputs_to_keep.append(clonalframe_stage.output.recombination_corrected_tree)
         return SnippyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)
