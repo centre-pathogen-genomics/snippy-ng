@@ -18,6 +18,7 @@ from snippy_ng.cli.yolo_cli import yolo
 from snippy_ng.cli.cnv_cli import cnv
 from snippy_ng.cli.vcf.strand_bias_cli import strand_bias
 from snippy_ng.cli.vcf.context_filter_cli import context_filter
+from snippy_ng.cli.vcf.merge_cli import merge
 from snippy_ng.cli.utils.bug_catcher import BugCatchingGroup
 
 
@@ -100,6 +101,7 @@ def vcf():
 
 vcf.add_command(strand_bias)
 vcf.add_command(context_filter)
+vcf.add_command(merge)
 
 
 @utils.group(cls=BugCatchingGroup, context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
