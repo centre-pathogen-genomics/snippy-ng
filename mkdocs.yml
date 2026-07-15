@@ -7,11 +7,18 @@ nav:
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
-  - Copy Number Variation: cnv.md
-  - Report:
-      - report/index.md
-      - Tree report: report/tree/index.md
-      - Sample report: report/sample/index.md
+  - Utilities:
+      - utils/index.md
+      - Reference preparation: utils/ref.md
+      - Sample discovery: utils/gather.md
+      - Alignment utilities:
+          - utils/aln/index.md
+          - Samclip: utils/aln/samclip.md
+          - CNV: utils/aln/cnv.md
+      - Report generation:
+          - utils/report/index.md
+          - Tree report: utils/report/tree.md
+          - Sample report: utils/report/sample.md
   - GUI: gui.md
   - Development:
       - development/index.md
