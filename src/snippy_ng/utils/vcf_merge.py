@@ -14,7 +14,7 @@ class VcfMergeError(RuntimeError):
     """Raised when ``bcftools merge`` cannot complete."""
 
 
-def merge_vcfs(input_vcfs: list[Path], output_vcf: Path, *, force_samples: bool = True) -> None:
+def merge_vcfs(input_vcfs: list[Path], output_vcf: Path | None = None, *, force_samples: bool = True) -> None:
     """Merge coordinate-sorted VCFs with bcftools without requiring indexes.
 
     ``force_samples`` keeps identically named samples as distinct columns, which
@@ -23,7 +23,13 @@ def merge_vcfs(input_vcfs: list[Path], output_vcf: Path, *, force_samples: bool 
     if len(input_vcfs) < 2:
         raise VcfMergeError("At least two VCF files are required to merge")
 
-    output_type = "b" if output_vcf.suffix == ".bcf" else "z" if output_vcf.name.endswith(".vcf.gz") else "v"
+    output_type = (
+        "b"
+        if output_vcf is not None and output_vcf.suffix == ".bcf"
+        else "z"
+        if output_vcf is not None and output_vcf.name.endswith(".vcf.gz")
+        else "v"
+    )
     command = [
         "bcftools",
         "merge",
@@ -31,12 +37,14 @@ def merge_vcfs(input_vcfs: list[Path], output_vcf: Path, *, force_samples: bool 
         *( ["--force-samples"] if force_samples else [] ),
         "--output-type",
         output_type,
-        "--output",
-        str(output_vcf),
+        *(["--output", str(output_vcf)] if output_vcf is not None else []),
         *map(str, input_vcfs),
     ]
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
+        if output_vcf is not None:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        else:
+            subprocess.run(command, check=True, stderr=subprocess.PIPE, text=True)
     except FileNotFoundError as exc:
         raise VcfMergeError("bcftools was not found on PATH") from exc
     except subprocess.CalledProcessError as exc:
@@ -94,10 +102,26 @@ def _unique_names(paths: list[Path]) -> list[str]:
     names: list[str] = []
     seen: Counter[str] = Counter()
     for path in paths:
-        name = path.name.removesuffix(".gz").removesuffix(".vcf").removesuffix(".bcf")
+        name = _vcf_sample_name(path) or path.name.removesuffix(".gz").removesuffix(".vcf").removesuffix(".bcf")
         seen[name] += 1
         names.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
     return names
+
+
+def _vcf_sample_name(path: Path) -> str | None:
+    if path.suffix == ".bcf":
+        return None
+    try:
+        with _open_vcf(path) as handle:
+            for line in handle:
+                if line.startswith("#CHROM"):
+                    fields = line.rstrip("\n").split("\t")
+                    if len(fields) > 9 and fields[9].strip():
+                        return fields[9].strip()
+                    return None
+    except OSError:
+        return None
+    return None
 
 
 def _upset_svg(counts: Counter[tuple[bool, ...]], names: list[str], *, max_intersections: int) -> str:

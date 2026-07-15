@@ -8,14 +8,14 @@ from snippy_ng.utils.vcf_merge import VcfMergeError, merge_vcfs, read_vcf_file_l
 @click.command("merge", context_settings={"show_default": True})
 @click.argument("vcfs", nargs=-1, type=click.Path(path_type=Path, exists=True, readable=True, dir_okay=False))
 @click.option("--file-list", "file_lists", multiple=True, type=click.Path(path_type=Path, exists=True, readable=True, dir_okay=False), help="File with one VCF path per line; may be supplied more than once")
-@click.option("--output", "-o", "output_vcf", required=True, type=click.Path(path_type=Path, dir_okay=False), help="Merged VCF/VCF.GZ/BCF output")
+@click.option("--output", "-o", "output_vcf", type=click.Path(path_type=Path, dir_okay=False), help="Merged VCF/VCF.GZ/BCF output (defaults to stdout)")
 @click.option("--upset-plot", type=click.Path(path_type=Path, dir_okay=False), help="Optional SVG UpSet plot of input VCF overlap")
 @click.option("--max-intersections", type=click.IntRange(min=1), default=40, help="Maximum intersections to show in the UpSet plot")
 @click.option("--force-samples/--no-force-samples", default=True, help="Keep duplicate sample names as separate columns")
 def merge(
     vcfs: tuple[Path, ...],
     file_lists: tuple[Path, ...],
-    output_vcf: Path,
+    output_vcf: Path | None,
     upset_plot: Path | None,
     max_intersections: int,
     force_samples: bool,

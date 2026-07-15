@@ -319,6 +319,13 @@ class VcfFilterShort(VcfFilter):
                     ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
                     description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
                 ),
+                self.shell_cmd(
+                    [
+                        "awk",
+                        '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\./, "Number=A"); print }',
+                    ],
+                    description="Normalize TYPE header Number=. to Number=A without altering other header fields",
+                ),
             ]
         bcftools_pipeline = self.shell_pipe(
             commands=commands,

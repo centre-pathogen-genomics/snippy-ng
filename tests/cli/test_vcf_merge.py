@@ -4,6 +4,7 @@ from subprocess import CompletedProcess
 from click.testing import CliRunner
 
 from snippy_ng.cli.vcf.merge_cli import merge
+from snippy_ng.utils.vcf_merge import _unique_names
 
 
 def _write_vcf(path: Path, records: list[str]) -> None:
@@ -46,3 +47,54 @@ def test_merge_cli_accepts_vcf_file_list(tmp_path, monkeypatch):
     result = CliRunner().invoke(merge, ["--file-list", str(file_list), "-o", str(output)])
 
     assert result.exit_code == 0, result.output
+
+
+def test_merge_cli_omits_output_path_and_streams_to_stdout(tmp_path, monkeypatch):
+    first, second = tmp_path / "first.vcf", tmp_path / "second.vcf"
+    _write_vcf(first, [])
+    _write_vcf(second, [])
+    commands = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        return CompletedProcess(command, 0, "##fileformat=VCFv4.2\n", "")
+
+    monkeypatch.setattr("snippy_ng.utils.vcf_merge.subprocess.run", fake_run)
+    result = CliRunner().invoke(merge, [str(first), str(second)])
+
+    assert result.exit_code == 0, result.output
+    assert commands == [["bcftools", "merge", "--no-index", "--force-samples", "--output-type", "v", str(first), str(second)]]
+
+
+def test_unique_names_prefers_sample_name_from_vcf_header(tmp_path):
+    first = tmp_path / "alpha.vcf"
+    second = tmp_path / "beta.vcf"
+    first.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_A\n",
+        encoding="utf-8",
+    )
+    second.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_B\n",
+        encoding="utf-8",
+    )
+
+    assert _unique_names([first, second]) == ["SAMPLE_A", "SAMPLE_B"]
+
+
+def test_unique_names_falls_back_to_filename_without_sample_columns(tmp_path):
+    first = tmp_path / "first.vcf"
+    second = tmp_path / "first.vcf.gz"
+    first.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n",
+        encoding="utf-8",
+    )
+    second.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n",
+        encoding="utf-8",
+    )
+
+    assert _unique_names([first, second]) == ["first", "first (2)"]
