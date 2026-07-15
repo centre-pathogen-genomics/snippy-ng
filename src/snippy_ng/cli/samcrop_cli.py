@@ -10,7 +10,7 @@ from snippy_ng.cli.utils import AbsolutePath
 @click.option("--bed", "-b", required=True, type=AbsolutePath(exists=True, readable=True), help="BED file of intervals to retain")
 def samcrop(sam_file, bed):
     """
-    Hard-crop SAM alignments to intervals in a BED file.
+    Crop SAM alignments to intervals in a BED file.
 
     Examples:
 
