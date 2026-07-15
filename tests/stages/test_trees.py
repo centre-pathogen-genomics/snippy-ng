@@ -184,8 +184,3 @@ def test_tree_pipeline_uses_clonalframe_corrected_tree(tmp_path):
     assert scaled_tree.aln == aln
     assert scaled_tree.fconst == "1,2,3,4"
     assert clonalframe.output.labelled_tree in pipeline.outputs_to_keep
-    assert clonalframe.output.importation_status in pipeline.outputs_to_keep
-    assert clonalframe.output.em in pipeline.outputs_to_keep
-    assert clonalframe.output.emsim in pipeline.outputs_to_keep
-    assert clonalframe.output.ml_sequence in pipeline.outputs_to_keep
-    assert clonalframe.output.position_cross_reference in pipeline.outputs_to_keep

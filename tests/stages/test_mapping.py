@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.mapping import (
+    AssemblyAligner,
+    AssemblyNucmerAligner,
+    Minimap2LongReadAligner,
+    Minimap2ShortReadAligner,
+)
 
 
 def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
@@ -22,6 +27,40 @@ def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
     assert commands[3][:2] == ["samtools", "fixmate"]
     assert commands[4][:2] == ["samtools", "sort"]
     assert commands[5][:2] == ["samtools", "markdup"]
+
+
+def test_minimap2_long_read_pipeline_uses_fraction_based_samclip():
+    stage = Minimap2LongReadAligner(
+        reference=Path("reference.fa"),
+        reference_index=Path("reference.fa.fai"),
+        reads=[Path("reads.fq.gz")],
+        max_clip_fraction=0.5,
+        prefix="sample",
+    )
+
+    pipeline = stage.create_commands(Context(cpus=4))[0]
+    commands = [command.command for command in pipeline.processes]
+
+    assert commands[0][:3] == ["minimap2", "-a", "-L"]
+    assert commands[1][:5] == ["samtools", "sort", "-n", "-O", "sam"]
+    assert commands[2][1:6] == ["-m", "snippy_ng", "utils", "aln", "samclip"]
+    assert commands[2][-4:] == ["--index", "reference.fa.fai", "--max-clip-fraction", "0.5"]
+    assert commands[3][:2] == ["samtools", "sort"]
+
+
+def test_minimap2_long_read_pipeline_skips_samclip_without_fraction():
+    stage = Minimap2LongReadAligner(
+        reference=Path("reference.fa"),
+        reference_index=Path("reference.fa.fai"),
+        reads=[Path("reads.fq.gz")],
+        prefix="sample",
+    )
+
+    pipeline = stage.create_commands(Context(cpus=4))[0]
+    commands = [command.command for command in pipeline.processes]
+
+    assert len(commands) == 2
+    assert all("samclip" not in command for command in commands)
 
 
 def test_nucmer_assembly_aligner_honours_configured_tunables(tmp_path):
