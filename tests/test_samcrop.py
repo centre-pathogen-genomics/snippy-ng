@@ -49,12 +49,12 @@ def test_samcrop_crops_100m_left_right_and_both_sides():
 
     assert intervals["ref"] == [(80, 220)]
     assert both[3] == "121"
-    assert both[5] == "20H60M20H"
+    assert both[5] == "60M"
     assert len(both[9]) == 60
     assert left[3] == "121"
-    assert left[5] == "20H80M"
+    assert left[5] == "80M"
     assert right[3] == "101"
-    assert right[5] == "80M20H"
+    assert right[5] == "80M"
 
 
 def test_samcrop_splits_read_across_disjoint_windows():
@@ -68,20 +68,20 @@ def test_samcrop_splits_read_across_disjoint_windows():
     assert len(out) == 2
     assert first[0] == "split"
     assert first[3] == "121"
-    assert first[5] == "20H20M60H"
+    assert first[5] == "20M"
     assert len(first[9]) == 20
     assert second[0] == "split"
     assert second[3] == "171"
-    assert second[5] == "70H20M10H"
+    assert second[5] == "20M"
     assert len(second[9]) == 20
 
 
-def test_samcrop_combines_existing_soft_and_hard_clips():
+def test_samcrop_drops_existing_soft_and_hard_clips():
     record = make_sam(pos=101, cigar="5H5S90M")
     out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(120, 170)]}))[0].split("\t")
 
     assert out[3] == "121"
-    assert out[5] == "30H50M20H"
+    assert out[5] == "50M"
     assert len(out[9]) == 50
 
 
@@ -90,7 +90,7 @@ def test_samcrop_keeps_insertions_at_left_boundary():
     out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(150, 160)]}))[0].split("\t")
 
     assert out[3] == "151"
-    assert out[5] == "50H5I10M40H"
+    assert out[5] == "5I10M"
     assert len(out[9]) == 15
 
 
@@ -99,7 +99,7 @@ def test_samcrop_trims_deletions_crossing_boundaries_without_zero_ops():
     out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(145, 165)]}))[0].split("\t")
 
     assert out[3] == "146"
-    assert out[5] == "45H5M10D5M45H"
+    assert out[5] == "5M10D5M"
     assert all(int(length) > 0 for length, _op in re.findall(r"(\d+)([A-Z=])", out[5]))
 
 
@@ -125,7 +125,7 @@ def test_samcrop_removes_stale_md_and_nm_tags():
     assert any(field.startswith("AS:i:42") for field in out)
 
 
-def test_samcrop_keeps_hard_clips_at_cigar_ends_for_supplementary_records():
+def test_samcrop_drops_hard_clips_for_supplementary_records():
     tags = "\t".join([
         "SA:Z:ref,139245,+,4044M4D594S,60,39;",
         "MD:Z:134T101",
@@ -141,11 +141,10 @@ def test_samcrop_keeps_hard_clips_at_cigar_ends_for_supplementary_records():
 
     out = body(samcrop_filter_lines(HEADER + [record], {"ref": [(91, 327)]}))[0].split("\t")
     cigar_parts = re.findall(r"(\d+)([A-Z=])", out[5])
-    hard_clip_indexes = [index for index, (_length, op) in enumerate(cigar_parts) if op == "H"]
 
     assert out[3] == "92"
-    assert out[5] == "4135H101M11I135M449H"
-    assert hard_clip_indexes == [0, len(cigar_parts) - 1]
+    assert out[5] == "101M11I135M"
+    assert not any(op == "H" for _length, op in cigar_parts)
     assert len(out[9]) == 247
     assert not any(field.startswith(("SA:Z:", "MD:Z:", "NM:i:")) for field in out[11:])
     assert any(field.startswith("AS:i:1120") for field in out[11:])
@@ -160,7 +159,7 @@ def test_samcrop_cli_accepts_file_and_bed(tmp_path):
     result = CliRunner().invoke(samcrop, ["--bed", str(bed), str(sam)])
 
     assert result.exit_code == 0
-    assert "20H60M20H" in result.output
+    assert "60M" in result.output
 
 
 def test_samcrop_cli_accepts_stdin(tmp_path):
@@ -170,4 +169,5 @@ def test_samcrop_cli_accepts_stdin(tmp_path):
     result = CliRunner().invoke(samcrop, ["--bed", str(bed)], input="".join(HEADER + [make_sam()]))
 
     assert result.exit_code == 0
-    assert "20H60M20H" in result.output
+    assert "60M" in result.output
+
