@@ -30,10 +30,10 @@ class ShortReadAligner(Aligner):
     Optionally filters soft-clipped reads using samclip (recommended only for short reads, as it may discard valid soft clipping in long reads).
     """
 
-    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
     samclip: bool = Field(
         True, description="Whether to run samclip to filter soft-clipped reads"
     )
+    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
 
     _dependencies = [samtools]
 
