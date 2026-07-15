@@ -280,6 +280,37 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
     ]
 
 
+def test_sample_report_excludes_supplementary_in_samtools_view(tmp_path):
+    stage = SampleReport(
+        vcf=tmp_path / "sample.vcf",
+        alignment=tmp_path / "sample.bam",
+        reference=tmp_path / "ref.fa",
+        reference_index=tmp_path / "ref.fa.fai",
+        exclude_supplementary=True,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+
+    assert commands[3].processes[0].command == [
+        "samtools",
+        "view",
+        "--threads",
+        "4",
+        "-F",
+        "2048",
+        "-h",
+        "-M",
+        "-X",
+        "-T",
+        str(tmp_path / "ref.fa"),
+        "-L",
+        "sample.report.regions.merged.bed",
+        str(tmp_path / "sample.bam"),
+        "sample.report.alignment.index",
+    ]
+
+
 def test_sample_report_commands_without_alignment_only_render_table(tmp_path):
     stage = SampleReport(
         vcf=tmp_path / "sample.vcf",

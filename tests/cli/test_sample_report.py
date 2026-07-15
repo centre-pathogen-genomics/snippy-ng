@@ -54,6 +54,7 @@ def test_sample_report_cli_builds_pipeline(monkeypatch, tmp_path):
     assert stage.variant_scope == "all"
     assert stage.window_size == 500
     assert stage.reference_index == Path("reference/ref.fa.fai")
+    assert stage.exclude_supplementary is False
     assert not any(isinstance(stage, SamtoolsDownsampleAlignment) for stage in pipeline.stages)
 
 
@@ -267,11 +268,40 @@ def test_short_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
     assert sample_report.vcf == final_vcf.output.copied_file
+    assert sample_report.exclude_supplementary is False
     assert alignment_qc.bam == Path("sample.filtered.bam")
     assert fasta_qc.fasta == Path("sample.fna")
     assert sample_qc.output.qc_tsv in pipeline.outputs_to_keep
     assert alignment_qc.output.summary_tsv not in pipeline.outputs_to_keep
     assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
+
+
+def test_long_clair3_report_excludes_supplementary_alignments(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.long import LongPipelineBuilder
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.long.load_or_prepare_reference",
+    )
+    bam = tmp_path / "reads.bam"
+    bam.write_text("bam")
+    clair3_model = tmp_path / "clair3-model"
+    clair3_model.mkdir()
+
+    pipeline = LongPipelineBuilder(
+        reference=ref_file,
+        reads=None,
+        bam=bam,
+        caller="clair3",
+        clair3_model=clair3_model,
+        prefix="sample",
+    ).build()
+
+    sample_report = next(stage for stage in pipeline.stages if isinstance(stage, SampleReport))
+
+    assert sample_report.exclude_supplementary is True
 
 
 def test_long_pipeline_uses_final_vcf_copy_downstream(monkeypatch, tmp_path):

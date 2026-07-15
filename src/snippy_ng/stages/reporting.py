@@ -436,6 +436,10 @@ class SampleReport(BaseStage):
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override")
     variant_scope: str = Field(default="pass", description="Variant scope to include: pass or all")
     window_size: int = Field(default=1000, description="Base pairs of context to embed around each variant")
+    exclude_supplementary: bool = Field(
+        default=False,
+        description="Exclude supplementary alignments from the embedded report CRAM",
+    )
 
     _dependencies = [bedtools, samtools]
 
@@ -517,6 +521,7 @@ class SampleReport(BaseStage):
                                     "view",
                                     "--threads",
                                     str(ctx.cpus),
+                                ] + (["-F", "2048"] if self.exclude_supplementary else []) + [
                                     "-h",
                                     "-M",
                                     "-X",
@@ -527,7 +532,7 @@ class SampleReport(BaseStage):
                                     str(self.alignment),
                                     str(self.output.alignment_index),
                                 ],
-                                description="Create SAM stream for sample-report clipping",
+                                description="Create SAM stream for sample-report cropping",
                             ),
                             self.shell_cmd(
                                 [
