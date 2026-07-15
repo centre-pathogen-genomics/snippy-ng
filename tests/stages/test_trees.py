@@ -4,7 +4,12 @@ from Bio import Phylo
 
 from snippy_ng.context import Context
 from snippy_ng.pipelines.tree import TreePipelineBuilder
-from snippy_ng.stages.trees import ClonalFrameMLCorrectTree, IQTreeBuildTree, ScaleTreeToSNPs
+from snippy_ng.stages.trees import (
+    ClonalFrameMLCorrectTree,
+    IQTreeBuildTree,
+    ScaleTreeToSNPs,
+    TreeDistanceMatrix,
+)
 
 
 def test_iqtree_outputs_append_extensions_to_dotted_prefix(tmp_path):
@@ -86,6 +91,20 @@ def test_scale_tree_to_snps_includes_fconst_sites(tmp_path):
     assert branch_lengths == [1.0, 2.0, 3.0]
 
 
+def test_tree_distance_matrix_writes_pairwise_terminal_distances(tmp_path):
+    tree = tmp_path / "tree.snps.newick"
+    tree.write_text("(sample_a:1,(sample_b:2,sample_c:3):4);\n")
+    output_distance = tmp_path / "tree.distance.tsv"
+
+    TreeDistanceMatrix.write_distance_matrix(tree, output_distance)
+
+    assert output_distance.read_text().splitlines() == [
+        "sample_b\tsample_a\t7",
+        "sample_c\tsample_a\t8",
+        "sample_c\tsample_b\t5",
+    ]
+
+
 def test_tree_pipeline_adds_snp_scaled_tree_after_iqtree(tmp_path):
     aln = tmp_path / "core.aln"
     aln.write_text(
@@ -98,10 +117,13 @@ def test_tree_pipeline_adds_snp_scaled_tree_after_iqtree(tmp_path):
 
     assert isinstance(pipeline.stages[0], IQTreeBuildTree)
     assert isinstance(pipeline.stages[1], ScaleTreeToSNPs)
+    assert isinstance(pipeline.stages[2], TreeDistanceMatrix)
     assert pipeline.stages[1].tree == pipeline.stages[0].output.tree
     assert pipeline.stages[1].aln == aln
     assert pipeline.stages[1].fconst is None
     assert pipeline.stages[1].output.tree.name == "tree.snps.newick"
+    assert pipeline.stages[2].tree == pipeline.stages[1].output.tree
+    assert pipeline.stages[2].output.distance.name == "tree.distance.tsv"
 
 
 def test_tree_pipeline_passes_fconst_string(tmp_path):
@@ -172,8 +194,9 @@ def test_tree_pipeline_uses_clonalframe_corrected_tree(tmp_path):
         IQTreeBuildTree,
         ClonalFrameMLCorrectTree,
         ScaleTreeToSNPs,
+        TreeDistanceMatrix,
     ]
-    initial_tree, clonalframe, scaled_tree = pipeline.stages
+    initial_tree, clonalframe, scaled_tree, distance_matrix = pipeline.stages
     assert initial_tree.prefix == "tree.initial"
     assert initial_tree.fconst == "1,2,3,4"
     assert clonalframe.tree == initial_tree.output.tree
@@ -183,4 +206,6 @@ def test_tree_pipeline_uses_clonalframe_corrected_tree(tmp_path):
     assert scaled_tree.tree == clonalframe.output.labelled_tree
     assert scaled_tree.aln == aln
     assert scaled_tree.fconst == "1,2,3,4"
+    assert distance_matrix.tree == scaled_tree.output.tree
     assert clonalframe.output.labelled_tree in pipeline.outputs_to_keep
+    assert distance_matrix.output.distance in pipeline.outputs_to_keep

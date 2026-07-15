@@ -256,3 +256,46 @@ class ScaleTreeToSNPs(BaseStage):
                 "newick",
                 format_branch_length="%1.0f",
             )
+
+
+class TreeDistanceMatrixOutput(BaseOutput):
+    distance: Path = Field(..., description="Pairwise tree distances in TSV format")
+
+
+class TreeDistanceMatrix(BaseStage):
+    """Write pairwise terminal distances from a Newick tree as long-form TSV."""
+
+    tree: Path = Field(..., description="Input Newick tree")
+
+    _dependencies = [biopython]
+
+    @property
+    def output(self) -> TreeDistanceMatrixOutput:
+        return TreeDistanceMatrixOutput(distance=Path(f"{self.prefix}.distance.tsv"))
+
+    def create_commands(self, ctx):
+        return [
+            self.python_cmd(
+                func=self.write_distance_matrix,
+                args=[self.tree, self.output.distance],
+                description="Calculate pairwise distances from the tree",
+            )
+        ]
+
+    @staticmethod
+    def write_distance_matrix(tree: Path, output_distance: Path) -> None:
+        phylo_tree = Phylo.read(str(tree), "newick")
+        terminals = phylo_tree.get_terminals()
+        names = [terminal.name for terminal in terminals]
+
+        if any(name is None for name in names):
+            raise TreeBuildingError(f"All tree terminals must have names: {tree}")
+
+        with output_distance.open("w") as handle:
+            for index, terminal in enumerate(terminals[1:], start=1):
+                for other, other_name in zip(terminals[:index], names[:index]):
+                    distance = phylo_tree.distance(terminal, other)
+                    distance_text = (
+                        str(int(distance)) if distance.is_integer() else str(distance)
+                    )
+                    handle.write(f"{names[index]}\t{other_name}\t{distance_text}\n")
