@@ -7,7 +7,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
-@click.option("--assembly", "--asm", required=True, type=AbsolutePath(exists=True, readable=True), help="Assembly in FASTA format")
+@click.option("--assembly", "--asm", required=True, type=AbsolutePath(exists=True, readable=True, dir_okay=False), help="Assembly in FASTA format")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--caller", default="nucmer", type=click.Choice(["nucmer", "paftools"]), help="Caller to use for assembly-based SNP calling")
 @click.option("--caller-opts", default="", type=click.STRING, help="Extra options for the assembly caller")
