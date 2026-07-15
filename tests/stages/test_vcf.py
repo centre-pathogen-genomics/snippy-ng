@@ -2,7 +2,7 @@ from pathlib import Path
 
 from snippy_ng.context import Context
 from snippy_ng.stages.vcf import MIXED_SITE_GT_FILTER
-from snippy_ng.stages.vcf import AssemblyVariantContextFilter
+from snippy_ng.stages.vcf import VariantContextFilter
 from snippy_ng.stages.vcf import CollapseDiploidGenotypes
 from snippy_ng.stages.vcf import VcfFilterLong
 from snippy_ng.stages.vcf import VcfFilterShort
@@ -17,7 +17,7 @@ def _records(vcf: Path) -> list[list[str]]:
     ]
 
 
-def test_assembly_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
+def test_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
     input_vcf = tmp_path / "input.vcf"
     input_vcf.write_text(
         "\n".join(
@@ -33,7 +33,7 @@ def test_assembly_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_pa
     )
     output_vcf = tmp_path / "output.vcf"
 
-    AssemblyVariantContextFilter.filter_vcf(
+    VariantContextFilter.filter_vcf(
         input_vcf,
         output_vcf,
         max_local_snps=1,
@@ -43,10 +43,10 @@ def test_assembly_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_pa
     records = _records(output_vcf)
     assert len(records) == 3
     assert all(record[6] == "LowQual" for record in records)
-    assert all("ASM_CONTEXT_LOWQUAL_REASON=LOCAL_SNP_CLUSTER" in record[7] for record in records)
+    assert all("CONTEXT_LOWQUAL_REASON=LOCAL_SNP_CLUSTER" in record[7] for record in records)
 
 
-def test_assembly_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
+def test_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
     input_vcf = tmp_path / "input.vcf"
     input_vcf.write_text(
         "\n".join(
@@ -62,7 +62,7 @@ def test_assembly_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path
     )
     output_vcf = tmp_path / "output.vcf"
 
-    AssemblyVariantContextFilter.filter_vcf(
+    VariantContextFilter.filter_vcf(
         input_vcf,
         output_vcf,
         min_snp_distance_to_indel=10,
@@ -75,12 +75,12 @@ def test_assembly_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path
         ["chr1", "50", ".", "G", "C"],
     ]
     assert records[0][6] == "LowQual"
-    assert "ASM_CONTEXT_LOWQUAL_REASON=NEAR_INDEL" in records[0][7]
+    assert "CONTEXT_LOWQUAL_REASON=NEAR_INDEL" in records[0][7]
     assert records[1][6] == "."
     assert records[2][6] == "."
 
 
-def test_assembly_variant_context_filter_marks_snps_near_alignment_edges_lowqual(tmp_path):
+def test_variant_context_filter_marks_snps_near_alignment_edges_lowqual(tmp_path):
     input_vcf = tmp_path / "input.vcf"
     input_vcf.write_text(
         "\n".join(
@@ -95,7 +95,7 @@ def test_assembly_variant_context_filter_marks_snps_near_alignment_edges_lowqual
     )
     output_vcf = tmp_path / "output.vcf"
 
-    AssemblyVariantContextFilter.filter_vcf(
+    VariantContextFilter.filter_vcf(
         input_vcf,
         output_vcf,
         min_snp_distance_to_breakpoint=10,
@@ -107,8 +107,66 @@ def test_assembly_variant_context_filter_marks_snps_near_alignment_edges_lowqual
         ["chr1", "50", ".", "G", "C"],
     ]
     assert records[0][6] == "LowQual"
-    assert "ASM_CONTEXT_LOWQUAL_REASON=NEAR_ALIGNMENT_EDGE" in records[0][7]
+    assert "CONTEXT_LOWQUAL_REASON=NEAR_ALIGNMENT_EDGE" in records[0][7]
     assert records[1][6] == "."
+
+
+def test_variant_context_filter_does_not_duplicate_existing_headers(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                '##FILTER=<ID=LowQual,Description="Existing caller filter">',
+                '##INFO=<ID=CONTEXT_LOWQUAL_REASON,Number=.,Type=String,Description="Existing context reasons">',
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
+                "chr1\t10\t.\tA\tT\t60\t.\t.",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+    output_vcf = tmp_path / "output.vcf"
+
+    VariantContextFilter.filter_vcf(input_vcf, output_vcf)
+
+    headers = [line for line in output_vcf.read_text(encoding="utf-8").splitlines() if line.startswith("##")]
+    assert sum(line.startswith("##FILTER=<ID=LowQual,") for line in headers) == 1
+    assert sum(line.startswith("##INFO=<ID=CONTEXT_LOWQUAL_REASON,") for line in headers) == 1
+
+
+def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    input_vcf.write_text(
+        "\n".join(
+            [
+                "##fileformat=VCFv4.2",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
+                "chr1\t10\t.\tA\tT\t60\t.\t.",
+            ]
+        ) + "\n",
+        encoding="utf-8",
+    )
+    output_vcf = tmp_path / "output.vcf"
+    stage = VariantContextFilter(
+        vcf=input_vcf,
+        max_local_snps=0,
+        local_snp_window=0,
+        min_snp_distance_to_indel=0,
+        min_snp_distance_to_breakpoint=0,
+    )
+
+    assert stage.enabled is False
+    stage.filter_vcf(input_vcf, output_vcf)
+    assert output_vcf.read_text(encoding="utf-8") == input_vcf.read_text(encoding="utf-8")
+
+
+def test_variant_context_filter_is_enabled_when_a_rule_is_configured(tmp_path):
+    stage = VariantContextFilter(
+        vcf=tmp_path / "input.vcf",
+        min_snp_distance_to_indel=10,
+    )
+
+    assert stage.enabled is True
 
 
 def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():

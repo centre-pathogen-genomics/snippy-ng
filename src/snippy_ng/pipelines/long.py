@@ -7,7 +7,7 @@ from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
 from snippy_ng.stages.mapping import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
+from snippy_ng.stages.vcf import AddDeletionsToVCF, CollapseDiploidGenotypes, VariantContextFilter, VcfFilterLong, VcfPassFilter, VcfToTab
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
@@ -237,6 +237,14 @@ class LongPipelineBuilder(PipelineBuilder):
             )
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
+
+        context_filter = VariantContextFilter(
+            vcf=variants_file,
+            **globals,
+        )
+        if context_filter.enabled:
+            stages.append(context_filter)
+            variants_file = context_filter.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(

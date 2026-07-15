@@ -166,3 +166,23 @@ def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
     ).build()
 
     assert not any(isinstance(stage, SampleReport) for stage in pipeline.stages)
+
+
+def test_asm_pipeline_adds_context_filter_when_enabled(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
+    from snippy_ng.stages.vcf import VariantContextFilter
+
+    monkeypatch.setenv("SNIPPY_NG_VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL", "10")
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "asm": tmp_path / "assembly.fa",
+    }
+    write_dummy_files(paths, ["ref", "asm"])
+
+    pipeline = AsmPipelineBuilder(
+        reference=paths["ref"],
+        assembly=paths["asm"],
+        prefix="sample",
+    ).build()
+
+    assert any(isinstance(stage, VariantContextFilter) for stage in pipeline.stages)

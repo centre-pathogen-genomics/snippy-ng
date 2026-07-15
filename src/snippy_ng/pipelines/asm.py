@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
+from snippy_ng.stages.vcf import AddDeletionsToVCF, CollapseDiploidGenotypes, VariantContextFilter, VcfFilterAsm, VcfPassFilter, VcfToTab
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
@@ -116,15 +116,17 @@ class AsmPipelineBuilder(PipelineBuilder):
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
 
-        context_filter = AssemblyVariantContextFilter(
+        context_filter = VariantContextFilter(
             vcf=variants_file,
             prefix=self.prefix,
         )
-        stages.append(context_filter)
+        if context_filter.enabled:
+            stages.append(context_filter)
+            variants_file = context_filter.output.vcf
 
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
-            variants=context_filter.output.vcf,
+            variants=variants_file,
             features=features_file,
             reference=reference_file,
             prefix=self.prefix

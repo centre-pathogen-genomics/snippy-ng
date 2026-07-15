@@ -20,8 +20,8 @@ class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
 
-class AssemblyVariantContextFilterOutput(BaseOutput):
-    vcf: Path = Field(..., description="Assembly VCF after generic local-context variant filtering")
+class VariantContextFilterOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF after local-context variant filtering")
 
 
 class VcfPassFilterOutput(BaseOutput):
@@ -201,41 +201,63 @@ class VcfFilter(BaseStage):
         logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
 
 
-class AssemblyVariantContextFilter(BaseStage):
+class VariantContextFilter(BaseStage):
     """
-    Apply caller-independent assembly variant context filters to a raw VCF.
+    Apply caller-independent local-context variant filters to a VCF.
     """
 
-    vcf: Path = Field(..., description="Input assembly VCF")
+    vcf: Path = Field(..., description="Input VCF")
     max_local_snps: int = EnvVarField(
-        2,
-        "ASM_MAX_LOCAL_SNPS",
+        0,
+        "VARIANT_CONTEXT_MAX_LOCAL_SNPS",
         parser=lambda raw: int(raw.strip()),
-        description="Maximum SNPs allowed within the local assembly SNP window. 0 disables this filter.",
+        description="Maximum SNPs allowed within the local SNP window. 0 disables this filter.",
     )
     local_snp_window: int = EnvVarField(
-        10,
-        "ASM_LOCAL_SNP_WINDOW",
+        0,
+        "VARIANT_CONTEXT_LOCAL_SNP_WINDOW",
         parser=lambda raw: int(raw.strip()),
-        description="Reference-base window radius for local assembly SNP density filtering. 0 disables this filter.",
+        description="Reference-base window radius for local SNP density filtering. 0 disables this filter.",
     )
     min_snp_distance_to_indel: int = EnvVarField(
-        10,
-        "ASM_MIN_SNP_DISTANCE_TO_INDEL",
+        0,
+        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL",
         parser=lambda raw: int(raw.strip()),
-        description="Minimum reference-base distance required between an assembly SNP and any assembly indel. 0 disables this filter.",
+        description="Minimum reference-base distance required between a SNP and any indel. 0 disables this filter.",
     )
     min_snp_distance_to_breakpoint: int = EnvVarField(
-        10,
-        "ASM_MIN_SNP_DISTANCE_TO_BREAKPOINT",
+        0,
+        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_BREAKPOINT",
         parser=lambda raw: int(raw.strip()),
-        description="Minimum reference-base distance required between an assembly SNP and caller-provided alignment edge distance. 0 disables this filter.",
+        description="Minimum reference-base distance required between a SNP and caller-provided alignment edge distance. 0 disables this filter.",
     )
 
     @property
-    def output(self) -> AssemblyVariantContextFilterOutput:
-        return AssemblyVariantContextFilterOutput(
+    def output(self) -> VariantContextFilterOutput:
+        return VariantContextFilterOutput(
             vcf=Path(f"{self.prefix}.context.vcf"),
+        )
+
+    @property
+    def enabled(self) -> bool:
+        return self.filters_enabled(
+            self.max_local_snps,
+            self.local_snp_window,
+            self.min_snp_distance_to_indel,
+            self.min_snp_distance_to_breakpoint,
+        )
+
+    @staticmethod
+    def filters_enabled(
+        max_local_snps: int,
+        local_snp_window: int,
+        min_snp_distance_to_indel: int,
+        min_snp_distance_to_breakpoint: int,
+    ) -> bool:
+        return (
+            (max_local_snps > 0 and local_snp_window > 0)
+            or min_snp_distance_to_indel > 0
+            or min_snp_distance_to_breakpoint > 0
         )
 
     def create_commands(self, ctx) -> List:
@@ -250,7 +272,7 @@ class AssemblyVariantContextFilter(BaseStage):
                     self.min_snp_distance_to_indel,
                     self.min_snp_distance_to_breakpoint,
                 ],
-                description="Apply assembly variant context filters",
+                description="Apply variant context filters",
             )
         ]
 
@@ -310,7 +332,7 @@ class AssemblyVariantContextFilter(BaseStage):
 
     @staticmethod
     def _edge_distance(info: dict[str, str]) -> int | None:
-        for key in ("ASM_EDGE_DIST", "MUMMER_EDGE_DIST"):
+        for key in ("CONTEXT_EDGE_DIST", "EDGE_DIST", "ASM_EDGE_DIST", "MUMMER_EDGE_DIST"):
             value = info.get(key)
             if value is None:
                 continue
@@ -350,6 +372,15 @@ class AssemblyVariantContextFilter(BaseStage):
         min_snp_distance_to_indel: int = 0,
         min_snp_distance_to_breakpoint: int = 0,
     ) -> None:
+        local_snp_filter_enabled = max_local_snps > 0 and local_snp_window > 0
+        indel_distance_filter_enabled = min_snp_distance_to_indel > 0
+        breakpoint_distance_filter_enabled = min_snp_distance_to_breakpoint > 0
+        any_filter_enabled = cls.filters_enabled(
+            max_local_snps,
+            local_snp_window,
+            min_snp_distance_to_indel,
+            min_snp_distance_to_breakpoint,
+        )
         headers: list[str] = []
         records: list[list[str]] = []
         snp_positions_by_ref: dict[str, list[int]] = defaultdict(list)
@@ -379,14 +410,28 @@ class AssemblyVariantContextFilter(BaseStage):
         for positions in indel_positions_by_ref.values():
             positions.sort()
 
+        header_text = "".join(headers)
+        context_header_lines = []
+        if any_filter_enabled:
+            context_header_lines.extend([
+                ('FILTER', 'LowQual', '##FILTER=<ID=LowQual,Description="Low-quality variant call based on local context">\n'),
+                ('INFO', 'CONTEXT_LOWQUAL_REASON', '##INFO=<ID=CONTEXT_LOWQUAL_REASON,Number=.,Type=String,Description="Context reasons this variant was marked LowQual">\n'),
+            ])
+        if indel_distance_filter_enabled:
+            context_header_lines.append(
+                ('INFO', 'CONTEXT_INDEL_DIST', '##INFO=<ID=CONTEXT_INDEL_DIST,Number=1,Type=Integer,Description="Distance in reference bases from this SNP to the nearest indel candidate">\n')
+            )
+        if local_snp_filter_enabled:
+            context_header_lines.append(
+                ('INFO', 'CONTEXT_LOCAL_SNPS', '##INFO=<ID=CONTEXT_LOCAL_SNPS,Number=1,Type=Integer,Description="Number of SNP candidates within the configured local SNP window">\n')
+            )
+
         with open(output_vcf, "w", encoding="utf-8") as handle:
             for header in headers:
                 if header.startswith("#CHROM"):
-                    handle.write('##FILTER=<ID=LowQual,Description="Low-quality assembly variant call based on local assembly context">\n')
-                    handle.write('##INFO=<ID=ASM_INDEL_DIST,Number=1,Type=Integer,Description="Distance in reference bases from this SNP to the nearest assembly indel candidate">\n')
-                    handle.write('##INFO=<ID=ASM_LOCAL_SNPS,Number=1,Type=Integer,Description="Number of SNP candidates within the configured local assembly SNP window">\n')
-                    handle.write('##INFO=<ID=ASM_CONTEXT_LOWQUAL_REASON,Number=.,Type=String,Description="Assembly context reasons this variant was marked LowQual">\n')
-                    handle.write('##INFO=<ID=ASM_LOWQUAL_REASON,Number=.,Type=String,Description="Assembly reasons this variant was marked LowQual">\n')
+                    for header_type, identifier, definition in context_header_lines:
+                        if f"##{header_type}=<ID={identifier}," not in header_text:
+                            handle.write(definition)
                 handle.write(header)
 
             for fields in records:
@@ -402,30 +447,27 @@ class AssemblyVariantContextFilter(BaseStage):
                 info = cls._parse_info(fields[7])
                 lowqual_reasons: list[str] = []
 
-                edge_distance = cls._edge_distance(info)
-                if (
-                    min_snp_distance_to_breakpoint > 0
-                    and edge_distance is not None
-                    and edge_distance < min_snp_distance_to_breakpoint
-                ):
-                    lowqual_reasons.append("NEAR_ALIGNMENT_EDGE")
+                if breakpoint_distance_filter_enabled:
+                    edge_distance = cls._edge_distance(info)
+                    if edge_distance is not None and edge_distance < min_snp_distance_to_breakpoint:
+                        lowqual_reasons.append("NEAR_ALIGNMENT_EDGE")
 
-                indel_distance = cls._nearest_distance(pos, indel_positions_by_ref.get(chrom, []))
-                if indel_distance is not None:
-                    info["ASM_INDEL_DIST"] = str(indel_distance)
-                    if min_snp_distance_to_indel > 0 and indel_distance < min_snp_distance_to_indel:
-                        lowqual_reasons.append("NEAR_INDEL")
+                if indel_distance_filter_enabled:
+                    indel_distance = cls._nearest_distance(pos, indel_positions_by_ref.get(chrom, []))
+                    if indel_distance is not None:
+                        info["CONTEXT_INDEL_DIST"] = str(indel_distance)
+                        if indel_distance < min_snp_distance_to_indel:
+                            lowqual_reasons.append("NEAR_INDEL")
 
-                if max_local_snps > 0 and local_snp_window > 0:
+                if local_snp_filter_enabled:
                     local_snps = cls._count_positions_in_window(pos, snp_positions_by_ref.get(chrom, []), local_snp_window)
-                    info["ASM_LOCAL_SNPS"] = str(local_snps)
+                    info["CONTEXT_LOCAL_SNPS"] = str(local_snps)
                     if local_snps > max_local_snps:
                         lowqual_reasons.append("LOCAL_SNP_CLUSTER")
 
-                for reason in lowqual_reasons:
-                    cls._append_info_reason(info, "ASM_CONTEXT_LOWQUAL_REASON", reason)
-                    cls._append_info_reason(info, "ASM_LOWQUAL_REASON", reason)
                 if lowqual_reasons:
+                    for reason in lowqual_reasons:
+                        cls._append_info_reason(info, "CONTEXT_LOWQUAL_REASON", reason)
                     fields[6] = cls._append_filter(fields[6], "LowQual")
 
                 fields[7] = cls._format_info(info)
