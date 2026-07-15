@@ -8,7 +8,7 @@ from pathlib import Path
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @click.option("--outdir", "-o", default="report", required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="tree", help="Prefix for html report", cls=GlobalOption)
-@add_snippy_global_options(exclude=['prefix', 'outdir'])
+@add_snippy_global_options(exclude=['prefix', 'outdir', 'sample_name'])
 @click.argument("newick", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--metadata", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional metadata file (JSON or CSV) to include in the report")
 @click.option("--color-by-column", required=False, type=click.STRING, help="Column name in the metadata to color the tree by")

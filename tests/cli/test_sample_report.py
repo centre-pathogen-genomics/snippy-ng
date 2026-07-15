@@ -295,7 +295,7 @@ def test_long_clair3_report_excludes_supplementary_alignments(monkeypatch, tmp_p
         reads=None,
         bam=bam,
         caller="clair3",
-        clair3_model=clair3_model,
+        model=clair3_model,
         prefix="sample",
     ).build()
 

@@ -35,7 +35,7 @@ class LongPipelineBuilder(PipelineBuilder):
     minimap_preset: str = Field(default="map-ont", description="Minimap2 preset")
     caller: str = Field(default="clair3", description="Variant caller (clair3 or freebayes)")
     caller_opts: str = Field(default="", description="Additional caller options")
-    clair3_model: Optional[Path] = Field(default=None, description="Clair3 model path")
+    model: Optional[Path] = Field(default=None, description="Clair3 model path")
     mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
@@ -172,10 +172,10 @@ class LongPipelineBuilder(PipelineBuilder):
         
         # SNP calling
         if self.caller == "clair3":
-            clair3_model = self.clair3_model
+            clair3_model = self.model
             if clair3_model is None:
                 if not current_reads:
-                    raise ValueError("Clair3 model can not be auto-detected without reads. Provide --clair3-model when using BAM/CRAM input.")
+                    raise ValueError("Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input.")
                 longbow_stage = LongbowClair3ModelSelector(
                     reads=Path(current_reads[0]),
                     **globals

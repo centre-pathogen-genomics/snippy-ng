@@ -141,6 +141,8 @@ def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_p
         "\n".join(
             [
                 "##fileformat=VCFv4.2",
+                '##FILTER=<ID=LowQual,Description="Low-quality variant call based on local context">',
+                '##INFO=<ID=CONTEXT_LOWQUAL_REASON,Number=.,Type=String,Description="Context reasons this variant was marked LowQual">',
                 "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
                 "chr1\t10\t.\tA\tT\t60\t.\t.",
             ]
@@ -202,7 +204,7 @@ def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
 
     commands = stage.create_commands(Context(ram=4))
 
-    mixed_site_cmd = commands[0].processes[-1]
+    mixed_site_cmd = commands[0].processes[-2]
     assert mixed_site_cmd.command == [
         "bcftools",
         "filter",

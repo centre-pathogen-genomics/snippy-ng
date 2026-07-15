@@ -3,6 +3,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from collections import defaultdict
 from pathlib import Path
+import shutil
 
 
 def _parse_info(info: str) -> dict[str, str]:
@@ -97,6 +98,16 @@ def filter_variant_context_vcf(
     local_snp_filter_enabled = max_local_snps > 0 and local_snp_window > 0
     indel_distance_filter_enabled = min_snp_distance_to_indel > 0
     breakpoint_distance_filter_enabled = min_snp_distance_to_breakpoint > 0
+
+    if not (
+        local_snp_filter_enabled
+        or indel_distance_filter_enabled
+        or breakpoint_distance_filter_enabled
+    ):
+        with open(input_vcf, "r", encoding="utf-8") as source, open(output_vcf, "w", encoding="utf-8") as destination:
+            shutil.copyfileobj(source, destination)
+        return
+
     headers: list[str] = []
     records: list[list[str]] = []
     snp_positions_by_ref: dict[str, list[int]] = defaultdict(list)

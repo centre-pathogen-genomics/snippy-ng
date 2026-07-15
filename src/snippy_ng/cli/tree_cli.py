@@ -9,7 +9,7 @@ from pathlib import Path
 @click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="tree", help="Prefix for output files", cls=GlobalOption)
 @click.option("--ram", "-r", default=None, required=False, type=int, help="Try and keep RAM under this many GB", cls=GlobalOption)
-@add_snippy_global_options(exclude=['prefix', 'outdir', 'ram'])
+@add_snippy_global_options(exclude=['prefix', 'outdir', 'ram', 'sample_name'])
 @click.argument("alignment", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction. Use 'TEST' to select the best model.")
 @click.option("--bootstrap", type=click.INT, default=1000, help="Number of bootstrap replicates to perform")

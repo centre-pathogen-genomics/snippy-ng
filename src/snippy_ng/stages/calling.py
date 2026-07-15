@@ -1164,7 +1164,7 @@ class LongbowClair3ModelSelector(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        logger.warning("Running Longbow to predict ONT basecalling configuration for Clair3 model selection. This may take a few minutes... Specify --clair3-model to skip this step and use a specific model.")
+        logger.warning("Running Longbow to predict ONT basecalling configuration for Clair3 model selection. This may take a few minutes... Specify --model to skip this step and use a specific model.")
         return [
             self.shell_cmd(
                 [
@@ -1469,7 +1469,7 @@ class LongbowClair3ModelSelector(BaseStage):
         raise Clair3ModelSelectorError(
             "Could not resolve a Clair3 model from Longbow prediction "
             f"({cls._longbow_summary(prediction)}). Searched roots: {', '.join(str(root) for root in roots)}. "
-            f"Tried models: {', '.join(candidates)}. Provide --clair3-model to override."
+            f"Tried models: {', '.join(candidates)}. Provide --model to override."
         )
 
     @classmethod
