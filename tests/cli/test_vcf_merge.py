@@ -4,6 +4,7 @@ from subprocess import CompletedProcess
 from click.testing import CliRunner
 
 from snippy_ng.cli.vcf.merge_cli import merge
+from snippy_ng.cli.vcf.plot_cli import plot
 from snippy_ng.utils.vcf_merge import _unique_names
 
 
@@ -14,9 +15,9 @@ def _write_vcf(path: Path, records: list[str]) -> None:
     )
 
 
-def test_merge_cli_runs_bcftools_and_writes_upset_plot(tmp_path, monkeypatch):
+def test_merge_cli_runs_bcftools(tmp_path, monkeypatch):
     first, second = tmp_path / "first.vcf", tmp_path / "second.vcf"
-    output, plot = tmp_path / "merged.vcf", tmp_path / "overlap.svg"
+    output = tmp_path / "merged.vcf"
     _write_vcf(first, ["chr1\t10\t.\tA\tT\t60\tPASS\t.", "chr1\t20\t.\tC\tG\t60\tPASS\t."])
     _write_vcf(second, ["chr1\t10\t.\tA\tT\t60\tPASS\t.", "chr1\t30\t.\tG\tA\t60\tPASS\t."])
     commands = []
@@ -27,13 +28,10 @@ def test_merge_cli_runs_bcftools_and_writes_upset_plot(tmp_path, monkeypatch):
         return CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr("snippy_ng.utils.vcf_merge.subprocess.run", fake_run)
-    result = CliRunner().invoke(merge, [str(first), str(second), "-o", str(output), "--upset-plot", str(plot)])
+    result = CliRunner().invoke(merge, [str(first), str(second), "-o", str(output)])
 
     assert result.exit_code == 0, result.output
     assert commands == [["bcftools", "merge", "--no-index", "--force-samples", "--output-type", "v", "--output", str(output), str(first), str(second)]]
-    svg = plot.read_text(encoding="utf-8")
-    assert "VCF call-set overlap" in svg
-    assert ">1</text>" in svg
 
 
 def test_merge_cli_accepts_vcf_file_list(tmp_path, monkeypatch):
@@ -64,6 +62,42 @@ def test_merge_cli_omits_output_path_and_streams_to_stdout(tmp_path, monkeypatch
 
     assert result.exit_code == 0, result.output
     assert commands == [["bcftools", "merge", "--no-index", "--force-samples", "--output-type", "v", str(first), str(second)]]
+
+
+def test_plot_upset_cli_builds_svg_from_vcf_paths(tmp_path):
+    first, second = tmp_path / "first.vcf", tmp_path / "second.vcf"
+    output = tmp_path / "overlap.svg"
+    _write_vcf(first, ["chr1\t10\t.\tA\tT\t60\tPASS\t.", "chr1\t20\t.\tC\tG\t60\tPASS\t."])
+    _write_vcf(second, ["chr1\t10\t.\tA\tT\t60\tPASS\t.", "chr1\t30\t.\tG\tA\t60\tPASS\t."])
+
+    result = CliRunner().invoke(plot, ["upset", str(first), str(second), "-o", str(output)])
+
+    assert result.exit_code == 0, result.output
+    svg = output.read_text(encoding="utf-8")
+    assert "VCF call-set overlap" in svg
+    assert ">first</text>" in svg
+    assert ">second</text>" in svg
+
+
+def test_plot_upset_cli_accepts_merged_vcf_on_stdin(tmp_path):
+    output = tmp_path / "stdin-overlap.svg"
+    merged_vcf = "\n".join(
+        [
+            "##fileformat=VCFv4.2",
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tcaller_a\tcaller_b",
+            "chr1\t10\t.\tA\tT\t60\tPASS\t.\tGT\t1/1\t0/0",
+            "chr1\t20\t.\tC\tG\t60\tPASS\t.\tGT\t1/1\t1/1",
+            "chr1\t30\t.\tG\tA\t60\tPASS\t.\tGT\t0/0\t1/1",
+        ]
+    ) + "\n"
+
+    result = CliRunner().invoke(plot, ["upset", "-o", str(output)], input=merged_vcf)
+
+    assert result.exit_code == 0, result.output
+    svg = output.read_text(encoding="utf-8")
+    assert "VCF call-set overlap" in svg
+    assert ">caller_a</text>" in svg
+    assert ">caller_b</text>" in svg
 
 
 def test_unique_names_prefers_sample_name_from_vcf_header(tmp_path):

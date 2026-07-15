@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import html
+import io
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -70,13 +71,74 @@ def write_upset_svg(input_vcfs: list[Path], output_svg: Path, *, max_intersectio
     of a record's FILTER value or genotype. Multiallelic records are split into
     one membership entry for each ALT allele.
     """
+    svg = upset_svg_for_vcfs(input_vcfs, max_intersections=max_intersections)
+    output_svg.parent.mkdir(parents=True, exist_ok=True)
+    output_svg.write_text(svg, encoding="utf-8")
+
+
+def upset_svg_for_vcfs(input_vcfs: list[Path], *, max_intersections: int = 40) -> str:
     names = _unique_names(input_vcfs)
     variant_sets = [_variant_keys(path) for path in input_vcfs]
     counts: Counter[tuple[bool, ...]] = Counter()
     for key in set().union(*variant_sets):
         counts[tuple(key in variants for variants in variant_sets)] += 1
-    output_svg.parent.mkdir(parents=True, exist_ok=True)
-    output_svg.write_text(_upset_svg(counts, names, max_intersections=max_intersections), encoding="utf-8")
+    return _upset_svg(counts, names, max_intersections=max_intersections)
+
+
+def upset_svg_from_merged_vcf_text(vcf_text: str, *, max_intersections: int = 40) -> str:
+    if not vcf_text.strip():
+        raise VcfMergeError("No VCF data received on stdin")
+    return upset_svg_from_merged_vcf(io.StringIO(vcf_text), max_intersections=max_intersections)
+
+
+def upset_svg_from_merged_vcf(handle: TextIO, *, max_intersections: int = 40) -> str:
+    names: list[str] = []
+    counts: Counter[tuple[bool, ...]] = Counter()
+
+    for line in handle:
+        if not line.strip():
+            continue
+        if line.startswith("##"):
+            continue
+        if line.startswith("#CHROM"):
+            fields = line.rstrip("\n").split("\t")
+            names = [name.strip() for name in fields[9:] if name.strip()]
+            continue
+        if line.startswith("#"):
+            continue
+
+        fields = line.rstrip("\n").split("\t")
+        if len(fields) < 10:
+            continue
+        if not names:
+            raise VcfMergeError("Merged VCF on stdin has no sample columns")
+
+        format_fields = fields[8].split(":")
+        try:
+            gt_index = format_fields.index("GT")
+        except ValueError:
+            continue
+
+        membership: list[bool] = []
+        for sample_field in fields[9 : 9 + len(names)]:
+            sample_values = sample_field.split(":")
+            gt = sample_values[gt_index] if gt_index < len(sample_values) else "."
+            membership.append(_gt_has_alt(gt))
+        counts[tuple(membership)] += 1
+
+    if not names:
+        raise VcfMergeError("Merged VCF on stdin is missing a #CHROM header with sample names")
+
+    return _upset_svg(counts, names, max_intersections=max_intersections)
+
+
+def _gt_has_alt(gt: str) -> bool:
+    if not gt or gt == ".":
+        return False
+    for allele in gt.replace("|", "/").split("/"):
+        if allele.isdigit() and int(allele) > 0:
+            return True
+    return False
 
 
 def _open_vcf(path: Path) -> TextIO:
