@@ -25,7 +25,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
     caller_opts: str = Field(default="", description="Additional caller options")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
@@ -37,7 +37,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = self.sample_name or strip_bio_suffixes(Path(self.assembly).name)
+        sample_name = self.sample_name if self.sample_name else strip_bio_suffixes(Path(self.assembly).name)
         reference_input = self.reference
 
         if self.reference_accession:
@@ -75,6 +75,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 reference_index=reference_index,
                 additional_options=self.caller_opts,
                 prefix=self.prefix,
+                sample_name=sample_name
             )
         else:
             aligner = AssemblyAligner(
@@ -91,6 +92,7 @@ class AsmPipelineBuilder(PipelineBuilder):
                 reference_index=reference_index,
                 additional_options=self.caller_opts,
                 prefix=self.prefix,
+                sample_name=sample_name
             )
         stages.append(caller)
 

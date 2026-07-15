@@ -16,7 +16,7 @@ from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
-from snippy_ng.utils.gather import strip_bio_suffixes
+from snippy_ng.utils.gather import strip_bio_suffixes, strip_read_direction_suffix
 
 
 class ShortPipelineBuilder(PipelineBuilder):
@@ -51,6 +51,11 @@ class ShortPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        if sample_name is None and self.bam:
+            sample_name = strip_bio_suffixes(Path(self.bam).name)
+        if sample_name is None and self.reads:
+            sample_name = strip_read_direction_suffix(strip_bio_suffixes(Path(self.reads[0]).name))
+        reference_input = self.reference
         reference_input = self.reference
 
         if self.reference_accession:
@@ -173,6 +178,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             reference_index=reference_index,
             additional_options=self.caller_opts,
             min_mapping_quality=self.min_mapping_quality,
+            sample_name=sample_name,
             **globals
         )
         stages.append(caller)

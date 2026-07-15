@@ -47,6 +47,7 @@ def long(
     min_qual: Optional[float],
     report: bool,
     prefix: str,
+    sample_name: Optional[str],
     **context: Any,
 ):
     """
@@ -82,6 +83,7 @@ def long(
         reference_accession=reference_accession,
         reads=reads,
         prefix=prefix,
+        sample_name=sample_name,
         bam=bam,
         aligner=aligner,
         aligner_opts=aligner_opts,

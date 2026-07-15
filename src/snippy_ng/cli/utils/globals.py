@@ -89,6 +89,13 @@ GLOBAL_DEFS = [
         },
     },
     {
+        "param_decls": ("--sample-name", "-n"),
+        "attrs": {
+            "type": click.STRING,
+            "help": "Optional sample name override for output tables and reports (default: input file basename)",
+        },
+    },
+    {
         "param_decls": ("--cpus", "-c"),
         "attrs": {
             "type": int,

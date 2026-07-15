@@ -14,6 +14,7 @@ from snippy_ng.stages.calling import (
     PAFCaller,
     ShowSnpsCaller,
     get_short_chunk_size,
+    rename_vcf_sample,
 )
 
 
@@ -93,6 +94,41 @@ def test_freebayes_caller_uses_configured_mapping_quality(tmp_path):
     assert freebayes_command[
         freebayes_command.index("--min-mapping-quality") + 1
     ] == "30"
+
+
+def test_freebayes_caller_renames_vcf_sample_when_requested(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1\t0\t1\t2\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+
+    commands = FreebayesCaller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        prefix="result",
+        sample_name="result",
+    ).create_commands(Context(cpus=1))
+
+    assert commands[-1].args == [Path("result.raw.vcf"), "result"]
+
+
+def test_rename_vcf_sample_replaces_the_single_sample_column(tmp_path):
+    vcf = tmp_path / "calls.vcf"
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tunknown\n"
+        "chr1\t1\t.\tA\tT\t60\tPASS\t.\tGT\t1/1\n",
+        encoding="utf-8",
+    )
+
+    rename_vcf_sample(vcf, "PW00000318")
+
+    assert vcf.read_text(encoding="utf-8").splitlines()[1].endswith("\tFORMAT\tPW00000318")
 
 
 def test_freebayes_long_caller_uses_configured_mapping_quality(tmp_path):

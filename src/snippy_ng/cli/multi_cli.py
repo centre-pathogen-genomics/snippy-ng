@@ -105,7 +105,7 @@ def run_multi_config(
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
 @click.option("--cpus-per-sample", type=click.INT, default=None, help="Number of CPUs to allocate per sample", cls=GlobalOption)
-@add_snippy_global_options()
+@add_snippy_global_options(exclude=["sample_name"])
 @click.argument(
     "config",
     required=True,

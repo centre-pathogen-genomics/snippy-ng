@@ -1,5 +1,5 @@
 import click
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 from pathlib import Path
 from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
@@ -12,7 +12,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--caller", default="nucmer", type=click.Choice(["nucmer", "paftools"]), help="Caller to use for assembly-based SNP calling")
 @click.option("--caller-opts", default="", type=click.STRING, help="Extra options for the assembly caller")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
-def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: str, caller_opts: str, report: bool, prefix: str, **context: Any):
+def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: Literal["nucmer", "paftools"], caller_opts: str, report: bool, prefix: str, sample_name: Optional[str], **context: Any):
     """
     Assembly based SNP calling pipeline
 
@@ -26,7 +26,7 @@ def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: str
 
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
-    reference_path = None if reference_accession else reference
+    reference_path = None if reference_accession else Path(reference)
     
     # Choose stages to include in the pipeline
     # ensure this will raise ValidationError if config is invalid
@@ -37,6 +37,7 @@ def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: str
         reference_accession=reference_accession,
         assembly=assembly,
         prefix=prefix,
+        sample_name=sample_name,
         caller=caller,
         caller_opts=caller_opts,
         mask=mask,

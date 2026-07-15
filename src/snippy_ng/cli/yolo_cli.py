@@ -15,7 +15,7 @@ from snippy_ng.utils.system import available_cpu_count
     cls=CommandWithGlobals, context_settings={"show_default": True}, hidden=True
 )
 @click.option("--cpus", "-c", default=None, required=False, type=int, help="Maximum number of CPUs to use. By default, uses all available CPUs.", cls=GlobalOption)
-@add_snippy_global_options(['cpus'])
+@add_snippy_global_options(['cpus', 'sample_name'])
 @click.option("--reference", "--ref", required=False, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI/AllTheBacteria assembly accession")
 @click.argument(
     "directory",

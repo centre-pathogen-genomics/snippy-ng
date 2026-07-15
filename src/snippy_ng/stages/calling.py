@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from bisect import bisect_right
 from collections import defaultdict
 
@@ -63,6 +64,30 @@ def no_spaces(v: str) -> str:
     return v
 
 
+def rename_vcf_sample(vcf: Path, sample_name: str) -> None:
+    """Replace the single VCF sample-column name without loading the VCF in memory."""
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=vcf.parent,
+        prefix=f".{vcf.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as temporary:
+        temporary_path = Path(temporary.name)
+        with open(vcf, "r", encoding="utf-8") as source:
+            for line in source:
+                if not line.startswith("#CHROM"):
+                    temporary.write(line)
+                    continue
+                fields = line.rstrip("\n").split("\t")
+                if len(fields) > 9:
+                    fields[9] = sample_name
+                    line = "\t".join(fields) + "\n"
+                temporary.write(line)
+    os.replace(temporary_path, vcf)
+
+
 # Define the base Pydantic model for alignment parameters
 class Caller(BaseStage):
     reference: Path = Field(
@@ -74,6 +99,7 @@ class Caller(BaseStage):
         ..., description="Output file prefix"
     )
     additional_options: str = Field("", description="Additional options for the caller")
+    sample_name: Optional[str] = Field(default=None, description="Optional VCF sample-column name")
 
     def test_check_if_vcf_has_variants(self):
         """Test that the output VCF file is not empty."""
@@ -158,7 +184,14 @@ class FreebayesCaller(Caller):
             description="Call variants with FreeBayes in parallel",
             output_file=Path(self.output.vcf),
         )
-        return [generate_regions_pipeline, freebayes_cmd]
+        commands = [generate_regions_pipeline, freebayes_cmd]
+        if self.sample_name:
+            commands.append(self.python_cmd(
+                func=rename_vcf_sample,
+                args=[Path(self.output.vcf), self.sample_name],
+                description="Set VCF sample name",
+            ))
+        return commands
 
 
 class FreebayesCallerLong(FreebayesCaller):
@@ -205,7 +238,14 @@ class FreebayesCallerLong(FreebayesCaller):
             output_file=Path(self.output.vcf),
         )
         
-        return [generate_regions_cmd, freebayes_cmd]
+        commands = [generate_regions_cmd, freebayes_cmd]
+        if self.sample_name:
+            commands.append(self.python_cmd(
+                func=rename_vcf_sample,
+                args=[Path(self.output.vcf), self.sample_name],
+                description="Set VCF sample name",
+            ))
+        return commands
 
 class PAFCallerOutput(BaseCallerOutput):
     vcf: Path = Field(..., description="VCF file with raw PAF-derived variant calls and annotations")
@@ -315,7 +355,7 @@ class PAFCaller(Caller):
             "-l",
             str(self.min_alignment_length_variant_calling),
             "-s",
-            self.prefix,
+            self.sample_name if self.sample_name else self.prefix,
             "-f",
             str(self.reference),
             str(self.paf),
@@ -721,7 +761,7 @@ class ShowSnpsCaller(Caller):
         )
         finalize_vcf_cmd = self.python_cmd(
             func=self.postprocess_delta_vcf,
-            args=[self.output.tmp_vcf, self.output.vcf, self.prefix],
+            args=[self.output.tmp_vcf, self.output.vcf, self.sample_name if self.sample_name else self.prefix],
             description="Add sample genotype fields to the MUMmer-derived VCF",
         )
 
@@ -1515,6 +1555,12 @@ class Clair3Caller(Caller):
             description="Move Clair3 VCF to final output location",
         )
         commands = [clair3_cmd, unzip_cmd, move_vcf_cmd]
+        if self.sample_name:
+            commands.append(self.python_cmd(
+                func=rename_vcf_sample,
+                args=[self.output.vcf, self.sample_name],
+                description="Set VCF sample name",
+            ))
 
         if not ctx.no_cleanup:
             commands.append(self.shell_cmd(

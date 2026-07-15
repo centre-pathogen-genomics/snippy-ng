@@ -41,6 +41,7 @@ def short(
     min_qual: float,
     report: bool,
     prefix: str,
+    sample_name: Optional[str],
     **context: Any,
 ):
     """
@@ -75,6 +76,7 @@ def short(
         reference_accession=reference_accession,
         reads=reads,
         prefix=prefix,
+        sample_name=sample_name,
         bam=bam,
         clean_reads=clean_reads,
         min_read_len=min_read_len,

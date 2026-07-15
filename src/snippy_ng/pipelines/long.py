@@ -60,6 +60,10 @@ class LongPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        if sample_name is None and self.bam:
+            sample_name = strip_bio_suffixes(Path(self.bam).name)
+        if sample_name is None and self.reads:
+            sample_name = strip_bio_suffixes(Path(self.reads).name)
         reference_input = self.reference
 
         if self.reference_accession:
@@ -116,8 +120,6 @@ class LongPipelineBuilder(PipelineBuilder):
 
         # Aligner
         if self.bam:
-            if sample_name is None:
-                sample_name = strip_bio_suffixes(Path(self.bam).name)
             aligned_reads = self.bam
             stages.append(BamReferenceValidator(
                 bam=aligned_reads,
@@ -147,8 +149,6 @@ class LongPipelineBuilder(PipelineBuilder):
                 )
             else:
                 raise ValueError(f"Unsupported aligner '{self.aligner}'")
-            if current_reads and sample_name is None:
-                sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
             
@@ -192,6 +192,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference_index=reference_index,
                 clair3_model=clair3_model,
                 min_mapping_quality=self.min_mapping_quality,
+                sample_name=sample_name,
                 additional_options=self.caller_opts,
                 platform=platform,
                 **globals
@@ -203,6 +204,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference=reference_file,
                 reference_index=reference_index,
                 min_mapping_quality=self.min_mapping_quality,
+                sample_name=sample_name,
                 additional_options=self.caller_opts,
                 **globals
             )
