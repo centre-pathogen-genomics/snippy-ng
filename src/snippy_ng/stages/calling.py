@@ -1489,6 +1489,7 @@ class Clair3Caller(Caller):
             "--include_all_ctgs",
             "--no_phasing_for_fa",
             "--enable_long_indel",
+            "--enable_variant_calling_at_sequence_head_and_tail",
         ]
         if self.additional_options:
             import shlex
