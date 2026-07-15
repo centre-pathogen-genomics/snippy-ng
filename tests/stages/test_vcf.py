@@ -3,6 +3,7 @@ from pathlib import Path
 from snippy_ng.context import Context
 from snippy_ng.stages.vcf import MIXED_SITE_GT_FILTER
 from snippy_ng.stages.vcf import VariantContextFilter
+from snippy_ng.utils.vcf import filter_variant_context_vcf
 from snippy_ng.stages.vcf import CollapseDiploidGenotypes
 from snippy_ng.stages.vcf import VcfFilterLong
 from snippy_ng.stages.vcf import VcfFilterShort
@@ -33,7 +34,7 @@ def test_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
     )
     output_vcf = tmp_path / "output.vcf"
 
-    VariantContextFilter.filter_vcf(
+    filter_variant_context_vcf(
         input_vcf,
         output_vcf,
         max_local_snps=1,
@@ -62,7 +63,7 @@ def test_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
     )
     output_vcf = tmp_path / "output.vcf"
 
-    VariantContextFilter.filter_vcf(
+    filter_variant_context_vcf(
         input_vcf,
         output_vcf,
         min_snp_distance_to_indel=10,
@@ -95,7 +96,7 @@ def test_variant_context_filter_marks_snps_near_alignment_edges_lowqual(tmp_path
     )
     output_vcf = tmp_path / "output.vcf"
 
-    VariantContextFilter.filter_vcf(
+    filter_variant_context_vcf(
         input_vcf,
         output_vcf,
         min_snp_distance_to_breakpoint=10,
@@ -127,7 +128,7 @@ def test_variant_context_filter_does_not_duplicate_existing_headers(tmp_path):
     )
     output_vcf = tmp_path / "output.vcf"
 
-    VariantContextFilter.filter_vcf(input_vcf, output_vcf)
+    filter_variant_context_vcf(input_vcf, output_vcf)
 
     headers = [line for line in output_vcf.read_text(encoding="utf-8").splitlines() if line.startswith("##")]
     assert sum(line.startswith("##FILTER=<ID=LowQual,") for line in headers) == 1
@@ -156,7 +157,7 @@ def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_p
     )
 
     assert stage.enabled is False
-    stage.filter_vcf(input_vcf, output_vcf)
+    filter_variant_context_vcf(input_vcf, output_vcf)
     assert output_vcf.read_text(encoding="utf-8") == input_vcf.read_text(encoding="utf-8")
 
 
