@@ -7,12 +7,12 @@ from snippy_ng.cli.utils import AbsolutePath
 @click.argument("sam_file", required=False, nargs=1, type=AbsolutePath(exists=True, readable=True))
 @click.option("--index", "-i", required=True, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA index (.fai) file corresponding to the reference used for alignment")
 @click.option("--fix-mate/--no-fix-mate", default=True, help="Attempt to fix mate information for paired-end reads when one read is filtered out", show_default=True)
-@click.option("--max", "-m", type=click.INT, default=10, help="Maximum clip length to allow before filtering out the read", show_default=True)
+@click.option("--max", "-m", type=click.INT, default=10, help="Maximum terminal clip length to allow on either end before filtering, after ignoring clips at contig boundaries", show_default=True)
 @click.option(
     "--max-clip-fraction",
     type=click.FloatRange(min=0, max=1),
     default=None,
-    help="Maximum total terminal clipping as a fraction of the original read length, including hard clips",
+    help="Maximum total terminal clipping as a fraction of the original read length, including hard clips and after ignoring boundary clips",
 )
 @click.option("--invert", is_flag=True, default=False, help="Invert the filter to keep only clipped reads instead of filtering them out")
 @click.option("--debug", is_flag=True, default=False, help="Output debug information about clipped reads to stderr")
@@ -28,7 +28,12 @@ def samclip(
     debug,
 ):
     """
-    Filter clipped reads from a SAM file
+    Filter clipped reads from a SAM file using boundary-aware terminal clipping.
+
+    ``--max`` filters reads when either terminal clip exceeds the threshold,
+    unless the clipped end reaches the contig boundary. ``--max-clip-fraction``
+    filters reads by total terminal clipping fraction, using the original query
+    length including hard clips.
 
     Examples:
 

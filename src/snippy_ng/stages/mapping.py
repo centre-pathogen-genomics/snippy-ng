@@ -27,13 +27,16 @@ class Aligner(BaseStage):
 class ShortReadAligner(Aligner):
     """
     Base class for short read alignment pipelines. Implements common steps: sorting, fixing mates, and marking duplicates.
-    Optionally filters soft-clipped reads using samclip (recommended only for short reads, as it may discard valid soft clipping in long reads).
+    Optionally filters soft-clipped reads using samclip
     """
 
     samclip: bool = Field(
         True, description="Whether to run samclip to filter soft-clipped reads"
     )
-    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
+    maxsoft: int = Field(
+        10,
+        description="Maximum terminal clipping to allow on either end before filtering, after ignoring clips at contig boundaries",
+    )
 
     _dependencies = [samtools]
 
@@ -209,7 +212,7 @@ class Minimap2LongReadAligner(Aligner):
         None,
         ge=0,
         le=1,
-        description="Optional maximum terminal clipping fraction for samclip",
+        description="Optional maximum terminal clipping fraction for samclip, measured after ignoring contig-boundary clips and including hard clips in read length",
     )
     
     _dependencies = [minimap2, samtools]

@@ -146,9 +146,15 @@ def samclip_filter_lines(
 ) -> Iterator[str]:
     """Filter SAM alignment lines based on terminal clipping.
 
-    ``max_clip`` applies an absolute limit to either end of an alignment.
+    ``max_clip`` applies an absolute limit to either terminal end of an
+    alignment after ignoring clipping that reaches the contig boundary. A read
+    is filtered when either end exceeds the limit.
+
     ``max_clip_fraction`` applies a limit to the total terminal clipping as a
-    proportion of the original query length, including hard-clipped bases.
+    proportion of the original query length, including hard-clipped bases. The
+    numerator is the sum of terminal soft- and hard-clipping on both ends,
+    again after boundary-aware clipping is removed.
+
     When both limits are set, an alignment failing either one is filtered.
 
     Optionally sets the MUNMAP flag on mates of filtered reads when appropriate.
