@@ -2,19 +2,19 @@
 title: Report
 ---
 
-# Interactive reports
+# Report utilities
 
-Snippy-NG provides two HTML report commands under `snippy-ng utils report`:
+Snippy-NG provides HTML report generation commands under `snippy-ng utils report`:
 
-- [`tree`](tree.md): an interactive phylogenetic tree report from a Newick tree
-- [`sample`](sample.md): an interactive per-sample variant report from a VCF, with optional alignment windows
+- [tree](tree.md): render an interactive phylogenetic tree report from a Newick tree
+- [sample](sample.md): render an interactive per-sample variant report from a VCF
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `snippy-ng utils report tree` | Render an interactive phylogenetic tree report. |
-| `snippy-ng utils report sample` | Render an interactive sample variant report. |
+| [Tree report](tree.md) | Render an interactive phylogenetic tree report. |
+| [Sample report](sample.md) | Render an interactive sample variant report. |
 
 ## Typical workflow
 

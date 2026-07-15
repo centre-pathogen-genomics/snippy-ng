@@ -1,3 +1,7 @@
+---
+title: CNV
+---
+
 # `snippy-ng utils aln cnv`
 
 Estimate copy number variation from an aligned BAM or CRAM.

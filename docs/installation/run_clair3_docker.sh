@@ -86,7 +86,7 @@ fi
 # Keep current working directory mounted for relative paths and log files.
 add_mount "$PWD"
 
-docker run -it --rm \
+docker run --rm \
   "${PLATFORM_ARG[@]}" \
   "${docker_mounts[@]}" \
   "$IMAGE" \
