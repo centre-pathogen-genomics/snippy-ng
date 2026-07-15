@@ -39,7 +39,7 @@ class LongPipelineBuilder(PipelineBuilder):
     mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
-    min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for FreeBayes calls and depth masks")
+    min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for calls and depth masks")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
@@ -183,6 +183,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 reference=reference_file,
                 reference_index=reference_index,
                 clair3_model=clair3_model,
+                min_mapping_quality=self.min_mapping_quality,
                 additional_options=self.caller_opts,
                 platform=platform,
                 **globals
@@ -369,6 +370,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 sample_name=sample_name,
                 variant_scope=self.report_scope,
                 window_size=self.report_window_size,
+                exclude_supplementary=self.caller == "clair3",
                 **globals,
             )
             stages.append(sample_report_stage)
