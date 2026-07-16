@@ -121,9 +121,9 @@ def test_tree_pipeline_adds_snp_scaled_tree_after_iqtree(tmp_path):
     assert pipeline.stages[1].tree == pipeline.stages[0].output.tree
     assert pipeline.stages[1].aln == aln
     assert pipeline.stages[1].fconst is None
-    assert pipeline.stages[1].output.tree.name == "tree.snps.newick"
-    assert pipeline.stages[2].tree == pipeline.stages[1].output.tree
-    assert pipeline.stages[2].output.distance.name == "tree.distance.tsv"
+    assert pipeline.stages[1].output.snp_scaled_tree.name == "tree.snps.newick"
+    assert pipeline.stages[2].tree == pipeline.stages[1].output.snp_scaled_tree
+    assert pipeline.stages[2].output.distance.name == "tree.snps.distance.tsv"
 
 
 def test_tree_pipeline_passes_fconst_string(tmp_path):
@@ -169,7 +169,7 @@ def test_clonalframeml_correct_tree_command(tmp_path):
         "10",
     ]
     assert commands[0].output_file is None
-    assert stage.output.labelled_tree == Path("tree.clonalframe.labelled_tree.newick")
+    assert stage.output.recombination_corrected_tree == Path("tree.clonalframe.labelled_tree.newick")
     assert stage.output.emsim == Path("tree.clonalframe.emsim.txt")
 
 
@@ -203,9 +203,9 @@ def test_tree_pipeline_uses_clonalframe_corrected_tree(tmp_path):
     assert clonalframe.aln == aln
     assert clonalframe.kappa == 3.0
     assert clonalframe.emsim == 5
-    assert scaled_tree.tree == clonalframe.output.labelled_tree
+    assert scaled_tree.tree == clonalframe.output.recombination_corrected_tree
     assert scaled_tree.aln == aln
     assert scaled_tree.fconst == "1,2,3,4"
-    assert distance_matrix.tree == scaled_tree.output.tree
-    assert clonalframe.output.labelled_tree in pipeline.outputs_to_keep
+    assert distance_matrix.tree == scaled_tree.output.snp_scaled_tree
+    assert clonalframe.output.recombination_corrected_tree in pipeline.outputs_to_keep
     assert distance_matrix.output.distance in pipeline.outputs_to_keep

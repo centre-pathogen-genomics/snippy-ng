@@ -212,7 +212,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     from snippy_ng.pipelines.reports import TreeReportPipelineBuilder
 
     report_pipeline = TreeReportPipelineBuilder(
-        tree=tree_outdir / snp_tree_stage.output.tree,
+        tree=tree_outdir / snp_tree_stage.output.snp_scaled_tree,
         title="Snippy-NG Report",
         metadata=Path(outdir) / f"{prefix}.qc.tsv",
         prefix="report",
