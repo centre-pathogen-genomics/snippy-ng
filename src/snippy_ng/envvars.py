@@ -121,7 +121,7 @@ def _infer_parser(env_var: str, default: Any) -> Callable[[str], Any]:
         return lambda raw_value: raw_value
     raise TypeError(
         f"Cannot infer parser for {normalize_envvar_name(env_var)} from default value {default!r}. "
-        "Provide a supported default type or use a typed helper like bool_envvar()."
+        "Provide a supported default type or use a typed EnvVar<Type> field class."
     )
 
 
@@ -172,7 +172,7 @@ class EnvVarField(FieldInfo, Generic[T]):
         return self.get()
 
 
-class BoolEnvVar(EnvVarField[bool]):
+class EnvVarBool(EnvVarField[bool]):
 
     @property
     def enabled(self) -> bool:
@@ -182,50 +182,16 @@ class BoolEnvVar(EnvVarField[bool]):
         return self.get()
 
 
-def envvar(
-    env_var: str,
-    *,
-    default: T,
-    description: str | None = None,
-    parser: Callable[[str], T],
-) -> EnvVarField[T]:
-    return EnvVarField(default, env_var, description=description, parser=parser)
+class EnvVarInt(EnvVarField[int]):
+    """Integer environment-backed Pydantic field metadata."""
 
 
-def bool_envvar(env_var: str, *, default: bool = False, description: str | None = None) -> BoolEnvVar:
-    return BoolEnvVar(
-        env_var=env_var,
-        default=default,
-        description=description,
-        parser=lambda raw_value: _parse_bool_raw(env_var, raw_value),
-    )
+class EnvVarFloat(EnvVarField[float]):
+    """Float environment-backed Pydantic field metadata."""
 
 
-def int_envvar(env_var: str, *, default: int = 0, description: str | None = None) -> EnvVarField[int]:
-    return envvar(
-        env_var,
-        default=default,
-        description=description,
-        parser=lambda raw_value: _parse_int_raw(env_var, raw_value),
-    )
-
-
-def float_envvar(env_var: str, *, default: float = 0.0, description: str | None = None) -> EnvVarField[float]:
-    return envvar(
-        env_var,
-        default=default,
-        description=description,
-        parser=lambda raw_value: _parse_float_raw(env_var, raw_value),
-    )
-
-
-def str_envvar(env_var: str, *, default: str = "", description: str | None = None) -> EnvVarField[str]:
-    return envvar(
-        env_var,
-        default=default,
-        description=description,
-        parser=lambda raw_value: raw_value,
-    )
+class EnvVarStr(EnvVarField[str]):
+    """String environment-backed Pydantic field metadata."""
 
 
 EnvVar = EnvVarField

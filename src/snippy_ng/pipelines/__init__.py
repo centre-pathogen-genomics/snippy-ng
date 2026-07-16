@@ -447,7 +447,8 @@ class SnippyPipeline:
         self.hr()
         self.log(" ".join(sys.argv))
         self.hr("Pipeline Stages")
-        self.echo(self.pipeline_tree(inlude_all_paths=True))
+        for i, stage in enumerate(self.stages, 1):
+            self.log(f"{i:3}. {stage.name}")
 
 
     def goodbye(self):

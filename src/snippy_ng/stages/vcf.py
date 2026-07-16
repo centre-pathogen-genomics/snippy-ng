@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarInt
 from snippy_ng.logging import logger
 from snippy_ng.utils.vcf import filter_variant_context_vcf
 from pydantic import Field
@@ -205,30 +205,26 @@ class VariantContextFilter(BaseStage):
     """
 
     vcf: Path = Field(..., description="Input VCF")
-    max_local_snps: int = EnvVarField(
+    max_local_snps: Annotated[int, EnvVarInt(
         0,
         "VARIANT_CONTEXT_MAX_LOCAL_SNPS",
-        parser=lambda raw: int(raw.strip()),
         description="Maximum SNPs allowed within the local SNP window. 0 disables this filter.",
-    )
-    local_snp_window: int = EnvVarField(
+    )]
+    local_snp_window: Annotated[int, EnvVarInt(
         0,
         "VARIANT_CONTEXT_LOCAL_SNP_WINDOW",
-        parser=lambda raw: int(raw.strip()),
         description="Reference-base window radius for local SNP density filtering. 0 disables this filter.",
-    )
-    min_snp_distance_to_indel: int = EnvVarField(
+    )]
+    min_snp_distance_to_indel: Annotated[int, EnvVarInt(
         0,
         "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL",
-        parser=lambda raw: int(raw.strip()),
         description="Minimum reference-base distance required between a SNP and any indel. 0 disables this filter.",
-    )
-    min_snp_distance_to_breakpoint: int = EnvVarField(
+    )]
+    min_snp_distance_to_breakpoint: Annotated[int, EnvVarInt(
         0,
         "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_BREAKPOINT",
-        parser=lambda raw: int(raw.strip()),
         description="Minimum reference-base distance required between a SNP and caller-provided alignment edge distance. 0 disables this filter.",
-    )
+    )]
 
     @property
     def output(self) -> VariantContextFilterOutput:

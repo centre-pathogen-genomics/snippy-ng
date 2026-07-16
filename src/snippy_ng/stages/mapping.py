@@ -1,9 +1,9 @@
 from pathlib import Path
 import sys
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarInt, EnvVarStr
 from pydantic import Field 
 
 
@@ -314,11 +314,11 @@ class AssemblyAligner(BaseStage):
 
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
-    minimap_preset: str = EnvVarField(
+    minimap_preset: Annotated[str, EnvVarStr(
         "asm20",
         "ASM_MINIMAP_PRESET",
         description="Minimap2 preset to use for assembly-to-reference alignment",
-    )
+    )]
 
     _dependencies = [minimap2]
 
@@ -381,11 +381,11 @@ class AssemblyNucmerAligner(BaseStage):
 
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
-    breaklen: int = EnvVarField(250, "MUMMER_BREAKLEN", description="Maximum poor-scoring extension distance for nucmer")
-    mincluster: int = EnvVarField(120, "MUMMER_MINCLUSTER", description="Minimum length of a match cluster for nucmer")
-    maxgap: int = EnvVarField(50, "MUMMER_MAXGAP", description="Maximum gap between adjacent matches in a cluster for nucmer")
-    minmatch: int = EnvVarField(46, "MUMMER_MINMATCH", description="Minimum exact-match length for nucmer anchors")
-    minalign: int = EnvVarField(400, "MUMMER_MINALIGN", description="Minimum alignment length retained by nucmer after extension")
+    breaklen: Annotated[int, EnvVarInt(250, "MUMMER_BREAKLEN", description="Maximum poor-scoring extension distance for nucmer")]
+    mincluster: Annotated[int, EnvVarInt(120, "MUMMER_MINCLUSTER", description="Minimum length of a match cluster for nucmer")]
+    maxgap: Annotated[int, EnvVarInt(50, "MUMMER_MAXGAP", description="Maximum gap between adjacent matches in a cluster for nucmer")]
+    minmatch: Annotated[int, EnvVarInt(46, "MUMMER_MINMATCH", description="Minimum exact-match length for nucmer anchors")]
+    minalign: Annotated[int, EnvVarInt(400, "MUMMER_MINALIGN", description="Minimum alignment length retained by nucmer after extension")]
 
     _dependencies = [nucmer]
 

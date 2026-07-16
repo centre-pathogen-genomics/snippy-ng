@@ -3,10 +3,11 @@ import click
 import time
 from pathlib import Path
 
-from snippy_ng.envvars import bool_envvar
+from snippy_ng.envvars import EnvVarBool
 
 
-DEBUG = bool_envvar(
+DEBUG = EnvVarBool(
+    False,
     "DEBUG",
     description="Enable debug-oriented runtime behavior and verbose diagnostics",
 )

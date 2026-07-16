@@ -12,7 +12,7 @@ from snippy_ng.stages import BaseStage, BaseOutput, TempPath
 from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clair3, longbow, nucmer
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.logging import logger
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarBool, EnvVarFloat, EnvVarInt, EnvVarStr
 
 from pydantic import Field, AfterValidator
 
@@ -49,11 +49,21 @@ def get_calling_chunk_size(reference: Path, reference_index: Path, cpus: int, mi
 
 def get_short_chunk_size(reference: Path, reference_index: Path, cpus: int) -> tuple[int, int]:
     """Determine short read chunk size based on reference size and available CPUs, with a minimum threshold."""
-    return get_calling_chunk_size(reference, reference_index, cpus, MIN_SHORT_CHUNK_SIZE)
+    return get_calling_chunk_size(
+        reference,
+        reference_index,
+        cpus,
+        EnvVarInt(MIN_SHORT_CHUNK_SIZE, "CALLING_MIN_SHORT_CHUNK_SIZE").value,
+    )
 
 def get_long_chunk_size(reference: Path, reference_index: Path, cpus: int) -> tuple[int, int]:
     """Determine long read chunk size based on reference size and available CPUs, with a minimum threshold."""
-    return get_calling_chunk_size(reference, reference_index, cpus, MIN_LONG_CHUNK_SIZE)
+    return get_calling_chunk_size(
+        reference,
+        reference_index,
+        cpus,
+        EnvVarInt(MIN_LONG_CHUNK_SIZE, "CALLING_MIN_LONG_CHUNK_SIZE").value,
+    )
 
 def no_spaces(v: str) -> str:
     """Ensure that a string contains no spaces."""
@@ -126,12 +136,16 @@ class FreebayesCaller(Caller):
 
     bam: Path = Field(..., description="Input BAM file")
     bam_index: Path = Field(..., description="Index file for the input BAM")
-    ploidy: int = Field(2, description="Ploidy for variant calling")
-    min_mapping_quality: int = Field(30, description="Minimum mapping quality for FreeBayes to count reads")
-    exclude_insertions: bool = Field(
+    ploidy: Annotated[int, EnvVarInt(2, "FREEBAYES_PLOIDY", description="Ploidy for variant calling")]
+    min_mapping_quality: Annotated[int, EnvVarInt(30, "FREEBAYES_MIN_MAPPING_QUALITY", description="Minimum mapping quality for FreeBayes to count reads")]
+    min_alternate_count: Annotated[int, EnvVarInt(2, "FREEBAYES_MIN_ALTERNATE_COUNT", description="Minimum alternate allele count")]
+    min_repeat_entropy: Annotated[float, EnvVarFloat(1.0, "FREEBAYES_MIN_REPEAT_ENTROPY", description="Minimum repeat entropy")]
+    min_base_quality: Annotated[int, EnvVarInt(13, "FREEBAYES_MIN_BASE_QUALITY", description="Minimum base quality")]
+    exclude_insertions: Annotated[bool, EnvVarBool(
         True,
+        "FREEBAYES_EXCLUDE_INSERTIONS",
         description="Exclude insertions from variant calls so the pseudo-alignment remains the same length as the reference",
-    )
+    )]
 
     _dependencies = [freebayes, bcftools]
 
@@ -167,9 +181,9 @@ class FreebayesCaller(Caller):
             str(ctx.cpus),
             "--ploidy", str(self.ploidy),
             "--genotype-qualities",
-            "--min-alternate-count", "2",
-            "--min-repeat-entropy", "1.0",
-            "--min-base-quality", "13",
+            "--min-alternate-count", str(self.min_alternate_count),
+            "--min-repeat-entropy", str(self.min_repeat_entropy),
+            "--min-base-quality", str(self.min_base_quality),
             "--min-mapping-quality", str(self.min_mapping_quality),
             "--strict-vcf",
         ]
@@ -199,7 +213,9 @@ class FreebayesCallerLong(FreebayesCaller):
     Call variants using Freebayes for long-read data.
     """
     # def test_freebayes_ran_successfully(self):
-    min_mapping_quality: int = Field(30, description="Minimum mapping quality for FreeBayes to count reads")
+    min_mapping_quality: Annotated[int, EnvVarInt(30, "FREEBAYES_LONG_MIN_MAPPING_QUALITY", description="Minimum mapping quality for FreeBayes to count reads")]
+    haplotype_length: Annotated[int, EnvVarInt(-1, "FREEBAYES_LONG_HAPLOTYPE_LENGTH", description="FreeBayes haplotype length")]
+    min_base_quality: Annotated[int, EnvVarInt(10, "FREEBAYES_LONG_MIN_BASE_QUALITY", description="Minimum base quality")]
         
 
     def create_commands(self, ctx) -> List:
@@ -222,9 +238,9 @@ class FreebayesCallerLong(FreebayesCaller):
             str(ctx.cpus),
             "--ploidy", str(self.ploidy),
             "--genotype-qualities",
-            "--haplotype-length", "-1",
+            "--haplotype-length", str(self.haplotype_length),
             "--min-mapping-quality", str(self.min_mapping_quality),
-            "--min-base-quality", "10",
+            "--min-base-quality", str(self.min_base_quality),
         ]
         if self.additional_options:
             import shlex
@@ -261,34 +277,34 @@ class PAFCaller(Caller):
 
     paf: Path = Field(..., description="Input PAF file")
     ref_dict: Path = Field(..., description="Reference FASTA dictionary file")
-    min_mapping_quality: int = EnvVarField(30, "PAFTOOLS_MIN_MAPPING_QUAL", description="Mark PAF-derived variants below this mapping quality as LowQual")
-    min_alignment_length_coverage: int = EnvVarField(10000, "PAFTOOLS_MIN_ALIGNMENT_LENGTH_COVERAGE", description="Minimum alignment length to compute coverage")
-    min_alignment_length_variant_calling: int = EnvVarField(1000, "PAFFTOOLS_MIN_ALIGNMENT_LENGTH_VARIANT_CALLING", description="Minimum alignment length for variant calling")
-    max_secondary_to_primary_ratio: float = EnvVarField(
+    min_mapping_quality: Annotated[int, EnvVarInt(30, "PAFTOOLS_MIN_MAPPING_QUAL", description="Mark PAF-derived variants below this mapping quality as LowQual")]
+    min_alignment_length_coverage: Annotated[int, EnvVarInt(10000, "PAFTOOLS_MIN_ALIGNMENT_LENGTH_COVERAGE", description="Minimum alignment length to compute coverage")]
+    min_alignment_length_variant_calling: Annotated[int, EnvVarInt(1000, "PAFFTOOLS_MIN_ALIGNMENT_LENGTH_VARIANT_CALLING", description="Minimum alignment length for variant calling")]
+    max_secondary_to_primary_ratio: Annotated[float, EnvVarFloat(
         0.8,
         "PAFTOOLS_MAX_SECONDARY_TO_PRIMARY_RATIO",
         description="Mark variants as LowQual when minimap2 s2/s1 is at least this value. 0 disables this filter.",
-    )
-    max_gap_compressed_divergence: float = EnvVarField(
+    )]
+    max_gap_compressed_divergence: Annotated[float, EnvVarFloat(
         0.05,
         "PAFTOOLS_MAX_GAP_COMPRESSED_DIVERGENCE",
         description="Mark variants as LowQual when minimap2 de is above this value. 0 disables this filter.",
-    )
-    max_sequence_divergence: float = EnvVarField(
+    )]
+    max_sequence_divergence: Annotated[float, EnvVarFloat(
         0.05,
         "PAFTOOLS_MAX_SEQUENCE_DIVERGENCE",
         description="Mark variants as LowQual when minimap2 dv is above this value. 0 disables this filter.",
-    )
-    max_repeat_query_fraction: float = EnvVarField(
+    )]
+    max_repeat_query_fraction: Annotated[float, EnvVarFloat(
         0.5,
         "PAFTOOLS_MAX_REPEAT_QUERY_FRACTION",
         description="Mark variants as LowQual when minimap2 rl/query-aligned-length is above this value. 0 disables this filter.",
-    )
-    min_chain_minimizers_per_kb: float = EnvVarField(
+    )]
+    min_chain_minimizers_per_kb: Annotated[float, EnvVarFloat(
         0.0,
         "PAFTOOLS_MIN_CHAIN_MINIMIZERS_PER_KB",
         description="Mark variants as LowQual when minimap2 cm per aligned query kb is below this value. 0 disables this filter.",
-    )
+    )]
 
     _dependencies = [bedtools, bcftools, paftools]
 
@@ -673,26 +689,26 @@ class ShowSnpsCaller(Caller):
     delta: Path = Field(..., description="Input delta file produced by nucmer")
     ref_dict: Path = Field(..., description="Reference FASTA dictionary file")
     assembly: Path = Field(..., description="Assembly FASTA used as the nucmer query")
-    min_delta_identity: float = EnvVarField(
+    min_delta_identity: Annotated[float, EnvVarFloat(
         96.05,
         "MUMMER_MIN_DELTA_IDENTITY",
         description="Minimum per-alignment delta identity percentage retained for MUMmer variant calling. 0 disables this filter.",
-    )
-    min_delta_block_length: int = EnvVarField(
+    )]
+    min_delta_block_length: Annotated[int, EnvVarInt(
         700,
         "MUMMER_MIN_DELTA_BLOCK_LENGTH",
         description="Minimum per-alignment delta block length retained for MUMmer variant calling. 0 disables this filter.",
-    )
-    max_delta_variants_per_kb: float = EnvVarField(
+    )]
+    max_delta_variants_per_kb: Annotated[float, EnvVarFloat(
         37.5,
         "MUMMER_MAX_DELTA_VARIANTS_PER_KB",
         description="Maximum per-alignment variant density retained for MUMmer variant calling. 0 disables this filter.",
-    )
-    filter_ambiguous_delta_positions: bool = EnvVarField(
+    )]
+    filter_ambiguous_delta_positions: Annotated[bool, EnvVarBool(
         True,
         "MUMMER_FILTER_AMBIGUOUS_DELTA_POSITIONS",
         description="Drop MUMmer variants at reference positions covered by multiple delta alignment blocks, similar to show-snps -C.",
-    )
+    )]
 
     _dependencies = [bedtools, bcftools, nucmer]
 
@@ -1491,8 +1507,17 @@ class Clair3Caller(Caller):
     """
     bam: Path = Field(..., description="Input BAM file")
     clair3_model: Path = Field(..., description="Path to Clair3 model")
-    platform: str = Field("ont", description="Sequencing platform (e.g., ont, hifi)")
-    min_mapping_quality: int = Field(30, description="Minimum mapping quality for Clair3 to count reads")
+    platform: Annotated[str, EnvVarStr("ont", "CLAIR3_PLATFORM", description="Sequencing platform (e.g., ont, hifi)")]
+    min_mapping_quality: Annotated[int, EnvVarInt(30, "CLAIR3_MIN_MAPPING_QUALITY", description="Minimum mapping quality for Clair3 to count reads")]
+    haploid_precise: Annotated[bool, EnvVarBool(True, "CLAIR3_HAPLOID_PRECISE", description="Enable Clair3 haploid precise mode")]
+    include_all_contigs: Annotated[bool, EnvVarBool(True, "CLAIR3_INCLUDE_ALL_CONTIGS", description="Include all contigs in Clair3 calling")]
+    no_phasing_for_fa: Annotated[bool, EnvVarBool(True, "CLAIR3_NO_PHASING_FOR_FA", description="Disable phasing for Clair3 consensus FASTA")]
+    enable_long_indel: Annotated[bool, EnvVarBool(True, "CLAIR3_ENABLE_LONG_INDEL", description="Enable Clair3 long indel calling")]
+    enable_variant_calling_at_sequence_head_and_tail: Annotated[bool, EnvVarBool(
+        True,
+        "CLAIR3_ENABLE_VARIANT_CALLING_AT_SEQUENCE_HEAD_AND_TAIL",
+        description="Enable Clair3 variant calling at sequence head and tail",
+    )]
 
     _dependencies = [clair3]
 
@@ -1526,11 +1551,17 @@ class Clair3Caller(Caller):
             f"--platform={self.platform}",
             f"--chunk_size={chunk_size}",
             f"--min_mq={self.min_mapping_quality}",
-            "--include_all_ctgs",
-            "--no_phasing_for_fa",
-            "--enable_long_indel",
-            "--enable_variant_calling_at_sequence_head_and_tail",
         ]
+        if self.haploid_precise:
+            clair3_cmd_parts.append("--haploid_precise")
+        if self.include_all_contigs:
+            clair3_cmd_parts.append("--include_all_ctgs")
+        if self.no_phasing_for_fa:
+            clair3_cmd_parts.append("--no_phasing_for_fa")
+        if self.enable_long_indel:
+            clair3_cmd_parts.append("--enable_long_indel")
+        if self.enable_variant_calling_at_sequence_head_and_tail:
+            clair3_cmd_parts.append("--enable_variant_calling_at_sequence_head_and_tail")
         if self.additional_options:
             import shlex
             clair3_cmd_parts.extend(shlex.split(self.additional_options))

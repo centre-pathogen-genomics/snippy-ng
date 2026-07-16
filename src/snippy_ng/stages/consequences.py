@@ -1,12 +1,12 @@
 # Concrete Alignment Strategies
 from pathlib import Path
-from typing import List
+from typing import Annotated, List
 
 from pydantic import Field
 
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarBool
 
 
 class BcftoolsConsequencesCallerOutput(BaseOutput):
@@ -19,7 +19,7 @@ class BcftoolsConsequencesCaller(BaseStage):
     reference: Path = Field(..., description="Reference file",)
     variants: Path = Field(..., description="Input VCF file",)
     features: Path = Field(..., description="Input features file")
-    use_local_csq: bool = EnvVarField(True, "LOCAL_BCFTOOLS_CSQ", description="Whether to use bcftools csq's --local-csq mode for consequence annotation. Theres a bug in bcftools csq that means we need to use --local-csq for correct annotation of compound variants https://github.com/samtools/bcftools/issues/2543.")
+    use_local_csq: Annotated[bool, EnvVarBool(True, "LOCAL_BCFTOOLS_CSQ", description="Whether to use bcftools csq's --local-csq mode for consequence annotation. Theres a bug in bcftools csq that means we need to use --local-csq for correct annotation of compound variants https://github.com/samtools/bcftools/issues/2543.")]
 
     _dependencies = [
         bcftools
