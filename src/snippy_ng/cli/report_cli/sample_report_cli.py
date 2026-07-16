@@ -20,7 +20,7 @@ from snippy_ng.cli.utils.globals import (
 @click.argument("vcf", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--alignment", "--cram", "--bam", required=False, type=AbsolutePath(exists=True, readable=True), help="Optional BAM or CRAM alignment file to embed after windowing")
 @click.option("--reference", "--ref", required=False, type=AbsolutePath(exists=True, readable=True), help="Reference FASTA used by the alignment")
-@click.option("--variant-scope", default="pass", type=click.Choice(["pass", "all"]), help="Variants to include in the report")
+@click.option("--variant-scope", default="all", type=click.Choice(["pass", "all"]), help="Variants to include in the report")
 @click.option("--window-size", default=100, type=click.IntRange(min=0), help="Base pairs of alignment context around each variant")
 @click.option("--downsample", type=click.FloatRange(min=0, max=1, min_open=True, max_open=True), default=None, help="Optional fraction of alignment records to keep before embedding")
 @click.option("--title", required=False, type=click.STRING, default="Snippy-NG Sample Report", help="Title for the HTML report")

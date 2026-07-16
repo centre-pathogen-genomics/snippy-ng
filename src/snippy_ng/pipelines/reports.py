@@ -48,7 +48,7 @@ class SampleReportPipelineBuilder(PipelineBuilder):
     reference: Optional[Path] = Field(default=None, description="Optional reference genome (FASTA or GenBank) or prepared reference directory")
     title: str = Field(default="Snippy-NG Sample Report", description="Title for the report")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override")
-    variant_scope: str = Field(default="pass", description="Variant scope to include: pass or all")
+    variant_scope: str = Field(default="all", description="Variant scope to include: pass or all")
     window_size: int = Field(default=100, description="Base pairs of context to embed around each variant")
     downsample: Optional[float] = Field(default=None, gt=0, lt=1, description="Optional fraction of alignments to keep before report windowing")
 
