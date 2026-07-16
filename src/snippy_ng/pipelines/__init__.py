@@ -1,7 +1,8 @@
 import sys
 import random
+import hashlib
 from collections import OrderedDict
-from typing import Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, TypeVar, TypedDict
 import os
 from pathlib import Path
 import time
@@ -15,6 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 StageT = TypeVar("StageT", bound=BaseStage)
+
+
+class FileMetadata(TypedDict):
+    size: str
+    md5: str
+    size_bytes: int
 
 
 class PipelineBuilder(BaseModel):
@@ -37,8 +44,9 @@ class SnippyPipeline:
     outputs_to_keep: List[Path]
     outdir: Optional[Path] = None
 
-    def __init__(self, stages: List[BaseStage] = None, outputs_to_keep: List[Path] = None):
+    def __init__(self, stages: Optional[List[BaseStage]] = None, outputs_to_keep: Optional[List[Path]] = None):
         self.stages = stages or []
+        self._file_metadata_cache: dict[str, FileMetadata] = {}
         if outputs_to_keep is None:
             # keep all outputs by default if not specified
             outputs_to_keep = []
@@ -55,6 +63,7 @@ class SnippyPipeline:
 
     def run(self, context: Context):
         previous_log_path = logger.get_log_path()
+        self.outdir = context.outdir
         if context.log_path is not None:
             logger.set_log_path(derive_log_path(context.log_path, context.outdir))
             logger.reset_log_file()
@@ -73,10 +82,9 @@ class SnippyPipeline:
 
             # Set working directory to output folder
             current_dir = Path.cwd()
-            self.outdir = context.outdir
             try:
                 if self.outdir:    
-                    self.set_working_directory(context.outdir)
+                    self.set_working_directory(self.outdir)
                 self._execute_pipeline_stages_in_order(
                     context,
                 )
@@ -268,11 +276,12 @@ class SnippyPipeline:
 
                 description = stage.get_output_description(field_name)
                 description_formatted = f"{description}" if description else ""
-                size_formatted = human_readable_size(Path(self.outdir) / output_value if self.outdir else output_value)
+                metadata = self._file_metadata(output_value)
                 descriptions[str(output_value)] = {
                     "output": field_name,
                     "path": str(output_value),
-                    "size": size_formatted,
+                    "size": metadata["size"],
+                    "md5": metadata["md5"],
                     "description": description_formatted,
                 }
 
@@ -281,15 +290,148 @@ class SnippyPipeline:
     def write_output_descriptions(self, output_file: Path):
         descriptions = self.output_descriptions()
         if descriptions:
-            header = "output\tpath\tsize\tdescription"
+            header = "output\tpath\tsize\tmd5\tdescription"
             rows = [
-                f"{d['output']}\t{d['path']}\t{d['size']}\t{d['description']}"
+                f"{d['output']}\t{d['path']}\t{d['size']}\t{d['md5']}\t{d['description']}"
                 for d in descriptions.values()
             ]
             output_file.write_text("\n".join([header, *rows]))
             self.debug(f"Wrote output descriptions to {output_file}")
         else:
             self.debug("No output descriptions to write.")
+
+    @staticmethod
+    def _paths_from_value(value) -> List[Path]:
+        """Return paths contained in a stage input value."""
+        if isinstance(value, Path):
+            return [value]
+        if isinstance(value, (list, tuple, set)):
+            return [path for item in value for path in SnippyPipeline._paths_from_value(item)]
+        if isinstance(value, dict):
+            return [path for item in value.values() for path in SnippyPipeline._paths_from_value(item)]
+        return []
+
+    @staticmethod
+    def _md5(path: Path) -> str:
+        """Return the MD5 checksum for a file, or an empty string if unavailable."""
+        if not path.is_file():
+            return ""
+        try:
+            digest = hashlib.md5()
+            with path.open("rb") as file:
+                for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest()
+        except OSError:
+            return ""
+
+    def _file_metadata(self, path: Path) -> FileMetadata:
+        """Return cached size and MD5 metadata for a path."""
+        full_path = Path(self.outdir) / path if self.outdir and not path.is_absolute() else path
+        key = os.path.abspath(str(full_path))
+        if key not in self._file_metadata_cache:
+            self._file_metadata_cache[key] = {
+                "size": human_readable_size(full_path),
+                "md5": self._md5(full_path),
+                "size_bytes": full_path.stat().st_size if full_path.is_file() else 0,
+            }
+        return self._file_metadata_cache[key]
+
+    @staticmethod
+    def _format_size_bytes(total_bytes: int) -> str:
+        """Format a byte count using the same units as file metadata."""
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        size = float(total_bytes)
+        for unit in units:
+            if size < 1024 or unit == units[-1]:
+                if unit == "B":
+                    return f"{int(size)} {unit}"
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return ""
+
+    def pipeline_tree(self, include_metadata: bool = False, inlude_all_paths: bool = False) -> str:
+        """Return an ASCII tree describing every stage's inputs and outputs.
+
+        When ``include_metadata`` is true, each path also includes its
+        description, size, and MD5 checksum.
+        """
+        lines = []
+        if not self.stages:
+            return "└── (no stages)"
+
+        kept_output_keys = {
+            os.path.abspath(str(Path(self.outdir) / path if self.outdir and not path.is_absolute() else path))
+            for path in self.outputs_to_keep
+        }
+        kept_files: set[Path] = set()
+        total_file_size = 0
+
+        for stage_number, stage in enumerate(self.stages, 1):
+            lines.append(f"{stage_number}. {stage.name}")
+
+            inputs = []
+            for field_name in stage.__class__.model_fields:
+                value = getattr(stage, field_name, None)
+                for path in self._paths_from_value(value):
+                    inputs.append((field_name, path))
+
+            outputs = stage.output.all_outputs()
+            for section_name, entries in (("inputs", inputs), ("outputs", outputs)):
+                lines.append(f" ├── {section_name}")
+                if not entries:
+                    lines.append(" │  └── (none)")
+                    continue
+                for entry_number, (entry, path) in enumerate(entries):
+                    entry_branch = "└──" if entry_number == len(entries) - 1 else "├──"
+                    if isinstance(path, Path) and not path.is_absolute() and self.outdir is not None:
+                        path = Path(self.outdir) / path
+                    path_exists = path.exists()
+                    show_path = path_exists or inlude_all_paths
+                    entry_value = f"{entry}: {path}" if show_path else entry
+                    lines.append(f" │  {entry_branch} {entry_value}")
+                    if include_metadata:
+                        description = (
+                            stage.get_output_description(entry)
+                            if section_name == "outputs"
+                            else stage.__class__.model_fields[entry].description
+                        ) or ""
+                        metadata = []
+                        if description:
+                            metadata.append(f"description: {description}")
+                        if path_exists:
+                            file_metadata = self._file_metadata(path)
+                            metadata.extend([
+                                f"size: {file_metadata['size']}",
+                                f"md5: {file_metadata['md5']}",
+                            ])
+                            if section_name == "outputs" and os.path.abspath(str(path)) in kept_output_keys:
+                                paths = path.rglob("*") if path.is_dir() else [path]
+                                for kept_path in paths:
+                                    if kept_path.is_file():
+                                        kept_path = kept_path.resolve()
+                                        if kept_path not in kept_files:
+                                            kept_files.add(kept_path)
+                                            kept_metadata = self._file_metadata(kept_path)
+                                            total_file_size += int(kept_metadata["size_bytes"])
+                        metadata_prefix = " │  │  " if entry_number < len(entries) - 1 else " │     "
+                        for metadata_number, value in enumerate(metadata):
+                            metadata_branch = "└──" if metadata_number == len(metadata) - 1 else "├──"
+                            lines.append(f"{metadata_prefix}{metadata_branch} {value}")
+        if include_metadata:
+            lines.extend([
+                " │",
+                " Finished!",
+                " ├── Total runtime: " + f"{(self.end_time - self.start_time):.2f} seconds",
+                " ├── Total files kept: " + str(len(kept_files)),
+                " └── Total file size: " + self._format_size_bytes(total_file_size),
+            ])
+        return "\n".join(lines)
+
+    def write_pipeline_tree(self, output_file: Path, include_metadata: bool = True):
+        """Write the stage input/output tree to a text file."""
+        output_file.write_text(f"{self.pipeline_tree(include_metadata=include_metadata)}\n")
+        self.debug(f"Wrote pipeline tree to {output_file}")
      
     def write_output_citations(self, output_file: Path):
         citations = self.citations
@@ -304,11 +446,8 @@ class SnippyPipeline:
         self.hr(f"Running Snippy-NG v{__version__}", style=" ", color="green")
         self.hr()
         self.log(" ".join(sys.argv))
-        self.hr()
-
-        self.log("Stages:")
-        for i, stage in enumerate(self.stages, 1):
-            self.log(f"{i:3}. {stage.name}")
+        self.hr("Pipeline Stages")
+        self.echo(self.pipeline_tree(inlude_all_paths=True))
 
 
     def goodbye(self):
@@ -339,14 +478,19 @@ class SnippyPipeline:
             "Snippy: The only logical choice for variant detection.",
             "SNPs detected, Captain! Ready for the next mission.",
         ]
+        outdir = Path.cwd() if self.outdir is None else Path(self.outdir)
+        # Paths may have been created or changed since the welcome tree was printed.
+        self._file_metadata_cache.clear()
+        self.write_output_descriptions(outdir / "FILES.tsv")
+        self.write_pipeline_tree(outdir / "PIPELINE.txt")
+        self.write_output_citations(outdir / "CITATIONS.txt")
         self.hr()
         total_run_time = self.end_time - self.start_time
+        self.echo(f"Snippy-NG v{__version__}")
         self.echo(f"Total runtime: {total_run_time:.2f} seconds")
+        self.echo(f"Output directory: {outdir}")
         self.echo(f"Documentation: {DOCS_URL}")
         self.echo(f"GitHub: {GITHUB_URL}")
-        outdir = Path.cwd() if self.outdir is None else Path(self.outdir)
-        self.write_output_descriptions(outdir / "FILES.tsv")
-        self.write_output_citations(outdir / "CITATIONS.txt")
         self.hr()
         # Print a random goodbye message
         self.hr(f"{random.choice(messages)}", style=" ", color='green')

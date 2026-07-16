@@ -29,6 +29,10 @@ class OtherMockStage(MockStage):
     pass
 
 
+class InputMockStage(MockStage):
+    input_file: Path
+
+
 def test_snippy_init_empty():
     """Test Snippy initialization with no stages."""
     snippy = SnippyPipeline()
