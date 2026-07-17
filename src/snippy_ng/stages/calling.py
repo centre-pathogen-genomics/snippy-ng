@@ -1509,7 +1509,7 @@ class Clair3Caller(Caller):
     clair3_model: Path = Field(..., description="Path to Clair3 model")
     platform: Annotated[str, EnvVarStr("ont", "CLAIR3_PLATFORM", description="Sequencing platform (e.g., ont, hifi)")]
     min_mapping_quality: Annotated[int, EnvVarInt(30, "CLAIR3_MIN_MAPPING_QUALITY", description="Minimum mapping quality for Clair3 to count reads")]
-    haploid_precise: Annotated[bool, EnvVarBool(True, "CLAIR3_HAPLOID_PRECISE", description="Enable Clair3 haploid precise mode")]
+    haploid_precise: Annotated[bool, EnvVarBool(False, "CLAIR3_HAPLOID_PRECISE", description="Enable Clair3 haploid precise mode")]
     include_all_contigs: Annotated[bool, EnvVarBool(True, "CLAIR3_INCLUDE_ALL_CONTIGS", description="Include all contigs in Clair3 calling")]
     no_phasing_for_fa: Annotated[bool, EnvVarBool(True, "CLAIR3_NO_PHASING_FOR_FA", description="Disable phasing for Clair3 consensus FASTA")]
     enable_long_indel: Annotated[bool, EnvVarBool(True, "CLAIR3_ENABLE_LONG_INDEL", description="Enable Clair3 long indel calling")]
