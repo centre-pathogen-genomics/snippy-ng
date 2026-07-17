@@ -1,14 +1,14 @@
 import click
 from typing import Any, Optional, Literal
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input, is_sra_accession
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
-@click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
+@click.option("--reads", default=None, type=click.STRING, callback=reads_or_accession_callback, help="Long reads file (FASTQ) or SRA accession (SRR/ERR/DRR)")
 @click.argument("reads_arg", required=False, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
@@ -65,13 +65,14 @@ def long(
     from snippy_ng.context import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
 
-    # Detect if reads_arg is a read accession (before trying to resolve as path)
+    # Detect if reads_arg or --reads is a read accession
     read_accession = None
-    if reads_arg and isinstance(reads_arg, str):
-        from snippy_ng.pipelines.common import is_sra_accession
-        if is_sra_accession(reads_arg):
-            read_accession = reads_arg
-            reads_arg = None
+    if reads_arg and isinstance(reads_arg, str) and is_sra_accession(reads_arg):
+        read_accession = reads_arg
+        reads_arg = None
+    elif reads and isinstance(reads, str) and is_sra_accession(reads):
+        read_accession = reads
+        reads = None
     
     reads = resolve_cli_input(
         reads,

@@ -47,6 +47,7 @@ class VcfToTab(BaseStage):
             'FS=OFS="\t"; '
             'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"'
             '} '
+            '$5 == "<DEL>" { next } '
             '{'
             'selected=""; '
             'split($6, annotations, ","); '
@@ -318,7 +319,7 @@ class VcfFilterShort(VcfFilter):
                 self.shell_cmd(
                     [
                         "awk",
-                        '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\./, "Number=A"); print }',
+                        '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\\./, "Number=A"); print }',
                     ],
                     description="Normalize TYPE header Number=. to Number=A without altering other header fields",
                 ),

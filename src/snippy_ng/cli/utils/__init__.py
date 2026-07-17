@@ -1,6 +1,6 @@
 import click
 from pathlib import Path
-
+import re
 
 class AbsolutePath(click.Path):
     """Click path type that always returns absolute `Path` values without resolving symlinks."""
@@ -84,22 +84,26 @@ assembly_or_accession_callback = _path_or_accession_callback(
 )
 
 
+SRA_ACCESSION_RE = re.compile(r"^(SRR|ERR|DRR)\d{6,}$")
+
+def is_sra_accession(read_accession) -> bool:
+    """Check if a string is a valid SRA accession (SRR, ERR, or DRR format)."""
+    return SRA_ACCESSION_RE.fullmatch(str(read_accession)) is not None
+
+
 def reads_or_accession_callback(ctx, param, value):
     """Callback for read files or SRA accessions."""
     if ctx.resilient_parsing or value is None:
         return value
 
-    # If it's a tuple (multiple files), don't try to validate as accession
+    # If it's a tuple (multiple files), convert each element individually
     if isinstance(value, tuple):
-        return value
+        return tuple(reads_or_accession_callback(ctx, param, v) for v in value)
 
     # Try as path first
     path = absolute_path(value)
     if path.exists():
         return path
-
-    # Try as SRA accession
-    from snippy_ng.pipelines.common import is_sra_accession
 
     if is_sra_accession(value):
         return value

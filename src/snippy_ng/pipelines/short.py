@@ -87,7 +87,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 stages,
                 output_directory=Path("data"),
             )
-            self.reads = [reads_input]
+            self.reads = reads_input
         
         # Track current reads through potential cleaning and downsampling
         current_reads = self.reads.copy() if self.reads else []

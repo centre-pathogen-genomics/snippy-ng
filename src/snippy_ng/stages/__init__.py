@@ -441,7 +441,7 @@ class BaseStage(BaseModel):
                     self._run_command(cmd, ctx)
                 except subprocess.CalledProcessError as e:
                     logger.error(f"Command failed with exit code {e.returncode}")
-                    cmd = " ".join(quote(arg) for arg in e.cmd)
+                    cmd = " ".join(quote(str(arg)) for arg in e.cmd)
                     raise StageExecutionError(f"Failed to run command: {cmd}")
                 except InvalidCommandTypeError as e:
                     raise e

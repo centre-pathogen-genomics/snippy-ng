@@ -6,10 +6,10 @@ import re
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
+from snippy_ng.cli.utils import is_sra_accession
 
 NCBI_ASSEMBLY_ACCESSION_RE = re.compile(r"^(GC[AF]_\d{9})(?:\.\d+)?$")
 ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM(E|D|N)[A-Z]?)[0-9]+$")
-SRA_ACCESSION_RE = re.compile(r"^(SRR|ERR|DRR)\d{6,}$")
 
 
 def is_ncbi_assembly_accession(reference) -> bool:
@@ -24,13 +24,8 @@ def is_reference_accession(reference) -> bool:
     return is_ncbi_assembly_accession(reference) or is_atb_assembly_accession(reference)
 
 
-def is_sra_accession(read_accession) -> bool:
-    """Check if a string is a valid SRA accession (SRR, ERR, or DRR format)."""
-    return SRA_ACCESSION_RE.fullmatch(str(read_accession)) is not None
-
-
-def download_reads(read_accession, stages: list, output_directory: Path | None = None) -> Path:
-    """Download reads from SRA accession using sracha-rs."""
+def download_reads(read_accession, stages: list, output_directory: Path | None = None) -> list[Path]:
+    """Download reads from SRA accession using sracha-rs. Returns list of read paths (1 for single-end, 2 for paired-end)."""
     from snippy_ng.stages.download import DownloadSraReads
 
     if is_sra_accession(read_accession):
@@ -39,7 +34,8 @@ def download_reads(read_accession, stages: list, output_directory: Path | None =
             output_directory=output_directory,
         )
         stages.append(download_stage)
-        return download_stage.output.reads
+        output = download_stage.output
+        return [p for p in [output.r1, output.r2] if p is not None]
 
     raise InvalidReferenceError(
         f"Unsupported SRA accession '{read_accession}'. Supported formats are SRR, ERR, and DRR accessions."

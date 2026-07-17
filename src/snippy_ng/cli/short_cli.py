@@ -1,14 +1,14 @@
 import click
 from typing import Any, Optional
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input, is_sra_accession
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
-@click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
+@click.option("--R1", "--pe1", "--left", default=None, type=click.STRING, callback=reads_or_accession_callback, help="Reads, paired-end R1 (left) or SRA accession (SRR/ERR/DRR)")
 @click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
 @click.argument("read_args", nargs=-1, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
@@ -65,27 +65,24 @@ def short(
     arg_r1 = read_args[0] if len(read_args) >= 1 else None
     arg_r2 = read_args[1] if len(read_args) >= 2 else None
     
-    # Detect if arg_r1 is a read accession (before trying to resolve as path)
+    # Detect if arg_r1 or --R1 is a read accession
     read_accession = None
-    if arg_r1 and isinstance(arg_r1, str):
-        from snippy_ng.pipelines.common import is_sra_accession
-        if is_sra_accession(arg_r1):
-            read_accession = arg_r1
-            arg_r1 = None
-    
+
+    # Check positional arg first
+    if arg_r1 and isinstance(arg_r1, str) and is_sra_accession(arg_r1):
+        read_accession = arg_r1
+        arg_r1 = None
+    # Check --R1 option
+    elif r1 and isinstance(r1, str) and is_sra_accession(r1):
+        read_accession = r1
+        r1 = None
+
     r1 = resolve_cli_input(r1, arg_r1, option_name="--R1/--pe1/--left", arg_name="R1")
     r2 = resolve_cli_input(r2, arg_r2, option_name="--R2/--pe2/--right", arg_name="R2")
-    
-    # If no accession, convert reads to list
+
     reads = []
     if r1:
-        r1_path = r1 if isinstance(r1, Path) else Path(r1)
-        if not r1_path.exists():
-            raise click.UsageError(
-                f"Reads file '{r1_path}' does not exist. "
-                "If you meant to provide an SRA accession, use SRR/ERR/DRR format (e.g. SRR1234567)."
-            )
-        reads.append(r1_path)
+        reads.append(r1 if isinstance(r1, Path) else Path(r1))
     if r2:
         reads.append(r2)
     

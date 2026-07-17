@@ -17,7 +17,8 @@ from snippy_ng.exceptions import StageExecutionError
 
 
 class ReadDownloadOutput(BaseOutput):
-    reads: Path = Field(..., description="Downloaded reads file")
+    r1: Path = Field(..., description="Downloaded reads R1 file (or single-end reads file)")
+    r2: Path | None = Field(default=None, description="Downloaded reads R2 file (paired-end only)")
 
 
 class NcbiAssemblyFastaOutput(BaseOutput):
@@ -218,11 +219,32 @@ class DownloadSraReads(BaseStage):
     @property
     def output(self) -> ReadDownloadOutput:
         output_directory = self.output_directory or Path(".")
-        # SRA downloads produce FASTQ files; naming depends on single-end vs paired-end
-        # We'll use the accession as the base name and sracha-rs will expand it
+        # sracha outputs paired-end reads as {acc}_1.fastq.gz / {acc}_2.fastq.gz
+        # and single-end reads as {acc}.fastq.gz
         return ReadDownloadOutput(
-            reads=output_directory / f"{self.read_prefix}.fastq.gz",
+            r1=output_directory / f"{self.read_prefix}_1.fastq.gz",
+            r2=output_directory / f"{self.read_prefix}_2.fastq.gz",
         )
+
+    def error_if_outputs_missing(self, include_temporary: bool = False):
+        """Override to also accept single-end output ({acc}.fastq.gz)."""
+        from snippy_ng.exceptions import MissingOutputError
+        output_directory = self.output_directory or Path(".")
+        single_end = output_directory / f"{self.read_prefix}.fastq.gz"
+        paired_r1 = output_directory / f"{self.read_prefix}_1.fastq.gz"
+        if single_end.exists() or paired_r1.exists():
+            return
+        raise MissingOutputError(
+            f"Expected output files are missing: r1 ({paired_r1}) or single-end reads ({single_end})"
+        )
+
+    def _normalize_sracha_output(self, ctx):
+        """Rename single-end {acc}.fastq.gz → {acc}_1.fastq.gz for consistent output naming."""
+        output_directory = self.output_directory or Path(".")
+        single_end = output_directory / f"{self.read_prefix}.fastq.gz"
+        r1 = output_directory / f"{self.read_prefix}_1.fastq.gz"
+        if single_end.exists() and not r1.exists():
+            shutil.move(str(single_end), str(r1))
 
     def create_commands(self, ctx):
         output_directory = self.output_directory or Path(".")
@@ -230,5 +252,9 @@ class DownloadSraReads(BaseStage):
             self.shell_cmd(
                 ["sracha", "get", str(self.accession), "--output-dir", str(output_directory), "--prefer-ena"],
                 description=f"Download SRA reads: {self.accession}",
+            ),
+            self.python_cmd(
+                self._normalize_sracha_output,
+                description=f"Normalize sracha output paths for {self.accession}",
             ),
         ]

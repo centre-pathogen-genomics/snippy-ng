@@ -996,7 +996,7 @@ class SeqKitReadStats(BaseStage):
             shell_cmd.command.extend(shlex.split(self.additional_options))
         
         # Input files
-        shell_cmd.command.extend(self.reads)
+        shell_cmd.command.extend(str(r) for r in self.reads)
         
         # Create shell command with output file
         return shell_cmd
@@ -1159,6 +1159,6 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
             shell_cmd.command.extend(shlex.split(self.additional_options))
         
         # Input files
-        shell_cmd.command.extend(self.reads)
+        shell_cmd.command.extend(str(r) for r in self.reads)
         
         return shell_cmd

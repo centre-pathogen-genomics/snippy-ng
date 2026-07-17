@@ -92,6 +92,8 @@ class PrintVcfHistogram(BaseStage):
         return BaseOutput()
 
     def create_commands(self, ctx) -> List[PythonCommand]:
+        import shutil
+        term_cols = shutil.get_terminal_size().columns
         return [
             self.python_cmd(
                 func=self.print_histograms,
@@ -103,6 +105,7 @@ class PrintVcfHistogram(BaseStage):
                     self.min_cols_per_contig,
                     self.draw_separators,
                     not ctx.debug,
+                    term_cols,
                 ],
                 description="Print terminal genome-wide histogram for VCF files",
             )
@@ -117,6 +120,7 @@ class PrintVcfHistogram(BaseStage):
         min_cols_per_contig: int = 1,
         draw_separators: bool = True,
         pass_only: bool = True,
+        term_cols: Optional[int] = None,
     ) -> None:
 
         # --- VCF parsing (contigs + records) ---
@@ -351,6 +355,7 @@ class PrintVcfHistogram(BaseStage):
             min_cols_per_contig: int = 1,
             draw_separators: bool = True,
             pass_only: bool = True,
+            term_cols: Optional[int] = None,
         ) -> None:
             contigs = parse_contigs_from_vcf_header(vcf_path)
             if contig_order == "alpha":
@@ -358,10 +363,9 @@ class PrintVcfHistogram(BaseStage):
             elif contig_order != "header":
                 raise ValueError("contig_order must be 'header' or 'alpha'")
 
-            try:
-                term_cols = os.get_terminal_size().columns
-            except OSError:
-                term_cols = 80
+            if not term_cols:
+                import shutil
+                term_cols = shutil.get_terminal_size().columns
 
             separator_cols = (len(contigs) - 1) if draw_separators else 0
             label_spacing_cols = max(0, len(contigs) - 1)
@@ -405,6 +409,7 @@ class PrintVcfHistogram(BaseStage):
             min_cols_per_contig=min_cols_per_contig,
             draw_separators=draw_separators,
             pass_only=pass_only,
+            term_cols=term_cols,
         )
 
 class FormatHTMLReportTemplateOutput(BaseOutput):

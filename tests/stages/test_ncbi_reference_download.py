@@ -56,10 +56,10 @@ def test_assembly_pipeline_downloads_ncbi_fasta_before_prepare_reference(tmp_pat
     ).build()
 
     assert isinstance(pipeline.stages[0], DownloadNcbiAssemblyFasta)
-    assert pipeline.stages[0].output.fasta == Path("reference/GCF_000000001.1.fa")
+    assert pipeline.stages[0].output.fasta == Path("reference/GCF_000000001.1.gbff")
     assert isinstance(pipeline.stages[1], PrepareReference)
     assert pipeline.stages[1].input == pipeline.stages[0].output.fasta
-    assert pipeline.stages[1].ref_fmt == "fasta"
+    assert pipeline.stages[1].ref_fmt == "genbank"
 
 
 def test_ncbi_assembly_download_extracts_fasta_file(monkeypatch, tmp_path):
