@@ -11,6 +11,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
+@click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--min-read-len", type=click.INT, default=15, help="Minimum read length to keep when cleaning reads")
@@ -28,6 +29,7 @@ def short(
     r1: Optional[Path],
     r2: Optional[Path],
     bam: Optional[Path],
+    vcf: Optional[Path],
     downsample: Optional[float],
     clean_reads: bool,
     min_read_len: int,
@@ -62,6 +64,9 @@ def short(
         reads.append(r2)
     if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
+
+    if vcf and not bam:
+        raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
     
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
@@ -78,6 +83,7 @@ def short(
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,
+        vcf=vcf,
         clean_reads=clean_reads,
         min_read_len=min_read_len,
         min_read_qual=min_read_qual,

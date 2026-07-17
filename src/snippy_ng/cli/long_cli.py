@@ -10,6 +10,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
+@click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
@@ -30,6 +31,7 @@ def long(
     reference: Path | str,
     reads: Optional[Path],
     bam: Optional[Path],
+    vcf: Optional[Path],
     downsample: Optional[float],
     clean_reads: bool,
     min_read_len: int,
@@ -59,12 +61,14 @@ def long(
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
-    import click
     
     if not reads and not bam:
         raise click.UsageError("Please provide reads or a BAM file!")
 
-    if caller == "clair3" and not model and not reads:
+    if vcf and not bam:
+        raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
+
+    if caller == "clair3" and not model and bam and not vcf:
         raise click.UsageError("Please provide --model when using Clair3 with BAM/CRAM input only.")
     
     # Convert reference to accession if it's a string, otherwise keep as Path
@@ -85,6 +89,7 @@ def long(
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,
+        vcf=vcf,
         aligner=aligner,
         aligner_opts=aligner_opts,
         minimap_preset=minimap_preset,

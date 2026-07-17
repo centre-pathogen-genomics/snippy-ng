@@ -26,6 +26,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
+    vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     min_read_len: int = Field(default=15, description="Minimum read length")
@@ -80,6 +81,11 @@ class ShortPipelineBuilder(PipelineBuilder):
         
         # Track current reads through potential cleaning and downsampling
         current_reads = self.reads.copy() if self.reads else []
+
+        if not current_reads and not self.bam:
+            raise ValueError("At least one of reads or bam must be provided.")
+        if self.vcf and not self.bam:
+            raise ValueError("A BAM/CRAM file must be provided when using an existing VCF; the alignment is required for depth masks and QC.")
 
         # Clean reads (optional)
         if self.clean_reads and current_reads:
@@ -170,22 +176,24 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         stages.append(alignment_qc)
         
-        # SNP calling
-        caller = FreebayesCaller(
-            bam=aligned_reads,
-            bam_index=align_filter.output.bai,
-            reference=reference_file,
-            reference_index=reference_index,
-            additional_options=self.caller_opts,
-            min_mapping_quality=self.min_mapping_quality,
-            sample_name=sample_name,
-            **globals
-        )
-        stages.append(caller)
-        
         # Filter VCF
+        variants_file = self.vcf
+        if variants_file is None:
+            caller = FreebayesCaller(
+                bam=aligned_reads,
+                bam_index=align_filter.output.bai,
+                reference=reference_file,
+                reference_index=reference_index,
+                additional_options=self.caller_opts,
+                min_mapping_quality=self.min_mapping_quality,
+                sample_name=sample_name,
+                **globals
+            )
+            stages.append(caller)
+            variants_file = caller.output.vcf
+
         variant_filter = VcfFilterShort(
-            vcf=caller.output.vcf,
+            vcf=variants_file,
             reference=reference_file,
             min_qual=self.min_qual,
             min_depth=self.depth_mask,

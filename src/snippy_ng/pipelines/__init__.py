@@ -446,7 +446,7 @@ class SnippyPipeline:
         self.hr(f"Running Snippy-NG v{__version__}", style=" ", color="green")
         self.hr()
         self.log(" ".join(sys.argv))
-        self.hr("Pipeline Stages")
+        self.hr("PipelineStages")
         for i, stage in enumerate(self.stages, 1):
             self.log(f"{i:3}. {stage.name}")
 

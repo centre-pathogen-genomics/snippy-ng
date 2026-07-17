@@ -8,11 +8,12 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--assembly", "--asm", required=True, type=AbsolutePath(exists=True, readable=True, dir_okay=False), help="Assembly in FASTA format")
+@click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
 @click.option("--caller", default="nucmer", type=click.Choice(["nucmer", "paftools"]), help="Caller to use for assembly-based SNP calling")
 @click.option("--caller-opts", default="", type=click.STRING, help="Extra options for the assembly caller")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
-def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: Literal["nucmer", "paftools"], caller_opts: str, report: bool, prefix: str, sample_name: Optional[str], **context: Any):
+def asm(reference: Path | str, assembly: Path, vcf: Optional[Path], mask: Optional[Path], caller: Literal["nucmer", "paftools"], caller_opts: str, report: bool, prefix: str, sample_name: Optional[str], **context: Any):
     """
     Assembly based SNP calling pipeline
 
@@ -36,6 +37,7 @@ def asm(reference: Path | str, assembly: Path, mask: Optional[Path], caller: Lit
         reference=reference_path,
         reference_accession=reference_accession,
         assembly=assembly,
+        vcf=vcf,
         prefix=prefix,
         sample_name=sample_name,
         caller=caller,

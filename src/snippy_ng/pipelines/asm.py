@@ -22,6 +22,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     reference: Optional[Path] = Field(default=None, description="Reference genome (FASTA or GenBank) or prepared reference directory")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     assembly: Path = Field(..., description="Assembly file path")
+    vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
     caller_opts: str = Field(default="", description="Additional caller options")
@@ -60,45 +61,48 @@ class AsmPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
-        if self.caller == "nucmer":
-            aligner = AssemblyNucmerAligner(
-                reference=reference_file,
-                assembly=Path(self.assembly),
-                prefix=self.prefix,
-            )
-            stages.append(aligner)
-            caller = ShowSnpsCaller(
-                delta=aligner.output.delta,
-                ref_dict=setup.output.reference_dict,
-                assembly=aligner.nucmer_assembly,
-                reference=reference_file,
-                reference_index=reference_index,
-                additional_options=self.caller_opts,
-                prefix=self.prefix,
-                sample_name=sample_name
-            )
-        else:
-            aligner = AssemblyAligner(
-                reference=reference_file,
-                assembly=Path(self.assembly),
-                minimap_preset=self.minimap_preset,
-                prefix=self.prefix,
-            )
-            stages.append(aligner)
-            caller = PAFCaller(
-                paf=aligner.output.paf,
-                ref_dict=setup.output.reference_dict,
-                reference=reference_file,
-                reference_index=reference_index,
-                additional_options=self.caller_opts,
-                prefix=self.prefix,
-                sample_name=sample_name
-            )
-        stages.append(caller)
-
         # Filter VCF
+        variants_file = self.vcf
+        if variants_file is None:
+            if self.caller == "nucmer":
+                aligner = AssemblyNucmerAligner(
+                    reference=reference_file,
+                    assembly=Path(self.assembly),
+                    prefix=self.prefix,
+                )
+                stages.append(aligner)
+                caller = ShowSnpsCaller(
+                    delta=aligner.output.delta,
+                    ref_dict=setup.output.reference_dict,
+                    assembly=aligner.nucmer_assembly,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    additional_options=self.caller_opts,
+                    prefix=self.prefix,
+                    sample_name=sample_name
+                )
+            else:
+                aligner = AssemblyAligner(
+                    reference=reference_file,
+                    assembly=Path(self.assembly),
+                    minimap_preset=self.minimap_preset,
+                    prefix=self.prefix,
+                )
+                stages.append(aligner)
+                caller = PAFCaller(
+                    paf=aligner.output.paf,
+                    ref_dict=setup.output.reference_dict,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    additional_options=self.caller_opts,
+                    prefix=self.prefix,
+                    sample_name=sample_name
+                )
+            stages.append(caller)
+            variants_file = caller.output.vcf
+
         variant_filter = VcfFilterAsm(
-            vcf=caller.output.vcf,
+            vcf=variants_file,
             reference=reference_file,
             # hard code for asm-based calling
             min_qual=self.min_qual,
@@ -107,7 +111,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
 
-        if self.add_deletions_to_vcf:
+        if self.add_deletions_to_vcf and self.vcf is None:
             # Add zero-depth regions to VCF as symbolic deletion blocks
             add_deletions = AddDeletionsToVCF(
                 zero_depth_bed=caller.output.missing_bed,
