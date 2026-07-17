@@ -122,7 +122,19 @@ class LongPipelineBuilder(PipelineBuilder):
             if downsample_stage.output.downsampled_r2:
                 current_reads.append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
-
+        
+        # Clair3 model selection
+        clair3_model = self.model
+        if clair3_model is None:
+            if not current_reads:
+                raise ValueError("Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input.")
+            longbow_stage = LongbowClair3ModelSelector(
+                reads=Path(current_reads[0]),
+                **globals
+            )
+            stages.append(longbow_stage)
+            clair3_model = longbow_stage.output.clair3_model
+        
         # Aligner
         if self.bam:
             aligned_reads = self.bam
@@ -179,17 +191,7 @@ class LongPipelineBuilder(PipelineBuilder):
         variants_file = self.vcf
         if variants_file is None:
             if self.caller == "clair3":
-                clair3_model = self.model
-                if clair3_model is None:
-                    if not current_reads:
-                        raise ValueError("Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input.")
-                    longbow_stage = LongbowClair3ModelSelector(
-                        reads=Path(current_reads[0]),
-                        **globals
-                    )
-                    stages.append(longbow_stage)
-                    clair3_model = longbow_stage.output.clair3_model
-                assert clair3_model is not None, "Clair3 model must be provided or resolved when using Clair3 caller."
+                
                 platform = 'ont'
                 if 'hifi' in str(clair3_model).lower():
                     platform = 'hifi'
