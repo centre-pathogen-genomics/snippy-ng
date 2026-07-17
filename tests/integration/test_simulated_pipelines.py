@@ -18,6 +18,7 @@ from tests.integration.simulation import (
     materialize_scenario,
     normalize_variant,
     parse_vcf_records,
+    simulate_long_reads,
     simulate_short_reads,
     write_truth_vcf,
 )
@@ -356,6 +357,141 @@ def test_short_mixed_sites_are_masked_with_ns(tmp_path):
 
     consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == "n"
+
+
+def test_long_mixed_variants_are_marked(tmp_path):
+    ensure_commands_available("long")
+
+    variant = VariantRecord("Wildtype", 120, "A", "C")
+    request = SimulationRequest(
+        name="long_mixed_variant_mark",
+        reference=DEFAULT_REFERENCE,
+        truth_variants=(variant,),
+        long_coverage=20,
+    )
+    truth_vcf = tmp_path / "mixed.truth.vcf"
+    alt_reference = tmp_path / "mixed.alt.fasta"
+    write_truth_vcf(request.truth_variants, truth_vcf)
+    apply_truth_vcf(request.reference, truth_vcf, alt_reference)
+
+    ref_reads = simulate_long_reads(
+        request,
+        request.reference,
+        tmp_path / "ref.fastq",
+    )
+    alt_reads = simulate_long_reads(
+        request,
+        alt_reference,
+        tmp_path / "alt.fastq",
+    )
+    mixed_reads = tmp_path / "mixed.fastq"
+    _concat_files((ref_reads, alt_reads), mixed_reads)
+
+    model_dir = Path(__file__).resolve().parents[2] / "clair3_models" / "r1041_e82_400bps_sup_v520"
+
+    outdir = tmp_path / "long-mixed-variant-mark"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "long",
+            "--reference", str(request.reference),
+            "--reads", str(mixed_reads),
+            "--outdir", str(outdir),
+            "--prefix", "snippy",
+            "--skip-check",
+            "--cpus", "1",
+            "--ram", "4",
+            "--caller", "freebayes",
+            "--model", str(model_dir),
+            "--min-qual", "0",
+            "--depth-mask", "1",
+            "--min-read-len", "100",
+            "--min-read-qual", "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
+    assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
+    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
+    assert consensus_seq[variant.pos - 1].upper() == "N"
+
+
+def test_long_mixed_variants_are_marked_with_clair3(tmp_path):
+    ensure_commands_available("long")
+
+    variant = VariantRecord("Wildtype", 120, "A", "C")
+    request = SimulationRequest(
+        name="long_mixed_variant_mark_clair3",
+        reference=DEFAULT_REFERENCE,
+        truth_variants=(variant,),
+        long_coverage=50,
+        long_length_mean=1500,
+    )
+    truth_vcf = tmp_path / "mixed.truth.vcf"
+    alt_reference = tmp_path / "mixed.alt.fasta"
+    write_truth_vcf(request.truth_variants, truth_vcf)
+    apply_truth_vcf(request.reference, truth_vcf, alt_reference)
+
+    ref_reads = simulate_long_reads(
+        request,
+        request.reference,
+        tmp_path / "ref.fastq",
+    )
+    alt_reads = simulate_long_reads(
+        request,
+        alt_reference,
+        tmp_path / "alt.fastq",
+    )
+    mixed_reads = tmp_path / "mixed.fastq"
+    _concat_files((ref_reads, alt_reads), mixed_reads)
+
+    model_dir = Path(__file__).resolve().parents[2] / "clair3_models" / "r1041_e82_400bps_sup_v520"
+    
+    outdir = tmp_path / "long-mixed-variant-mark-clair3"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snippy_ng",
+            "long",
+            "--reference", str(request.reference),
+            "--reads", str(mixed_reads),
+            "--outdir", str(outdir),
+            "--prefix", "snippy",
+            "--skip-check",
+            "--cpus", "1",
+            "--ram", "4",
+            "--caller", "clair3",
+            "--model", str(model_dir),
+            "--min-qual", "0",
+            "--depth-mask", "1",
+            "--min-read-len", "100",
+            "--min-read-qual", "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    )
+
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
+    rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
+    assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
+    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+
+    consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
+    assert consensus_seq[variant.pos - 1].upper() == "N"
 
 
 def _read_fasta_records(path: Path) -> dict[str, str]:
