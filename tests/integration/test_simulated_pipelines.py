@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import gzip
 import csv
+import shutil
 
 import pytest
 
@@ -428,6 +429,8 @@ def test_long_mixed_variants_are_marked(tmp_path):
 
 def test_long_mixed_variants_are_marked_with_clair3(tmp_path):
     ensure_commands_available("long")
+    if shutil.which("run_clair3.sh") is None:
+        pytest.skip("run_clair3.sh is not available")
 
     variant = VariantRecord("Wildtype", 120, "A", "C")
     request = SimulationRequest(
