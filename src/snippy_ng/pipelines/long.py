@@ -15,7 +15,7 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, download_reads, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
@@ -24,6 +24,7 @@ class LongPipelineBuilder(PipelineBuilder):
     reference: Optional[Path] = Field(default=None, description="Reference genome file path")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
+    read_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
@@ -87,6 +88,15 @@ class LongPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
+        # Download reads from SRA if accession provided
+        if self.read_accession:
+            reads_input = download_reads(
+                self.read_accession,
+                stages,
+                output_directory=Path("data"),
+            )
+            self.reads = reads_input
+        
         # Track current reads through potential cleaning and downsampling
         current_reads: list[Path] = [self.reads] if self.reads else []
 
@@ -123,9 +133,9 @@ class LongPipelineBuilder(PipelineBuilder):
                 current_reads.append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
         
-        # Clair3 model selection
+        # Clair3 model selection (only needed when calling with clair3 and no pre-called VCF)
         clair3_model = self.model
-        if clair3_model is None:
+        if clair3_model is None and self.caller == "clair3" and self.vcf is None:
             if not current_reads:
                 raise ValueError("Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input.")
             longbow_stage = LongbowClair3ModelSelector(
@@ -420,6 +430,7 @@ class LongPipelineBuilder(PipelineBuilder):
             sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

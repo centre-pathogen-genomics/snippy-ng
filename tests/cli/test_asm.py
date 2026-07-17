@@ -1,4 +1,5 @@
 import pytest
+import snippy_ng.pipelines as _pl
 from snippy_ng.stages.reporting import SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary
 from snippy_ng.stages.vcf import VcfPassFilter, VcfToTab
@@ -27,6 +28,17 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
                 "--outdir",    p["out"],
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
+            "assembly_ok_positional",
+            lambda p: [
+                "--reference", p["ref"],
+                str(p["asm"]),
+                "--outdir", p["out"],
                 "--skip-check",
             ],
             0,
@@ -186,3 +198,34 @@ def test_asm_pipeline_adds_context_filter_when_enabled(monkeypatch, tmp_path):
     ).build()
 
     assert any(isinstance(stage, VariantContextFilter) for stage in pipeline.stages)
+
+
+def test_asm_cli_accepts_assembly_accession(monkeypatch, tmp_path):
+    captured = {}
+
+    class DummyAsmPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
+
+    monkeypatch.setattr("snippy_ng.pipelines.asm.AsmPipelineBuilder", DummyAsmPipelineBuilder)
+
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+    outdir = tmp_path / "output"
+
+    result = run_cli_command([
+        "asm",
+        "--reference", str(ref),
+        "GCF_000000001.1",
+        "--outdir", str(outdir),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert captured["reference"] == ref.absolute()
+    assert captured["reference_accession"] is None
+    assert captured["assembly"] is None
+    assert captured["assembly_accession"] == "GCF_000000001.1"

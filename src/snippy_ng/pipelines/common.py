@@ -9,6 +9,7 @@ from snippy_ng.exceptions import InvalidReferenceError
 
 NCBI_ASSEMBLY_ACCESSION_RE = re.compile(r"^(GC[AF]_\d{9})(?:\.\d+)?$")
 ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM(E|D|N)[A-Z]?)[0-9]+$")
+SRA_ACCESSION_RE = re.compile(r"^(SRR|ERR|DRR)\d{6,}$")
 
 
 def is_ncbi_assembly_accession(reference) -> bool:
@@ -23,16 +24,49 @@ def is_reference_accession(reference) -> bool:
     return is_ncbi_assembly_accession(reference) or is_atb_assembly_accession(reference)
 
 
-def download_assembly(reference_accession, stages: list, output_directory: Path | None = None) -> Path:
-    from snippy_ng.stages.setup import DownloadAtbAssemblyReference, DownloadNcbiGenbankReference
+def is_sra_accession(read_accession) -> bool:
+    """Check if a string is a valid SRA accession (SRR, ERR, or DRR format)."""
+    return SRA_ACCESSION_RE.fullmatch(str(read_accession)) is not None
 
-    if is_ncbi_assembly_accession(reference_accession):
-        download_reference = DownloadNcbiGenbankReference(
-            accession=str(reference_accession),
+
+def download_reads(read_accession, stages: list, output_directory: Path | None = None) -> Path:
+    """Download reads from SRA accession using sracha-rs."""
+    from snippy_ng.stages.download import DownloadSraReads
+
+    if is_sra_accession(read_accession):
+        download_stage = DownloadSraReads(
+            accession=str(read_accession),
             output_directory=output_directory,
         )
+        stages.append(download_stage)
+        return download_stage.output.reads
+
+    raise InvalidReferenceError(
+        f"Unsupported SRA accession '{read_accession}'. Supported formats are SRR, ERR, and DRR accessions."
+    )
+
+
+def get_download_stage_outputs(stages: list) -> list:
+    """Return output paths from any download stages in the pipeline."""
+    from snippy_ng.stages.download import DownloadAtbAssemblyReference, DownloadNcbiAssemblyFasta, DownloadSraReads
+    outputs = []
+    for stage in stages:
+        if isinstance(stage, (DownloadNcbiAssemblyFasta, DownloadAtbAssemblyReference, DownloadSraReads)):
+            outputs.extend(stage.output.paths)
+    return outputs
+
+
+def download_assembly(reference_accession, stages: list, output_directory: Path | None = None) -> Path:
+    from snippy_ng.stages.download import DownloadAtbAssemblyReference, DownloadNcbiAssemblyFasta
+
+    if is_ncbi_assembly_accession(reference_accession):
+        download_reference = DownloadNcbiAssemblyFasta(
+            accession=str(reference_accession),
+            output_directory=output_directory,
+            genbank=True,
+        )
         stages.append(download_reference)
-        return download_reference.output.genbank
+        return download_reference.output.fasta
 
     if is_atb_assembly_accession(reference_accession):
         download_reference = DownloadAtbAssemblyReference(
@@ -44,6 +78,30 @@ def download_assembly(reference_accession, stages: list, output_directory: Path 
 
     raise InvalidReferenceError(
         f"Unsupported assembly accession '{reference_accession}'. Supported accessions are NCBI GCF/GCA and AllTheBacteria SAMN/SAMEA/SAMD IDs."
+    )
+
+
+def download_assembly_fasta(assembly_accession, stages: list, output_directory: Path | None = None) -> Path:
+    from snippy_ng.stages.download import DownloadAtbAssemblyReference, DownloadNcbiAssemblyFasta
+
+    if is_ncbi_assembly_accession(assembly_accession):
+        download_stage = DownloadNcbiAssemblyFasta(
+            accession=str(assembly_accession),
+            output_directory=output_directory,
+        )
+        stages.append(download_stage)
+        return download_stage.output.fasta
+
+    if is_atb_assembly_accession(assembly_accession):
+        download_stage = DownloadAtbAssemblyReference(
+            accession=str(assembly_accession),
+            output_directory=output_directory,
+        )
+        stages.append(download_stage)
+        return download_stage.output.fasta
+
+    raise InvalidReferenceError(
+        f"Unsupported assembly accession '{assembly_accession}'. Supported accessions are NCBI GCF/GCA and AllTheBacteria SAMN/SAMEA/SAMD IDs."
     )
 
 

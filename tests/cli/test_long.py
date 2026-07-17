@@ -31,6 +31,18 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
             True,
         ),
         (
+            "reads_ok_positional",
+            lambda p: [
+                "--reference", p["ref"],
+                str(p["reads"]),
+                "--outdir", p["out"],
+                "--model", p["model"],
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
             "bam_ok",
             lambda p: [
                 "--reference", p["ref"],
@@ -155,3 +167,34 @@ def test_long_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_r
     args = ["long"] + extra(paths)
     result = run_cli_command(args)
     assert_cli_result(result, expect_exit, expect_run)
+
+def test_long_cli_accepts_read_accession(monkeypatch, tmp_path):
+    """Test long-read CLI accepts SRA read accessions."""
+    captured = {}
+
+    class DummyLongPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            import snippy_ng.pipelines as _pl
+            return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
+
+    monkeypatch.setattr("snippy_ng.pipelines.long.LongPipelineBuilder", DummyLongPipelineBuilder)
+
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+    outdir = tmp_path / "output"
+
+    result = run_cli_command([
+        "long",
+        "--reference", str(ref),
+        "ERR1234567",
+        "--outdir", str(outdir),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert captured["reference"] == ref.absolute()
+    assert captured["read_accession"] == "ERR1234567"
+    assert captured["reads"] is None

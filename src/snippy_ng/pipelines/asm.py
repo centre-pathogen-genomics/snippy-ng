@@ -9,7 +9,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, download_assembly_fasta, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
@@ -21,7 +21,8 @@ class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
     reference: Optional[Path] = Field(default=None, description="Reference genome (FASTA or GenBank) or prepared reference directory")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
-    assembly: Path = Field(..., description="Assembly file path")
+    assembly: Optional[Path] = Field(default=None, description="Assembly file path")
+    assembly_accession: Optional[str] = Field(default=None, description="Assembly accession to download as FASTA")
     vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
@@ -38,7 +39,18 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = self.sample_name if self.sample_name else strip_bio_suffixes(Path(self.assembly).name)
+        assembly_input = self.assembly
+        if self.assembly_accession:
+            assembly_input = download_assembly_fasta(
+                self.assembly_accession,
+                stages,
+                output_directory=Path("data"),
+            )
+        if assembly_input is None:
+            raise ValueError("Assembly path or assembly accession must be provided.")
+
+        sample_label = self.assembly_accession if self.assembly_accession else Path(assembly_input).name
+        sample_name = self.sample_name if self.sample_name else strip_bio_suffixes(sample_label)
         reference_input = self.reference
 
         if self.reference_accession:
@@ -67,7 +79,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             if self.caller == "nucmer":
                 aligner = AssemblyNucmerAligner(
                     reference=reference_file,
-                    assembly=Path(self.assembly),
+                    assembly=Path(assembly_input),
                     prefix=self.prefix,
                 )
                 stages.append(aligner)
@@ -84,7 +96,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             else:
                 aligner = AssemblyAligner(
                     reference=reference_file,
-                    assembly=Path(self.assembly),
+                    assembly=Path(assembly_input),
                     minimap_preset=self.minimap_preset,
                     prefix=self.prefix,
                 )
@@ -271,6 +283,7 @@ class AsmPipelineBuilder(PipelineBuilder):
             sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

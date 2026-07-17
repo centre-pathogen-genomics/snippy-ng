@@ -150,6 +150,7 @@ class BaseStage(BaseModel):
 
     _dependencies: List[Dependency] = []
     _tests: ClassVar[List[TestFn]] = []
+    _skip_if_outputs_exist: ClassVar[bool] = False
     _output_description_overrides: dict[str, str] = PrivateAttr(default_factory=dict)
 
     @property
@@ -193,7 +194,7 @@ class BaseStage(BaseModel):
     def shell_cmd(self, command: List[str], description: str, output_file: Optional[Path] = None) -> ShellCommand:
         """Creates a shell command."""
         assert isinstance(command, list), f"Command must be a list of strings, got {command}"
-        assert all(isinstance(arg, str) for arg in command), f"All command arguments must be strings, got {command}"
+        command = [str(arg) for arg in command]
         assert isinstance(description, str), f"Description must be a string, got {description}"
         return ShellCommand(command=command, description=description, output_file=output_file)
     
@@ -391,7 +392,7 @@ class BaseStage(BaseModel):
             raise InvalidCommandTypeError(f"Command must be of type List or PythonCommand, got {type(cmd)}")
 
     def _should_skip(self, ctx: Context) -> bool:
-        if not ctx.create_missing:
+        if not ctx.create_missing and not self._skip_if_outputs_exist:
             return False
         persistent_outputs = self.output.non_temporary_outputs()
         if persistent_outputs:
@@ -401,7 +402,8 @@ class BaseStage(BaseModel):
                 return True
             except MissingOutputError:
                 return False
-        logger.debug(f"{self.name} has no persistent outputs (all temporary or none), rerunning with --create-missing.")
+        if ctx.create_missing:
+            logger.debug(f"{self.name} has no persistent outputs (all temporary or none), rerunning with --create-missing.")
         return False
 
     def _cleanup_incomplete_outputs(self, ctx: Context) -> None:

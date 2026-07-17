@@ -1,7 +1,7 @@
 import click
 from typing import Any, Optional
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -10,6 +10,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--R1", "--pe1", "--left", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R1 (left)")
 @click.option("--R2", "--pe2", "--right", default=None, type=AbsolutePath(exists=True, readable=True), help="Reads, paired-end R2 (right)")
+@click.argument("read_args", nargs=-1, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=False, help="Clean and filter reads with fastp before alignment")
@@ -26,8 +27,9 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def short(
     reference: Path | str,
-    r1: Optional[Path],
+    r1: Optional[Path | str],
     r2: Optional[Path],
+    read_args: tuple[Path | str, ...],
     bam: Optional[Path],
     vcf: Optional[Path],
     downsample: Optional[float],
@@ -51,19 +53,44 @@ def short(
 
     Examples:
 
-        $ snippy-ng short --reference ref.fa --R1 reads_1.fq --R2 reads_2.fq --outdir output
+        $ snippy-ng short --reference ref.fa reads_1.fq reads_2.fq --outdir output
+        $ snippy-ng short --reference ref.fa SRR1234567 --outdir output
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.short import ShortPipelineBuilder
+
+    if len(read_args) > 2:
+        raise click.UsageError("Please provide at most two positional read files: R1 [R2].")
+
+    arg_r1 = read_args[0] if len(read_args) >= 1 else None
+    arg_r2 = read_args[1] if len(read_args) >= 2 else None
     
-    # combine R1 and R2 into reads
+    # Detect if arg_r1 is a read accession (before trying to resolve as path)
+    read_accession = None
+    if arg_r1 and isinstance(arg_r1, str):
+        from snippy_ng.pipelines.common import is_sra_accession
+        if is_sra_accession(arg_r1):
+            read_accession = arg_r1
+            arg_r1 = None
+    
+    r1 = resolve_cli_input(r1, arg_r1, option_name="--R1/--pe1/--left", arg_name="R1")
+    r2 = resolve_cli_input(r2, arg_r2, option_name="--R2/--pe2/--right", arg_name="R2")
+    
+    # If no accession, convert reads to list
     reads = []
     if r1:
-        reads.append(r1)
+        r1_path = r1 if isinstance(r1, Path) else Path(r1)
+        if not r1_path.exists():
+            raise click.UsageError(
+                f"Reads file '{r1_path}' does not exist. "
+                "If you meant to provide an SRA accession, use SRR/ERR/DRR format (e.g. SRR1234567)."
+            )
+        reads.append(r1_path)
     if r2:
         reads.append(r2)
-    if not reads and not bam:
-        raise click.UsageError("Please provide reads or a BAM file!")
+    
+    if not reads and not read_accession and not bam:
+        raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
 
     if vcf and not bam:
         raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
@@ -80,6 +107,7 @@ def short(
         reference=reference_path,
         reference_accession=reference_accession,
         reads=reads,
+        read_accession=read_accession,
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,
@@ -101,4 +129,3 @@ def short(
     # Run the pipeline
     run_ctx = Context(**context)
     return pipeline.run(run_ctx)
-    

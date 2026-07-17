@@ -1,7 +1,7 @@
 import click
 from typing import Any, Optional, Literal
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
@@ -9,6 +9,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
 @click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
+@click.argument("reads_arg", required=False, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
 @click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
@@ -30,6 +31,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 def long(
     reference: Path | str,
     reads: Optional[Path],
+    reads_arg: Optional[Path | str],
     bam: Optional[Path],
     vcf: Optional[Path],
     downsample: Optional[float],
@@ -57,13 +59,29 @@ def long(
 
     Examples:
 
-        $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
+        $ snippy-ng long --reference ref.fa long_reads.fq --outdir output
+        $ snippy-ng long --reference ref.fa SRR1234567 --outdir output
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
+
+    # Detect if reads_arg is a read accession (before trying to resolve as path)
+    read_accession = None
+    if reads_arg and isinstance(reads_arg, str):
+        from snippy_ng.pipelines.common import is_sra_accession
+        if is_sra_accession(reads_arg):
+            read_accession = reads_arg
+            reads_arg = None
     
-    if not reads and not bam:
-        raise click.UsageError("Please provide reads or a BAM file!")
+    reads = resolve_cli_input(
+        reads,
+        reads_arg,
+        option_name="--reads",
+        arg_name="reads",
+    )
+    
+    if not reads and not read_accession and not bam:
+        raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
 
     if vcf and not bam:
         raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
@@ -78,6 +96,9 @@ def long(
     if min_qual is None and caller == "freebayes":
         min_qual = 100.0
     
+    # Convert reads to Path if needed
+    reads_path = reads if reads is None or isinstance(reads, Path) else Path(reads)
+    
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
@@ -85,7 +106,8 @@ def long(
     pipeline = LongPipelineBuilder(
         reference=reference_path,
         reference_accession=reference_accession,
-        reads=reads,
+        reads=reads_path,
+        read_accession=read_accession,
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,
@@ -111,4 +133,3 @@ def long(
     # Run the pipeline
     run_ctx = Context(**context)
     return pipeline.run(run_ctx)
-    

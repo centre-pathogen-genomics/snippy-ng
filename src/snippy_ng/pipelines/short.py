@@ -15,7 +15,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
+from snippy_ng.pipelines.common import download_assembly, download_reads, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.utils.gather import strip_bio_suffixes, strip_read_direction_suffix
 
 
@@ -23,7 +23,8 @@ class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
     reference: Optional[Path] = Field(default=None, description="Reference genome file path")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
-    reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
+    reads: List[Path] = Field(default_factory=list, description="Short read files (FASTQ, R1 and optionally R2)")
+    read_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
@@ -78,6 +79,15 @@ class ShortPipelineBuilder(PipelineBuilder):
         reference_index = setup.output.reference_index
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
+        
+        # Download reads from SRA if accession provided
+        if self.read_accession:
+            reads_input = download_reads(
+                self.read_accession,
+                stages,
+                output_directory=Path("data"),
+            )
+            self.reads = [reads_input]
         
         # Track current reads through potential cleaning and downsampling
         current_reads = self.reads.copy() if self.reads else []
@@ -389,6 +399,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

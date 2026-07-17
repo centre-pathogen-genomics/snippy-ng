@@ -179,6 +179,10 @@ paftools = Dependency(
     version_arg="version",
     version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
 )
+sracha = Dependency(
+    "sracha",
+    min_version="0.1.0",
+)
 
 # Calling
 freebayes = Dependency(
