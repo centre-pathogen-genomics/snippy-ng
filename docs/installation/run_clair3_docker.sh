@@ -78,8 +78,7 @@ if value="$(extract_arg_value --model_path "$@")"; then
     echo "Mounting model path: $value"
     add_mount "$value"
   else
-    echo "Warning: The specified model path '$value' does not exist or is not a
-  directory. Assuming the model path is internal to the Docker image and not mounting it."
+    echo "Warning: The specified model path '$value' does not exist or is not a directory. Assuming the model path is internal to the Docker image and not mounting it."
   fi
 fi
 
