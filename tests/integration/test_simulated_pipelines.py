@@ -4,6 +4,7 @@ from pathlib import Path
 import gzip
 import csv
 import shutil
+from dataclasses import replace
 
 import pytest
 
@@ -316,8 +317,9 @@ def test_short_mixed_sites_are_masked_with_ns(tmp_path):
         request.reference,
         tmp_path / "ref.R",
     )
+    alt_request = replace(request, short_seed=request.short_seed + 1)
     alt_r1, alt_r2 = simulate_short_reads(
-        request,
+        alt_request,
         alt_reference,
         tmp_path / "alt.R",
     )
