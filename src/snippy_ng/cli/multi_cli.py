@@ -19,8 +19,8 @@ def run_multi_config(
     context: dict[str, Any],
 ):
     from snippy_ng.pipelines.common import (
-        download_assembly,
-        is_reference_accession,
+        download_reference,
+        is_assembly_accession,
         load_or_prepare_reference,
     )
     from snippy_ng.pipelines import SnippyPipeline
@@ -36,8 +36,8 @@ def run_multi_config(
     # create reusable reference
     reference_stages = []
     reference_input = cfg["reference"]
-    if is_reference_accession(reference_input):
-        reference_input = download_assembly(
+    if is_assembly_accession(reference_input):
+        reference_input = download_reference(
             reference_input,
             reference_stages,
             output_directory=outdir / "reference",

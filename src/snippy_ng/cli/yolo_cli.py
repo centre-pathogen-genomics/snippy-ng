@@ -38,8 +38,8 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     from snippy_ng.context import Context
     from snippy_ng.logging import logger, derive_log_path
     from snippy_ng.pipelines.common import (
-        download_assembly,
-        is_reference_accession,
+        download_reference,
+        is_assembly_accession,
         load_or_prepare_reference,
     )
     from snippy_ng.pipelines.multi import add_core_alignment_qc, run_multi_pipeline
@@ -85,7 +85,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         raise InvalidReferenceError(
             "No reference file found! Please provide `--reference` or ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk"
         )
-    reference_is_accession = is_reference_accession(reference)
+    reference_is_accession = is_assembly_accession(reference)
 
     # find all samples in the directory and create config
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in directories)}")
@@ -113,7 +113,7 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
     reference_stages: list[BaseStage] = []
     reference_input = reference
     if reference_is_accession:
-        reference_input = download_assembly(
+        reference_input = download_reference(
             reference,
             reference_stages,
             output_directory=outdir / "reference",

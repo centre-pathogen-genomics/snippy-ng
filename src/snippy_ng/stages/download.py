@@ -9,11 +9,38 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from typing import Annotated
 from pydantic import Field
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.__about__ import __version__
 from snippy_ng.dependencies import sracha
+from snippy_ng.envvars import EnvVarField
 from snippy_ng.exceptions import StageExecutionError
+
+
+class BaseDownloadStage(BaseStage):
+    """Base class for all download stages.
+
+    Provides common fields and helpers shared across download stages:
+    - ``_skip_if_outputs_exist`` is always ``True`` so completed downloads are not re-run.
+    - ``output_directory`` declares where downloaded files are placed (defaults to the
+      current working directory when ``None``).
+    - ``resolved_output_directory`` returns the effective ``Path`` to use in ``output``
+      properties and ``create_commands`` implementations.
+    """
+
+    _skip_if_outputs_exist = True
+    output_directory: Annotated[Path, EnvVarField(
+        Path("data"),
+        env_var="DOWNLOAD_DATA_DIR",
+        description="Directory for downloaded output files (default: data, override with SNIPPY_NG_DOWNLOAD_DATA_DIR)",
+        parser=lambda v: Path(v),
+    )]
+
+    @property
+    def resolved_output_directory(self) -> Path:
+        """Return the effective output directory."""
+        return self.output_directory
 
 
 class ReadDownloadOutput(BaseOutput):
@@ -25,10 +52,8 @@ class NcbiAssemblyFastaOutput(BaseOutput):
     fasta: Path = Field(..., description="Downloaded NCBI assembly FASTA")
 
 
-class DownloadNcbiAssemblyFasta(BaseStage):
-    _skip_if_outputs_exist = True
+class DownloadNcbiAssemblyFasta(BaseDownloadStage):
     accession: str = Field(..., description="NCBI RefSeq/GenBank assembly accession")
-    output_directory: Path | None = Field(default=None, description="Optional directory for downloaded assembly FASTA outputs")
     genbank: bool = Field(default=False, description="Download in GenBank format instead of FASTA")
 
     @property
@@ -37,10 +62,9 @@ class DownloadNcbiAssemblyFasta(BaseStage):
 
     @property
     def output(self) -> NcbiAssemblyFastaOutput:
-        output_directory = self.output_directory or Path(".")
         ext = ".gbff" if self.genbank else ".fa"
         return NcbiAssemblyFastaOutput(
-            fasta=output_directory / f"{self.reference_prefix}{ext}",
+            fasta=self.resolved_output_directory / f"{self.reference_prefix}{ext}",
         )
 
     def create_commands(self, ctx):
@@ -142,10 +166,8 @@ class AtbAssemblyReferenceOutput(BaseOutput):
     fasta: Path = Field(..., description="Downloaded AllTheBacteria assembly FASTA reference")
 
 
-class DownloadAtbAssemblyReference(BaseStage):
-    _skip_if_outputs_exist = True
+class DownloadAtbAssemblyFasta(BaseDownloadStage):
     accession: str = Field(..., description="AllTheBacteria sample accession")
-    output_directory: Path | None = Field(default=None, description="Optional directory for downloaded reference outputs")
 
     @property
     def reference_prefix(self) -> str:
@@ -153,9 +175,8 @@ class DownloadAtbAssemblyReference(BaseStage):
 
     @property
     def output(self) -> AtbAssemblyReferenceOutput:
-        output_directory = self.output_directory or Path(".")
         return AtbAssemblyReferenceOutput(
-            fasta=output_directory / f"{self.reference_prefix}.fa",
+            fasta=self.resolved_output_directory / f"{self.reference_prefix}.fa",
         )
 
     def create_commands(self, ctx):
@@ -203,14 +224,12 @@ class DownloadAtbAssemblyReference(BaseStage):
         return f"https://allthebacteria-assemblies.s3.eu-west-2.amazonaws.com/{urllib.parse.quote(accession)}.fa.gz"
 
 
-class DownloadSraReads(BaseStage):
+class DownloadSraReads(BaseDownloadStage):
     """Download reads from SRA using sracha-rs."""
 
     _dependencies = [sracha]
-    _skip_if_outputs_exist = True
 
     accession: str = Field(..., description="SRA accession (SRR, ERR, or DRR format)")
-    output_directory: Path | None = Field(default=None, description="Optional directory for downloaded reads outputs")
 
     @property
     def read_prefix(self) -> str:
@@ -218,20 +237,18 @@ class DownloadSraReads(BaseStage):
 
     @property
     def output(self) -> ReadDownloadOutput:
-        output_directory = self.output_directory or Path(".")
         # sracha outputs paired-end reads as {acc}_1.fastq.gz / {acc}_2.fastq.gz
         # and single-end reads as {acc}.fastq.gz
         return ReadDownloadOutput(
-            r1=output_directory / f"{self.read_prefix}_1.fastq.gz",
-            r2=output_directory / f"{self.read_prefix}_2.fastq.gz",
+            r1=self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz",
+            r2=self.resolved_output_directory / f"{self.read_prefix}_2.fastq.gz",
         )
 
     def error_if_outputs_missing(self, include_temporary: bool = False):
         """Override to also accept single-end output ({acc}.fastq.gz)."""
         from snippy_ng.exceptions import MissingOutputError
-        output_directory = self.output_directory or Path(".")
-        single_end = output_directory / f"{self.read_prefix}.fastq.gz"
-        paired_r1 = output_directory / f"{self.read_prefix}_1.fastq.gz"
+        single_end = self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
+        paired_r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
         if single_end.exists() or paired_r1.exists():
             return
         raise MissingOutputError(
@@ -240,17 +257,15 @@ class DownloadSraReads(BaseStage):
 
     def _normalize_sracha_output(self, ctx):
         """Rename single-end {acc}.fastq.gz → {acc}_1.fastq.gz for consistent output naming."""
-        output_directory = self.output_directory or Path(".")
-        single_end = output_directory / f"{self.read_prefix}.fastq.gz"
-        r1 = output_directory / f"{self.read_prefix}_1.fastq.gz"
+        single_end = self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
+        r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
         if single_end.exists() and not r1.exists():
             shutil.move(str(single_end), str(r1))
 
     def create_commands(self, ctx):
-        output_directory = self.output_directory or Path(".")
         return [
             self.shell_cmd(
-                ["sracha", "get", str(self.accession), "--output-dir", str(output_directory), "--prefer-ena"],
+                ["sracha", "get", str(self.accession), "--output-dir", str(self.resolved_output_directory), "--prefer-ena"],
                 description=f"Download SRA reads: {self.accession}",
             ),
             self.python_cmd(

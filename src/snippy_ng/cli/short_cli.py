@@ -66,15 +66,15 @@ def short(
     arg_r2 = read_args[1] if len(read_args) >= 2 else None
     
     # Detect if arg_r1 or --R1 is a read accession
-    read_accession = None
+    reads_accession = None
 
     # Check positional arg first
     if arg_r1 and isinstance(arg_r1, str) and is_sra_accession(arg_r1):
-        read_accession = arg_r1
+        reads_accession = arg_r1
         arg_r1 = None
     # Check --R1 option
     elif r1 and isinstance(r1, str) and is_sra_accession(r1):
-        read_accession = r1
+        reads_accession = r1
         r1 = None
 
     r1 = resolve_cli_input(r1, arg_r1, option_name="--R1/--pe1/--left", arg_name="R1")
@@ -86,7 +86,7 @@ def short(
     if r2:
         reads.append(r2)
     
-    if not reads and not read_accession and not bam:
+    if not reads and not reads_accession and not bam:
         raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
 
     if vcf and not bam:
@@ -104,7 +104,7 @@ def short(
         reference=reference_path,
         reference_accession=reference_accession,
         reads=reads,
-        read_accession=read_accession,
+        reads_accession=reads_accession,
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,

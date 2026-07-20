@@ -59,9 +59,9 @@ def _path_or_accession_callback(kind: str, accession_hint: str | None = None):
         if path.exists():
             return path
 
-        from snippy_ng.pipelines.common import is_reference_accession
+        from snippy_ng.pipelines.common import is_assembly_accession
 
-        if is_reference_accession(value):
+        if is_assembly_accession(value):
             return value
 
         hint = f" {accession_hint}" if accession_hint else ""
@@ -86,9 +86,9 @@ assembly_or_accession_callback = _path_or_accession_callback(
 
 SRA_ACCESSION_RE = re.compile(r"^(SRR|ERR|DRR)\d{6,}$")
 
-def is_sra_accession(read_accession) -> bool:
+def is_sra_accession(reads_accession) -> bool:
     """Check if a string is a valid SRA accession (SRR, ERR, or DRR format)."""
-    return SRA_ACCESSION_RE.fullmatch(str(read_accession)) is not None
+    return SRA_ACCESSION_RE.fullmatch(str(reads_accession)) is not None
 
 
 def reads_or_accession_callback(ctx, param, value):

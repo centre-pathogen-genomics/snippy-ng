@@ -9,7 +9,7 @@ from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, download_assembly_fasta, load_or_prepare_reference, get_download_stage_outputs
+from snippy_ng.pipelines.common import download_reference, download_assembly_fasta, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
@@ -39,29 +39,29 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        assembly_input = self.assembly
-        if self.assembly_accession:
-            assembly_input = download_assembly_fasta(
-                self.assembly_accession,
-                stages,
-                output_directory=Path("data"),
-            )
-        if assembly_input is None:
-            raise ValueError("Assembly path or assembly accession must be provided.")
 
+        assembly_input = self.assembly
         sample_label = self.assembly_accession if self.assembly_accession else Path(assembly_input).name
         sample_name = self.sample_name if self.sample_name else strip_bio_suffixes(sample_label)
         reference_input = self.reference
 
         if self.reference_accession:
-            reference_input = download_assembly(
+            reference_input = download_reference(
                 self.reference_accession,
                 stages,
-                output_directory=Path("reference"),
             )
+
         if reference_input is None:
             raise ValueError("Reference genome path or reference accession must be provided.")
         
+        if self.assembly_accession:
+            assembly_input = download_assembly_fasta(
+                self.assembly_accession,
+                stages,
+            )
+        if assembly_input is None:
+            raise ValueError("Assembly path or assembly accession must be provided.")
+
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
             reference_path=reference_input,

@@ -15,7 +15,7 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, download_reads, load_or_prepare_reference, get_download_stage_outputs
+from snippy_ng.pipelines.common import download_reference, download_reads, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
@@ -24,7 +24,7 @@ class LongPipelineBuilder(PipelineBuilder):
     reference: Optional[Path] = Field(default=None, description="Reference genome file path")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
-    read_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
+    reads_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
@@ -69,7 +69,7 @@ class LongPipelineBuilder(PipelineBuilder):
         reference_input = self.reference
 
         if self.reference_accession:
-            reference_input = download_assembly(
+            reference_input = download_reference(
                 self.reference_accession,
                 stages,
                 output_directory=Path("reference"),
@@ -89,11 +89,10 @@ class LongPipelineBuilder(PipelineBuilder):
         stages.append(setup)
         
         # Download reads from SRA if accession provided
-        if self.read_accession:
+        if self.reads_accession:
             reads_input = download_reads(
-                self.read_accession,
+                self.reads_accession,
                 stages,
-                output_directory=Path("data"),
             )
             self.reads = reads_input
         

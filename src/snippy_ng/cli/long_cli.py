@@ -66,12 +66,12 @@ def long(
     from snippy_ng.pipelines.long import LongPipelineBuilder
 
     # Detect if reads_arg or --reads is a read accession
-    read_accession = None
+    reads_accession = None
     if reads_arg and isinstance(reads_arg, str) and is_sra_accession(reads_arg):
-        read_accession = reads_arg
+        reads_accession = reads_arg
         reads_arg = None
     elif reads and isinstance(reads, str) and is_sra_accession(reads):
-        read_accession = reads
+        reads_accession = reads
         reads = None
     
     reads = resolve_cli_input(
@@ -81,7 +81,7 @@ def long(
         arg_name="reads",
     )
     
-    if not reads and not read_accession and not bam:
+    if not reads and not reads_accession and not bam:
         raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
 
     if vcf and not bam:
@@ -108,7 +108,7 @@ def long(
         reference=reference_path,
         reference_accession=reference_accession,
         reads=reads_path,
-        read_accession=read_accession,
+        reads_accession=reads_accession,
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,

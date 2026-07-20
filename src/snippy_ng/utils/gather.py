@@ -373,9 +373,9 @@ def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optiona
     if reference is None:
         return None, []
 
-    from snippy_ng.pipelines.common import is_reference_accession
+    from snippy_ng.pipelines.common import is_assembly_accession
 
-    if is_reference_accession(reference):
+    if is_assembly_accession(reference):
         return str(reference), []
 
     normalized = _absolute(reference)
