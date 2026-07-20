@@ -255,7 +255,7 @@ class DownloadSraReads(BaseDownloadStage):
             f"Expected output files are missing: r1 ({paired_r1}) or single-end reads ({single_end})"
         )
 
-    def _normalize_sracha_output(self, ctx):
+    def _normalize_sracha_output(self):
         """Rename single-end {acc}.fastq.gz → {acc}_1.fastq.gz for consistent output naming."""
         single_end = self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
         r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
