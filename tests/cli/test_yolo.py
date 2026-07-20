@@ -181,7 +181,7 @@ def test_yolo_accepts_reference_accession(monkeypatch, tmp_path):
         stages.append(SimpleNamespace(output=SimpleNamespace(fasta=downloaded_reference)))
         return downloaded_reference
 
-    monkeypatch.setattr("snippy_ng.pipelines.common.download_assembly", fake_download_assembly)
+    monkeypatch.setattr("snippy_ng.pipelines.common.download_reference", fake_download_assembly)
     monkeypatch.setattr("snippy_ng.pipelines.multi.run_multi_pipeline", lambda **_: (list(samples.keys()), []))
 
     class ShouldNotBeCalledTreePipelineBuilder:

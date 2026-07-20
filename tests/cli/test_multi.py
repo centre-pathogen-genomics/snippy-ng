@@ -851,7 +851,7 @@ def test_multi_cli_accepts_reference_accession(monkeypatch, tmp_path):
         stages.append(SimpleNamespace(output=SimpleNamespace(fasta=downloaded_reference)))
         return downloaded_reference
 
-    monkeypatch.setattr("snippy_ng.pipelines.common.download_assembly", fake_download_assembly)
+    monkeypatch.setattr("snippy_ng.pipelines.common.download_reference", fake_download_assembly)
 
     captured_multi = {}
 

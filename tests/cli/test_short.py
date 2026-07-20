@@ -144,5 +144,5 @@ def test_short_cli_accepts_read_accession(monkeypatch, tmp_path):
 
     assert result.exit_code == 0, result.output
     assert captured["reference"] == ref.absolute()
-    assert captured["read_accession"] == "SRR1234567"
+    assert captured["reads_accession"] == "SRR1234567"
     assert captured["reads"] == []

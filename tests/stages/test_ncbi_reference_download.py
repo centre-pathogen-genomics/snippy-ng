@@ -4,9 +4,9 @@ import json
 import zipfile
 from pathlib import Path
 
-from snippy_ng.pipelines.common import download_assembly_fasta, is_atb_assembly_accession, is_ncbi_assembly_accession, is_reference_accession
+from snippy_ng.pipelines.common import download_assembly_fasta, is_atb_assembly_accession, is_ncbi_assembly_accession, is_assembly_accession
 from snippy_ng.pipelines.asm import AsmPipelineBuilder
-from snippy_ng.stages.download import DownloadAtbAssemblyReference, DownloadNcbiAssemblyFasta
+from snippy_ng.stages.download import DownloadAtbAssemblyFasta, DownloadNcbiAssemblyFasta
 from snippy_ng.stages.setup import PrepareReference
 
 
@@ -40,9 +40,9 @@ def test_detects_allthebacteria_assembly_accessions():
 
 
 def test_detects_supported_reference_accessions():
-    assert is_reference_accession("GCF_000000001.1")
-    assert is_reference_accession("SAMN123456")
-    assert not is_reference_accession("reference.fasta")
+    assert is_assembly_accession("GCF_000000001.1")
+    assert is_assembly_accession("SAMN123456")
+    assert not is_assembly_accession("reference.fasta")
 
 
 def test_assembly_pipeline_downloads_ncbi_fasta_before_prepare_reference(tmp_path):
@@ -97,7 +97,6 @@ def test_download_assembly_fasta_uses_data_output_directory(tmp_path):
     fasta = download_assembly_fasta(
         "GCF_000000001.1",
         stages,
-        output_directory=Path("data"),
     )
 
     assert isinstance(stages[0], DownloadNcbiAssemblyFasta)
@@ -118,7 +117,7 @@ def test_atb_reference_download_extracts_fasta_file(monkeypatch, tmp_path):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-    stage = DownloadAtbAssemblyReference(
+    stage = DownloadAtbAssemblyFasta(
         accession="SAMN123456",
         output_directory=tmp_path / "reference",
     )
@@ -142,7 +141,7 @@ def test_assembly_pipeline_downloads_atb_fasta_before_prepare_reference(tmp_path
         prefix="sample",
     ).build()
 
-    assert isinstance(pipeline.stages[0], DownloadAtbAssemblyReference)
+    assert isinstance(pipeline.stages[0], DownloadAtbAssemblyFasta)
     assert pipeline.stages[0].output.fasta == Path("reference/SAMN123456.fa")
     assert isinstance(pipeline.stages[1], PrepareReference)
     assert pipeline.stages[1].input == pipeline.stages[0].output.fasta
@@ -163,3 +162,20 @@ def test_assembly_pipeline_downloads_assembly_accession_to_data_before_alignment
     assert pipeline.stages[0].output.fasta == Path("data/GCF_000000001.1.fa")
     assert isinstance(pipeline.stages[1], PrepareReference)
     assert pipeline.stages[2].assembly == Path("data/GCF_000000001.1.fa")
+
+
+def test_assembly_pipeline_respects_download_data_dir_envvar(tmp_path, monkeypatch):
+    monkeypatch.setenv("SNIPPY_NG_DOWNLOAD_DATA_DIR", "/custom/downloads")
+
+    reference = tmp_path / "reference.fa"
+    reference.write_text(">ref\nACGT\n", encoding="utf-8")
+
+    pipeline = AsmPipelineBuilder(
+        reference=reference,
+        assembly_accession="GCF_000000001.1",
+        prefix="sample",
+    ).build()
+
+    assert isinstance(pipeline.stages[0], DownloadNcbiAssemblyFasta)
+    assert pipeline.stages[0].output.fasta == Path("/custom/downloads/GCF_000000001.1.fa")
+    assert pipeline.stages[2].assembly == Path("/custom/downloads/GCF_000000001.1.fa")
