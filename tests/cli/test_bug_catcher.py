@@ -25,7 +25,7 @@ def test_exception_triggers_bug_report(capsys):
     def explode(x):
         raise ValueError("test error")
 
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(cli, ["explode", "42"])
 
     assert result.exit_code == 1
@@ -49,7 +49,7 @@ def test_exception_bug_report_is_written_to_log_file(tmp_path):
         logger.set_log_path(None)
         raise AssertionError("BOOM!")
 
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(cli, ["--outdir", str(tmp_path), "explode"])
 
     assert result.exit_code == 1
