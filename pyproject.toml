@@ -148,7 +148,7 @@ packaging =  { version = "*", channel = "conda-forge" }
 pydantic  = { version = "*", channel = "conda-forge" }
 biopython = { version = "*", channel = "conda-forge" }
 numpy = { version = "*", channel = "conda-forge" }
-scikit-learn = { version = ">=1.7", channel = "conda-forge" }
+scikit-learn = { version = "*", channel = "conda-forge" }
 gradio = {version = "*", channel = "conda-forge"}
 pytz = {version = "*", channel = "conda-forge"}
 
