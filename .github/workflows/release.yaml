@@ -138,6 +138,7 @@ jobs:
           recipe: "recipe/recipe.yaml"
           rattler-build-channels: "conda-forge,bioconda"
           version: ${{ needs.release.outputs.tag }}
+          pixi-pack-version: "0.7.10"
       
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
