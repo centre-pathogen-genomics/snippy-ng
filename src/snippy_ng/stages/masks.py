@@ -17,8 +17,6 @@ class DepthBedsFromBam(BaseStage):
 
     bam: Path = Field(..., description="Input BAM file")
     min_depth: int = Field(..., description="Minimum depth threshold")
-    min_base_quality: int = Field(13, description="Minimum base quality to include in depth calculation")
-    min_mapping_quality: int = Field(0, description="Minimum mapping quality to include in depth calculation")
 
     _dependencies = [
         bedtools,
@@ -34,10 +32,9 @@ class DepthBedsFromBam(BaseStage):
 
     def create_commands(self, ctx) -> List:
         depth_cmd = [
-            "samtools", "depth",
+            "samtools",
+            "depth",
             "-aa",
-            "--min-BQ", str(self.min_base_quality),
-            "--min-MQ", str(self.min_mapping_quality),
             str(self.bam),
         ]
         return [

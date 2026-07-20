@@ -1,9 +1,9 @@
 from pathlib import Path
 import sys
-from typing import List
+from typing import Annotated, List, Optional
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
 from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarInt, EnvVarStr
 from pydantic import Field 
 
 
@@ -27,12 +27,15 @@ class Aligner(BaseStage):
 class ShortReadAligner(Aligner):
     """
     Base class for short read alignment pipelines. Implements common steps: sorting, fixing mates, and marking duplicates.
-    Optionally filters soft-clipped reads using samclip (recommended only for short reads, as it may discard valid soft clipping in long reads).
+    Optionally filters soft-clipped reads using samclip
     """
 
-    maxsoft: int = Field(10, description="Maximum soft clipping to allow")
     samclip: bool = Field(
         True, description="Whether to run samclip to filter soft-clipped reads"
+    )
+    maxsoft: int = Field(
+        10,
+        description="Maximum terminal clipping to allow on either end before filtering, after ignoring clips at contig boundaries",
     )
 
     _dependencies = [samtools]
@@ -204,6 +207,13 @@ class Minimap2LongReadAligner(Aligner):
     minimap_preset: str = Field(
         "map-ont", description="Minimap2 preset to use for alignment"
     )
+    reference_index: Path = Field(..., description="Reference FASTA index (.fai)")
+    max_clip_fraction: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Optional maximum terminal clipping fraction for samclip, measured after ignoring contig-boundary clips and including hard clips in read length",
+    )
     
     _dependencies = [minimap2, samtools]
 
@@ -226,27 +236,67 @@ class Minimap2LongReadAligner(Aligner):
         minimap_cmd_parts.extend(["-t", str(ctx.cpus), str(self.reference)])
         minimap_cmd_parts.extend([str(r) for r in self.reads])
 
+        processes = [
+            self.shell_cmd(
+                minimap_cmd_parts,
+                description=f"Align {len(self.reads)} read files with Minimap2",
+            ),
+        ]
+        if self.max_clip_fraction is not None:
+            processes.extend(
+                [
+                    self.shell_cmd(
+                        [
+                            "samtools",
+                            "sort",
+                            "-n",
+                            "-O",
+                            "sam",
+                            "--threads",
+                            str(ctx.cpus),
+                        ],
+                        description="Name-sort alignments for samclip",
+                    ),
+                    self.shell_cmd(
+                        [
+                            sys.executable,
+                            "-m",
+                            "snippy_ng",
+                            "utils",
+                            "aln",
+                            "samclip",
+                            "--index",
+                            str(self.reference_index),
+                            "--max-clip-fraction",
+                            str(self.max_clip_fraction),
+                        ],
+                        description="Filter long-read alignments by clipped-read fraction",
+                    ),
+                ]
+            )
+        processes.append(
+            self.shell_cmd(
+                [
+                    "samtools",
+                    "sort",
+                    "--threads",
+                    str(ctx.cpus),
+                    "-O",
+                    "bam",
+                    "--reference",
+                    str(self.reference),
+                ],
+                description="Coordinate-sort and convert to BAM",
+            )
+        )
+
         minimap_pipeline = self.shell_pipe(
-            [
-                self.shell_cmd(
-                    minimap_cmd_parts,
-                    description=f"Align {len(self.reads)} read files with Minimap2",
-                ),
-                self.shell_cmd(
-                    [
-                        "samtools",
-                        "sort",
-                        "--threads",
-                        str(ctx.cpus),
-                        "-O",
-                        "bam",
-                        "--reference",
-                        str(self.reference),
-                    ],
-                    description="Sort and convert to BAM",
-                ),
-            ],
-            description="Minimap2 alignment pipeline",
+            processes,
+            description=(
+                "Minimap2 alignment pipeline with fraction-based samclip"
+                if self.max_clip_fraction is not None
+                else "Minimap2 alignment pipeline"
+            ),
             output_file=self.output.bam,
         )
 
@@ -264,11 +314,11 @@ class AssemblyAligner(BaseStage):
 
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
-    minimap_preset: str = EnvVarField(
+    minimap_preset: Annotated[str, EnvVarStr(
         "asm20",
         "ASM_MINIMAP_PRESET",
         description="Minimap2 preset to use for assembly-to-reference alignment",
-    )
+    )]
 
     _dependencies = [minimap2]
 
@@ -321,6 +371,7 @@ class AssemblyAligner(BaseStage):
 
 class AssemblyNucmerAlignerOutput(BaseOutput):
     delta: Path = Field(..., description="Delta file of assembly-to-reference alignments produced by nucmer")
+    assembly: Optional[Path] = Field(None, description="Uncompressed assembly FASTA used as the nucmer query")
 
 
 class AssemblyNucmerAligner(BaseStage):
@@ -330,20 +381,37 @@ class AssemblyNucmerAligner(BaseStage):
 
     reference: Path = Field(..., description="Reference file")
     assembly: Path = Field(..., description="Input assembly FASTA file")
-    breaklen: int = EnvVarField(250, "MUMMER_BREAKLEN", description="Maximum poor-scoring extension distance for nucmer")
-    mincluster: int = EnvVarField(120, "MUMMER_MINCLUSTER", description="Minimum length of a match cluster for nucmer")
-    maxgap: int = EnvVarField(50, "MUMMER_MAXGAP", description="Maximum gap between adjacent matches in a cluster for nucmer")
-    minmatch: int = EnvVarField(46, "MUMMER_MINMATCH", description="Minimum exact-match length for nucmer anchors")
-    minalign: int = EnvVarField(400, "MUMMER_MINALIGN", description="Minimum alignment length retained by nucmer after extension")
+    breaklen: Annotated[int, EnvVarInt(250, "MUMMER_BREAKLEN", description="Maximum poor-scoring extension distance for nucmer")]
+    mincluster: Annotated[int, EnvVarInt(120, "MUMMER_MINCLUSTER", description="Minimum length of a match cluster for nucmer")]
+    maxgap: Annotated[int, EnvVarInt(50, "MUMMER_MAXGAP", description="Maximum gap between adjacent matches in a cluster for nucmer")]
+    minmatch: Annotated[int, EnvVarInt(46, "MUMMER_MINMATCH", description="Minimum exact-match length for nucmer anchors")]
+    minalign: Annotated[int, EnvVarInt(400, "MUMMER_MINALIGN", description="Minimum alignment length retained by nucmer after extension")]
 
     _dependencies = [nucmer]
 
     @property
     def output(self) -> AssemblyNucmerAlignerOutput:
-        return AssemblyNucmerAlignerOutput(delta=Path(f"{self.prefix}.delta"))
+        assembly = Path(f"{self.prefix}.assembly.fa") if self.assembly.suffix.lower() == ".gz" else None
+        return AssemblyNucmerAlignerOutput(
+            delta=Path(f"{self.prefix}.delta"),
+            assembly=assembly,
+        )
+
+    @property
+    def nucmer_assembly(self) -> Path:
+        return self.output.assembly or self.assembly
 
     def create_commands(self, ctx) -> List:
-        return [
+        commands = []
+        if self.output.assembly is not None:
+            commands.append(
+                self.shell_cmd(
+                    ["gunzip", "-c", str(self.assembly)],
+                    description="Decompress assembly FASTA for nucmer",
+                    output_file=self.output.assembly,
+                )
+            )
+        commands.append(
             self.shell_cmd(
                 [
                     "nucmer",
@@ -362,11 +430,12 @@ class AssemblyNucmerAligner(BaseStage):
                     "--minalign",
                     str(self.minalign),
                     str(self.reference),
-                    str(self.assembly),
+                    str(self.nucmer_assembly),
                 ],
                 description="Align assembly to reference with nucmer",
             )
-        ]
+        )
+        return commands
 
     def test_delta_output(self):
         delta_path = self.output.delta

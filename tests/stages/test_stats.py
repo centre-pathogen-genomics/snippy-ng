@@ -2,15 +2,150 @@
 Test module for SeqKit read statistics stages
 """
 
+import csv
+
 import pytest
 from pydantic import ValidationError
 
 from snippy_ng.stages.stats import (
+    FastaCompositionStats,
+    SampleQcSummary,
+    SamtoolsAlignmentQcStats,
     SeqKitReadStats,
     SeqKitReadStatsBasic,
-    SeqKitReadStatsDetailed
+    SeqKitReadStatsDetailed,
 )
 from snippy_ng.context import Context
+
+
+def test_samtools_alignment_qc_parses_outputs(tmp_path):
+    flagstat = tmp_path / "sample.flagstat.txt"
+    stats = tmp_path / "sample.stats.txt"
+    coverage = tmp_path / "sample.coverage.tsv"
+    output = tmp_path / "sample.alignment.tsv"
+    flagstat.write_text(
+        "100 + 0 in total (QC-passed reads + QC-failed reads)\n"
+        "90 + 0 primary\n"
+        "5 + 0 secondary\n"
+        "5 + 0 supplementary\n"
+        "2 + 0 duplicates\n"
+        "95 + 0 mapped (95.00% : N/A)\n"
+        "80 + 0 properly paired (80.00% : N/A)\n"
+    )
+    stats.write_text(
+        "SN\traw total sequences:\t100\n"
+        "SN\treads mapped:\t95\n"
+        "SN\treads unmapped:\t5\n"
+        "SN\tbases mapped:\t4000\n"
+        "SN\terror rate:\t0.001\n"
+        "SN\taverage length:\t100\n"
+        "SN\taverage quality:\t35\n"
+        "SN\tinsert size average:\t450\n"
+    )
+    coverage.write_text(
+        "#rname\tstartpos\tendpos\tnumreads\tcovbases\tcoverage\tmeandepth\tmeanbaseq\tmeanmapq\n"
+        "chr1\t1\t100\t10\t90\t90\t20\t30\t60\n"
+        "chr2\t1\t300\t20\t150\t50\t10\t30\t60\n"
+    )
+
+    SamtoolsAlignmentQcStats.write_alignment_qc(flagstat, stats, coverage, output, "sample")
+
+    with output.open(newline="") as handle:
+        row = next(csv.DictReader(handle, delimiter="\t"))
+    assert row["sample"] == "sample"
+    assert row["alignment_total"] == "100"
+    assert row["alignment_mapped_percent"] == "95.0"
+    assert row["alignment_reads_mapped"] == "95"
+    assert row["alignment_mean_depth"] == "12.5"
+    assert row["alignment_mean_breadth"] == "60.0"
+
+
+def test_fasta_composition_counts_missing_and_gap_characters(tmp_path):
+    fasta = tmp_path / "sample.fna"
+    fasta.write_text(">sample\nACGTNNnn--X\n")
+
+    metrics = FastaCompositionStats.count_fasta_composition(fasta)
+
+    assert metrics["final_length"] == 11
+    assert metrics["final_acgt"] == 4
+    assert metrics["final_N"] == 2
+    assert metrics["final_n"] == 2
+    assert metrics["final_gap"] == 2
+    assert metrics["final_other"] == 1
+    assert metrics["final_gap_fraction"] == round(2 / 11, 6)
+
+
+def test_sample_qc_summary_merges_component_tsvs(tmp_path):
+    reads_tsv = tmp_path / "sample.reads.tsv"
+    alignment_tsv = tmp_path / "sample.alignment.tsv"
+    vcf_tsv = tmp_path / "sample.vcf.summary.tsv"
+    fasta_tsv = tmp_path / "sample.fasta.tsv"
+    output = tmp_path / "sample.qc.tsv"
+    reads_tsv.write_text(
+        "sample\tfile\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\n"
+        "sample\tR1.fq\tFASTQ\tDNA\t10\t1000\t90\t100\t110\n"
+        "sample\tR2.fq\tFASTQ\tDNA\t10\t1000\t90\t100\t110\n"
+    )
+    alignment_tsv.write_text(
+        "sample\talignment_mapped_percent\talignment_mean_depth\n"
+        "sample\t95.5\t30.25\n"
+    )
+    vcf_tsv.write_text(
+        "sample\ttotal\tpass\tsnp\n"
+        "sample\t7\t6\t5\n"
+    )
+    fasta_tsv.write_text(
+        "sample\tfinal_length\tfinal_gap_fraction\tfinal_N_fraction\n"
+        "sample\t100\t0.01\t0.02\n"
+    )
+
+    SampleQcSummary.write_sample_qc_summary(
+        output,
+        "sample",
+        "short",
+        reads_tsv,
+        alignment_tsv,
+        vcf_tsv,
+        fasta_tsv,
+    )
+
+    with output.open(newline="") as handle:
+        row = next(csv.DictReader(handle, delimiter="\t"))
+    assert row["sample"] == "sample"
+    assert row["pipeline_type"] == "short"
+    assert row["read_num_seqs"] == "20"
+    assert row["vcf_total"] == "7"
+    assert row["alignment_mapped_percent"] == "95.5"
+    assert row["final_gap_fraction"] == "0.01"
+    assert "core_aligned_percent" not in row
+
+
+def test_sample_qc_summary_omits_blank_component_columns(tmp_path):
+    vcf_tsv = tmp_path / "sample.vcf.summary.tsv"
+    output = tmp_path / "sample.qc.tsv"
+    vcf_tsv.write_text(
+        "sample\ttotal\tpass\n"
+        "sample\t0\t0\n"
+    )
+
+    SampleQcSummary.write_sample_qc_summary(
+        output,
+        "sample",
+        "asm",
+        None,
+        None,
+        vcf_tsv,
+        None,
+    )
+
+    with output.open(newline="") as handle:
+        row = next(csv.DictReader(handle, delimiter="\t"))
+    assert row == {
+        "sample": "sample",
+        "pipeline_type": "asm",
+        "vcf_total": "0",
+        "vcf_pass": "0",
+    }
 
 
 class TestSeqKitReadStats:

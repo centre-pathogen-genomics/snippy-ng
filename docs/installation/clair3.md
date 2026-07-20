@@ -122,16 +122,16 @@ Or pass a model directly:
 snippy-ng long \
   --ref reference.fasta \
   --reads reads.fastq.gz \
-  --clair3-model /path/to/model
+  --model /path/to/model
 ```
 
-When using BAM or CRAM input with Clair3, pass `--clair3-model` explicitly:
+When using BAM or CRAM input with Clair3, pass `--model` explicitly:
 
 ```console
 snippy-ng long \
   --ref reference.fasta \
   --bam reads.bam \
-  --clair3-model /path/to/model
+  --model /path/to/model
 ```
 
 ## Future Conda Package

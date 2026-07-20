@@ -117,7 +117,7 @@ def _first_reference_start(parts: List[Tuple[int, str, Optional[int]]], fallback
 def _strip_stale_tags(fields: List[str]) -> List[str]:
     return fields[:11] + [
         field for field in fields[11:]
-        if not (field.startswith("MD:Z:") or field.startswith("NM:i:"))
+        if not (field.startswith("MD:Z:") or field.startswith("NM:i:") or field.startswith("SA:Z:"))
     ]
 
 
@@ -136,21 +136,9 @@ def _crop_sam_record_to_interval(
     has_qual = qual != "*"
     ref_pos = read_start
     query_pos = 0
-    leading_hard = 0
-    trailing_hard = 0
-    emitted_query = False
     retained_parts: List[Tuple[int, str, Optional[int]]] = []
     seq_parts: List[str] = []
     qual_parts: List[str] = []
-
-    def hard_clip_query(length: int) -> None:
-        nonlocal leading_hard, trailing_hard
-        if length <= 0:
-            return
-        if emitted_query or retained_parts:
-            trailing_hard += length
-        else:
-            leading_hard += length
 
     def append_part(length: int, op: str, ref_start: Optional[int]) -> None:
         if length <= 0:
@@ -165,9 +153,6 @@ def _crop_sam_record_to_interval(
             keep_right = min(op_ref_end, keep_end)
             left_query_clip = max(0, keep_left - op_ref_start)
             kept = max(0, keep_right - keep_left)
-            right_query_clip = max(0, op_ref_end - keep_right)
-
-            hard_clip_query(left_query_clip)
             if kept:
                 query_start = query_pos + left_query_clip
                 query_end = query_start + kept
@@ -176,8 +161,6 @@ def _crop_sam_record_to_interval(
                     seq_parts.append(seq[query_start:query_end])
                 if has_qual:
                     qual_parts.append(qual[query_start:query_end])
-                emitted_query = True
-            hard_clip_query(right_query_clip)
             ref_pos += length
             query_pos += length
         elif op in {"D", "N"}:
@@ -194,15 +177,11 @@ def _crop_sam_record_to_interval(
                     seq_parts.append(seq[query_pos:query_pos + length])
                 if has_qual:
                     qual_parts.append(qual[query_pos:query_pos + length])
-                emitted_query = True
-            else:
-                hard_clip_query(length)
             query_pos += length
         elif op == "S":
-            hard_clip_query(length)
             query_pos += length
         elif op == "H":
-            hard_clip_query(length)
+            pass
         elif op == "P":
             if keep_start <= ref_pos < keep_end:
                 append_part(length, op, None)
@@ -213,15 +192,8 @@ def _crop_sam_record_to_interval(
     if not retained_parts or not any(op in QUERY_OPS for _length, op, _ref_start in retained_parts):
         return None
 
-    new_cigar_parts: List[Tuple[int, str]] = []
-    if leading_hard:
-        new_cigar_parts.append((leading_hard, "H"))
-    new_cigar_parts.extend((length, op) for length, op, _ref_start in retained_parts)
-    if trailing_hard:
-        new_cigar_parts.append((trailing_hard, "H"))
-
     fields[POS] = str(_first_reference_start(retained_parts, keep_start) + 1)
-    fields[CIGAR] = format_cigar(new_cigar_parts)
+    fields[CIGAR] = format_cigar((length, op) for length, op, _ref_start in retained_parts)
     fields[SEQ] = "".join(seq_parts) if has_seq else "*"
     fields[QUAL] = "".join(qual_parts) if has_qual else "*"
     fields = _strip_stale_tags(fields)

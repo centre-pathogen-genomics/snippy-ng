@@ -2,16 +2,16 @@ from pydantic import BaseModel
 
 from snippy_ng.envvars import (
     EnvVarField,
-    bool_envvar,
+    EnvVarBool,
+    EnvVarFloat,
+    EnvVarInt,
+    EnvVarStr,
     candidate_envvar_names,
-    float_envvar,
-    int_envvar,
     normalize_envvar_name,
     parse_bool_envvar,
     parse_float_envvar,
     parse_int_envvar,
     parse_str_envvar,
-    str_envvar,
 )
 
 
@@ -61,16 +61,16 @@ def test_candidate_envvar_names_include_prefixed_and_unprefixed_forms():
 
 
 def test_envvar_defaults_description_when_missing():
-    test_bool = bool_envvar("TEST_BOOL")
+    test_bool = EnvVarBool(False, "TEST_BOOL")
 
     assert test_bool.description == "Value loaded from environment variable SNIPPY_NG_TEST_BOOL"
 
 
 def test_define_envvars_read_current_environment(monkeypatch):
-    test_bool = bool_envvar("TEST_BOOL", description="Toggle a test boolean")
-    test_int = int_envvar("TEST_INT", default=3, description="Configure integer test value")
-    test_float = float_envvar("TEST_FLOAT", default=1.0, description="Configure float test value")
-    test_str = str_envvar("TEST_STR", default="fallback", description="Configure string test value")
+    test_bool = EnvVarBool(False, "TEST_BOOL", description="Toggle a test boolean")
+    test_int = EnvVarInt(3, "TEST_INT", description="Configure integer test value")
+    test_float = EnvVarFloat(1.0, "TEST_FLOAT", description="Configure float test value")
+    test_str = EnvVarStr("fallback", "TEST_STR", description="Configure string test value")
 
     monkeypatch.setenv("SNIPPY_NG_TEST_BOOL", "1")
     monkeypatch.setenv("SNIPPY_NG_TEST_INT", "42")

@@ -26,6 +26,9 @@ class InvalidCommandTypeError(SnippyError):
 class StageExecutionError(SnippyError):
     pass
 
+class MSAValidationError(StageExecutionError):
+    pass
+
 class StageTestFailure(StageExecutionError):
     pass
 

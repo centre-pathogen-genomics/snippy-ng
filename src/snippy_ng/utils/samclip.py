@@ -82,7 +82,21 @@ def _end_clips(cigar: str) -> Clips:
     )
 
 
-def _bad(fields: List[str], contig_len: Dict[str, int], max_clip: int) -> bool:
+def _query_length(cigar: str) -> int:
+    """Return the original query length, including hard-clipped bases."""
+    return sum(
+        int(length)
+        for length, operation in re.findall(r"(\d+)([MIDNSHP=X])", cigar)
+        if operation in {"M", "I", "S", "H", "=", "X"}
+    )
+
+
+def _bad(
+    fields: List[str],
+    contig_len: Dict[str, int],
+    max_clip: Optional[int],
+    max_clip_fraction: Optional[float],
+) -> bool:
     cigar = fields[CIGAR]
     if not _HAS_CLIP.search(cigar):
         return False
@@ -109,24 +123,46 @@ def _bad(fields: List[str], contig_len: Dict[str, int], max_clip: int) -> bool:
     if end >= clen - R:
         R = 0
 
-    return (L > max_clip) or (R > max_clip)
+    exceeds_length = max_clip is not None and ((L > max_clip) or (R > max_clip))
+    clipped_bases = L + R
+    query_length = _query_length(cigar)
+    exceeds_fraction = (
+        max_clip_fraction is not None
+        and query_length > 0
+        and (clipped_bases / query_length) > max_clip_fraction
+    )
+    return exceeds_length or exceeds_fraction
 
 
 def samclip_filter_lines(
     sam_lines: Iterable[str],
     contig_lengths: Dict[str, int],
     *,
-    max_clip: int = 5,
+    max_clip: Optional[int] = 5,
+    max_clip_fraction: Optional[float] = None,
     invert: bool = False,
     fix_mate: bool = True,
     on_debug: Optional[Callable[[str], None]] = None,
 ) -> Iterator[str]:
-    """Filter SAM alignment lines based on soft-clipping at the ends of reads.
-    
+    """Filter SAM alignment lines based on terminal clipping.
+
+    ``max_clip`` applies an absolute limit to either terminal end of an
+    alignment after ignoring clipping that reaches the contig boundary. A read
+    is filtered when either end exceeds the limit.
+
+    ``max_clip_fraction`` applies a limit to the total terminal clipping as a
+    proportion of the original query length, including hard-clipped bases. The
+    numerator is the sum of terminal soft- and hard-clipping on both ends,
+    again after boundary-aware clipping is removed.
+
+    When both limits are set, an alignment failing either one is filtered.
+
     Optionally sets the MUNMAP flag on mates of filtered reads when appropriate.
     """
-    if max_clip < 0:
+    if max_clip is not None and max_clip < 0:
         raise ValueError("max_clip must be >= 0")
+    if max_clip_fraction is not None and not 0 <= max_clip_fraction <= 1:
+        raise ValueError("max_clip_fraction must be between 0 and 1")
 
     header, records = _split_header(sam_lines)
     so = _parse_hd_so(header)
@@ -140,7 +176,7 @@ def samclip_filter_lines(
         for line in records:
             # Optimize: partial split, avoid stripping newline
             fields = line.split("\t", 10)
-            is_bad = _bad(fields, contig_lengths, max_clip)
+            is_bad = _bad(fields, contig_lengths, max_clip, max_clip_fraction)
 
             if invert:
                 if is_bad:
@@ -209,6 +245,6 @@ def samclip_filter_lines(
 
         group_lines.append(line)
         group_fields.append(fields)
-        group_test.append(_bad(fields, contig_lengths, max_clip))
+        group_test.append(_bad(fields, contig_lengths, max_clip, max_clip_fraction))
 
     yield from flush()

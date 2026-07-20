@@ -7,7 +7,7 @@ from pathlib import Path
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @click.option("--outdir", "-o", default=Path("reference"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for the prepared reference", callback=check_outdir_callback, cls=GlobalOption)
-@add_snippy_global_options(exclude=['outdir', 'prefix'])
+@add_snippy_global_options(exclude=['outdir', 'prefix', 'sample_name'])
 @click.argument("reference", required=True, type=AbsolutePath(exists=True, readable=True))
 def ref(reference: Path, **context: Any):
     """

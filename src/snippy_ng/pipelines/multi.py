@@ -9,8 +9,30 @@ from snippy_ng.logging import logger, derive_log_path
 import csv
 import json
 import io
+from snippy_ng.stages.stats import SAMPLE_QC_COLUMNS
 
 MultiPipelineResult = tuple[list[str], list[tuple[str, str]]]
+
+
+def _allocate_multi_cpus(
+    *,
+    total_cpus: int,
+    sample_count: int,
+    cpus_per_sample: Optional[int],
+) -> tuple[int, int]:
+    total_cpus = max(1, int(total_cpus))
+    sample_count = max(1, int(sample_count))
+
+    if cpus_per_sample is not None:
+        per_sample = min(max(1, int(cpus_per_sample)), total_cpus)
+        return per_sample, max(1, total_cpus // per_sample)
+
+    max_auto_parallel = min(sample_count, max(1, total_cpus // 4))
+    while max_auto_parallel > 1 and total_cpus % max_auto_parallel != 0:
+        max_auto_parallel -= 1
+
+    per_sample = total_cpus // max_auto_parallel
+    return per_sample, max_auto_parallel
 
 
 def run_multi_pipeline(
@@ -26,15 +48,11 @@ def run_multi_pipeline(
     Special pipeline runner for multi-sample mode. Runs each sample in parallel using ProcessPoolExecutor.
     """
 
-    total_cpus = int(run_ctx.cpus)
-    # cap cpus_per_sample to total_cpus
-    if cpus_per_sample is not None:
-        cpus_per_sample = min(int(cpus_per_sample), total_cpus)
-    else:
-        cpus_per_sample = total_cpus
-    # Limit max parallelism to avoid oversubscription
-    max_parallel = max(1, total_cpus // cpus_per_sample)
-
+    cpus_per_sample, max_parallel = _allocate_multi_cpus(
+        total_cpus=int(run_ctx.cpus),
+        sample_count=len(samples),
+        cpus_per_sample=cpus_per_sample,
+    )
 
     # Minimal picklable config
     global_config = {
@@ -197,14 +215,16 @@ def _combine_sample_stats(
     outdir: Path,
 ) -> None:
     tsv_outputs = OrderedDict({
-        f"{prefix}.reads.tsv": outdir / f"{prefix}.reads.tsv",
-        f"{prefix}.all.vcf.summary.tsv": outdir / f"{prefix}.vcf.summary.tsv",
         f"{prefix}.all.vcf.breakdown.tsv": outdir / f"{prefix}.vcf.breakdown.tsv",
+        f"{prefix}.qc.tsv": outdir / f"{prefix}.qc.tsv",
     })
 
     for filename, combined_path in tsv_outputs.items():
         sample_files = [samples_dir / sample_name / filename for sample_name in sample_names]
-        _concat_tsv_files(sample_files=sample_files, output_path=combined_path)
+        if filename == f"{prefix}.qc.tsv":
+            _concat_qc_tsv_files(sample_files=sample_files, output_path=combined_path)
+        else:
+            _concat_tsv_files(sample_files=sample_files, output_path=combined_path)
 
 
 def _concat_tsv_files(sample_files: list[Path], output_path: Path) -> None:
@@ -240,6 +260,69 @@ def _concat_tsv_files(sample_files: list[Path], output_path: Path) -> None:
         output_path.unlink(missing_ok=True)
     elif rows_written == 0:
         logger.warning(f"Combined TSV has no data rows: {output_path}")
+
+
+def _concat_qc_tsv_files(sample_files: list[Path], output_path: Path) -> None:
+    rows: list[dict[str, str]] = []
+    seen_fields: set[str] = set()
+
+    for sample_file in sample_files:
+        if not sample_file.exists():
+            continue
+
+        with sample_file.open("r", newline="") as in_handle:
+            reader = csv.DictReader(in_handle, delimiter="\t")
+            seen_fields.update(reader.fieldnames or [])
+            rows.extend(reader)
+
+    if not rows:
+        output_path.unlink(missing_ok=True)
+        return
+
+    fieldnames = list(SAMPLE_QC_COLUMNS)
+    fieldnames.extend(sorted(seen_fields - set(fieldnames)))
+
+    with output_path.open("w", newline="") as out_handle:
+        writer = csv.DictWriter(out_handle, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+
+def add_core_alignment_qc(
+    *,
+    qc_tsv: Path,
+    core_aligned_tsv: Path,
+) -> None:
+    if not qc_tsv.exists() or not core_aligned_tsv.exists():
+        return
+
+    aligned_by_sample: dict[str, str] = {}
+    with core_aligned_tsv.open("r", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        for row in reader:
+            sample = row.get("sequence")
+            if sample and sample != "reference":
+                aligned_by_sample[sample] = row.get("aligned", "")
+
+    with qc_tsv.open("r", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+
+    if not rows:
+        return
+    if "core_aligned_percent" not in fieldnames:
+        fieldnames.append("core_aligned_percent")
+
+    for row in rows:
+        sample = row.get("sample", "")
+        row["core_aligned_percent"] = aligned_by_sample.get(sample, row.get("core_aligned_percent", ""))
+
+    with qc_tsv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def _write_failed_samples_tsv(

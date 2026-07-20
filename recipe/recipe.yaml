@@ -15,15 +15,17 @@ build:
 
 requirements:
   host:
-    - python >=3.8
+    - python >=3.11
     - pip
     - hatchling
   run:
-    - python >=3.8
+    - python >=3.11
     - click
     - packaging
     - pydantic
     - biopython
+    - numpy
+    - scikit-learn >=1.7
 
 tests:
   - python:

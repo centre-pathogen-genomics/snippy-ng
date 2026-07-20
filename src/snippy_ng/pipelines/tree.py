@@ -2,7 +2,12 @@ from pathlib import Path
 from typing import Optional
 from pydantic import Field
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.trees import IQTreeBuildTree, ScaleTreeToSNPs
+from snippy_ng.stages.trees import (
+    ClonalFrameMLCorrectTree,
+    IQTreeBuildTree,
+    ScaleTreeToSNPs,
+    TreeDistanceMatrix,
+)
 
 
 class TreePipelineBuilder(PipelineBuilder):
@@ -12,6 +17,10 @@ class TreePipelineBuilder(PipelineBuilder):
     bootstrap: int = Field(default=1000, description="Number of bootstrap replicates")
     fconst: Optional[str] = Field(default=None, description="Frequency constants for ascertainment bias correction")
     fast_mode: bool = Field(default=False, description="Use fast mode for IQ-TREE (faster but less accurate)")
+    cmaple: bool = Field(default=False, description="Use pathogen mode for IQ-TREE with --alrt for SH-aLRT support values")
+    clonalframe: bool = Field(default=False, description="Correct the inferred tree for recombination with ClonalFrameML")
+    clonalframe_kappa: float = Field(default=2.0, gt=0.0, description="Transition/transversion bias used by ClonalFrameML")
+    clonalframe_emsim: int = Field(default=0, ge=0, description="ClonalFrameML simulations used to estimate uncertainty")
 
     def build(self) -> SnippyPipeline:
         """Build and return the tree building pipeline."""
@@ -24,17 +33,44 @@ class TreePipelineBuilder(PipelineBuilder):
             bootstrap=self.bootstrap,
             fconst=self.fconst,
             fast_mode=self.fast_mode,
-            prefix=self.prefix,
+            prefix=f"{self.prefix}.initial" if self.clonalframe else self.prefix,
+            cmaple=self.cmaple,
         )
             
         stages.append(iqtree_stage)
 
+        final_tree = iqtree_stage.output.tree
+        clonalframe_stage = None
+        if self.clonalframe:
+            clonalframe_stage = ClonalFrameMLCorrectTree(
+                tree=iqtree_stage.output.tree,
+                aln=self.aln,
+                kappa=self.clonalframe_kappa,
+                emsim=self.clonalframe_emsim,
+                prefix=f"{self.prefix}.recombination_corrected",
+            )
+            stages.append(clonalframe_stage)
+            final_tree = clonalframe_stage.output.recombination_corrected_tree
+
         snp_tree_stage = ScaleTreeToSNPs(
-            tree=iqtree_stage.output.tree,
+            tree=final_tree,
             aln=self.aln,
             fconst=self.fconst,
             prefix=self.prefix,
         )
         stages.append(snp_tree_stage)
 
-        return SnippyPipeline(stages=stages, outputs_to_keep=[snp_tree_stage.output.tree, iqtree_stage.output.tree])
+        distance_stage = TreeDistanceMatrix(
+            tree=snp_tree_stage.output.snp_scaled_tree,
+            prefix=Path(snp_tree_stage.output.snp_scaled_tree).stem,
+        )
+        stages.append(distance_stage)
+
+        outputs_to_keep = [
+            snp_tree_stage.output.snp_scaled_tree,
+            distance_stage.output.distance,
+            iqtree_stage.output.tree,
+        ]
+        if clonalframe_stage is not None:
+            outputs_to_keep.append(clonalframe_stage.output.recombination_corrected_tree)
+        return SnippyPipeline(stages=stages, outputs_to_keep=outputs_to_keep)

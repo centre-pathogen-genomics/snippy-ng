@@ -3,17 +3,17 @@ from typing import Literal, Optional
 from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
-from snippy_ng.stages.vcf import AddDeletionsToVCF, AssemblyVariantContextFilter, VcfFilterAsm, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
+from snippy_ng.stages.vcf import AddDeletionsToVCF, CollapseDiploidGenotypes, VariantContextFilter, VcfFilterAsm, VcfPassFilter, VcfToTab
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
-from snippy_ng.stages.alignment import AssemblyAligner, AssemblyNucmerAligner
+from snippy_ng.pipelines.common import download_reference, download_assembly_fasta, load_or_prepare_reference, get_download_stage_outputs
+from snippy_ng.stages.mapping import AssemblyAligner, AssemblyNucmerAligner
 from snippy_ng.stages.calling import PAFCaller, ShowSnpsCaller
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
-from snippy_ng.stages.stats import VcfStats
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, VcfStats
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
@@ -21,11 +21,13 @@ class AsmPipelineBuilder(PipelineBuilder):
     """Builder for assembly-based SNP calling pipeline."""
     reference: Optional[Path] = Field(default=None, description="Reference genome (FASTA or GenBank) or prepared reference directory")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
-    assembly: Path = Field(..., description="Assembly file path")
+    assembly: Optional[Path] = Field(default=None, description="Assembly file path")
+    assembly_accession: Optional[str] = Field(default=None, description="Assembly accession to download as FASTA")
+    vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
     caller: Literal["paftools", "nucmer"] = Field(default="nucmer", description="Caller to use for assembly-based SNP calling")
     caller_opts: str = Field(default="", description="Additional caller options")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     minimap_preset: Literal["asm5", "asm10", "asm20"] = Field(default="asm20", description="Minimap2 preset for assembly alignment")
@@ -37,18 +39,29 @@ class AsmPipelineBuilder(PipelineBuilder):
     def build(self) -> SnippyPipeline:
         """Build and return the assembly pipeline."""
         stages = []
-        sample_name = self.sample_name or strip_bio_suffixes(Path(self.assembly).name)
+
+        assembly_input = self.assembly
+        sample_label = self.assembly_accession if self.assembly_accession else Path(assembly_input).name
+        sample_name = self.sample_name if self.sample_name else strip_bio_suffixes(sample_label)
         reference_input = self.reference
 
         if self.reference_accession:
-            reference_input = download_assembly(
+            reference_input = download_reference(
                 self.reference_accession,
                 stages,
-                output_directory=Path("reference"),
             )
+
         if reference_input is None:
             raise ValueError("Reference genome path or reference accession must be provided.")
         
+        if self.assembly_accession:
+            assembly_input = download_assembly_fasta(
+                self.assembly_accession,
+                stages,
+            )
+        if assembly_input is None:
+            raise ValueError("Assembly path or assembly accession must be provided.")
+
         # Setup reference (load existing or prepare new)
         setup = load_or_prepare_reference(
             reference_path=reference_input,
@@ -60,43 +73,48 @@ class AsmPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
-        if self.caller == "nucmer":
-            aligner = AssemblyNucmerAligner(
-                reference=reference_file,
-                assembly=Path(self.assembly),
-                prefix=self.prefix,
-            )
-            stages.append(aligner)
-            caller = ShowSnpsCaller(
-                delta=aligner.output.delta,
-                ref_dict=setup.output.reference_dict,
-                assembly=Path(self.assembly),
-                reference=reference_file,
-                reference_index=reference_index,
-                additional_options=self.caller_opts,
-                prefix=self.prefix,
-            )
-        else:
-            aligner = AssemblyAligner(
-                reference=reference_file,
-                assembly=Path(self.assembly),
-                minimap_preset=self.minimap_preset,
-                prefix=self.prefix,
-            )
-            stages.append(aligner)
-            caller = PAFCaller(
-                paf=aligner.output.paf,
-                ref_dict=setup.output.reference_dict,
-                reference=reference_file,
-                reference_index=reference_index,
-                additional_options=self.caller_opts,
-                prefix=self.prefix,
-            )
-        stages.append(caller)
-
         # Filter VCF
+        variants_file = self.vcf
+        if variants_file is None:
+            if self.caller == "nucmer":
+                aligner = AssemblyNucmerAligner(
+                    reference=reference_file,
+                    assembly=Path(assembly_input),
+                    prefix=self.prefix,
+                )
+                stages.append(aligner)
+                caller = ShowSnpsCaller(
+                    delta=aligner.output.delta,
+                    ref_dict=setup.output.reference_dict,
+                    assembly=aligner.nucmer_assembly,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    additional_options=self.caller_opts,
+                    prefix=self.prefix,
+                    sample_name=sample_name
+                )
+            else:
+                aligner = AssemblyAligner(
+                    reference=reference_file,
+                    assembly=Path(assembly_input),
+                    minimap_preset=self.minimap_preset,
+                    prefix=self.prefix,
+                )
+                stages.append(aligner)
+                caller = PAFCaller(
+                    paf=aligner.output.paf,
+                    ref_dict=setup.output.reference_dict,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    additional_options=self.caller_opts,
+                    prefix=self.prefix,
+                    sample_name=sample_name
+                )
+            stages.append(caller)
+            variants_file = caller.output.vcf
+
         variant_filter = VcfFilterAsm(
-            vcf=caller.output.vcf,
+            vcf=variants_file,
             reference=reference_file,
             # hard code for asm-based calling
             min_qual=self.min_qual,
@@ -105,7 +123,7 @@ class AsmPipelineBuilder(PipelineBuilder):
         stages.append(variant_filter)
         variants_file = variant_filter.output.vcf
 
-        if self.add_deletions_to_vcf:
+        if self.add_deletions_to_vcf and self.vcf is None:
             # Add zero-depth regions to VCF as symbolic deletion blocks
             add_deletions = AddDeletionsToVCF(
                 zero_depth_bed=caller.output.missing_bed,
@@ -116,15 +134,17 @@ class AsmPipelineBuilder(PipelineBuilder):
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
 
-        context_filter = AssemblyVariantContextFilter(
+        context_filter = VariantContextFilter(
             vcf=variants_file,
             prefix=self.prefix,
         )
-        stages.append(context_filter)
+        if context_filter.enabled:
+            stages.append(context_filter)
+            variants_file = context_filter.output.vcf
 
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
-            variants=context_filter.output.vcf,
+            variants=variants_file,
             features=features_file,
             reference=reference_file,
             prefix=self.prefix
@@ -216,6 +236,24 @@ class AsmPipelineBuilder(PipelineBuilder):
         )
         stages.append(copy_final)
 
+        fasta_qc = FastaCompositionStats(
+            fasta=copy_final.output.fasta,
+            sample_name=sample_name,
+            prefix=self.prefix,
+        )
+        stages.append(fasta_qc)
+
+        sample_qc = SampleQcSummary(
+            sample_name=sample_name,
+            pipeline_type="asm",
+            reads_tsv=None,
+            alignment_tsv=None,
+            vcf_summary_tsv=vcf_stats.output.summary_tsv,
+            fasta_tsv=fasta_qc.output.summary_tsv,
+            prefix=self.prefix,
+        )
+        stages.append(sample_qc)
+
         # Print VCF histogram to terminal
         vcf_histogram = PrintVcfHistogram(
             vcf_path=variants_file,
@@ -242,8 +280,10 @@ class AsmPipelineBuilder(PipelineBuilder):
             variants_tab.output.tab,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
+            sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

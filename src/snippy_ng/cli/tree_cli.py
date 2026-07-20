@@ -9,13 +9,17 @@ from pathlib import Path
 @click.option("--outdir", "-o", default=Path("tree"), required=False, type=click.Path(writable=True, readable=True, file_okay=False, dir_okay=True), help="Output directory for phylogenetic tree results", callback=check_outdir_callback, cls=GlobalOption)
 @click.option("--prefix", "-p", default="tree", help="Prefix for output files", cls=GlobalOption)
 @click.option("--ram", "-r", default=None, required=False, type=int, help="Try and keep RAM under this many GB", cls=GlobalOption)
-@add_snippy_global_options(exclude=['prefix', 'outdir', 'ram'])
+@add_snippy_global_options(exclude=['prefix', 'outdir', 'ram', 'sample_name'])
 @click.argument("alignment", required=True, type=AbsolutePath(exists=True, readable=True))
 @click.option("--model", type=click.STRING, default="GTR+G4", help="Substitution model to use for tree construction. Use 'TEST' to select the best model.")
 @click.option("--bootstrap", type=click.INT, default=1000, help="Number of bootstrap replicates to perform")
 @click.option("--fconst", type=click.STRING, default=None, help="Constant sites counts (string or path to file)")
-@click.option("--fast", is_flag=True, default=False, help="Use fast mode for IQ-TREE (faster but less accurate)")
-def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fast: bool, outdir: Path, prefix: str, **context: Any):
+@click.option("--fast", is_flag=True, default=False, help="Use fast mode for IQ-TREE (less accurate)")
+@click.option("--cmaple/--no-cmaple", is_flag=True, default=True, help="Use pathogen mode for IQ-TREE with --alrt for SH-aLRT support values")
+@click.option("--clonalframe/--no-clonalframe", is_flag=True, default=True, help="Use ClonalFrameML to correct the inferred tree for recombination")
+@click.option("--clonalframe-kappa", type=click.FloatRange(min=0.0, min_open=True), default=2.0, help="Transition/transversion bias for ClonalFrameML")
+@click.option("--clonalframe-emsim", type=click.IntRange(min=0), default=0, help="ClonalFrameML simulations for uncertainty estimation")
+def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fast: bool, cmaple: bool, clonalframe: bool, clonalframe_kappa: float, clonalframe_emsim: int, outdir: Path, prefix: str, **context: Any):
     """
     Create phylogenetic tree from alignment
 
@@ -30,7 +34,7 @@ def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fas
     #if fconst is a path read the content
     if not fconst and Path(alignment).with_suffix(".fconst").exists():
         logger.warning("No fconst provided, but found .fconst file corresponding to the alignment. Using this file for constant sites counts.")
-        fconst = Path(alignment).with_suffix(".fconst")
+        fconst = str(Path(alignment).with_suffix(".fconst"))
 
     if fconst and Path(fconst).is_file():
         with open(fconst, 'r') as f:
@@ -46,6 +50,10 @@ def tree(alignment: Path, model: str, bootstrap: int, fconst: Optional[str], fas
         bootstrap=bootstrap,
         fconst=fconst,
         fast_mode=fast,
+        cmaple=cmaple,
+        clonalframe=clonalframe,
+        clonalframe_kappa=clonalframe_kappa,
+        clonalframe_emsim=clonalframe_emsim,
         prefix=prefix,
     ).build()
 

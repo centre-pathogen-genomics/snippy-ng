@@ -19,13 +19,13 @@ def run_multi_config(
     context: dict[str, Any],
 ):
     from snippy_ng.pipelines.common import (
-        download_assembly,
-        is_reference_accession,
+        download_reference,
+        is_assembly_accession,
         load_or_prepare_reference,
     )
     from snippy_ng.pipelines import SnippyPipeline
     from snippy_ng.exceptions import PipelineExecutionError
-    from snippy_ng.pipelines.multi import run_multi_pipeline
+    from snippy_ng.pipelines.multi import add_core_alignment_qc, run_multi_pipeline
     from snippy_ng.logging import derive_log_path
     from snippy_ng.context import Context
 
@@ -36,8 +36,8 @@ def run_multi_config(
     # create reusable reference
     reference_stages = []
     reference_input = cfg["reference"]
-    if is_reference_accession(reference_input):
-        reference_input = download_assembly(
+    if is_assembly_accession(reference_input):
+        reference_input = download_reference(
             reference_input,
             reference_stages,
             output_directory=outdir / "reference",
@@ -90,6 +90,10 @@ def run_multi_config(
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     result = aln_pipeline.run(core_run_ctx)
+    add_core_alignment_qc(
+        qc_tsv=Path(outdir) / f"{prefix}.qc.tsv",
+        core_aligned_tsv=core_outdir / "core.aligned.tsv",
+    )
     return {
         "result": result,
         "successful_samples": successful_samples,
@@ -101,7 +105,7 @@ def run_multi_config(
 @click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @click.option("--stop-on-failure", is_flag=True, default=False, help="Stop the run when any per-sample analysis fails", cls=GlobalOption)
 @click.option("--cpus-per-sample", type=click.INT, default=None, help="Number of CPUs to allocate per sample", cls=GlobalOption)
-@add_snippy_global_options()
+@add_snippy_global_options(exclude=["sample_name"])
 @click.argument(
     "config",
     required=True,
@@ -115,7 +119,7 @@ def run_multi_config(
     callback=reference_or_accession_callback,
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the main alignment percentage cluster")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
 def multi(config: click.File, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction 

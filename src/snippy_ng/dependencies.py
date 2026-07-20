@@ -142,6 +142,11 @@ numpy = PythonDependency(
     "numpy",
     citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2."
 )
+scikit_learn = PythonDependency(
+    "scikit-learn",
+    min_version="1.7",
+    citation="Pedregosa, F. et al. Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research 12, 2825-2830 (2011).",
+)
 
 # Alignment
 samtools = Dependency(
@@ -173,6 +178,10 @@ paftools = Dependency(
     min_version="2.30",
     version_arg="version",
     version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
+)
+sracha = Dependency(
+    "sracha",
+    min_version="0.1.0",
 )
 
 # Calling
@@ -249,6 +258,14 @@ iqtree = Dependency(
     citation="Bui Quang Minh, Heiko A. Schmidt, Olga Chernomor, Dominik Schrempf, Michael D. Woodhams, Arndt von Haeseler, Robert Lanfear, IQ-TREE 2: New Models and Efficient Methods for Phylogenetic Inference in the Genomic Era, Molecular Biology and Evolution, Volume 37, Issue 5, May 2020, Pages 1530–1534, https://doi.org/10.1093/molbev/msaa015",
     min_version="2.0.0",
     version_pattern=r"(\d+\.\d+\.\d+)",
+)
+clonalframeml = Dependency(
+    "clonalframeml",
+    command="ClonalFrameML",
+    citation="Didelot X, Wilson DJ. ClonalFrameML: Efficient Inference of Recombination in Whole Bacterial Genomes. PLoS Comput Biol. 2015;11(2):e1004041. doi:10.1371/journal.pcbi.1004041",
+    min_version="1.20",
+    version_arg="-version",
+    version_pattern=r"(\d+\.\d+)",
 )
 
 # Citations 

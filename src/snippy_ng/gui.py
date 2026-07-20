@@ -316,7 +316,7 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
             max_depth = gr.Number(label="Maximum directory depth", value=4, precision=0, minimum=0)
             exclude_name_regex = gr.Textbox(label="Exclude filename regex", value=r"^(Undetermined|NTC|PTC)")
             core = gr.Slider(label="Core alignment threshold", minimum=0, maximum=1, value=0.95, step=0.01)
-            inclusion_threshold = gr.Slider(label="Cluster inclusion threshold", minimum=0, maximum=1, value=0.1, step=0.01)
+            inclusion_threshold = gr.Slider(label="Cluster inclusion threshold", minimum=0, maximum=1, value=0.20, step=0.01)
             stop_on_failure = gr.Checkbox(label="Stop on first sample failure", value=False)
             skip_check = gr.Checkbox(label="Skip dependency checks", value=False)
             force = gr.Checkbox(label="Force overwrite existing output directory", value=False)

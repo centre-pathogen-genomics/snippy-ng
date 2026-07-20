@@ -5,27 +5,29 @@ from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
-from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
-from snippy_ng.stages.alignment import BWAMEMShortReadAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
+from snippy_ng.stages.mapping import BWAMEMShortReadAligner, Minimap2ShortReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterShort, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
+from snippy_ng.stages.vcf import AddDeletionsToVCF, CollapseDiploidGenotypes, VariantContextFilter, VcfFilterShort, VcfPassFilter, VcfToTab
 from snippy_ng.stages.calling import FreebayesCaller
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.masks import ApplyMask, DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
-from snippy_ng.utils.gather import strip_bio_suffixes
+from snippy_ng.pipelines.common import download_reference, download_reads, load_or_prepare_reference, get_download_stage_outputs
+from snippy_ng.utils.gather import strip_bio_suffixes, strip_read_direction_suffix
 
 
 class ShortPipelineBuilder(PipelineBuilder):
     """Builder for short-read SNP calling pipeline."""
     reference: Optional[Path] = Field(default=None, description="Reference genome file path")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
-    reads: List[Path] = Field(..., description="Short read files (FASTQ, R1 and optionally R2)")
+    reads: List[Path] = Field(default_factory=list, description="Short read files (FASTQ, R1 and optionally R2)")
+    reads_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
     prefix: str = Field(default="snippy", description="Output file prefix")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
+    vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     downsample: Optional[float] = Field(default=None, description="Target coverage for downsampling")
     clean_reads: bool = Field(default=False, description="Clean reads with fastp")
     min_read_len: int = Field(default=15, description="Minimum read length")
@@ -33,7 +35,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     aligner: str = Field(default="minimap2", description="Aligner to use (minimap2 or bwamem)")
     aligner_opts: str = Field(default="", description="Additional aligner options")
     caller_opts: str = Field(default="", description="Additional caller options")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: float = Field(default=100, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     min_mapping_quality: int = Field(default=30, description="Minimum mapping quality for FreeBayes calls and depth masks")
@@ -51,10 +53,15 @@ class ShortPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        if sample_name is None and self.bam:
+            sample_name = strip_bio_suffixes(Path(self.bam).name)
+        if sample_name is None and self.reads:
+            sample_name = strip_read_direction_suffix(strip_bio_suffixes(Path(self.reads[0]).name))
+        reference_input = self.reference
         reference_input = self.reference
 
         if self.reference_accession:
-            reference_input = download_assembly(
+            reference_input = download_reference(
                 self.reference_accession,
                 stages,
                 output_directory=Path("reference"),
@@ -73,8 +80,21 @@ class ShortPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
+        # Download reads from SRA if accession provided
+        if self.reads_accession:
+            reads_input = download_reads(
+                self.reads_accession,
+                stages,
+            )
+            self.reads = reads_input
+        
         # Track current reads through potential cleaning and downsampling
         current_reads = self.reads.copy() if self.reads else []
+
+        if not current_reads and not self.bam:
+            raise ValueError("At least one of reads or bam must be provided.")
+        if self.vcf and not self.bam:
+            raise ValueError("A BAM/CRAM file must be provided when using an existing VCF; the alignment is required for depth masks and QC.")
 
         # Clean reads (optional)
         if self.clean_reads and current_reads:
@@ -91,7 +111,7 @@ class ShortPipelineBuilder(PipelineBuilder):
             stages.append(clean_reads_stage)
 
         if self.downsample and current_reads:
-            from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
+            from snippy_ng.stages.downsample import RasusaDownsampleReadsByCoverage
             
             # We need the genome length at run time (once we know the reference)
             downsample_stage = RasusaDownsampleReadsByCoverage(
@@ -156,22 +176,33 @@ class ShortPipelineBuilder(PipelineBuilder):
         )
         aligned_reads = align_filter.output.bam
         stages.append(align_filter)
-        
-        # SNP calling
-        caller = FreebayesCaller(
+
+        alignment_qc = SamtoolsAlignmentQcStats(
             bam=aligned_reads,
-            bam_index=align_filter.output.bai,
             reference=reference_file,
-            reference_index=reference_index,
-            additional_options=self.caller_opts,
-            min_mapping_quality=self.min_mapping_quality,
-            **globals
+            sample_name=sample_name,
+            **globals,
         )
-        stages.append(caller)
+        stages.append(alignment_qc)
         
         # Filter VCF
+        variants_file = self.vcf
+        if variants_file is None:
+            caller = FreebayesCaller(
+                bam=aligned_reads,
+                bam_index=align_filter.output.bai,
+                reference=reference_file,
+                reference_index=reference_index,
+                additional_options=self.caller_opts,
+                min_mapping_quality=self.min_mapping_quality,
+                sample_name=sample_name,
+                **globals
+            )
+            stages.append(caller)
+            variants_file = caller.output.vcf
+
         variant_filter = VcfFilterShort(
-            vcf=caller.output.vcf,
+            vcf=variants_file,
             reference=reference_file,
             min_qual=self.min_qual,
             min_depth=self.depth_mask,
@@ -183,8 +214,6 @@ class ShortPipelineBuilder(PipelineBuilder):
         depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
             min_depth=self.depth_mask,
-            min_base_quality=13,
-            min_mapping_quality=self.min_mapping_quality,
             **globals
         )
         stages.append(depth_beds)
@@ -199,6 +228,14 @@ class ShortPipelineBuilder(PipelineBuilder):
             )
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
+
+        context_filter = VariantContextFilter(
+            vcf=variants_file,
+            **globals,
+        )
+        if context_filter.enabled:
+            stages.append(context_filter)
+            variants_file = context_filter.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -289,7 +326,7 @@ class ShortPipelineBuilder(PipelineBuilder):
         if self.mask:
             user_mask = ApplyMask(
                 fasta=current_fasta,
-                mask_bed=Path(self.mask),
+                mask_bed=self.mask,
                 **globals
             )
             stages.append(user_mask)
@@ -302,6 +339,24 @@ class ShortPipelineBuilder(PipelineBuilder):
             **globals
         )
         stages.append(copy_final)
+
+        fasta_qc = FastaCompositionStats(
+            fasta=copy_final.output.fasta,
+            sample_name=sample_name,
+            **globals,
+        )
+        stages.append(fasta_qc)
+
+        sample_qc = SampleQcSummary(
+            sample_name=sample_name or self.prefix,
+            pipeline_type="short",
+            reads_tsv=stats_tsv,
+            alignment_tsv=alignment_qc.output.summary_tsv,
+            vcf_summary_tsv=vcf_stats.output.summary_tsv,
+            fasta_tsv=fasta_qc.output.summary_tsv,
+            **globals,
+        )
+        stages.append(sample_qc)
 
         # Compress BAM to CRAM with embedded reference
         cram_compressor = CramCompressor(
@@ -317,7 +372,7 @@ class ShortPipelineBuilder(PipelineBuilder):
                 alignment=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
-                title=f"{sample_name.title() or self.prefix.title()} Sample Report",
+                title=f"{sample_name.title()} Sample Report" if sample_name else f"{self.prefix.title()} Sample Report",
                 sample_name=sample_name,
                 variant_scope=self.report_scope,
                 window_size=self.report_window_size,
@@ -340,10 +395,10 @@ class ShortPipelineBuilder(PipelineBuilder):
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
+            sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
-        if stats_tsv is not None:
-            keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

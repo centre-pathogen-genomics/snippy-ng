@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from snippy_ng.utils.gather import gather
 from snippy_ng.utils.gather import strip_bio_suffixes
+from snippy_ng.utils.gather import GatherSamplesError
 
 
 def write_fastq(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
@@ -13,6 +14,28 @@ def write_fastq(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
 def write_fastq_gz(path: Path, seq: str = "ACGT", header: str = "@read") -> None:
     with gzip.open(path, "wt") as fh:
         fh.write(f"{header}\n{seq}\n+\nIIII\n")
+
+
+def write_sam(path: Path, read_length: int, platform: str | None = None, preset: str | None = None) -> None:
+    sequence = "A" * read_length
+    quality = "I" * read_length
+    read_group = f"@RG\tID:rg1\tPL:{platform}\n" if platform else ""
+    program = f"@PG\tID:minimap2\tPN:minimap2\tCL:minimap2 -x {preset}\n" if preset else ""
+    path.write_text(
+        "@HD\tVN:1.6\tSO:coordinate\n"
+        "@SQ\tSN:ref\tLN:100000\n"
+        + read_group
+        + program
+        + f"read1\t0\tref\t1\t60\t{read_length}M\t*\t0\t0\t{sequence}\t{quality}\n"
+    )
+
+
+def write_ubam_like_sam(path: Path) -> None:
+    path.write_text(
+        "@HD\tVN:1.6\tSO:unknown\n"
+        "@SQ\tSN:ref\tLN:100000\n"
+        "read1\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\tIIII\n"
+    )
 
 
 def assert_short_sample(samples, sample_id: str, *, left_suffix: str, right_suffix: str | None = None) -> None:
@@ -353,6 +376,64 @@ def test_gather_single_short_read_keeps_right_as_none(tmp_path):
 
     assert_short_sample(samples, "single", left_suffix="single.fastq")
     assert samples["single"]["left"] == str(reads)
+
+
+@pytest.mark.parametrize(
+    ("read_length", "sample_type"),
+    [(150, "short"), (5_000, "long")],
+)
+def test_gather_peeks_sam_alignment_to_choose_pipeline(tmp_path, read_length, sample_type):
+    alignment = tmp_path / "sample.sam"
+    write_sam(alignment, read_length)
+
+    cfg = gather([alignment])
+
+    assert cfg["samples"]["sample"]["type"] == sample_type
+    assert cfg["samples"]["sample"]["bam"] == str(alignment)
+
+
+@pytest.mark.parametrize(
+    ("platform", "sample_type"),
+    [("ILLUMINA", "short"), ("ONT", "long"), ("PACBIO", "long")],
+)
+def test_gather_uses_alignment_platform_header(tmp_path, platform, sample_type):
+    alignment = tmp_path / "sample.sam"
+    write_sam(alignment, 150, platform=platform)
+
+    cfg = gather([alignment])
+
+    assert cfg["samples"]["sample"]["type"] == sample_type
+
+
+def test_gather_uses_minimap2_preset_from_alignment_header(tmp_path):
+    alignment = tmp_path / "sample.sam"
+    write_sam(alignment, 150, preset="lr:hq")
+
+    cfg = gather([alignment])
+
+    assert cfg["samples"]["sample"]["type"] == "long"
+
+
+def test_gather_skips_unaligned_bam_like_files(tmp_path):
+    write_ubam_like_sam(tmp_path / "unaligned.sam")
+
+    cfg = gather([tmp_path])
+
+    assert cfg["samples"] == {}
+
+
+def test_gather_accepts_glob_exclusion_pattern(tmp_path):
+    (tmp_path / "reference.fa").write_text(">ref\nACGT\n")
+    (tmp_path / "sample.fasta").write_text(">sample\nACGT\n")
+
+    cfg = gather([tmp_path], exclude_name_regex="*.fa*")
+
+    assert cfg["samples"] == {}
+
+
+def test_gather_reports_invalid_exclusion_pattern(tmp_path):
+    with pytest.raises(GatherSamplesError, match="Invalid exclusion pattern"):
+        gather([tmp_path], exclude_name_regex="(")
 
 
 def test_gather_srr_pair_with_numeric_sample_id_groups_r1_r2_correctly(tmp_path):

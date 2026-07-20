@@ -3,7 +3,7 @@ Thanks for looking at the source code! You found a hidden command :D
 """
 
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Optional
 import click
 
 from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
@@ -15,7 +15,7 @@ from snippy_ng.utils.system import available_cpu_count
     cls=CommandWithGlobals, context_settings={"show_default": True}, hidden=True
 )
 @click.option("--cpus", "-c", default=None, required=False, type=int, help="Maximum number of CPUs to use. By default, uses all available CPUs.", cls=GlobalOption)
-@add_snippy_global_options(['cpus'])
+@add_snippy_global_options(['cpus', 'sample_name'])
 @click.option("--reference", "--ref", required=False, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI/AllTheBacteria assembly accession")
 @click.argument(
     "directory",
@@ -23,7 +23,7 @@ from snippy_ng.utils.system import available_cpu_count
     type=AbsolutePath(exists=True, readable=True),
     nargs=-1
 )
-def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix: str, **context: Any):
+def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Path, prefix: str, **context: Any):
     """
     Pipeline that automates everything.
 
@@ -38,12 +38,13 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
     from snippy_ng.context import Context
     from snippy_ng.logging import logger, derive_log_path
     from snippy_ng.pipelines.common import (
-        download_assembly,
-        is_reference_accession,
+        download_reference,
+        is_assembly_accession,
         load_or_prepare_reference,
     )
-    from snippy_ng.pipelines.multi import run_multi_pipeline
+    from snippy_ng.pipelines.multi import add_core_alignment_qc, run_multi_pipeline
     from snippy_ng.pipelines import SnippyPipeline
+    from snippy_ng.stages import BaseStage
     from snippy_ng.utils.gather import gather
     from snippy_ng.exceptions import PipelineExecutionError, InvalidReferenceError
 
@@ -84,7 +85,7 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
         raise InvalidReferenceError(
             "No reference file found! Please provide `--reference` or ensure you have a file called `reference` with one of the following extensions: fasta, fa, fna, gbk, genbank e.g. reference.fasta or ref.gbk"
         )
-    reference_is_accession = is_reference_accession(reference)
+    reference_is_accession = is_assembly_accession(reference)
 
     # find all samples in the directory and create config
     logger.info(f"Gathering samples from: {', '.join(str(d) for d in directories)}")
@@ -109,10 +110,10 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
         f.write(json.dumps(gathered, indent=2))
 
     # create reusable reference
-    reference_stages = []
+    reference_stages: list[BaseStage] = []
     reference_input = reference
     if reference_is_accession:
-        reference_input = download_assembly(
+        reference_input = download_reference(
             reference,
             reference_stages,
             output_directory=outdir / "reference",
@@ -135,15 +136,13 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
 
     snippy_reference_dir = ref_stage.output.reference_directory
 
-    # each sample gets 4 CPUs or total_cpus / num_samples, whichever is higher
-    cpus_per_sample = max(4, context["cpus"] // len(samples))
     try:
         successful_samples, failures = run_multi_pipeline(
             snippy_reference_dir=snippy_reference_dir,
             samples=samples,
             prefix=prefix,
             run_ctx=run_ctx,
-            cpus_per_sample=cpus_per_sample,
+            cpus_per_sample=None,
             stop_on_failure=False,
         )
     except PipelineExecutionError as e:
@@ -161,13 +160,14 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
 
     # core alignment
     from snippy_ng.pipelines.core import CorePipelineBuilder
+    from snippy_ng.stages.alignment_filter import FilterAlignmentByAlignedPercentage
 
     snippy_dirs = [
         Path(outdir / "samples" / sample)
         for sample in successful_samples
     ]
     soft_core_threshold = 0.95
-    inclusion_threshold = 0.3
+    inclusion_threshold = 0.20
     aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
@@ -179,42 +179,42 @@ def yolo(directory: Iterable[Path], reference: Path | str, outdir: Path, prefix:
     context["outdir"] = core_outdir
     core_run_ctx = Context(**context)
     aln_pipeline.run(core_run_ctx)
-
-    soft_core_stage = next(
-        (
-            stage
-            for stage in reversed(aln_pipeline.stages)
-            if hasattr(getattr(stage, "output", None), "soft_core")
-            and hasattr(getattr(stage, "output", None), "constant_sites")
-        ),
-        None,
+    add_core_alignment_qc(
+        qc_tsv=Path(outdir) / f"{prefix}.qc.tsv",
+        core_aligned_tsv=core_outdir / "core.aligned.tsv",
     )
-    if soft_core_stage is None:
-        raise PipelineExecutionError("Core pipeline did not produce soft-core alignment outputs.")
+
+    alignment_filter_stage = aln_pipeline.get_stage(FilterAlignmentByAlignedPercentage)
+    if alignment_filter_stage is None:
+        raise PipelineExecutionError("Core pipeline did not produce a sample-filtered full alignment.")
 
     # tree
     from snippy_ng.pipelines.tree import TreePipelineBuilder
+    from snippy_ng.stages.trees import ScaleTreeToSNPs
 
 
     context["ram"] = None # YOLO: disable RAM limiting for this step
     tree_pipeline = TreePipelineBuilder(
-        aln=core_outdir / soft_core_stage.output.soft_core,
-        fconst=(core_outdir / soft_core_stage.output.constant_sites).read_text().strip(),
+        aln=core_outdir / alignment_filter_stage.output.filtered_aln,
         fast_mode=True,
+        clonalframe=True,
     ).build()
     tree_outdir = Path(outdir) / "tree"
     context["log_path"] = derive_log_path(run_ctx.log_path, tree_outdir)
     context["outdir"] = tree_outdir
     tree_run_ctx = Context(**context)
     tree_pipeline.run(tree_run_ctx)
+    snp_tree_stage = tree_pipeline.get_stage(ScaleTreeToSNPs)
+    if snp_tree_stage is None:
+        raise PipelineExecutionError("Tree pipeline did not produce SNP-scaled tree output.")
 
     # report
     from snippy_ng.pipelines.reports import TreeReportPipelineBuilder
 
     report_pipeline = TreeReportPipelineBuilder(
-        tree=tree_outdir / tree_pipeline.stages[-1].output.tree,
+        tree=tree_outdir / snp_tree_stage.output.snp_scaled_tree,
         title="Snippy-NG Report",
-        metadata=Path(outdir) / f"{prefix}.vcf.summary.tsv",
+        metadata=Path(outdir) / f"{prefix}.qc.tsv",
         prefix="report",
     ).build()
     report_outdir = Path(outdir) / "report"

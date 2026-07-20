@@ -54,12 +54,7 @@ See the [installation guide](installation/index.md) for dependency details,
 | `snippy-ng core` | Create a core alignment from multiple Snippy-NG run directories. |
 | `snippy-ng tree` | Build a phylogenetic tree from an alignment. |
 | `snippy-ng gui` | Launch the optional Gradio graphical interface. |
-| `snippy-ng utils ref` | Prepare a reference genome for Snippy-NG. |
-| `snippy-ng utils gather` | Discover sample files and write TSV or JSON input for `multi`. |
-| `snippy-ng utils aln samclip` | Filter clipped reads from SAM alignments. |
-| `snippy-ng utils aln cnv` | Estimate contig or feature copy numbers from aligned BAM or CRAM depth. |
-| `snippy-ng utils report tree` | Create an interactive HTML report from a Newick tree. |
-| `snippy-ng utils report sample` | Create an interactive HTML report for a single sample VCF. |
+| **Utilities** | See [utilities](utils/index.md) for details. Also includes ref, gather, samclip, cnv, and report commands. |
 
 ## Examples
 
@@ -98,8 +93,7 @@ snippy-ng utils report tree multi/tree/tree.treefile --metadata multi/snippy.vcf
 
 - [Installation](installation/index.md)
 - [Clair3 Setup](installation/clair3.md)
-- [Copy Number Variation](cnv.md)
-- [Interactive reports](report/index.md)
+- [Utilities](utils/index.md)
 - [Development Guide](development/index.md)
 - [CLI Development](development/cli.md)
 - [Pipeline Development](development/pipelines.md)

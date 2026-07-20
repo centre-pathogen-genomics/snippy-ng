@@ -7,7 +7,7 @@
     <title>{{REPORT_NAME}}</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/igv@3.0.9/dist/igv.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@3.8.0/dist/igv.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
     <link href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css" rel="stylesheet" />
     <script src="https://unpkg.com/tabulator-tables/dist/js/tabulator.min.js"></script>
@@ -251,7 +251,7 @@
 		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Inspect variants:</b> Click a table row to select that variant; when alignment data is embedded, the IGV viewer moves to that position.</li>
 		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Explore the table:</b> Sort columns, filter with header search, and export the table as CSV or XLSX.</li>
 		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>IGV tracks:</b> When an alignment and reference are provided, the report embeds the selected VCF, reference FASTA/index, and a CRAM/index cropped to the variant windows so the viewer works client-side with less alignment data.</li>
-		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Read cropping:</b> Embedded alignments are hard-cropped to the report windows; reads crossing separate windows may appear as separate cropped segments.</li>
+		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Read cropping:</b> Embedded alignments are cropped to the report windows; reads crossing separate windows may appear as separate cropped segments.</li>
 		                <li class="rounded-md bg-white px-3 py-2 border border-slate-200"><b>Panel shortcuts:</b> Press <b>C</b> to show or hide the chart, <b>I</b> to show or hide IGV when available, and <b>D</b> to show or hide the variant table.</li>
 	              </ul>
             </div>

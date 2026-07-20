@@ -4,10 +4,10 @@ from pydantic import Field
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
-from snippy_ng.stages.stats import SeqKitReadStatsBasic, VcfStats
-from snippy_ng.stages.alignment import Minimap2LongReadAligner
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary, SamtoolsAlignmentQcStats, SeqKitReadStatsBasic, VcfStats
+from snippy_ng.stages.mapping import Minimap2LongReadAligner
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
-from snippy_ng.stages.vcf import VcfFilterLong, AddDeletionsToVCF, VcfPassFilter, CollapseDiploidGenotypes, VcfToTab
+from snippy_ng.stages.vcf import AddDeletionsToVCF, CollapseDiploidGenotypes, VariantContextFilter, VcfFilterLong, VcfPassFilter, VcfToTab
 from snippy_ng.stages.compression import CramCompressor, VcfCompressor
 from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
@@ -15,7 +15,7 @@ from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
 from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
-from snippy_ng.pipelines.common import download_assembly, load_or_prepare_reference
+from snippy_ng.pipelines.common import download_reference, download_reads, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.utils.gather import strip_bio_suffixes
 
 
@@ -24,7 +24,9 @@ class LongPipelineBuilder(PipelineBuilder):
     reference: Optional[Path] = Field(default=None, description="Reference genome file path")
     reference_accession: Optional[str] = Field(default=None, description="Reference assembly accession to download")
     reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
+    reads_accession: Optional[str] = Field(default=None, description="SRA read accession to download")
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
+    vcf: Optional[Path] = Field(default=None, description="Use an existing VCF instead of calling variants")
     prefix: str = Field(default="snippy", description="Output file prefix")
     clean_reads: bool = Field(default=False, description="Clean reads with SeqKit before alignment")
     min_read_len: int = Field(default=1000, description="Minimum read length")
@@ -35,12 +37,17 @@ class LongPipelineBuilder(PipelineBuilder):
     minimap_preset: str = Field(default="map-ont", description="Minimap2 preset")
     caller: str = Field(default="clair3", description="Variant caller (clair3 or freebayes)")
     caller_opts: str = Field(default="", description="Additional caller options")
-    clair3_model: Optional[Path] = Field(default=None, description="Clair3 model path")
-    clair3_fast_mode: bool = Field(default=False, description="Use Clair3 fast mode")
-    mask: Optional[str] = Field(default=None, description="BED file with regions to mask")
+    model: Optional[Path] = Field(default=None, description="Clair3 model path")
+    mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
     depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
-    min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for FreeBayes calls and depth masks")
+    min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for calls and depth masks")
+    max_clip_fraction: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Optional maximum terminal clipping fraction for long-read alignments",
+    )
     sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
     add_deletions_to_vcf: bool = Field(default=True, description="Add zero-depth regions to VCF as symbolic deletion blocks")
     haploid: bool = Field(default=True, description="Collapse diploid genotypes to haploid genotypes after consequence calling")
@@ -55,10 +62,14 @@ class LongPipelineBuilder(PipelineBuilder):
         globals = {'prefix': self.prefix}
         stats_tsv = None
         sample_name = self.sample_name
+        if sample_name is None and self.bam:
+            sample_name = strip_bio_suffixes(Path(self.bam).name)
+        if sample_name is None and self.reads:
+            sample_name = strip_bio_suffixes(Path(self.reads).name)
         reference_input = self.reference
 
         if self.reference_accession:
-            reference_input = download_assembly(
+            reference_input = download_reference(
                 self.reference_accession,
                 stages,
                 output_directory=Path("reference"),
@@ -77,24 +88,36 @@ class LongPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
         
+        # Download reads from SRA if accession provided
+        if self.reads_accession:
+            reads_input = download_reads(
+                self.reads_accession,
+                stages,
+            )
+            self.reads = reads_input
+        
         # Track current reads through potential cleaning and downsampling
-        # Always keep as strings for Pydantic validation
-        current_reads = [str(self.reads)] if self.reads else []
+        current_reads: list[Path] = [self.reads] if self.reads else []
+
+        if not current_reads and not self.bam:
+            raise ValueError("At least one of reads or bam must be provided.")
+        if self.vcf and not self.bam:
+            raise ValueError("A BAM/CRAM file must be provided when using an existing VCF; the alignment is required for depth masks and QC.")
         
         # Clean reads
         if self.clean_reads and current_reads:
             clean_reads_stage = SeqkitCleanLongReads(
-                reads=str(current_reads[0]),
+                reads=current_reads[0],
                 min_length=self.min_read_len,
                 min_qscore=self.min_read_qual,
                 **globals
             )
-            # Update reads to use cleaned reads (convert to strings for Pydantic)
-            current_reads = [str(clean_reads_stage.output.cleaned_reads)]
+            # Update reads to use cleaned reads
+            current_reads = [clean_reads_stage.output.cleaned_reads]
             stages.append(clean_reads_stage)
 
         if self.downsample and current_reads:
-            from snippy_ng.stages.downsample_reads import RasusaDownsampleReadsByCoverage
+            from snippy_ng.stages.downsample import RasusaDownsampleReadsByCoverage
             
             # We need the genome length at run time (once we know the reference)
             downsample_stage = RasusaDownsampleReadsByCoverage(
@@ -104,15 +127,25 @@ class LongPipelineBuilder(PipelineBuilder):
                 **globals
             )
             # Update reads to use downsampled reads (convert to strings for Pydantic)
-            current_reads = [str(downsample_stage.output.downsampled_r1)]
+            current_reads = [downsample_stage.output.downsampled_r1]
             if downsample_stage.output.downsampled_r2:
-                current_reads.append(str(downsample_stage.output.downsampled_r2))
+                current_reads.append(downsample_stage.output.downsampled_r2)
             stages.append(downsample_stage)
-
+        
+        # Clair3 model selection (only needed when calling with clair3 and no pre-called VCF)
+        clair3_model = self.model
+        if clair3_model is None and self.caller == "clair3" and self.vcf is None:
+            if not current_reads:
+                raise ValueError("Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input.")
+            longbow_stage = LongbowClair3ModelSelector(
+                reads=Path(current_reads[0]),
+                **globals
+            )
+            stages.append(longbow_stage)
+            clair3_model = longbow_stage.output.clair3_model
+        
         # Aligner
         if self.bam:
-            if sample_name is None:
-                sample_name = strip_bio_suffixes(Path(self.bam).name)
             aligned_reads = self.bam
             stages.append(BamReferenceValidator(
                 bam=aligned_reads,
@@ -134,14 +167,14 @@ class LongPipelineBuilder(PipelineBuilder):
                 aligner_stage = Minimap2LongReadAligner(
                     reads=current_reads,
                     reference=reference_file,
+                    reference_index=reference_index,
                     aligner_opts=self.aligner_opts,
                     minimap_preset=self.minimap_preset,
+                    max_clip_fraction=self.max_clip_fraction,
                     **globals
                 )
             else:
                 raise ValueError(f"Unsupported aligner '{self.aligner}'")
-            if current_reads and sample_name is None:
-                sample_name = strip_bio_suffixes(Path(current_reads[0]).name)
             aligned_reads = aligner_stage.output.bam
             stages.append(aligner_stage)
             
@@ -154,48 +187,50 @@ class LongPipelineBuilder(PipelineBuilder):
         )
         aligned_reads = align_filter.output.bam
         stages.append(align_filter)
-        
-        # SNP calling
-        if self.caller == "clair3":
-            clair3_model = self.clair3_model
-            if clair3_model is None:
-                if not current_reads:
-                    raise ValueError("Clair3 model can not be auto-detected without reads. Provide --clair3-model when using BAM/CRAM input.")
-                longbow_stage = LongbowClair3ModelSelector(
-                    reads=Path(current_reads[0]),
-                    **globals
-                )
-                stages.append(longbow_stage)
-                clair3_model = longbow_stage.output.clair3_model
-            assert clair3_model is not None, "Clair3 model must be provided or resolved when using Clair3 caller."
-            platform = 'ont'
-            if 'hifi' in str(clair3_model).lower():
-                platform = 'hifi'
-            caller_stage = Clair3Caller(
-                bam=aligned_reads,
-                reference=reference_file,
-                reference_index=reference_index,
-                clair3_model=clair3_model,
-                fast_mode=self.clair3_fast_mode,
-                additional_options=self.caller_opts,
-                platform=platform,
-                **globals
-            )
-        else:
-            caller_stage = FreebayesCallerLong(
-                bam=aligned_reads,
-                bam_index=align_filter.output.bai,
-                reference=reference_file,
-                reference_index=reference_index,
-                min_mapping_quality=self.min_mapping_quality,
-                additional_options=self.caller_opts,
-                **globals
-            )
-        stages.append(caller_stage)
+
+        alignment_qc = SamtoolsAlignmentQcStats(
+            bam=aligned_reads,
+            reference=reference_file,
+            sample_name=sample_name,
+            **globals,
+        )
+        stages.append(alignment_qc)
         
         # Filter VCF
+        variants_file = self.vcf
+        if variants_file is None:
+            if self.caller == "clair3":
+                
+                platform = 'ont'
+                if 'hifi' in str(clair3_model).lower():
+                    platform = 'hifi'
+                caller_stage = Clair3Caller(
+                    bam=aligned_reads,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    clair3_model=clair3_model,
+                    min_mapping_quality=self.min_mapping_quality,
+                    sample_name=sample_name,
+                    additional_options=self.caller_opts,
+                    platform=platform,
+                    **globals
+                )
+            else:
+                caller_stage = FreebayesCallerLong(
+                    bam=aligned_reads,
+                    bam_index=align_filter.output.bai,
+                    reference=reference_file,
+                    reference_index=reference_index,
+                    min_mapping_quality=self.min_mapping_quality,
+                    sample_name=sample_name,
+                    additional_options=self.caller_opts,
+                    **globals
+                )
+            stages.append(caller_stage)
+            variants_file = caller_stage.output.vcf
+
         variant_filter = VcfFilterLong(
-            vcf=caller_stage.output.vcf,
+            vcf=variants_file,
             reference=reference_file,
             reference_index=reference_index,
             min_qual=self.min_qual,
@@ -208,7 +243,6 @@ class LongPipelineBuilder(PipelineBuilder):
         depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
             min_depth=self.depth_mask,
-            min_mapping_quality=self.min_mapping_quality if self.caller == "freebayes" else 0,
             **globals
         )
         stages.append(depth_beds)
@@ -223,6 +257,14 @@ class LongPipelineBuilder(PipelineBuilder):
             )
             stages.append(add_deletions)
             variants_file = add_deletions.output.vcf
+
+        context_filter = VariantContextFilter(
+            vcf=variants_file,
+            **globals,
+        )
+        if context_filter.enabled:
+            stages.append(context_filter)
+            variants_file = context_filter.output.vcf
         
         # Consequences calling
         consequences = BcftoolsConsequencesCaller(
@@ -244,7 +286,7 @@ class LongPipelineBuilder(PipelineBuilder):
 
         final_vcf = CopyFile(
             input=variants_file,
-            output_path=f"{self.prefix}.all.vcf",
+            output_path=Path(f"{self.prefix}.all.vcf"),
         )
         stages.append(final_vcf)
         variants_file = final_vcf.output.copied_file
@@ -314,7 +356,7 @@ class LongPipelineBuilder(PipelineBuilder):
         if self.mask:
             user_mask = ApplyMask(
                 fasta=current_fasta,
-                mask_bed=Path(self.mask),
+                mask_bed=self.mask,
                 **globals
             )
             stages.append(user_mask)
@@ -327,6 +369,24 @@ class LongPipelineBuilder(PipelineBuilder):
             **globals
         )
         stages.append(copy_final)
+
+        fasta_qc = FastaCompositionStats(
+            fasta=copy_final.output.fasta,
+            sample_name=sample_name,
+            **globals,
+        )
+        stages.append(fasta_qc)
+
+        sample_qc = SampleQcSummary(
+            sample_name=sample_name or self.prefix,
+            pipeline_type="long",
+            reads_tsv=stats_tsv,
+            alignment_tsv=alignment_qc.output.summary_tsv,
+            vcf_summary_tsv=vcf_stats.output.summary_tsv,
+            fasta_tsv=fasta_qc.output.summary_tsv,
+            **globals,
+        )
+        stages.append(sample_qc)
 
         # Compress BAM to CRAM with embedded reference
         cram_compressor = CramCompressor(
@@ -346,6 +406,7 @@ class LongPipelineBuilder(PipelineBuilder):
                 sample_name=sample_name,
                 variant_scope=self.report_scope,
                 window_size=self.report_window_size,
+                exclude_supplementary=self.caller == "clair3",
                 **globals,
             )
             stages.append(sample_report_stage)
@@ -365,10 +426,10 @@ class LongPipelineBuilder(PipelineBuilder):
             cram_compressor.output.cram,
             vcf_stats.output.summary_tsv,
             vcf_stats.output.breakdown_tsv,
+            sample_qc.output.qc_tsv,
         ]
         keep_files.extend(setup.output.paths)
+        keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:
             keep_files.append(sample_report_stage.output.rendered)
-        if stats_tsv is not None:
-            keep_files.append(stats_tsv)
         return SnippyPipeline(stages=stages, outputs_to_keep=keep_files)

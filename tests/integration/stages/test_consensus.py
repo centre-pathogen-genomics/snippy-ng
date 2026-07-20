@@ -204,3 +204,44 @@ def test_bcftools_consensus_applies_all_snippy_variants(tmp_path: Path):
         f"{len(mismatches)} of {checked} representable PASS non-insertion variants "
         "were not applied correctly:\n" + "\n".join(mismatches[:20])
     )
+
+
+def test_bcftools_consensus_masks_zero_depth_deletions_with_gaps(tmp_path: Path):
+    missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
+    if missing_commands:
+        pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
+
+    reference = tmp_path / "reference.fa"
+    pass_vcf = tmp_path / "snippy.pass.vcf"
+    reference_sequence = "ACGT" * 12
+    reference.write_text(
+        ">ref\n"
+        f"{reference_sequence}\n",
+        encoding="utf-8",
+    )
+    pass_vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        f"##contig=<ID=ref,length={len(reference_sequence)}>\n"
+        '##ALT=<ID=DEL,Description="Deletion">\n'
+        '##INFO=<ID=ZERODEPTH,Number=0,Type=Flag,Description="Zero-depth region">\n'
+        '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Structural variant type">\n'
+        '##INFO=<ID=END,Number=1,Type=Integer,Description="End position">\n'
+        '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Structural variant length">\n'
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"
+        "ref\t8\tDEL_1\tT\t<DEL>\t.\tPASS;ZERODEPTH\tZERODEPTH;SVTYPE=DEL;END=12;SVLEN=-4\tGT\t1/1\n",
+        encoding="utf-8",
+    )
+
+    stage = BcftoolsPseudoAlignment(
+        prefix=str(tmp_path / "snippy"),
+        reference=reference,
+        vcf=pass_vcf,
+        ref_metadata=ReferenceMetadata(
+            total_length=len(reference_sequence),
+            num_sequences=1,
+        ),
+    )
+    stage.run(Context(quiet=True))
+
+    consensus_sequence = _load_fasta(stage.output.fasta)["ref"]
+    assert consensus_sequence[8:12] == "----"

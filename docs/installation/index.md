@@ -108,7 +108,7 @@ can be found or pass one explicitly:
 snippy-ng long \
   --ref reference.fasta \
   --reads reads.fastq.gz \
-  --clair3-model /path/to/clair3/model \
+  --model /path/to/clair3/model \
   --check
 ```
 

@@ -190,7 +190,7 @@ class SamtoolsFilter(BaseStage):
     
     bam: Path = Field(..., description="Input BAM file to filter")
     reference: Path = Field(..., description="Reference FASTA file for BAM output")
-    min_mapq: int = Field(20, description="Minimum mapping quality")
+    min_mapq: int = Field(60, description="Minimum mapping quality")
     exclude_flags: int = Field(1796, description="SAM flags to exclude (default: unmapped, secondary, qcfail, duplicate)")
     include_flags: Optional[int] = Field(None, description="SAM flags to include")
     regions: Optional[str] = Field(None, description="Regions to include (BED file or region string)")

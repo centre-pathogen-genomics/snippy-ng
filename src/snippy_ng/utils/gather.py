@@ -2,20 +2,26 @@ from __future__ import annotations
 
 import gzip
 import io
+import fnmatch
 import os
 import re
+import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Iterable, Literal, Mapping, Optional, TypeAlias, Union
+from typing import Callable, Iterable, Literal, Mapping, Optional, TypeAlias, TypedDict, Union
 
 from snippy_ng.exceptions import SnippyError
 
 
 SeqKind: TypeAlias = Literal["ILL", "ONT", "ASM"]
 SampleEntry: TypeAlias = dict[str, object]
-SamplesConfig: TypeAlias = dict[Literal["reference", "samples"], object]
 PathLike: TypeAlias = Union[str, Path]
+
+
+class SamplesConfig(TypedDict):
+    reference: str | None
+    samples: dict[str, SampleEntry]
 
 
 class GatherSamplesError(SnippyError):
@@ -29,6 +35,7 @@ class SeqFile:
     path: Path
     kind: SeqKind
     sample_id: str
+    is_alignment: bool = False
 
 
 SampleHandler: TypeAlias = Callable[[str, list[SeqFile]], SampleEntry]
@@ -53,6 +60,13 @@ ONT_UUID_RE = re.compile(
 )
 ONT_KEY_VALUE_RE = re.compile(r"^\w+=\w+")
 FASTQ_HEADER_RE = re.compile(r"^@(\S+)")
+ALIGNMENT_SUFFIXES = {".bam", ".cram", ".sam"}
+LONG_READ_LENGTH = 1_000
+ALIGNMENT_PEEK_RECORDS = 1_000
+LONG_READ_PLATFORMS = {"ONT", "OXFORDNANOPORE", "NANOPORE", "PACBIO", "PACBI0"}
+SHORT_READ_PLATFORMS = {"ILLUMINA", "BGISEQ", "MGISEQ", "DNBSEQ", "SOLID", "LS454"}
+LONG_READ_PRESETS = ("lr:", "map-ont", "map-pb", "lr:hq")
+SHORT_READ_PRESETS = ("sr:", "short-read", "illumina")
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +149,9 @@ def detect_seq_kind(path: PathLike) -> Optional[SeqKind]:
     if not _is_non_empty_file(file_path):
         return None
 
+    if _is_alignment_path(file_path):
+        return detect_alignment_seq_kind(file_path)
+
     try:
         with _open_text_maybe_gzip(file_path) as handle:
             first_line = handle.readline()
@@ -153,6 +170,150 @@ def detect_seq_kind(path: PathLike) -> Optional[SeqKind]:
 
     read_id = match.group(1)
     return "ONT" if _looks_like_ont_read_id(read_id) else "ILL"
+
+
+def detect_alignment_seq_kind(path: PathLike) -> Optional[SeqKind]:
+    """Classify an alignment using its platform header when available.
+
+    ``@RG`` ``PL`` tags identify common sequencing platforms without reading
+    alignment records. Files without a recognized platform tag fall back to
+    peeking at primary read lengths for compatibility with older alignments.
+    """
+
+    file_path = Path(path)
+    try:
+        header_kind = _alignment_header_kind(file_path)
+        if header_kind is not None:
+            return header_kind
+
+        first_record = _first_alignment_record(file_path)
+        if first_record is None or _is_unmapped_alignment(first_record):
+            # Skip uBAMs
+            return None
+
+        records = _alignment_records(file_path)
+        lengths: list[int] = []
+        for record in records:
+            fields = record.rstrip("\n").split("\t")
+            if len(fields) < 11 or fields[9] == "*":
+                continue
+            try:
+                flag = int(fields[1])
+                if flag & 0x904:  # unmapped, secondary, supplementary
+                    continue
+                lengths.append(len(fields[9]))
+            except (ValueError, IndexError):
+                continue
+            if len(lengths) >= ALIGNMENT_PEEK_RECORDS:
+                break
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if not lengths:
+        return None
+
+    lengths.sort()
+    median = lengths[len(lengths) // 2]
+    return "ONT" if median >= LONG_READ_LENGTH else "ILL"
+
+
+def _first_alignment_record(path: Path) -> Optional[str]:
+    """Read one alignment record without materializing the whole file."""
+
+    if path.suffix.lower() == ".sam" or path.name.lower().endswith(".sam.gz"):
+        with _open_text_maybe_gzip(path) as handle:
+            for line in handle:
+                if not line.startswith("@"):
+                    return line
+        return None
+
+    process = subprocess.Popen(
+        ["samtools", "view", str(path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        if process.stdout is None:
+            return None
+        return process.stdout.readline() or None
+    finally:
+        process.terminate()
+        process.wait()
+
+
+def _is_unmapped_alignment(record: str) -> bool:
+    fields = record.rstrip("\n").split("\t")
+    if len(fields) < 6:
+        return True
+    try:
+        flag = int(fields[1])
+    except ValueError:
+        return True
+    return bool(flag & 0x4) or fields[5] == "*"
+
+
+def _alignment_header_kind(path: Path) -> Optional[SeqKind]:
+    """Return the sequencing kind encoded by ``@RG`` ``PL`` tags."""
+
+    if path.suffix.lower() == ".sam" or path.name.lower().endswith(".sam.gz"):
+        header_lines = list(_sam_header_lines(path))
+    else:
+        result = subprocess.run(
+            ["samtools", "view", "-H", str(path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        header_lines = result.stdout.splitlines()
+
+    header_text = "\n".join(header_lines).lower()
+    if any(preset in header_text for preset in LONG_READ_PRESETS):
+        return "ONT"
+    if any(preset in header_text for preset in SHORT_READ_PRESETS):
+        return "ILL"
+
+    platforms = {
+        field[3:].upper()
+        for line in header_lines
+        if line.startswith("@RG")
+        for field in line.rstrip("\n").split("\t")
+        if field.upper().startswith("PL:")
+    }
+    if platforms & LONG_READ_PLATFORMS:
+        return "ONT"
+    if platforms & SHORT_READ_PLATFORMS:
+        return "ILL"
+    return None
+
+
+def _sam_header_lines(path: Path) -> Iterable[str]:
+    with _open_text_maybe_gzip(path) as handle:
+        for line in handle:
+            if line.startswith("@"):
+                yield line
+            else:
+                break
+
+
+def _alignment_records(path: Path) -> Iterable[str]:
+    if path.suffix.lower() == ".sam" or path.name.lower().endswith(".sam.gz"):
+        with _open_text_maybe_gzip(path) as handle:
+            yield from (line for line in handle if not line.startswith("@"))
+        return
+
+    result = subprocess.run(
+        ["samtools", "view", "-F", "0x904", str(path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    yield from result.stdout.splitlines()
+
+
+def _is_alignment_path(path: Path) -> bool:
+    name = path.name.lower()
+    return path.suffix.lower() in ALIGNMENT_SUFFIXES or name.endswith(".sam.gz")
 
 
 def _is_non_empty_file(path: Path) -> bool:
@@ -212,9 +373,9 @@ def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optiona
     if reference is None:
         return None, []
 
-    from snippy_ng.pipelines.common import is_reference_accession
+    from snippy_ng.pipelines.common import is_assembly_accession
 
-    if is_reference_accession(reference):
+    if is_assembly_accession(reference):
         return str(reference), []
 
     normalized = _absolute(reference)
@@ -248,13 +409,14 @@ def scan_sequence_files(
     """
     Walk input files/folders and return detected sequence files.
 
-    `exclude_name_regex` is applied to the basename only.
+    `exclude_name_regex` is applied to the basename only. Shell-style glob
+    patterns such as ``*.fa`` are also accepted.
 
     If `reserved_ids` is provided, discovered files with the same 
     IDs are disambiguated using the parent folder.
     """
 
-    exclude_re = re.compile(exclude_name_regex) if exclude_name_regex else None
+    exclude_re = _compile_exclude_pattern(exclude_name_regex)
     excluded = {_absolute(path) for path in exclude_files or []}
 
     seqfiles: list[SeqFile] = []
@@ -270,6 +432,18 @@ def scan_sequence_files(
             seqfiles.append(seqfile)
 
     return normalize_paired_illumina_ids(seqfiles)
+
+
+def _compile_exclude_pattern(pattern: Optional[str]) -> Optional[re.Pattern[str]]:
+    if not pattern:
+        return None
+
+    try:
+        return re.compile(pattern)
+    except re.error:
+        if any(character in pattern for character in "*?["):
+            return re.compile(fnmatch.translate(pattern))
+        raise GatherSamplesError(f"Invalid exclusion pattern {pattern!r}. Use a regular expression or glob such as '*.fa'.")
 
 
 def _reserved_reference_id(reference: Optional[PathLike]) -> Optional[str]:
@@ -299,7 +473,7 @@ def _seqfile_from_path(
     if reserved_ids and sample_id in reserved_ids:
         sample_id = build_disambiguated_id(sample_id, path.parent.name)
 
-    return SeqFile(path=path, kind=kind, sample_id=sample_id)
+    return SeqFile(path=path, kind=kind, sample_id=sample_id, is_alignment=_is_alignment_path(path))
 
 
 def normalize_paired_illumina_ids(seqfiles: list[SeqFile]) -> list[SeqFile]:
@@ -474,6 +648,12 @@ def build_disambiguated_id(sample_id: str, parent_label: str) -> str:
 def handle_ILL(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     """Build a config entry for Illumina short-read data."""
 
+    if any(seqfile.is_alignment for seqfile in seqfiles) and len(seqfiles) != 1:
+        raise GatherSamplesError(f"{sample_id} (ILL) sample has multiple alignment files!")
+    alignment = _single_alignment(seqfiles)
+    if alignment is not None:
+        return {"type": "short", "bam": str(alignment)}
+
     paths = sorted(seqfile.path for seqfile in seqfiles)
     r1, r2 = find_r1_r2(paths)
 
@@ -509,13 +689,29 @@ def _fallback_illumina_pair(sample_id: str, paths: list[Path]) -> tuple[Path, Op
 def handle_ONT(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     """Build a config entry for Oxford Nanopore long-read data."""
 
+    if any(seqfile.is_alignment for seqfile in seqfiles) and len(seqfiles) != 1:
+        raise GatherSamplesError(f"{sample_id} (ONT) sample has multiple alignment files!")
+    alignment = _single_alignment(seqfiles)
+    if alignment is not None:
+        return {
+            "type": "long",
+            "bam": str(alignment),
+            "caller": "clair3",
+            "model": None,
+        }
+
     path = _require_single_file(sample_id, "ONT", seqfiles)
     return {
         "type": "long",
         "reads": str(path),
         "caller": "clair3",
-        "clair3_model": None,
+        "model": None,
     }
+
+
+def _single_alignment(seqfiles: list[SeqFile]) -> Optional[Path]:
+    alignments = [seqfile.path for seqfile in seqfiles if seqfile.is_alignment]
+    return alignments[0] if len(alignments) == 1 and len(seqfiles) == 1 else None
 
 
 def handle_ASM(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
@@ -627,12 +823,13 @@ def gather(
     excluded = [_absolute(path) for path in exclude_files or []] + reference_exclusions
     reference_id = _reserved_reference_id(reference)
 
+    reserved_ids = [reference_id] if reference_id is not None else None
     seqfiles = scan_sequence_files(
         inputs,
         max_depth=max_depth,
         exclude_name_regex=exclude_name_regex,
         exclude_files=excluded,
-        reserved_ids=[reference_id],
+        reserved_ids=reserved_ids,
     )
 
     samples = build_samples_config(seqfiles)

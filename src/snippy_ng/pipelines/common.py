@@ -6,36 +6,65 @@ import re
 from snippy_ng.stages.setup import LoadReferenceFromMetadataFile, PrepareReference
 from snippy_ng.utils.seq import guess_reference_format
 from snippy_ng.exceptions import InvalidReferenceError
+from snippy_ng.cli.utils import is_sra_accession
 
 NCBI_ASSEMBLY_ACCESSION_RE = re.compile(r"^(GC[AF]_\d{9})(?:\.\d+)?$")
-ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM[END]A?)[0-9]+$")
+ATB_ASSEMBLY_ACCESSION_RE = re.compile(r"^(?:SAM(E|D|N)[A-Z]?)[0-9]+$")
 
 
-def is_ncbi_assembly_accession(reference) -> bool:
-    return NCBI_ASSEMBLY_ACCESSION_RE.fullmatch(str(reference)) is not None
+def is_ncbi_assembly_accession(accession) -> bool:
+    return NCBI_ASSEMBLY_ACCESSION_RE.fullmatch(str(accession)) is not None
 
 
-def is_atb_assembly_accession(reference) -> bool:
-    return ATB_ASSEMBLY_ACCESSION_RE.fullmatch(str(reference)) is not None
+def is_atb_assembly_accession(accession) -> bool:
+    return ATB_ASSEMBLY_ACCESSION_RE.fullmatch(str(accession)) is not None
 
 
-def is_reference_accession(reference) -> bool:
-    return is_ncbi_assembly_accession(reference) or is_atb_assembly_accession(reference)
+def is_assembly_accession(accession) -> bool:
+    return is_ncbi_assembly_accession(accession) or is_atb_assembly_accession(accession)
 
 
-def download_assembly(reference_accession, stages: list, output_directory: Path | None = None) -> Path:
-    from snippy_ng.stages.setup import DownloadAtbAssemblyReference, DownloadNcbiGenbankReference
+def download_reads(reads_accession, stages: list) -> list[Path]:
+    """Download reads from SRA accession using sracha-rs. Returns list of read paths (1 for single-end, 2 for paired-end)."""
+    from snippy_ng.stages.download import DownloadSraReads
+
+    if is_sra_accession(reads_accession):
+        download_stage = DownloadSraReads(
+            accession=str(reads_accession),
+        )
+        stages.append(download_stage)
+        output = download_stage.output
+        return [p for p in [output.r1, output.r2] if p is not None]
+
+    raise InvalidReferenceError(
+        f"Unsupported SRA accession '{reads_accession}'. Supported formats are SRR, ERR, and DRR accessions."
+    )
+
+
+def get_download_stage_outputs(stages: list) -> list:
+    """Return output paths from any download stages in the pipeline."""
+    from snippy_ng.stages.download import DownloadAtbAssemblyFasta, DownloadNcbiAssemblyFasta, DownloadSraReads
+    outputs = []
+    for stage in stages:
+        if isinstance(stage, (DownloadNcbiAssemblyFasta, DownloadAtbAssemblyFasta, DownloadSraReads)):
+            outputs.extend(stage.output.paths)
+    return outputs
+
+
+def download_reference(reference_accession, stages: list, output_directory: Path = Path("reference")) -> Path:
+    from snippy_ng.stages.download import DownloadAtbAssemblyFasta, DownloadNcbiAssemblyFasta
 
     if is_ncbi_assembly_accession(reference_accession):
-        download_reference = DownloadNcbiGenbankReference(
+        download_reference = DownloadNcbiAssemblyFasta(
             accession=str(reference_accession),
             output_directory=output_directory,
+            genbank=True,
         )
         stages.append(download_reference)
-        return download_reference.output.genbank
+        return download_reference.output.fasta
 
     if is_atb_assembly_accession(reference_accession):
-        download_reference = DownloadAtbAssemblyReference(
+        download_reference = DownloadAtbAssemblyFasta(
             accession=str(reference_accession),
             output_directory=output_directory,
         )
@@ -44,6 +73,28 @@ def download_assembly(reference_accession, stages: list, output_directory: Path 
 
     raise InvalidReferenceError(
         f"Unsupported assembly accession '{reference_accession}'. Supported accessions are NCBI GCF/GCA and AllTheBacteria SAMN/SAMEA/SAMD IDs."
+    )
+
+
+def download_assembly_fasta(assembly_accession, stages: list) -> Path:
+    from snippy_ng.stages.download import DownloadAtbAssemblyFasta, DownloadNcbiAssemblyFasta
+
+    if is_ncbi_assembly_accession(assembly_accession):
+        download_stage = DownloadNcbiAssemblyFasta(
+            accession=str(assembly_accession),
+        )
+        stages.append(download_stage)
+        return download_stage.output.fasta
+
+    if is_atb_assembly_accession(assembly_accession):
+        download_stage = DownloadAtbAssemblyFasta(
+            accession=str(assembly_accession),
+        )
+        stages.append(download_stage)
+        return download_stage.output.fasta
+
+    raise InvalidReferenceError(
+        f"Unsupported assembly accession '{assembly_accession}'. Supported accessions are NCBI GCF/GCA and AllTheBacteria SAMN/SAMEA/SAMD IDs."
     )
 
 

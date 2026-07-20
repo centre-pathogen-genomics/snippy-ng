@@ -93,6 +93,8 @@ def stage_factory(output):
             self.output = DummyOutput(
                 **{out_key: out_val for out_key, out_val in output.items()}
             )
+            if hasattr(self.output, "assembly"):
+                self.nucmer_assembly = self.output.assembly
     return _Stage
 
 
@@ -182,12 +184,15 @@ def stub_common_stages(monkeypatch, tmp_path):
 def stub_asm_stages(monkeypatch, tmp_path):
     """Stub out assembly-specific stages."""
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.AssemblyAligner",
+        "snippy_ng.stages.mapping.AssemblyAligner",
         stage_factory({"paf": tmp_path / "align.paf"}),
     )
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.AssemblyNucmerAligner",
-        stage_factory({"delta": tmp_path / "align.delta"}),
+        "snippy_ng.stages.mapping.AssemblyNucmerAligner",
+        stage_factory({
+            "delta": tmp_path / "align.delta",
+            "assembly": tmp_path / "align.assembly.fa",
+        }),
     )
     monkeypatch.setattr(
         "snippy_ng.stages.calling.PAFCaller",
@@ -209,7 +214,7 @@ def stub_asm_stages(monkeypatch, tmp_path):
 def stub_long_stages(monkeypatch, tmp_path):
     """Stub out long-read-specific stages."""
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.Minimap2LongReadAligner",
+        "snippy_ng.stages.mapping.Minimap2LongReadAligner",
         stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(
@@ -237,7 +242,7 @@ def stub_long_stages(monkeypatch, tmp_path):
 def stub_short_stages(monkeypatch, tmp_path):
     """Stub out short-read-specific stages."""
     monkeypatch.setattr(
-        "snippy_ng.stages.alignment.BWAMEMShortReadAligner",
+        "snippy_ng.stages.mapping.BWAMEMShortReadAligner",
         stage_factory({"bam": tmp_path / "align.bam"}),
     )
     monkeypatch.setattr(

@@ -1,5 +1,7 @@
 import pytest
+import snippy_ng.pipelines as _pl
 from snippy_ng.stages.reporting import SampleReport
+from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary
 from snippy_ng.stages.vcf import VcfPassFilter, VcfToTab
 from tests.cli.helpers import apply_cli_case_overrides, assert_cli_result, get_bad_reference_target, run_cli_command, write_dummy_files
 
@@ -26,6 +28,17 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
                 "--reference", p["ref"],
                 "--assembly",  p["asm"],
                 "--outdir",    p["out"],
+                "--skip-check",
+            ],
+            0,
+            True,
+        ),
+        (
+            "assembly_ok_positional",
+            lambda p: [
+                "--reference", p["ref"],
+                str(p["asm"]),
+                "--outdir", p["out"],
                 "--skip-check",
             ],
             0,
@@ -133,12 +146,19 @@ def test_asm_pipeline_includes_vcf_only_sample_report(monkeypatch, tmp_path):
     sample_report_stages = [stage for stage in pipeline.stages if isinstance(stage, SampleReport)]
     pass_filter = next(stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter))
     variants_tab = next(stage for stage in pipeline.stages if isinstance(stage, VcfToTab))
+    fasta_qc = next(stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats))
+    sample_qc = next(stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary))
     assert len(sample_report_stages) == 1
     assert sample_report_stages[0].alignment is None
     assert sample_report_stages[0].reference is None
     assert sample_report_stages[0].variant_scope == "all"
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
+    assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
+    assert sample_qc.pipeline_type == "asm"
+    assert sample_qc.reads_tsv is None
+    assert sample_qc.alignment_tsv is None
+    assert sample_qc.output.qc_tsv in pipeline.outputs_to_keep
 
 
 def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
@@ -158,3 +178,54 @@ def test_asm_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
     ).build()
 
     assert not any(isinstance(stage, SampleReport) for stage in pipeline.stages)
+
+
+def test_asm_pipeline_adds_context_filter_when_enabled(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.asm import AsmPipelineBuilder
+    from snippy_ng.stages.vcf import VariantContextFilter
+
+    monkeypatch.setenv("SNIPPY_NG_VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL", "10")
+    paths = {
+        "ref": tmp_path / "ref.fa",
+        "asm": tmp_path / "assembly.fa",
+    }
+    write_dummy_files(paths, ["ref", "asm"])
+
+    pipeline = AsmPipelineBuilder(
+        reference=paths["ref"],
+        assembly=paths["asm"],
+        prefix="sample",
+    ).build()
+
+    assert any(isinstance(stage, VariantContextFilter) for stage in pipeline.stages)
+
+
+def test_asm_cli_accepts_assembly_accession(monkeypatch, tmp_path):
+    captured = {}
+
+    class DummyAsmPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
+
+    monkeypatch.setattr("snippy_ng.pipelines.asm.AsmPipelineBuilder", DummyAsmPipelineBuilder)
+
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+    outdir = tmp_path / "output"
+
+    result = run_cli_command([
+        "asm",
+        "--reference", str(ref),
+        "GCF_000000001.1",
+        "--outdir", str(outdir),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert captured["reference"] == ref.absolute()
+    assert captured["reference_accession"] is None
+    assert captured["assembly"] is None
+    assert captured["assembly_accession"] == "GCF_000000001.1"

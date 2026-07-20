@@ -79,4 +79,4 @@ Use `EnvVarField` when:
 - the value should be resolved when the stage model is instantiated
 - you want the field to participate in validation, defaults, and model introspection like other Pydantic fields
 
-Use the typed helpers in [src/snippy_ng/envvars.py](src/snippy_ng/envvars.py) (`bool_envvar()`, `int_envvar()`, `float_envvar()`, `str_envvar()`) when you need to read an environment variable outside a stage field declaration.
+Use the typed field classes in [src/snippy_ng/envvars.py](src/snippy_ng/envvars.py) (`EnvVarBool`, `EnvVarInt`, `EnvVarFloat`, `EnvVarStr`) when you need to read an environment variable outside a stage field declaration.

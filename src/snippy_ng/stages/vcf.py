@@ -1,13 +1,11 @@
 from pathlib import Path
-from typing import List, Optional
-import re
-from bisect import bisect_right
-from collections import defaultdict
+from typing import Annotated, List, Optional
 
 from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
-from snippy_ng.envvars import EnvVarField
+from snippy_ng.envvars import EnvVarInt
 from snippy_ng.logging import logger
+from snippy_ng.utils.vcf import filter_variant_context_vcf
 from pydantic import Field
 
 HET_GT = {"0/1", "1/0", "0|1", "1|0"}
@@ -20,8 +18,8 @@ class VcfFilterOutput(BaseOutput):
     vcf: Path = Field(..., description="Filtered and normalized VCF file")
 
 
-class AssemblyVariantContextFilterOutput(BaseOutput):
-    vcf: Path = Field(..., description="Assembly VCF after generic local-context variant filtering")
+class VariantContextFilterOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF after local-context variant filtering")
 
 
 class VcfPassFilterOutput(BaseOutput):
@@ -49,6 +47,7 @@ class VcfToTab(BaseStage):
             'FS=OFS="\t"; '
             'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"'
             '} '
+            '$5 == "<DEL>" { next } '
             '{'
             'selected=""; '
             'split($6, annotations, ","); '
@@ -201,47 +200,51 @@ class VcfFilter(BaseStage):
         logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
 
 
-class AssemblyVariantContextFilter(BaseStage):
+class VariantContextFilter(BaseStage):
     """
-    Apply caller-independent assembly variant context filters to a raw VCF.
+    Apply caller-independent local-context variant filters to a VCF.
     """
 
-    vcf: Path = Field(..., description="Input assembly VCF")
-    max_local_snps: int = EnvVarField(
-        2,
-        "ASM_MAX_LOCAL_SNPS",
-        parser=lambda raw: int(raw.strip()),
-        description="Maximum SNPs allowed within the local assembly SNP window. 0 disables this filter.",
-    )
-    local_snp_window: int = EnvVarField(
-        10,
-        "ASM_LOCAL_SNP_WINDOW",
-        parser=lambda raw: int(raw.strip()),
-        description="Reference-base window radius for local assembly SNP density filtering. 0 disables this filter.",
-    )
-    min_snp_distance_to_indel: int = EnvVarField(
-        10,
-        "ASM_MIN_SNP_DISTANCE_TO_INDEL",
-        parser=lambda raw: int(raw.strip()),
-        description="Minimum reference-base distance required between an assembly SNP and any assembly indel. 0 disables this filter.",
-    )
-    min_snp_distance_to_breakpoint: int = EnvVarField(
-        10,
-        "ASM_MIN_SNP_DISTANCE_TO_BREAKPOINT",
-        parser=lambda raw: int(raw.strip()),
-        description="Minimum reference-base distance required between an assembly SNP and caller-provided alignment edge distance. 0 disables this filter.",
-    )
+    vcf: Path = Field(..., description="Input VCF")
+    max_local_snps: Annotated[int, EnvVarInt(
+        0,
+        "VARIANT_CONTEXT_MAX_LOCAL_SNPS",
+        description="Maximum SNPs allowed within the local SNP window. 0 disables this filter.",
+    )]
+    local_snp_window: Annotated[int, EnvVarInt(
+        0,
+        "VARIANT_CONTEXT_LOCAL_SNP_WINDOW",
+        description="Reference-base window radius for local SNP density filtering. 0 disables this filter.",
+    )]
+    min_snp_distance_to_indel: Annotated[int, EnvVarInt(
+        0,
+        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL",
+        description="Minimum reference-base distance required between a SNP and any indel. 0 disables this filter.",
+    )]
+    min_snp_distance_to_breakpoint: Annotated[int, EnvVarInt(
+        0,
+        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_BREAKPOINT",
+        description="Minimum reference-base distance required between a SNP and caller-provided alignment edge distance. 0 disables this filter.",
+    )]
 
     @property
-    def output(self) -> AssemblyVariantContextFilterOutput:
-        return AssemblyVariantContextFilterOutput(
+    def output(self) -> VariantContextFilterOutput:
+        return VariantContextFilterOutput(
             vcf=Path(f"{self.prefix}.context.vcf"),
         )
+
+    @property
+    def enabled(self) -> bool:
+        return (
+        (self.max_local_snps > 0 and self.local_snp_window > 0)
+        or self.min_snp_distance_to_indel > 0
+        or self.min_snp_distance_to_breakpoint > 0
+    )
 
     def create_commands(self, ctx) -> List:
         return [
             self.python_cmd(
-                func=self.filter_vcf,
+                func=filter_variant_context_vcf,
                 args=[
                     self.vcf,
                     self.output.vcf,
@@ -250,186 +253,10 @@ class AssemblyVariantContextFilter(BaseStage):
                     self.min_snp_distance_to_indel,
                     self.min_snp_distance_to_breakpoint,
                 ],
-                description="Apply assembly variant context filters",
+                description="Apply variant context filters",
             )
         ]
 
-    @staticmethod
-    def _parse_info(info: str) -> dict[str, str]:
-        if not info or info == ".":
-            return {}
-        parsed: dict[str, str] = {}
-        for item in info.split(";"):
-            if not item:
-                continue
-            if "=" in item:
-                key, value = item.split("=", 1)
-                parsed[key] = value
-            else:
-                parsed[item] = ""
-        return parsed
-
-    @staticmethod
-    def _format_info(info: dict[str, str]) -> str:
-        if not info:
-            return "."
-        parts = []
-        for key, value in info.items():
-            parts.append(key if value == "" else f"{key}={value}")
-        return ";".join(parts)
-
-    @staticmethod
-    def _is_snp(ref: str, alt: str) -> bool:
-        alts = alt.split(",")
-        return len(ref) == 1 and len(alts) == 1 and len(alts[0]) == 1 and not alts[0].startswith("<")
-
-    @staticmethod
-    def _is_indel(ref: str, alt: str) -> bool:
-        return any(
-            not allele.startswith("<") and len(ref) != len(allele)
-            for allele in alt.split(",")
-        )
-
-    @staticmethod
-    def _nearest_distance(position: int, positions: list[int]) -> int | None:
-        if not positions:
-            return None
-        index = bisect_right(positions, position)
-        distances: list[int] = []
-        if index < len(positions):
-            distances.append(abs(positions[index] - position))
-        if index > 0:
-            distances.append(abs(position - positions[index - 1]))
-        return min(distances) if distances else None
-
-    @staticmethod
-    def _count_positions_in_window(position: int, positions: list[int], window: int) -> int:
-        left = bisect_right(positions, position - window - 1)
-        right = bisect_right(positions, position + window)
-        return right - left
-
-    @staticmethod
-    def _edge_distance(info: dict[str, str]) -> int | None:
-        for key in ("ASM_EDGE_DIST", "MUMMER_EDGE_DIST"):
-            value = info.get(key)
-            if value is None:
-                continue
-            try:
-                return int(float(value))
-            except ValueError:
-                return None
-        return None
-
-    @staticmethod
-    def _append_filter(filter_value: str, label: str) -> str:
-        if filter_value in {"", ".", "PASS"}:
-            return label
-        labels = filter_value.split(";")
-        if label not in labels:
-            labels.append(label)
-        return ";".join(labels)
-
-    @staticmethod
-    def _append_info_reason(info: dict[str, str], key: str, reason: str) -> None:
-        current = info.get(key)
-        if not current:
-            info[key] = reason
-            return
-        reasons = current.split(",")
-        if reason not in reasons:
-            reasons.append(reason)
-        info[key] = ",".join(reasons)
-
-    @classmethod
-    def filter_vcf(
-        cls,
-        input_vcf: Path,
-        output_vcf: Path,
-        max_local_snps: int = 0,
-        local_snp_window: int = 0,
-        min_snp_distance_to_indel: int = 0,
-        min_snp_distance_to_breakpoint: int = 0,
-    ) -> None:
-        headers: list[str] = []
-        records: list[list[str]] = []
-        snp_positions_by_ref: dict[str, list[int]] = defaultdict(list)
-        indel_positions_by_ref: dict[str, list[int]] = defaultdict(list)
-
-        with open(input_vcf, "r", encoding="utf-8") as handle:
-            for raw_line in handle:
-                if raw_line.startswith("#"):
-                    headers.append(raw_line)
-                    continue
-                if not raw_line.strip():
-                    continue
-                fields = raw_line.rstrip("\n").split("\t")
-                if len(fields) < 8:
-                    records.append(fields)
-                    continue
-                chrom, pos_text, _id, ref, alt = fields[:5]
-                pos = int(pos_text)
-                records.append(fields)
-                if cls._is_snp(ref, alt):
-                    snp_positions_by_ref[chrom].append(pos)
-                elif cls._is_indel(ref, alt):
-                    indel_positions_by_ref[chrom].append(pos)
-
-        for positions in snp_positions_by_ref.values():
-            positions.sort()
-        for positions in indel_positions_by_ref.values():
-            positions.sort()
-
-        with open(output_vcf, "w", encoding="utf-8") as handle:
-            for header in headers:
-                if header.startswith("#CHROM"):
-                    handle.write('##FILTER=<ID=LowQual,Description="Low-quality assembly variant call based on local assembly context">\n')
-                    handle.write('##INFO=<ID=ASM_INDEL_DIST,Number=1,Type=Integer,Description="Distance in reference bases from this SNP to the nearest assembly indel candidate">\n')
-                    handle.write('##INFO=<ID=ASM_LOCAL_SNPS,Number=1,Type=Integer,Description="Number of SNP candidates within the configured local assembly SNP window">\n')
-                    handle.write('##INFO=<ID=ASM_CONTEXT_LOWQUAL_REASON,Number=.,Type=String,Description="Assembly context reasons this variant was marked LowQual">\n')
-                    handle.write('##INFO=<ID=ASM_LOWQUAL_REASON,Number=.,Type=String,Description="Assembly reasons this variant was marked LowQual">\n')
-                handle.write(header)
-
-            for fields in records:
-                if len(fields) < 8:
-                    handle.write("\t".join(fields) + "\n")
-                    continue
-                chrom, pos_text, _id, ref, alt = fields[:5]
-                if not cls._is_snp(ref, alt):
-                    handle.write("\t".join(fields) + "\n")
-                    continue
-
-                pos = int(pos_text)
-                info = cls._parse_info(fields[7])
-                lowqual_reasons: list[str] = []
-
-                edge_distance = cls._edge_distance(info)
-                if (
-                    min_snp_distance_to_breakpoint > 0
-                    and edge_distance is not None
-                    and edge_distance < min_snp_distance_to_breakpoint
-                ):
-                    lowqual_reasons.append("NEAR_ALIGNMENT_EDGE")
-
-                indel_distance = cls._nearest_distance(pos, indel_positions_by_ref.get(chrom, []))
-                if indel_distance is not None:
-                    info["ASM_INDEL_DIST"] = str(indel_distance)
-                    if min_snp_distance_to_indel > 0 and indel_distance < min_snp_distance_to_indel:
-                        lowqual_reasons.append("NEAR_INDEL")
-
-                if max_local_snps > 0 and local_snp_window > 0:
-                    local_snps = cls._count_positions_in_window(pos, snp_positions_by_ref.get(chrom, []), local_snp_window)
-                    info["ASM_LOCAL_SNPS"] = str(local_snps)
-                    if local_snps > max_local_snps:
-                        lowqual_reasons.append("LOCAL_SNP_CLUSTER")
-
-                for reason in lowqual_reasons:
-                    cls._append_info_reason(info, "ASM_CONTEXT_LOWQUAL_REASON", reason)
-                    cls._append_info_reason(info, "ASM_LOWQUAL_REASON", reason)
-                if lowqual_reasons:
-                    fields[6] = cls._append_filter(fields[6], "LowQual")
-
-                fields[7] = cls._format_info(info)
-                handle.write("\t".join(fields) + "\n")
 
 
 class VcfFilterShort(VcfFilter):
@@ -488,6 +315,13 @@ class VcfFilterShort(VcfFilter):
                 self.shell_cmd(
                     ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
                     description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
+                ),
+                self.shell_cmd(
+                    [
+                        "awk",
+                        '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\\./, "Number=A"); print }',
+                    ],
+                    description="Normalize TYPE header Number=. to Number=A without altering other header fields",
                 ),
             ]
         bcftools_pipeline = self.shell_pipe(
@@ -929,7 +763,7 @@ class AddDeletionsToVCF(BaseStage):
                     "TYPE=INDEL;"
                     f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
                 )
-                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "ZERODEPTH", info]
+                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "PASS;ZERODEPTH", info]
 
                 if sample_count > 0:
                     base_cols.extend(["GT", *(["1/1"] * sample_count)])

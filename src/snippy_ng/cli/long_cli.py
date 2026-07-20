@@ -1,15 +1,17 @@
 import click
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback
+from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input, is_sra_accession
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
 @click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
 @add_snippy_global_options()
 @click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
-@click.option("--reads", default=None, type=AbsolutePath(exists=True, readable=True), help="Long reads file (FASTQ)")
+@click.option("--reads", default=None, type=click.STRING, callback=reads_or_accession_callback, help="Long reads file (FASTQ) or SRA accession (SRR/ERR/DRR)")
+@click.argument("reads_arg", required=False, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
 @click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
+@click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
 @click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
@@ -21,15 +23,17 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--minimap-preset", default="lr:hq", type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
 @click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
 @click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
-@click.option("--caller-map-qual", default=30, type=click.INT, help="Minimum mapping quality for caller to consider a read")
-@click.option("--clair3-model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
-@click.option("--clair3-fast-mode", is_flag=True, default=False, help="Enable fast mode in Clair3 for quicker variant calling")
+@click.option("--model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
+@click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")
+@click.option("--max-clip-fraction", default=None, type=click.FloatRange(min=0, max=1), help="Optional maximum terminal clipping fraction for long-read alignments")
 @click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def long(
     reference: Path | str,
     reads: Optional[Path],
+    reads_arg: Optional[Path | str],
     bam: Optional[Path],
+    vcf: Optional[Path],
     downsample: Optional[float],
     clean_reads: bool,
     min_read_len: int,
@@ -39,14 +43,15 @@ def long(
     aligner: str,
     aligner_opts: str,
     minimap_preset: str,
-    caller: str,
+    caller: Literal["clair3", "freebayes"],
     caller_opts: str,
     caller_map_qual: int,
-    clair3_model: Optional[Path],
-    clair3_fast_mode: bool,
-    min_qual: float,
+    max_clip_fraction: Optional[float],
+    model: Optional[Path],
+    min_qual: Optional[float],
     report: bool,
     prefix: str,
+    sample_name: Optional[str],
     **context: Any,
 ):
     """
@@ -54,24 +59,46 @@ def long(
 
     Examples:
 
-        $ snippy-ng long --reference ref.fa --reads long_reads.fq --outdir output
+        $ snippy-ng long --reference ref.fa long_reads.fq --outdir output
+        $ snippy-ng long --reference ref.fa SRR1234567 --outdir output
     """
     from snippy_ng.context import Context
     from snippy_ng.pipelines.long import LongPipelineBuilder
-    import click
-    
-    if not reads and not bam:
-        raise click.UsageError("Please provide reads or a BAM file!")
 
-    if caller == "clair3" and not clair3_model and not reads:
-        raise click.UsageError("Please provide --clair3-model when using Clair3 with BAM/CRAM input only.")
+    # Detect if reads_arg or --reads is a read accession
+    reads_accession = None
+    if reads_arg and isinstance(reads_arg, str) and is_sra_accession(reads_arg):
+        reads_accession = reads_arg
+        reads_arg = None
+    elif reads and isinstance(reads, str) and is_sra_accession(reads):
+        reads_accession = reads
+        reads = None
+    
+    reads = resolve_cli_input(
+        reads,
+        reads_arg,
+        option_name="--reads",
+        arg_name="reads",
+    )
+    
+    if not reads and not reads_accession and not bam:
+        raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
+
+    if vcf and not bam:
+        raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
+
+    if caller == "clair3" and not model and bam and not vcf:
+        raise click.UsageError("Please provide --model when using Clair3 with BAM/CRAM input only.")
     
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
-    reference_path = None if reference_accession else reference
+    reference_path = None if reference_accession else Path(reference)
     
     if min_qual is None and caller == "freebayes":
         min_qual = 100.0
+    
+    # Convert reads to Path if needed
+    reads_path = reads if reads is None or isinstance(reads, Path) else Path(reads)
     
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
@@ -80,22 +107,25 @@ def long(
     pipeline = LongPipelineBuilder(
         reference=reference_path,
         reference_accession=reference_accession,
-        reads=reads,
+        reads=reads_path,
+        reads_accession=reads_accession,
         prefix=prefix,
+        sample_name=sample_name,
         bam=bam,
+        vcf=vcf,
         aligner=aligner,
         aligner_opts=aligner_opts,
         minimap_preset=minimap_preset,
         caller=caller,
         caller_opts=caller_opts,
-        clair3_model=clair3_model,
-        clair3_fast_mode=clair3_fast_mode,
+        model=model,
         clean_reads=clean_reads,
         downsample=downsample,
         min_read_len=min_read_len,
         min_read_qual=min_read_qual,
         min_qual=min_qual,
         min_mapping_quality=caller_map_qual,
+        max_clip_fraction=max_clip_fraction,
         mask=mask,
         depth_mask=depth_mask,
         report=report,
@@ -104,4 +134,3 @@ def long(
     # Run the pipeline
     run_ctx = Context(**context)
     return pipeline.run(run_ctx)
-    

@@ -14,6 +14,7 @@ from snippy_ng.stages.calling import (
     PAFCaller,
     ShowSnpsCaller,
     get_short_chunk_size,
+    rename_vcf_sample,
 )
 
 
@@ -38,6 +39,18 @@ def test_get_short_chunk_size_honours_minimum(tmp_path):
     _, chunk_size = get_short_chunk_size(reference, reference_index, cpus=8)
 
     assert chunk_size == MIN_SHORT_CHUNK_SIZE
+
+
+def test_get_short_chunk_size_reads_environment_minimum(monkeypatch, tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1000\t0\t0\t0\n")
+    monkeypatch.setenv("SNIPPY_NG_CALLING_MIN_SHORT_CHUNK_SIZE", "2500")
+
+    _, chunk_size = get_short_chunk_size(reference, reference_index, cpus=8)
+
+    assert chunk_size == 2500
 
 
 def test_freebayes_caller_uses_adaptive_chunk_size_for_region_generation(tmp_path):
@@ -95,6 +108,68 @@ def test_freebayes_caller_uses_configured_mapping_quality(tmp_path):
     ] == "30"
 
 
+def test_freebayes_caller_reads_thresholds_from_environment(monkeypatch, tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1000000\t0\t0\t0\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+    monkeypatch.setenv("SNIPPY_NG_FREEBAYES_MIN_ALTERNATE_COUNT", "5")
+    monkeypatch.setenv("SNIPPY_NG_FREEBAYES_MIN_REPEAT_ENTROPY", "2.5")
+    monkeypatch.setenv("SNIPPY_NG_FREEBAYES_MIN_BASE_QUALITY", "20")
+
+    stage = FreebayesCaller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        prefix="snippy",
+    )
+    command = stage.create_commands(Context(cpus=1))[1].command
+
+    assert command[command.index("--min-alternate-count") + 1] == "5"
+    assert command[command.index("--min-repeat-entropy") + 1] == "2.5"
+    assert command[command.index("--min-base-quality") + 1] == "20"
+
+
+def test_freebayes_caller_renames_vcf_sample_when_requested(tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1\t0\t1\t2\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    bam_index = tmp_path / "reads.bam.bai"
+    bam_index.write_text("")
+
+    commands = FreebayesCaller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        bam_index=bam_index,
+        prefix="result",
+        sample_name="result",
+    ).create_commands(Context(cpus=1))
+
+    assert commands[-1].args == [Path("result.raw.vcf"), "result"]
+
+
+def test_rename_vcf_sample_replaces_the_single_sample_column(tmp_path):
+    vcf = tmp_path / "calls.vcf"
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tunknown\n"
+        "chr1\t1\t.\tA\tT\t60\tPASS\t.\tGT\t1/1\n",
+        encoding="utf-8",
+    )
+
+    rename_vcf_sample(vcf, "PW00000318")
+
+    assert vcf.read_text(encoding="utf-8").splitlines()[1].endswith("\tFORMAT\tPW00000318")
+
+
 def test_freebayes_long_caller_uses_configured_mapping_quality(tmp_path):
     reference = tmp_path / "ref.fa"
     reference.write_text(">chr1\nA\n")
@@ -120,6 +195,32 @@ def test_freebayes_long_caller_uses_configured_mapping_quality(tmp_path):
     assert freebayes_command[
         freebayes_command.index("--min-mapping-quality") + 1
     ] == "30"
+
+
+def test_clair3_caller_reads_flag_controls_from_environment(monkeypatch, tmp_path):
+    reference = tmp_path / "ref.fa"
+    reference.write_text(">chr1\nA\n")
+    reference_index = tmp_path / "ref.fa.fai"
+    reference_index.write_text("chr1\t1000000\t0\t0\t0\n")
+    bam = tmp_path / "reads.bam"
+    bam.write_text("")
+    model = tmp_path / "model"
+    model.mkdir()
+    monkeypatch.setenv("SNIPPY_NG_CLAIR3_HAPLOID_PRECISE", "false")
+    monkeypatch.setenv("SNIPPY_NG_CLAIR3_ENABLE_LONG_INDEL", "false")
+
+    stage = Clair3Caller(
+        reference=reference,
+        reference_index=reference_index,
+        bam=bam,
+        clair3_model=model,
+        prefix="snippy",
+    )
+    command = stage.create_commands(Context(cpus=1))[0].command
+
+    assert "--haploid_precise" not in command
+    assert "--enable_long_indel" not in command
+    assert "--include_all_ctgs" in command
 
 
 def test_paf_caller_disables_paftools_mapping_quality_prefilter(tmp_path):
