@@ -35,16 +35,16 @@ curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
 ## Examples 
 
 ```bash
-snippy-ng asm --ref tests/data/reference.gbk --asm tests/data/wildtype.contigs.fa
+snippy-ng asm --ref tests/data/reference.gbk tests/data/wildtype.contigs.fa
 ```
 
 ```bash
-snippy-ng short --ref tests/data/reference.gbk --R1 tests/data/mutant_R1.fastq.gz --R2 tests/data/mutant_R2.fastq.gz
+snippy-ng short --ref tests/data/reference.gbk tests/data/mutant_R1.fastq.gz tests/data/mutant_R2.fastq.gz
 ```
 
 ```bash
 export CLAIR3_MODELS=./clair3_models # try to find appropriate models in this directory
-snippy-ng long --ref tests/data/JKD6159.fasta --reads tests/data/JKD6159.fastq.gz
+snippy-ng long --ref tests/data/JKD6159.fasta tests/data/JKD6159.fastq.gz
 ```
 
 ```bash
