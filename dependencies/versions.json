@@ -24,6 +24,9 @@
             "gradio": "6.20.0",
             "pytz": "2026.2",
             "distle": "0.3.0",
-            "mummer4": "4.0.1"
+            "mummer4": "4.0.1",
+            "scikit-learn": "1.9.0",
+            "clonalframeml": "1.20",
+            "sracha": "0.3.11"
       }
 }
