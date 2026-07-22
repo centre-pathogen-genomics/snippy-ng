@@ -1,0 +1,15 @@
+:root {
+  --md-default-fg-color: hsla(220, 15%, 12%, 1);
+  --md-default-fg-color--light: hsla(220, 15%, 12%, 0.82);
+  --md-default-fg-color--lighter: hsla(220, 15%, 12%, 0.62);
+  --md-code-fg-color: hsla(220, 15%, 10%, 1);
+  --md-code-bg-color: hsla(220, 15%, 94%, 1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-fg-color: hsla(220, 15%, 92%, 1);
+  --md-default-fg-color--light: hsla(220, 15%, 92%, 0.86);
+  --md-default-fg-color--lighter: hsla(220, 15%, 92%, 0.64);
+  --md-code-fg-color: hsla(220, 15%, 95%, 1);
+  --md-code-bg-color: hsla(220, 15%, 20%, 1);
+}
