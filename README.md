@@ -11,9 +11,8 @@
 
 🚨 This software is still under development 🚨
 
-`snippy-ng` is a modern version of the 
-classic `snippy` tool.
-will find variants in haploid microbial
+`snippy-ng` is a modern version of the classic `snippy` tool.
+It finds variants in haploid microbial
 genomes relative to a reference genome.
 It can accepts short reads, long reads, or
 assembled genomes.
