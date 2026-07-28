@@ -9,7 +9,9 @@ from dataclasses import replace
 import pytest
 
 from snippy_ng.context import Context
+from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.core import CorePipelineBuilder
+from snippy_ng.stages.core import CombineFastaFile
 from tests.integration.simulation import (
     DEFAULT_REFERENCE,
     PROJECT_ROOT,
@@ -546,6 +548,10 @@ def _read_tsv_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle, delimiter="\t"))
 
 
+def _core_reference_id(outdir: Path) -> str:
+    return ReferenceMetadata(outdir / "reference" / "metadata.json").prefix or "reference"
+
+
 def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset, tmp_path):
     datasets = [
         simulated_dataset(
@@ -596,14 +602,18 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
     full_records = _read_fasta_records(full_aln)
     soft_core_records = _read_fasta_records(soft_core_aln)
     reference_seq = _read_fasta_sequence(DEFAULT_REFERENCE, "Wildtype")
+    combine_stage = pipeline.get_stage(CombineFastaFile)
+    assert combine_stage is not None
+    reference_id = combine_stage.reference_id
+    expected_names = [reference_id, "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"]
 
-    assert list(full_records) == ["reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"]
+    assert list(full_records) == expected_names
     assert list(soft_core_records) == list(full_records)
     assert all(len(seq) == len(reference_seq) for seq in full_records.values())
     assert len(next(iter(soft_core_records.values()))) == 3
     assert {seq.upper() for seq in soft_core_records.values()} == {"ACA", "CCA", "AAA", "ACG"}
-    assert _read_distance_tsv_taxa(full_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
-    assert _read_distance_tsv_taxa(soft_core_distance_tsv) == {"reference", "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"}
+    assert _read_distance_tsv_taxa(full_distance_tsv) == set(expected_names)
+    assert _read_distance_tsv_taxa(soft_core_distance_tsv) == set(expected_names)
 
 
 def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integration_cache_root):
@@ -691,7 +701,8 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
 
     full_records = _read_fasta_records(full_aln)
     reference_seq = _read_fasta_sequence(DEFAULT_REFERENCE, "Wildtype")
-    expected_names = {"reference", *samples.keys()}
+    reference_id = _core_reference_id(outdir / "core")
+    expected_names = {reference_id, *samples.keys()}
     assert set(full_records) == expected_names
     assert all(len(seq) == len(reference_seq) for seq in full_records.values())
 
@@ -702,7 +713,7 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
         called = {normalize_variant(record) for record in parse_vcf_records(called_vcf)}
         assert normalize_variant(variant) in called
         assert full_records[sample_name][variant.pos - 1].upper() == variant.alt
-        assert full_records["reference"][variant.pos - 1].upper() == variant.ref
+        assert full_records[reference_id][variant.pos - 1].upper() == variant.ref
 
     core_records = _read_fasta_records(core_aln)
     assert set(core_records) == expected_names

@@ -22,7 +22,30 @@ def test_consequences_uses_local_csq_by_default(tmp_path, monkeypatch):
 
     commands = stage.create_commands(Context(cpus=4))
 
-    assert commands[0].command[:5] == ["bcftools", "csq", "--local-csq", "--threads", "4"]
+    assert commands[0].command[:3] == ["bcftools", "csq", "--local-csq"]
+    assert "--threads" in commands[0].command
+    assert commands[0].command[commands[0].command.index("--threads") + 1] == "4"
+
+
+def test_consequences_uses_force_by_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("SNIPPY_NG_FORCE_BCFTOOLS_CSQ", raising=False)
+    reference = tmp_path / "reference.fa"
+    variants = tmp_path / "variants.vcf"
+    features = tmp_path / "reference.gff"
+    reference.write_text(">ref\nA\n")
+    variants.write_text("##fileformat=VCFv4.2\n")
+    features.write_text("ref\tsnippy-ng\tCDS\t1\t1\t.\t+\t0\tID=cds1\n")
+
+    stage = BcftoolsConsequencesCaller(
+        prefix=str(tmp_path / "snippy"),
+        reference=reference,
+        variants=variants,
+        features=features,
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+
+    assert "--force" in commands[0].command
 
 
 def test_consequences_can_disable_local_csq_via_env_flag(tmp_path, monkeypatch):
@@ -43,5 +66,7 @@ def test_consequences_can_disable_local_csq_via_env_flag(tmp_path, monkeypatch):
 
     commands = stage.create_commands(Context(cpus=2))
 
-    assert commands[0].command[:4] == ["bcftools", "csq", "--threads", "2"]
+    assert commands[0].command[:2] == ["bcftools", "csq"]
     assert "--local-csq" not in commands[0].command
+    assert "--threads" in commands[0].command
+    assert commands[0].command[commands[0].command.index("--threads") + 1] == "2"

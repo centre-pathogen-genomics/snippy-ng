@@ -17,6 +17,19 @@ class CorePipelineBuilder(PipelineBuilder):
     snp_distance_format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
     prefix: str = Field(default="core", description="Output file prefix")
 
+    @staticmethod
+    def _resolve_reference_id(reference_id: str, snippy_dirs: list[Path]) -> str:
+        sample_ids = {snippy_dir.name for snippy_dir in snippy_dirs}
+        if reference_id not in sample_ids:
+            return reference_id
+        if "reference" not in sample_ids:
+            return "reference"
+
+        suffix = 2
+        while f"reference_{suffix}" in sample_ids:
+            suffix += 1
+        return f"reference_{suffix}"
+
     def build(self) -> SnippyPipeline:
         """Build and return the alignment pipeline."""
         stages = []
@@ -28,7 +41,10 @@ class CorePipelineBuilder(PipelineBuilder):
             output_directory=Path("reference"),
         )
         reference_file = setup.output.reference
-        reference_id = ReferenceMetadata(setup.output.metadata).prefix or "reference"
+        reference_id = self._resolve_reference_id(
+            ReferenceMetadata(setup.output.metadata).prefix or "reference",
+            self.snippy_dirs,
+        )
         stages.append(setup)
 
         # Stage to combine FASTA files into a single alignment
