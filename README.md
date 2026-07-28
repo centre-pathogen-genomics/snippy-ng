@@ -17,7 +17,7 @@ genomes relative to a reference genome.
 It can accept short reads, long reads, or
 assembled genomes.
 It can also combine the variants from multiple
-samples to make a multipe sequence alignment
+samples to make a multiple sequence alignment
 and a phylogenomic tree.
 Final results can be viewed from an interactive
 HTML report.
