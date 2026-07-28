@@ -24,8 +24,8 @@ HTML report.
 
 ### Documentation
 
-* [Snippy-NG Manual](https://cpg.org.au/snippy-ng/) 
-* [Snippy-NG Development Blog](https://snippy.cpg.org.au/)!
+* [Snippy-NG Manual](https://cpg.org.au/snippy-ng/)
+* [Snippy-NG Development Blog](https://snippy.cpg.org.au/)
 
 ## Installation
 
