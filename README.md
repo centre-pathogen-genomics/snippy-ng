@@ -29,7 +29,7 @@ HTML report.
 
 ## Installation
 
-### Pixi
+### Install script
 ```console
 curl -sSL https://cpg.org.au/snippy-ng/install.sh | bash -s -- --force
 ```
