@@ -47,6 +47,71 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
     assert technical_check.output.summary_tsv in pipeline.outputs_to_keep
 
 
+def test_core_pipeline_reference_id_uses_metadata_prefix_when_distinct(tmp_path):
+    pipeline = _build_core_pipeline(tmp_path)
+
+    combine_stage = next(stage for stage in pipeline.stages if isinstance(stage, CombineFastaFile))
+
+    assert combine_stage.reference_id == "reference"
+
+
+def test_core_pipeline_reference_id_avoids_sample_name_collision(tmp_path):
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    (reference / "reference.fa").write_text(">ref\nAAAA\n")
+    (reference / "reference.fa.fai").write_text("ref\t4\t0\t4\t5\n")
+    (reference / "reference.dict").write_text("ref\t4\n")
+    (reference / "reference.gff").write_text("##gff-version 3\n")
+    (reference / "metadata.json").write_text('{"prefix": "AUSMDU00112379"}')
+
+    snippy_dir = tmp_path / "AUSMDU00112379"
+    snippy_dir.mkdir()
+    (snippy_dir / "snippy.qc.tsv").write_text(
+        "sample\tpipeline_type\n"
+        "AUSMDU00112379\tshort\n"
+    )
+
+    pipeline = CorePipelineBuilder(
+        snippy_dirs=[snippy_dir],
+        reference=reference,
+        prefix="core",
+    ).build()
+
+    combine_stage = next(stage for stage in pipeline.stages if isinstance(stage, CombineFastaFile))
+
+    assert combine_stage.reference_id == "reference"
+
+
+def test_core_pipeline_reference_id_suffixes_if_reference_is_also_a_sample(tmp_path):
+    reference = tmp_path / "prepared_reference"
+    reference.mkdir()
+    (reference / "reference.fa").write_text(">ref\nAAAA\n")
+    (reference / "reference.fa.fai").write_text("ref\t4\t0\t4\t5\n")
+    (reference / "reference.dict").write_text("ref\t4\n")
+    (reference / "reference.gff").write_text("##gff-version 3\n")
+    (reference / "metadata.json").write_text('{"prefix": "AUSMDU00112379"}')
+
+    snippy_dirs = []
+    for sample_name in ("AUSMDU00112379", "reference"):
+        snippy_dir = tmp_path / sample_name
+        snippy_dir.mkdir()
+        (snippy_dir / "snippy.qc.tsv").write_text(
+            "sample\tpipeline_type\n"
+            f"{sample_name}\tshort\n"
+        )
+        snippy_dirs.append(snippy_dir)
+
+    pipeline = CorePipelineBuilder(
+        snippy_dirs=snippy_dirs,
+        reference=reference,
+        prefix="core",
+    ).build()
+
+    combine_stage = next(stage for stage in pipeline.stages if isinstance(stage, CombineFastaFile))
+
+    assert combine_stage.reference_id == "reference_2"
+
+
 def test_distle_distance_matrix_uses_tabular_output(tmp_path):
     stage = DistleDistanceMatrix(
         aln=tmp_path / "core.full.aln",
