@@ -20,7 +20,8 @@ class BcftoolsConsequencesCaller(BaseStage):
     variants: Path = Field(..., description="Input VCF file",)
     features: Path = Field(..., description="Input features file")
     use_local_csq: Annotated[bool, EnvVarBool(True, "LOCAL_BCFTOOLS_CSQ", description="Whether to use bcftools csq's --local-csq mode for consequence annotation. Theres a bug in bcftools csq that means we need to use --local-csq for correct annotation of compound variants https://github.com/samtools/bcftools/issues/2543.")]
-
+    force: Annotated[bool, EnvVarBool(True, "FORCE_BCFTOOLS_CSQ",description=("Whether to pass --force to bcftools csq, allowing it to continue when certain FASTA, GFF, or VCF consistency checks fail. https://github.com/samtools/bcftools/issues/2584"))]   
+    
     _dependencies = [
         bcftools
     ]
@@ -52,6 +53,9 @@ class BcftoolsConsequencesCaller(BaseStage):
         bcf_csq_args = ["bcftools", "csq"]
         if self.use_local_csq:
             bcf_csq_args.append("--local-csq")
+
+        if self.force:
+            bcf_csq_args.append("--force")
 
         bcf_csq_args.extend([
             "--threads", str(ctx.cpus),

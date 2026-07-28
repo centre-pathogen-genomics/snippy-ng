@@ -25,7 +25,7 @@ def test_exception_triggers_bug_report(capsys):
     def explode(x):
         raise ValueError("test error")
 
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     result = runner.invoke(cli, ["explode", "42"])
 
     assert result.exit_code == 1
