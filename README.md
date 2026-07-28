@@ -9,7 +9,7 @@
 
 ## Synopsis
 
-🚨This software is still under development 🚨
+🚨 This software is still under development 🚨
 
 `snippy-ng` is a modern version of the 
 classic `snippy` tool.
