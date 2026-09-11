@@ -25,7 +25,7 @@
             "pytz": "2026.3.post1",
             "distle": "0.3.0",
             "mummer4": "4.0.1",
-            "scikit-learn": "1.9.0",
+            "scikit-learn": "1.9.1",
             "clonalframeml": "1.20",
             "sracha": "0.3.11"
       }
