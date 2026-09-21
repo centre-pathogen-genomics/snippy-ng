@@ -21,7 +21,7 @@
             "python": "3.15.0rc2",
             "numpy": "2.5.3",
             "longbow": "2.3.1",
-            "gradio": "6.27.0",
+            "gradio": "6.28.0",
             "pytz": "2026.3.post1",
             "distle": "0.3.0",
             "mummer4": "4.0.1",
