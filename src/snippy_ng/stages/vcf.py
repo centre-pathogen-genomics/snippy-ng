@@ -309,10 +309,6 @@ class VcfFilterShort(VcfFilter):
                     description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
                 ),
                 self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
-                ),
-                self.shell_cmd(
                     ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
                     description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
                 ),
@@ -324,6 +320,15 @@ class VcfFilterShort(VcfFilter):
                     description="Normalize TYPE header Number=. to Number=A without altering other header fields",
                 ),
             ]
+
+        if self.min_depth > 0:
+            commands.append(
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
+                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+                )
+            )
+                        
         bcftools_pipeline = self.shell_pipe(
             commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
@@ -397,10 +402,6 @@ class VcfFilterLong(VcfFilter):
                 ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
                 description="Replace VCF header with new header containing all contigs"
             ),
-        ]
-        
-        # Continue with the filtering pipeline
-        pipeline_commands.extend([
             self.shell_cmd(
                 ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
                 description="Remove non-alt alleles"
@@ -434,14 +435,18 @@ class VcfFilterLong(VcfFilter):
                 description="Remove non-alt alleles and output final VCF"
             ),
             self.shell_cmd(
-                ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
-            ),
-            self.shell_cmd(
                 ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
                 description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
             ),
-        ])
+        ]
+
+        if self.min_depth > 0:
+            pipeline_commands.append(
+                self.shell_cmd(
+                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
+                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+                )
+            )
 
         if self.min_qual is not None:
             pipeline_commands.append( 
