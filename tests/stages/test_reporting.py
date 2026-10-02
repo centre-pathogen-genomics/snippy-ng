@@ -174,6 +174,32 @@ def test_sample_report_render_embeds_payloads(tmp_path):
     assert "sample.vcf" in html
 
 
+def test_sample_report_render_preserves_invalid_replacement_escapes(tmp_path):
+    template = tmp_path / "template.html"
+    output = tmp_path / "report.html"
+    variants = tmp_path / "variants.json"
+    vcf = tmp_path / "sample.vcf"
+
+    template.write_text("{{REPORT_NAME}} {{SAMPLE_NAME}}")
+    variants.write_text("[]")
+    vcf.write_text("##fileformat=VCFv4.2\n")
+
+    SampleReport.render_sample_report(
+        template,
+        output,
+        variants,
+        None,
+        None,
+        vcf,
+        None,
+        None,
+        r"Report \locus",
+        r"sample \locus",
+    )
+
+    assert output.read_text() == r"Report \locus sample \locus"
+
+
 def test_sample_report_template_passes_reference_chromosome_order_to_igv():
     template = SampleReport(vcf=Path("sample.vcf")).template_path.read_text(encoding="utf-8")
 
