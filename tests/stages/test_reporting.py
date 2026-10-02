@@ -33,7 +33,7 @@ def test_tree_report_render_converts_metadata_path_during_validation(tmp_path):
 
     tree.write_text("(sample_a:0.1,sample_b:0.2);\n")
     metadata.write_text("sample,group\nsample_a,A\nsample_b,B\n")
-    logs.write_text("tree report log\n")
+    logs.write_text("tree report log \\locus\n")
     template.write_text("{{NEWICK}}\n{{METADATA_JSON}}\n{{LOGS}}\n{{COLOR_BY_COLUMN}}")
 
     report = TreeReport(
@@ -53,7 +53,7 @@ def test_tree_report_render_converts_metadata_path_during_validation(tmp_path):
     rendered = (tmp_path / "tree-report.html").read_text()
     assert "sample_a" in rendered
     assert '"group": "A"' in rendered
-    assert "tree report log" in rendered
+    assert "tree report log \\locus" in rendered
     assert "group" in rendered
 
 

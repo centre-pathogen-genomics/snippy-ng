@@ -927,7 +927,11 @@ class SampleReport(BaseStage):
                 f"Template variable(s) '{', '.join(missing_template_vars)}' not found in context for template {template_path}"
             )
         for key, value in context.items():
-            template_content = re.sub(r"{{\s*" + re.escape(key) + r"\s*}}", str(value), template_content)
+            template_content = re.sub(
+                r"{{\s*" + re.escape(key) + r"\s*}}",
+                lambda _: str(value),
+                template_content,
+            )
         output_html.write_text(template_content, encoding="utf-8")
 
 class FormatHTMLReportTemplate(BaseStage):
@@ -986,7 +990,11 @@ class FormatHTMLReportTemplate(BaseStage):
 
         # Finally, render the template with the context values
         for k, v in context.items():
-            template_content = re.sub(r"{{\s*" + re.escape(k) + r"\s*}}", str(v).strip(), template_content)
+            template_content = re.sub(
+                r"{{\s*" + re.escape(k) + r"\s*}}",
+                lambda _: str(v).strip(),
+                template_content,
+            )
 
         with open(self.output.rendered, "w") as f:
             f.write(template_content)
