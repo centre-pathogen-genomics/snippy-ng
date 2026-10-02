@@ -18,7 +18,7 @@ inspect in a browser.
 [Here is an example tree report](tree.html) generated with Snippy-NG.
 
 <iframe
-  src="tree.html"
+  src="utils/report/tree.html"
   title="Example Snippy-NG tree report"
   loading="lazy"
   style="width: 100%; min-height: 760px; border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px;"

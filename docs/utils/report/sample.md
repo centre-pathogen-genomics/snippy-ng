@@ -19,7 +19,7 @@ results, or reviewing variants before downstream interpretation.
 [Here is an example sample report](sample.html) generated with Snippy-NG.
 
 <iframe
-  src="sample.html"
+  src="utils/report/sample.html"
   title="Example Snippy-NG sample report"
   loading="lazy"
   style="width: 100%; min-height: 760px; border: 1px solid var(--md-default-fg-color--lightest); border-radius: 8px;"
