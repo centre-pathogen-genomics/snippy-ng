@@ -33,7 +33,7 @@ def test_tree_report_render_converts_metadata_path_during_validation(tmp_path):
 
     tree.write_text("(sample_a:0.1,sample_b:0.2);\n")
     metadata.write_text("sample,group\nsample_a,A\nsample_b,B\n")
-    logs.write_text("tree report log\n")
+    logs.write_text("tree report log \\locus\n")
     template.write_text("{{NEWICK}}\n{{METADATA_JSON}}\n{{LOGS}}\n{{COLOR_BY_COLUMN}}")
 
     report = TreeReport(
@@ -53,7 +53,7 @@ def test_tree_report_render_converts_metadata_path_during_validation(tmp_path):
     rendered = (tmp_path / "tree-report.html").read_text()
     assert "sample_a" in rendered
     assert '"group": "A"' in rendered
-    assert "tree report log" in rendered
+    assert "tree report log \\locus" in rendered
     assert "group" in rendered
 
 
@@ -172,6 +172,32 @@ def test_sample_report_render_embeds_payloads(tmp_path):
     assert "sample1" in html
     assert "Y3JhbQ==" in html
     assert "sample.vcf" in html
+
+
+def test_sample_report_render_preserves_invalid_replacement_escapes(tmp_path):
+    template = tmp_path / "template.html"
+    output = tmp_path / "report.html"
+    variants = tmp_path / "variants.json"
+    vcf = tmp_path / "sample.vcf"
+
+    template.write_text("{{REPORT_NAME}} {{SAMPLE_NAME}}")
+    variants.write_text("[]")
+    vcf.write_text("##fileformat=VCFv4.2\n")
+
+    SampleReport.render_sample_report(
+        template,
+        output,
+        variants,
+        None,
+        None,
+        vcf,
+        None,
+        None,
+        r"Report \locus",
+        r"sample \locus",
+    )
+
+    assert output.read_text() == r"Report \locus sample \locus"
 
 
 def test_sample_report_template_passes_reference_chromosome_order_to_igv():
