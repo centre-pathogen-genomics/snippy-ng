@@ -3,7 +3,7 @@
             "bcbio-gff": "0.7.1",
             "click": "8.5.0",
             "packaging": "26.3",
-            "pydantic": "2.14.0",
+            "pydantic": "2.14.1",
             "biopython": "1.88",
             "samtools": "1.24",
             "samclip": "0.4.0",
