@@ -29,7 +29,8 @@ def test_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
                 "chr1\t6\t.\tC\tT\t60\t.\t.",
                 "chr1\t10\t.\tC\tT\t60\t.\t.",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
     output_vcf = tmp_path / "output.vcf"
@@ -44,7 +45,9 @@ def test_variant_context_filter_marks_local_snp_clusters_lowqual(tmp_path):
     records = _records(output_vcf)
     assert len(records) == 3
     assert all(record[6] == "LowQual" for record in records)
-    assert all("CONTEXT_LOWQUAL_REASON=LOCAL_SNP_CLUSTER" in record[7] for record in records)
+    assert all(
+        "CONTEXT_LOWQUAL_REASON=LOCAL_SNP_CLUSTER" in record[7] for record in records
+    )
 
 
 def test_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
@@ -58,7 +61,8 @@ def test_variant_context_filter_marks_snps_near_indels_lowqual(tmp_path):
                 "chr1\t15\t.\tAC\tA\t60\t.\t.",
                 "chr1\t50\t.\tG\tC\t60\t.\t.",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
     output_vcf = tmp_path / "output.vcf"
@@ -91,7 +95,8 @@ def test_variant_context_filter_marks_snps_near_alignment_edges_lowqual(tmp_path
                 "chr1\t10\t.\tA\tT\t60\t.\tMUMMER_EDGE_DIST=1",
                 "chr1\t50\t.\tG\tC\t60\t.\tMUMMER_EDGE_DIST=25",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
     output_vcf = tmp_path / "output.vcf"
@@ -123,16 +128,24 @@ def test_variant_context_filter_does_not_duplicate_existing_headers(tmp_path):
                 "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
                 "chr1\t10\t.\tA\tT\t60\t.\t.",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
     output_vcf = tmp_path / "output.vcf"
 
     filter_variant_context_vcf(input_vcf, output_vcf)
 
-    headers = [line for line in output_vcf.read_text(encoding="utf-8").splitlines() if line.startswith("##")]
+    headers = [
+        line
+        for line in output_vcf.read_text(encoding="utf-8").splitlines()
+        if line.startswith("##")
+    ]
     assert sum(line.startswith("##FILTER=<ID=LowQual,") for line in headers) == 1
-    assert sum(line.startswith("##INFO=<ID=CONTEXT_LOWQUAL_REASON,") for line in headers) == 1
+    assert (
+        sum(line.startswith("##INFO=<ID=CONTEXT_LOWQUAL_REASON,") for line in headers)
+        == 1
+    )
 
 
 def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_path):
@@ -146,7 +159,8 @@ def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_p
                 "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",
                 "chr1\t10\t.\tA\tT\t60\t.\t.",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
     output_vcf = tmp_path / "output.vcf"
@@ -160,7 +174,9 @@ def test_variant_context_filter_does_nothing_when_all_filters_are_disabled(tmp_p
 
     assert stage.enabled is False
     filter_variant_context_vcf(input_vcf, output_vcf)
-    assert output_vcf.read_text(encoding="utf-8") == input_vcf.read_text(encoding="utf-8")
+    assert output_vcf.read_text(encoding="utf-8") == input_vcf.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_variant_context_filter_is_enabled_when_a_rule_is_configured(tmp_path):
@@ -190,7 +206,10 @@ def test_vcf_to_tab_uses_bcftools_query_with_simple_default_columns():
         "sample.vcf",
     ]
     assert commands[0].processes[1].command[0] == "awk"
-    assert 'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"' in commands[0].processes[1].command[1]
+    assert (
+        'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"'
+        in commands[0].processes[1].command[1]
+    )
     assert 'split(selected, bcsq, "\\|")' in commands[0].processes[1].command[1]
     assert commands[0].output_file == Path("snps.tab")
 
@@ -204,7 +223,7 @@ def test_vcf_filter_short_marks_heterozygous_sites_as_mixedsite():
 
     commands = stage.create_commands(Context(ram=4))
 
-    mixed_site_cmd = commands[0].processes[-2]
+    mixed_site_cmd = commands[0].processes[-3]
     assert mixed_site_cmd.command == [
         "bcftools",
         "filter",
@@ -251,7 +270,7 @@ def test_vcf_filter_long_marks_heterozygous_sites_as_mixedsite():
 
     commands = stage.create_commands(Context(ram=4))
 
-    mixed_site_cmd = commands[2].processes[-1]
+    mixed_site_cmd = commands[2].processes[-2]
     assert mixed_site_cmd.command == [
         "bcftools",
         "filter",
@@ -304,7 +323,8 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
                 "chr1\t14\t.\tA\tG\t60\tPASS\t.\tGT:DP\t1|0:5",
                 "chr1\t15\t.\tA\tG\t60\tPASS\t.\tGT:DP\t0|0:3",
             ]
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
 
