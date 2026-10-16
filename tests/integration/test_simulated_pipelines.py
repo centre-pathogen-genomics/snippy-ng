@@ -35,18 +35,14 @@ SCENARIOS = [
     {
         "name": "short_snp",
         "input_type": "short",
-        "variants": (
-            VariantRecord("Wildtype", 20, "A", "C"),
-        ),
+        "variants": (VariantRecord("Wildtype", 20, "A", "C"),),
         "untouched_regions": (("Wildtype", 200, 260),),
         "strict_region": None,
     },
     {
         "name": "short_indel",
         "input_type": "short",
-        "variants": (
-            VariantRecord("Wildtype", 70, "CA", "C"),
-        ),
+        "variants": (VariantRecord("Wildtype", 70, "CA", "C"),),
         "untouched_regions": (("Wildtype", 200, 260),),
         "strict_region": ("Wildtype", 50, 180),
     },
@@ -73,9 +69,7 @@ SCENARIOS = [
     {
         "name": "negative_region",
         "input_type": "short",
-        "variants": (
-            VariantRecord("Wildtype", 40, "C", "A"),
-        ),
+        "variants": (VariantRecord("Wildtype", 40, "C", "A"),),
         "untouched_regions": (("Wildtype", 200, 260),),
         "strict_region": None,
     },
@@ -122,7 +116,9 @@ def test_simulated_pipeline_scenarios(
     )
 
     for variant in variants:
-        dataset.assert_variant_present(variant.chrom, variant.pos, variant.ref, variant.alt)
+        dataset.assert_variant_present(
+            variant.chrom, variant.pos, variant.ref, variant.alt
+        )
 
     for chrom, start, end in dataset.request.untouched_regions:
         dataset.assert_no_variants_in_region(chrom, start, end)
@@ -144,11 +140,7 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
 
     missing_contig = "GATTACA" * 30
     reference.write_text(
-        ">contig_1\n"
-        + ("ACGT" * 50)
-        + "\n>contig_10\n"
-        + missing_contig
-        + "\n"
+        ">contig_1\n" + ("ACGT" * 50) + "\n>contig_10\n" + missing_contig + "\n"
     )
     assembly.write_text(">contig_1\n" + ("ACGT" * 50) + "\n")
 
@@ -263,16 +255,25 @@ def test_short_consensus_applies_only_pass_variants(tmp_path, integration_cache_
             "-m",
             "snippy_ng",
             "short",
-            "--reference", str(request.reference),
-            "--R1", str(materialized.reads_r1),
-            "--R2", str(materialized.reads_r2),
-            "--outdir", str(outdir),
-            "--prefix", "snippy",
+            "--reference",
+            str(request.reference),
+            "--R1",
+            str(materialized.reads_r1),
+            "--R2",
+            str(materialized.reads_r2),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
             "--skip-check",
-            "--cpus", "1",
-            "--ram", "4",
-            "--min-qual", "999999",
-            "--depth-mask", "1",
+            "--cpus",
+            "1",
+            "--ram",
+            "4",
+            "--min-qual",
+            "999999",
+            "--min-depth",
+            "1",
         ],
         check=False,
         capture_output=True,
@@ -337,16 +338,25 @@ def test_short_mixed_sites_are_masked_with_ns(tmp_path):
             "-m",
             "snippy_ng",
             "short",
-            "--reference", str(request.reference),
-            "--R1", str(mixed_r1),
-            "--R2", str(mixed_r2),
-            "--outdir", str(outdir),
-            "--prefix", "snippy",
+            "--reference",
+            str(request.reference),
+            "--R1",
+            str(mixed_r1),
+            "--R2",
+            str(mixed_r2),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
             "--skip-check",
-            "--cpus", "1",
-            "--ram", "4",
-            "--min-qual", "0",
-            "--depth-mask", "1",
+            "--cpus",
+            "1",
+            "--ram",
+            "4",
+            "--min-qual",
+            "0",
+            "--min-depth",
+            "1",
         ],
         check=False,
         capture_output=True,
@@ -358,7 +368,7 @@ def test_short_mixed_sites_are_masked_with_ns(tmp_path):
 
     rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
     assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
-    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+    assert any("MIXEDSITE" in row[6].split(";") for row in rows), rows
 
     consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1] == "n"
@@ -392,7 +402,11 @@ def test_long_mixed_variants_are_marked(tmp_path):
     mixed_reads = tmp_path / "mixed.fastq"
     _concat_files((ref_reads, alt_reads), mixed_reads)
 
-    model_dir = Path(__file__).resolve().parents[2] / "clair3_models" / "r1041_e82_400bps_sup_v520"
+    model_dir = (
+        Path(__file__).resolve().parents[2]
+        / "clair3_models"
+        / "r1041_e82_400bps_sup_v520"
+    )
 
     outdir = tmp_path / "long-mixed-variant-mark"
     result = subprocess.run(
@@ -401,19 +415,31 @@ def test_long_mixed_variants_are_marked(tmp_path):
             "-m",
             "snippy_ng",
             "long",
-            "--reference", str(request.reference),
-            "--reads", str(mixed_reads),
-            "--outdir", str(outdir),
-            "--prefix", "snippy",
+            "--reference",
+            str(request.reference),
+            "--reads",
+            str(mixed_reads),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
             "--skip-check",
-            "--cpus", "1",
-            "--ram", "4",
-            "--caller", "freebayes",
-            "--model", str(model_dir),
-            "--min-qual", "0",
-            "--depth-mask", "1",
-            "--min-read-len", "100",
-            "--min-read-qual", "1",
+            "--cpus",
+            "1",
+            "--ram",
+            "4",
+            "--caller",
+            "freebayes",
+            "--model",
+            str(model_dir),
+            "--min-qual",
+            "0",
+            "--min-depth",
+            "1",
+            "--min-read-len",
+            "100",
+            "--min-read-qual",
+            "1",
         ],
         check=False,
         capture_output=True,
@@ -425,7 +451,7 @@ def test_long_mixed_variants_are_marked(tmp_path):
 
     rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
     assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
-    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+    assert any("MIXEDSITE" in row[6].split(";") for row in rows), rows
 
     consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1].upper() == "N"
@@ -462,8 +488,12 @@ def test_long_mixed_variants_are_marked_with_clair3(tmp_path):
     mixed_reads = tmp_path / "mixed.fastq"
     _concat_files((ref_reads, alt_reads), mixed_reads)
 
-    model_dir = Path(__file__).resolve().parents[2] / "clair3_models" / "r1041_e82_400bps_sup_v520"
-    
+    model_dir = (
+        Path(__file__).resolve().parents[2]
+        / "clair3_models"
+        / "r1041_e82_400bps_sup_v520"
+    )
+
     outdir = tmp_path / "long-mixed-variant-mark-clair3"
     result = subprocess.run(
         [
@@ -471,19 +501,31 @@ def test_long_mixed_variants_are_marked_with_clair3(tmp_path):
             "-m",
             "snippy_ng",
             "long",
-            "--reference", str(request.reference),
-            "--reads", str(mixed_reads),
-            "--outdir", str(outdir),
-            "--prefix", "snippy",
+            "--reference",
+            str(request.reference),
+            "--reads",
+            str(mixed_reads),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
             "--skip-check",
-            "--cpus", "1",
-            "--ram", "4",
-            "--caller", "clair3",
-            "--model", str(model_dir),
-            "--min-qual", "0",
-            "--depth-mask", "1",
-            "--min-read-len", "100",
-            "--min-read-qual", "1",
+            "--cpus",
+            "1",
+            "--ram",
+            "4",
+            "--caller",
+            "clair3",
+            "--model",
+            str(model_dir),
+            "--min-qual",
+            "0",
+            "--min-depth",
+            "1",
+            "--min-read-len",
+            "100",
+            "--min-read-qual",
+            "1",
         ],
         check=False,
         capture_output=True,
@@ -495,7 +537,7 @@ def test_long_mixed_variants_are_marked_with_clair3(tmp_path):
 
     rows = _variant_rows(outdir / "snippy.all.vcf.gz", variant.chrom, variant.pos)
     assert rows, f"Expected mixed-site call at {variant.chrom}:{variant.pos}"
-    assert any("MixedSite" in row[6].split(";") for row in rows), rows
+    assert any("MIXEDSITE" in row[6].split(";") for row in rows), rows
 
     consensus_seq = _read_fasta_sequence(outdir / "snippy.fna", variant.chrom)
     assert consensus_seq[variant.pos - 1].upper() == "N"
@@ -549,10 +591,14 @@ def _read_tsv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def _core_reference_id(outdir: Path) -> str:
-    return ReferenceMetadata(outdir / "reference" / "metadata.json").prefix or "reference"
+    return (
+        ReferenceMetadata(outdir / "reference" / "metadata.json").prefix or "reference"
+    )
 
 
-def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset, tmp_path):
+def test_core_pipeline_builds_alignments_and_distance_matrices(
+    simulated_dataset, tmp_path
+):
     datasets = [
         simulated_dataset(
             (VariantRecord("Wildtype", 20, "A", "C"),),
@@ -605,18 +651,30 @@ def test_core_pipeline_builds_alignments_and_distance_matrices(simulated_dataset
     combine_stage = pipeline.get_stage(CombineFastaFile)
     assert combine_stage is not None
     reference_id = combine_stage.reference_id
-    expected_names = [reference_id, "core_sample_a-asm", "core_sample_b-asm", "core_sample_c-asm"]
+    expected_names = [
+        reference_id,
+        "core_sample_a-asm",
+        "core_sample_b-asm",
+        "core_sample_c-asm",
+    ]
 
     assert list(full_records) == expected_names
     assert list(soft_core_records) == list(full_records)
     assert all(len(seq) == len(reference_seq) for seq in full_records.values())
     assert len(next(iter(soft_core_records.values()))) == 3
-    assert {seq.upper() for seq in soft_core_records.values()} == {"ACA", "CCA", "AAA", "ACG"}
+    assert {seq.upper() for seq in soft_core_records.values()} == {
+        "ACA",
+        "CCA",
+        "AAA",
+        "ACG",
+    }
     assert _read_distance_tsv_taxa(full_distance_tsv) == set(expected_names)
     assert _read_distance_tsv_taxa(soft_core_distance_tsv) == set(expected_names)
 
 
-def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integration_cache_root):
+def test_multi_pipeline_builds_sample_outputs_and_core_alignment(
+    tmp_path, integration_cache_root
+):
     samples = {
         "multi_sample_a": VariantRecord("Wildtype", 20, "A", "C"),
         "multi_sample_b": VariantRecord("Wildtype", 40, "C", "A"),
@@ -654,14 +712,21 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
             "snippy_ng",
             "multi",
             str(config),
-            "--reference", str(DEFAULT_REFERENCE),
-            "--outdir", str(outdir),
-            "--prefix", "snippy",
+            "--reference",
+            str(DEFAULT_REFERENCE),
+            "--outdir",
+            str(outdir),
+            "--prefix",
+            "snippy",
             "--skip-check",
-            "--cpus", "1",
-            "--cpus-per-sample", "1",
-            "--ram", "4",
-            "--core", "1.0",
+            "--cpus",
+            "1",
+            "--cpus-per-sample",
+            "1",
+            "--ram",
+            "4",
+            "--core",
+            "1.0",
         ],
         check=False,
         capture_output=True,
@@ -671,7 +736,9 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
 
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
-    failed_rows = (outdir / "snippy.failed.tsv").read_text(encoding="utf-8").splitlines()
+    failed_rows = (
+        (outdir / "snippy.failed.tsv").read_text(encoding="utf-8").splitlines()
+    )
     assert failed_rows == ["sample\terror"]
 
     breakdown_rows = _read_tsv_rows(outdir / "snippy.vcf.breakdown.tsv")
@@ -728,7 +795,9 @@ def test_multi_pipeline_builds_sample_outputs_and_core_alignment(tmp_path, integ
         ("core_sample_c", VariantRecord("Wildtype", 120, "A", "G")),
     ],
 )
-def test_core_sample_asm_variants_are_recovered(simulated_dataset, sample_name, variant):
+def test_core_sample_asm_variants_are_recovered(
+    simulated_dataset, sample_name, variant
+):
     dataset = simulated_dataset(
         (variant,),
         "asm",

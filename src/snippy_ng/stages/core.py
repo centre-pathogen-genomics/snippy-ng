@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -9,12 +9,18 @@ from Bio.SeqRecord import SeqRecord
 from pydantic import Field
 
 from snippy_ng.dependencies import biopython, core_snp_filter, distle
-from snippy_ng.exceptions import MSAValidationError, MissingInputError, StageExecutionError
+from snippy_ng.exceptions import (
+    MSAValidationError,
+    MissingInputError,
+    StageExecutionError,
+)
 from snippy_ng.stages import BaseOutput, BaseStage
 
 
 class CombineFastaFileOutput(BaseOutput):
-    aln: Path = Field(..., description="Combined multi-sample alignment in FASTA format")
+    aln: Path = Field(
+        ..., description="Combined multi-sample alignment in FASTA format"
+    )
 
 
 class CombineFastaFile(BaseStage):
@@ -29,7 +35,20 @@ class CombineFastaFile(BaseStage):
     reference: Path = Field(
         ..., description="Reference FASTA used to define contig order"
     )
-    reference_id: str = Field(default="reference", description="ID to use for reference sequence in output MSA")
+    reference_id: str = Field(
+        default="reference",
+        description="ID to use for reference sequence in output MSA",
+    )
+    mask_bed: Optional[Path] = Field(
+        default=None,
+        description="BED file (reference coordinates) of regions to mask in every sequence of the alignment",
+    )
+    mask_char: str = Field(
+        default="N",
+        min_length=1,
+        max_length=1,
+        description="Character to use for masking",
+    )
 
     _dependencies = [biopython]
 
@@ -45,6 +64,75 @@ class CombineFastaFile(BaseStage):
                 description="Combine FASTAs into a concatenated MSA",
             )
         ]
+
+    @staticmethod
+    def load_mask_intervals(
+        mask_bed: Path,
+        contig_order: list[str],
+        contig_lengths: Dict[str, int],
+    ) -> list[tuple[int, int]]:
+        """
+        Read a BED file and convert it to sorted, non-overlapping half-open
+        intervals in the coordinates of the concatenated alignment.
+        """
+        offsets: Dict[str, int] = {}
+        running = 0
+        for contig in contig_order:
+            offsets[contig] = running
+            running += contig_lengths[contig]
+
+        intervals: list[tuple[int, int]] = []
+        with mask_bed.open("r") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                line = line.strip()
+                if not line or line.startswith(("#", "track", "browser")):
+                    continue
+                fields = line.split("\t") if "\t" in line else line.split()
+                if len(fields) < 3:
+                    raise MSAValidationError(
+                        f"{mask_bed}:{line_number}: expected at least 3 BED columns, got {len(fields)}"
+                    )
+                contig = fields[0]
+                try:
+                    start, end = int(fields[1]), int(fields[2])
+                except ValueError:
+                    raise MSAValidationError(
+                        f"{mask_bed}:{line_number}: BED start and end must be integers"
+                    )
+                if contig not in offsets:
+                    raise MSAValidationError(
+                        f"{mask_bed}:{line_number}: contig '{contig}' is not in the reference"
+                    )
+                if start < 0 or end < start or end > contig_lengths[contig]:
+                    raise MSAValidationError(
+                        f"{mask_bed}:{line_number}: interval {start}-{end} is invalid for contig "
+                        f"'{contig}' (length {contig_lengths[contig]})"
+                    )
+                if end > start:
+                    intervals.append((offsets[contig] + start, offsets[contig] + end))
+
+        intervals.sort()
+        merged: list[tuple[int, int]] = []
+        for start, end in intervals:
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        return merged
+
+    @staticmethod
+    def apply_mask(seq: str, intervals: list[tuple[int, int]], mask_char: str) -> str:
+        """Replace each half-open interval in seq with mask_char."""
+        if not intervals:
+            return seq
+        parts = []
+        pos = 0
+        for start, end in intervals:
+            parts.append(seq[pos:start])
+            parts.append(mask_char * (end - start))
+            pos = end
+        parts.append(seq[pos:])
+        return "".join(parts)
 
     def _find_pseudo_fasta(self, snippy_dir: Path) -> Path:
         pseudo_fna_files = sorted(snippy_dir.glob("*.fna"))
@@ -75,6 +163,15 @@ class CombineFastaFile(BaseStage):
         # Add reference as first record in MSA
         ref_str = "".join(str(rec.seq) for rec in ref_records)
         expected_length = len(ref_str)
+
+        mask_intervals: list[tuple[int, int]] = []
+        if self.mask_bed:
+            mask_intervals = self.load_mask_intervals(
+                self.mask_bed,
+                contig_order,
+                {rec.id: len(rec.seq) for rec in ref_records},
+            )
+            ref_str = self.apply_mask(ref_str, mask_intervals, self.mask_char)
         ref_record = SeqRecord(
             Seq(ref_str),
             id=self.reference_id,
@@ -121,6 +218,10 @@ class CombineFastaFile(BaseStage):
                     f"Alignment length mismatch: {sample} has {L}, expected {expected_length}"
                 )
 
+            super_seq_str = self.apply_mask(
+                super_seq_str, mask_intervals, self.mask_char
+            )
+
             super_record = SeqRecord(
                 Seq(super_seq_str),
                 id=sample,
@@ -134,8 +235,13 @@ class CombineFastaFile(BaseStage):
 
 
 class SoftCoreFilterOutput(BaseOutput):
-    soft_core: Path = Field(..., description="Filtered MSA containing only soft core positions")
-    constant_sites: Path = Field(..., description="File containing constant-site counts for phylogenetic model correction")
+    soft_core: Path = Field(
+        ..., description="Filtered MSA containing only soft core positions"
+    )
+    constant_sites: Path = Field(
+        ...,
+        description="File containing constant-site counts for phylogenetic model correction",
+    )
 
 
 class DistleDistanceMatrixOutput(BaseOutput):
@@ -146,7 +252,9 @@ class DistleDistanceMatrix(BaseStage):
     """Convert an alignment into a PHYLIP distance matrix using distle."""
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
-    format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
+    format: str = Field(
+        default="tabular", description="Output format for pairwise snip distance matrix"
+    )
 
     _dependencies = [distle]
 
@@ -162,7 +270,8 @@ class DistleDistanceMatrix(BaseStage):
             self.shell_cmd(
                 [
                     "distle",
-                    "--threads", str(ctx.cpus),
+                    "--threads",
+                    str(ctx.cpus),
                     "-o",
                     self.format,
                     str(self.aln),
@@ -192,10 +301,9 @@ class SoftCoreFilter(BaseStage):
 
     @property
     def output(self) -> SoftCoreFilterOutput:
-        aln=Path(f"{self.prefix}.{round(self.core_threshold*100):03d}.aln")
+        aln = Path(f"{self.prefix}.{round(self.core_threshold * 100):03d}.aln")
         return SoftCoreFilterOutput(
-            soft_core=aln,
-            constant_sites=aln.with_suffix(".fconst")
+            soft_core=aln, constant_sites=aln.with_suffix(".fconst")
         )
 
     def test_soft_core_is_not_empty(self):

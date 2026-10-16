@@ -22,7 +22,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
 @click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--depth-mask", default=0, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+@click.option("--min-depth", default=None, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold. If not set, the threshold is derived from the BAM depth (median - 2*MAD)")
 @click.option("--min-qual", default=100, type=click.FLOAT, help="Mark variants below this QUAL threshold as LowQual in the output VCF")
 @click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
 def short(
@@ -37,7 +37,7 @@ def short(
     min_read_len: int,
     min_read_qual: float,
     mask: Optional[Path],
-    depth_mask: int,
+    min_depth: Optional[int],
     aligner: str,
     aligner_opts: str,
     caller_opts: str,
@@ -117,7 +117,7 @@ def short(
         aligner_opts=aligner_opts,
         caller_opts=caller_opts,
         mask=mask,
-        depth_mask=depth_mask,
+        min_depth=min_depth,
         min_qual=min_qual,
         min_mapping_quality=caller_map_qual,
         report=report,
