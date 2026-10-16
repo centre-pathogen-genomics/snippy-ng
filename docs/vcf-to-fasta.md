@@ -108,9 +108,8 @@ reconstructed FASTA is byte-identical to the pipeline output whenever the
 reconstruction inputs agree with the pipeline's:
 
 - Both the LOWDEPTH spans and the pipeline's depth mask derive from the same
-  `DepthBedsFromBam` `min_depth_bed`, and the recipe's span encodings were
-  verified byte-identical to the pipeline output (every masked base covered by
-  a span and vice versa).
+  `DepthBedsFromBam` `min_depth_bed`, so their intervals should coincide; the
+  reconstruction tests guard this invariant.
 - ZERODEPTH deletions are `PASS;ZERODEPTH`, so they are applied both by the
   pipeline's pass-VCF consensus and by step 1.
 - MIXEDSITE masking uses the same intervals and the same lowercase `n`.
