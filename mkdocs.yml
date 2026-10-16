@@ -20,6 +20,7 @@ nav:
           - Tree report: utils/report/tree.md
           - Sample report: utils/report/sample.md
   - GUI: gui.md
+  - One VCF file to rule them all: vcf-to-fasta.md
   - Development:
       - development/index.md
       - CLI: development/cli.md

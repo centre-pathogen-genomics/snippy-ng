@@ -94,6 +94,7 @@ snippy-ng utils report tree multi/tree/tree.treefile --metadata multi/snippy.vcf
 - [Installation](installation/index.md)
 - [Clair3 Setup](installation/clair3.md)
 - [Utilities](utils/index.md)
+- [One VCF file to rule them all](vcf-to-fasta.md)
 - [Development Guide](development/index.md)
 - [CLI Development](development/cli.md)
 - [Pipeline Development](development/pipelines.md)
