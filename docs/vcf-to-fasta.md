@@ -4,7 +4,7 @@ title: One VCF file to rule them all
 
 # One VCF file to rule them all
 
-The `snippy.all.vcf` produced by the `asm`, `short`, and `long` pipelines
+The `snippy.all.vcf.gz` produced by the `asm`, `short`, and `long` pipelines
 carries everything needed to rebuild the masked consensus FASTA
 (`snippy.fna`) with a few `bcftools`/`bedtools` commands. Beyond the real
 variant calls, the all-VCF encodes depth regions as synthetic records:
@@ -39,7 +39,7 @@ With the output directory as the working directory:
 
 ```console
 REF=reference/ref.fa     # the prepared reference; the name matches your input reference
-VCF=snippy.all.vcf
+VCF=snippy.all.vcf.gz
 ```
 
 ### 1. Consensus
@@ -108,8 +108,9 @@ reconstructed FASTA is byte-identical to the pipeline output whenever the
 reconstruction inputs agree with the pipeline's:
 
 - Both the LOWDEPTH spans and the pipeline's depth mask derive from the same
-  `DepthBedsFromBam` `min_depth_bed`, so every base the pipeline N-masks is
-  covered by a span, and vice versa.
+  `DepthBedsFromBam` `min_depth_bed`, and the recipe's span encodings were
+  verified byte-identical to the pipeline output (every masked base covered by
+  a span and vice versa).
 - ZERODEPTH deletions are `PASS;ZERODEPTH`, so they are applied both by the
   pipeline's pass-VCF consensus and by step 1.
 - MIXEDSITE masking uses the same intervals and the same lowercase `n`.
