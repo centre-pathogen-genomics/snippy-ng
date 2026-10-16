@@ -13,7 +13,7 @@ from snippy_ng.stages.clean_reads import SeqkitCleanLongReads
 from snippy_ng.stages.calling import FreebayesCallerLong, Clair3Caller, LongbowClair3ModelSelector
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, ApplyMask, MaskMixedSites, MinDepthThresholdFromBam
 from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import download_reference, download_reads, load_or_prepare_reference, get_download_stage_outputs
 from snippy_ng.utils.gather import strip_bio_suffixes
@@ -39,7 +39,7 @@ class LongPipelineBuilder(PipelineBuilder):
     caller_opts: str = Field(default="", description="Additional caller options")
     model: Optional[Path] = Field(default=None, description="Clair3 model path")
     mask: Optional[Path] = Field(default=None, description="BED file with regions to mask")
-    depth_mask: int = Field(default=10, description="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+    min_depth: Optional[int] = Field(default=None, description="Mask regions in the output fasta with Ns if the read depth is below this threshold. If not set, the threshold is derived from the BAM depth (median - 2*MAD)")
     min_qual: Optional[float] = Field(default=None, description="Mark variants below this QUAL threshold as LowQual in the output VCF")
     min_mapping_quality: int = Field(default=10, description="Minimum mapping quality for calls and depth masks")
     max_clip_fraction: Optional[float] = Field(
@@ -195,6 +195,18 @@ class LongPipelineBuilder(PipelineBuilder):
             **globals,
         )
         stages.append(alignment_qc)
+
+        # Derive the minimum depth threshold from the BAM depth unless a fixed value was given
+        min_depth_file = None
+        if self.min_depth is None:
+            depth_threshold = MinDepthThresholdFromBam(
+                bam=aligned_reads,
+                min_depth=0,
+                **globals
+            )
+            stages.append(depth_threshold)
+            min_depth_file = depth_threshold.output.threshold_txt
+        fixed_min_depth = self.min_depth if self.min_depth is not None else 0
         
         # Filter VCF
         variants_file = self.vcf
@@ -234,7 +246,8 @@ class LongPipelineBuilder(PipelineBuilder):
             reference=reference_file,
             reference_index=reference_index,
             min_qual=self.min_qual,
-            min_depth=self.depth_mask,
+            min_depth=fixed_min_depth,
+            min_depth_file=min_depth_file,
             **globals
         )
         stages.append(variant_filter)
@@ -242,7 +255,8 @@ class LongPipelineBuilder(PipelineBuilder):
 
         depth_beds = DepthBedsFromBam(
             bam=aligned_reads,
-            min_depth=self.depth_mask,
+            min_depth=fixed_min_depth,
+            min_depth_file=min_depth_file,
             **globals
         )
         stages.append(depth_beds)
@@ -341,11 +355,12 @@ class LongPipelineBuilder(PipelineBuilder):
 
         # Apply minimum-depth masking after consensus so the reference bases still
         # match VCF REF alleles while bcftools consensus is running.
-        if self.depth_mask > 0:
+        if self.min_depth != 0:
             depth_mask = ApplyDepthMaskToFasta(
                 fasta=current_fasta,
                 mask_bed=depth_beds.output.min_depth_bed,
-                min_depth=self.depth_mask,
+                min_depth=fixed_min_depth,
+                min_depth_file=min_depth_file,
                 **globals
             )
             stages.append(depth_mask)
@@ -428,6 +443,8 @@ class LongPipelineBuilder(PipelineBuilder):
             vcf_stats.output.breakdown_tsv,
             sample_qc.output.qc_tsv,
         ]
+        if self.min_depth is None:
+            keep_files.append(depth_threshold.output.threshold_txt)
         keep_files.extend(setup.output.paths)
         keep_files.extend(get_download_stage_outputs(stages))
         if sample_report_stage is not None:

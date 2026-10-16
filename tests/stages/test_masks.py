@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites
+from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites, MinDepthThresholdFromBam
 from snippy_ng.stages.vcf import AddDeletionsToVCF
 
 
@@ -142,6 +142,93 @@ def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_varia
     assert pos == "565"
     assert ref == "A"
     assert alt == "G"
+
+
+def test_min_depth_threshold_from_bam_uses_samtools_depth_and_python():
+    stage = MinDepthThresholdFromBam(
+        bam=Path("sample.bam"),
+        min_depth=5,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 2
+    assert commands[0].command == ["samtools", "depth", "sample.bam"]
+    assert commands[0].output_file == Path("sample.mindepth.depth.txt")
+    assert commands[1].func == MinDepthThresholdFromBam.write_min_depth_threshold
+    assert commands[1].args == [
+        Path("sample.mindepth.depth.txt"),
+        Path("sample.mindepth.threshold.txt"),
+        5,
+    ]
+    assert stage.output.threshold_txt == Path("sample.mindepth.threshold.txt")
+
+
+def test_write_min_depth_threshold_median_minus_2mad(tmp_path):
+    depth_txt = tmp_path / "depth.txt"
+    depth_txt.write_text(
+        "chr1\t1\t60\n"
+        "chr1\t2\t100\n"
+        "chr1\t3\t100\n"
+        "chr1\t4\t100\n"
+        "chr1\t5\t140\n"
+        "chr1\t6\t140\n"
+    )
+
+    out = tmp_path / "threshold.txt"
+    MinDepthThresholdFromBam.write_min_depth_threshold(depth_txt, out, min_depth=5)
+    assert out.read_text().strip() == "60"  # median 100, MAD 20 -> 100 - 2*20
+
+    floored = tmp_path / "floored.txt"
+    MinDepthThresholdFromBam.write_min_depth_threshold(depth_txt, floored, min_depth=70)
+    assert floored.read_text().strip() == "70"  # user lower bound wins
+
+
+def test_write_min_depth_threshold_empty_depth_falls_back_to_min_depth(tmp_path):
+    depth_txt = tmp_path / "depth.txt"
+    depth_txt.write_text("")
+
+    out = tmp_path / "threshold.txt"
+    MinDepthThresholdFromBam.write_min_depth_threshold(depth_txt, out, min_depth=10)
+    assert out.read_text().strip() == "10"  # nothing covered: floor applies
+
+    out_disabled = tmp_path / "disabled.txt"
+    MinDepthThresholdFromBam.write_min_depth_threshold(depth_txt, out_disabled, min_depth=0)
+    assert out_disabled.read_text().strip() == "0"  # no floor: masking disabled
+
+
+def test_depth_beds_from_bam_uses_dynamic_min_depth_file(tmp_path):
+    threshold = tmp_path / "threshold.txt"
+    threshold.write_text("47\n")
+
+    stage = DepthBedsFromBam(
+        bam=Path("sample.bam"),
+        min_depth=0,
+        min_depth_file=threshold,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+    assert commands[1].processes[1].command == [
+        "awk", '$3>0 && $3<47 {print $1"\\t"($2-1)"\\t"$2}'
+    ]
+
+
+def test_depth_mask_from_bed_uses_dynamic_min_depth_file(tmp_path):
+    threshold = tmp_path / "threshold.txt"
+    threshold.write_text("47\n")
+
+    stage = ApplyDepthMaskToFasta(
+        fasta=Path("sample.consensus.fasta"),
+        mask_bed=Path("sample.mindepth.bed"),
+        min_depth=0,
+        min_depth_file=threshold,
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context())
+    assert "0 < depth < 47" in commands[0].description
 
 
 def test_depth_beds_from_bam_uses_samtools_depth_pipelines():

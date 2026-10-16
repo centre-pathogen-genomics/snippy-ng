@@ -62,7 +62,7 @@ def simulated_dataset(tmp_path: Path, integration_cache_root: Path):
                 "--cpus", "1",
                 "--ram", "4",
                 "--min-qual", "0",
-                "--depth-mask", "1",
+                "--min-depth", "1",
             ]
         elif input_type == "long":
             assert materialized.long_reads is not None
@@ -77,7 +77,7 @@ def simulated_dataset(tmp_path: Path, integration_cache_root: Path):
                 "--ram", "4",
                 "--caller", "freebayes",
                 "--min-qual", "0",
-                "--depth-mask", "1",
+                "--min-depth", "1",
                 "--min-read-len", "100",
                 "--min-read-qual", "1",
             ]

@@ -5,6 +5,7 @@ from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
 from snippy_ng.envvars import EnvVarInt
 from snippy_ng.logging import logger
+from snippy_ng.stages.masks import resolve_min_depth
 from snippy_ng.utils.vcf import filter_variant_context_vcf
 from pydantic import Field
 
@@ -181,6 +182,7 @@ class VcfPassFilter(BaseStage):
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
+    min_depth_file: Optional[Path] = Field(default=None, description="File with a dynamically computed minimum depth threshold")
 
     _dependencies = [bcftools]
 
@@ -269,6 +271,7 @@ class VcfFilterShort(VcfFilter):
 
     def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
+        min_depth = resolve_min_depth(self.min_depth, self.min_depth_file)
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
         base_filter = " && ".join([
@@ -321,11 +324,11 @@ class VcfFilterShort(VcfFilter):
                 ),
             ]
 
-        if self.min_depth > 0:
+        if min_depth > 0:
             commands.append(
                 self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{min_depth}", "-"],
+                    description=f"Mark variants with DP<{min_depth} as LowDepth and preserve existing FILTER labels",
                 )
             )
                         
@@ -363,7 +366,8 @@ class VcfFilterLong(VcfFilter):
     
     def create_commands(self, ctx) -> List:
         """Constructs the bcftools pipeline for long-read variant filtering."""
-        
+        min_depth = resolve_min_depth(self.min_depth, self.min_depth_file)
+
         # Create temp files for contigs and header
         contigs_file = f"{self.prefix}.contigs.txt"
         header_file = f"{self.prefix}.header.txt"
@@ -440,11 +444,11 @@ class VcfFilterLong(VcfFilter):
             ),
         ]
 
-        if self.min_depth > 0:
+        if min_depth > 0:
             pipeline_commands.append(
                 self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{min_depth}", "-"],
+                    description=f"Mark variants with DP<{min_depth} as LowDepth and preserve existing FILTER labels",
                 )
             )
 

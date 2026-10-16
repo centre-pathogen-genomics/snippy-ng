@@ -337,3 +337,60 @@ def test_collapse_diploid_genotypes_rewrites_gt_field(tmp_path):
     assert records[3][9] == "1:7"
     assert records[4][9] == ".:5"
     assert records[5][9] == "0:3"
+
+
+def test_vcf_filter_short_uses_dynamic_min_depth_file(tmp_path):
+    threshold = tmp_path / "threshold.txt"
+    threshold.write_text("150\n")
+
+    stage = VcfFilterShort(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        prefix="snps",
+        min_depth=10,
+        min_depth_file=threshold,
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    low_depth_cmd = commands[0].processes[-1]
+    assert low_depth_cmd.command == [
+        "bcftools",
+        "filter",
+        "-s",
+        "LowDepth",
+        "-m",
+        "+",
+        "-e",
+        "FMT/DP<150",
+        "-",
+    ]
+
+
+def test_vcf_filter_long_uses_dynamic_min_depth_file(tmp_path):
+    threshold = tmp_path / "threshold.txt"
+    threshold.write_text("150\n")
+
+    stage = VcfFilterLong(
+        vcf=Path("calls.vcf"),
+        reference=Path("ref.fa"),
+        reference_index=Path("ref.fa.fai"),
+        prefix="snps",
+        min_depth=10,
+        min_depth_file=threshold,
+    )
+
+    commands = stage.create_commands(Context(ram=4))
+
+    low_depth_cmd = commands[2].processes[-1]
+    assert low_depth_cmd.command == [
+        "bcftools",
+        "filter",
+        "-s",
+        "LowDepth",
+        "-m",
+        "+",
+        "-e",
+        "FMT/DP<150",
+        "-",
+    ]
