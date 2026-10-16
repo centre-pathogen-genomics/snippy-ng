@@ -18,8 +18,11 @@ def resolve_min_depth(min_depth: int, min_depth_file: Optional[Path]) -> int:
 
 class MinDepthThresholdFromBamOutput(BaseOutput):
     """Output from dynamic minimum depth threshold computation."""
+
     depth_txt: TempPath = Field(..., description="Temporary per-base depth file")
-    threshold_txt: Path = Field(..., description="Computed minimum depth threshold (integer)")
+    threshold_txt: Path = Field(
+        ..., description="Computed minimum depth threshold (integer)"
+    )
 
 
 class MinDepthThresholdFromBam(BaseStage):
@@ -60,7 +63,9 @@ class MinDepthThresholdFromBam(BaseStage):
         ]
 
     @staticmethod
-    def write_min_depth_threshold(depth_txt: Path, threshold_txt: Path, min_depth: int) -> None:
+    def write_min_depth_threshold(
+        depth_txt: Path, threshold_txt: Path, min_depth: int
+    ) -> None:
         """Write max(min_depth, round(median - 2*MAD)) over covered per-base depths."""
         import array
 
@@ -95,8 +100,11 @@ class MinDepthThresholdFromBam(BaseStage):
 
 class DepthBedsFromBamOutput(BaseOutput):
     """Output from combined depth BED generation."""
+
     zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
-    min_depth_bed: Path = Field(..., description="BED file with regions to mask due to low depth")
+    min_depth_bed: Path = Field(
+        ..., description="BED file with regions to mask due to low depth"
+    )
 
 
 class DepthBedsFromBam(BaseStage):
@@ -104,7 +112,10 @@ class DepthBedsFromBam(BaseStage):
 
     bam: Path = Field(..., description="Input BAM file")
     min_depth: int = Field(..., description="Minimum depth threshold")
-    min_depth_file: Optional[Path] = Field(default=None, description="File with a dynamically computed minimum depth threshold")
+    min_depth_file: Optional[Path] = Field(
+        default=None,
+        description="File with a dynamically computed minimum depth threshold",
+    )
 
     _dependencies = [
         bedtools,
@@ -152,7 +163,10 @@ class DepthBedsFromBam(BaseStage):
                         description="Generate per-base depth for minimum-depth mask",
                     ),
                     self.shell_cmd(
-                        ["awk", f'$3>0 && $3<{min_depth} {{print $1"\\t"($2-1)"\\t"$2}}'],
+                        [
+                            "awk",
+                            f'$3>0 && $3<{min_depth} {{print $1"\\t"($2-1)"\\t"$2}}',
+                        ],
                         description="Extract low-depth bases as BED intervals",
                     ),
                     self.shell_cmd(
@@ -162,27 +176,33 @@ class DepthBedsFromBam(BaseStage):
                 ],
                 description="Generate minimum-depth BED blocks",
                 output_file=self.output.min_depth_bed,
-            )
+            ),
         ]
 
 
 class DepthMaskFromBedOutput(BaseOutput):
     """Output from applying a precomputed minimum-depth mask."""
-    masked_fasta: Path = Field(..., description="FASTA with low-depth regions (depth < min_depth) masked")
+
+    masked_fasta: Path = Field(
+        ..., description="FASTA with low-depth regions (depth < min_depth) masked"
+    )
 
 
 class ApplyDepthMaskToFasta(BaseStage):
     """Apply a precomputed minimum-depth BED mask to a FASTA file."""
 
     fasta: Path = Field(..., description="Input FASTA file to be masked")
-    mask_bed: Path = Field(..., description="BED file with regions to mask due to low depth")
+    mask_bed: Path = Field(
+        ..., description="BED file with regions to mask due to low depth"
+    )
     min_depth: int = Field(..., description="Minimum depth threshold")
-    min_depth_file: Optional[Path] = Field(default=None, description="File with a dynamically computed minimum depth threshold")
+    min_depth_file: Optional[Path] = Field(
+        default=None,
+        description="File with a dynamically computed minimum depth threshold",
+    )
     mask_char: str = Field("N", description="Character to use for masking")
 
-    _dependencies = [
-        bedtools
-    ]
+    _dependencies = [bedtools]
 
     @property
     def output(self) -> DepthMaskFromBedOutput:
@@ -193,76 +213,92 @@ class ApplyDepthMaskToFasta(BaseStage):
     def create_commands(self, ctx) -> List:
         min_depth = resolve_min_depth(self.min_depth, self.min_depth_file)
         return [
-            self.shell_cmd([
-                "bedtools", "maskfasta",
-                "-fi", str(self.fasta),
-                "-bed", str(self.mask_bed),
-                "-fo", str(self.output.masked_fasta),
-                "-fullHeader",
-                "-mc", self.mask_char
-            ], description=f"Apply min-depth mask (0 < depth < {min_depth})")
+            self.shell_cmd(
+                [
+                    "bedtools",
+                    "maskfasta",
+                    "-fi",
+                    str(self.fasta),
+                    "-bed",
+                    str(self.mask_bed),
+                    "-fo",
+                    str(self.output.masked_fasta),
+                    "-fullHeader",
+                    "-mc",
+                    self.mask_char,
+                ],
+                description=f"Apply min-depth mask (0 < depth < {min_depth})",
+            )
         ]
 
 
 class ApplyMaskOutput(BaseOutput):
-    masked_fasta: Path = Field(..., description="FASTA with user-supplied BED mask applied")
+    masked_fasta: Path = Field(
+        ..., description="FASTA with user-supplied BED mask applied"
+    )
 
 
 class ApplyMask(BaseStage):
     """
     Masking stage that applies a supplied BED mask to a FASTA file.
     """
+
     fasta: Path = Field(..., description="Input FASTA file to be masked")
     mask_bed: Path = Field(..., description="BED file with regions to mask")
     mask_char: str = Field("X", description="Character to use for masking")
 
-    _dependencies = [
-        bedtools
-    ]
+    _dependencies = [bedtools]
 
     @property
     def output(self) -> ApplyMaskOutput:
-        return ApplyMaskOutput(
-            masked_fasta=Path(f"{self.prefix}.masked.fasta")
-        )
+        return ApplyMaskOutput(masked_fasta=Path(f"{self.prefix}.masked.fasta"))
 
     def create_commands(self, ctx) -> List:
         """Apply mask to FASTA file using temporary copy"""
         temp_fasta = self.fasta.with_suffix(".tmp")
-        
+
         return [
             # Copy input FASTA to temporary location
-            self.shell_cmd([
-                "cp", str(self.fasta), str(temp_fasta)
-            ], description=f"Copy input FASTA to temporary location: {temp_fasta}"),
-            
+            self.shell_cmd(
+                ["cp", str(self.fasta), str(temp_fasta)],
+                description=f"Copy input FASTA to temporary location: {temp_fasta}",
+            ),
             # Apply mask to temporary FASTA
-            self.shell_cmd([
-                "bedtools", "maskfasta",
-                "-fi", str(temp_fasta),
-                "-bed", str(self.mask_bed),
-                "-fo", str(self.output.masked_fasta),
-                "-fullHeader",
-                "-mc", self.mask_char
-            ], description="Masking FASTA with provided BED file"),
-            
+            self.shell_cmd(
+                [
+                    "bedtools",
+                    "maskfasta",
+                    "-fi",
+                    str(temp_fasta),
+                    "-bed",
+                    str(self.mask_bed),
+                    "-fo",
+                    str(self.output.masked_fasta),
+                    "-fullHeader",
+                    "-mc",
+                    self.mask_char,
+                ],
+                description="Masking FASTA with provided BED file",
+            ),
             # Clean up temporary file
-            self.shell_cmd([
-                "rm", str(temp_fasta)
-            ], description="Remove temporary FASTA file")
+            self.shell_cmd(
+                ["rm", str(temp_fasta)], description="Remove temporary FASTA file"
+            ),
         ]
 
 
 class MaskMixedSitesOutput(BaseOutput):
-    mixed_site_bed: TempPath = Field(..., description="BED file of sites flagged with the MixedSite VCF filter")
-    masked_fasta: Path = Field(..., description="FASTA with MixedSite positions masked")
+    mixed_site_bed: TempPath = Field(
+        ..., description="BED file of sites flagged with the MIXEDSITE VCF filter"
+    )
+    masked_fasta: Path = Field(..., description="FASTA with MIXEDSITE positions masked")
 
 
 class MaskMixedSites(BaseStage):
-    """Mask sites flagged with the MixedSite VCF filter using bedtools maskfasta."""
+    """Mask sites flagged with the MIXEDSITE VCF filter using bedtools maskfasta."""
 
     fasta: Path = Field(..., description="Consensus FASTA to mask")
-    vcf: Path = Field(..., description="VCF containing MixedSite-filtered records")
+    vcf: Path = Field(..., description="VCF containing MIXEDSITE-filtered records")
     mask_char: str = Field("n", description="Character to use for masking")
 
     _dependencies = [
@@ -283,39 +319,46 @@ class MaskMixedSites(BaseStage):
                 [
                     self.shell_cmd(
                         [
-                            "bcftools", "query",
-                            "-i", 'FILTER="MixedSite"',
-                            "-f", r"%CHROM\t%POS0\t%REF\n",
+                            "bcftools",
+                            "query",
+                            "-i",
+                            'FILTER="MIXEDSITE"',
+                            "-f",
+                            r"%CHROM\t%POS0\t%REF\n",
                             str(self.vcf),
                         ],
-                        description="Extract MixedSite VCF records",
+                        description="Extract MIXEDSITE VCF records",
                     ),
                     self.shell_cmd(
                         ["awk", '{print $1"\\t"$2"\\t"($2+length($3))}'],
-                        description="Convert MixedSite records to BED intervals",
+                        description="Convert MIXEDSITE records to BED intervals",
                     ),
                     self.shell_cmd(
                         ["sort", "-k1,1", "-k2,2n"],
-                        description="Sort MixedSite BED intervals",
+                        description="Sort MIXEDSITE BED intervals",
                     ),
                     self.shell_cmd(
                         ["bedtools", "merge", "-i", "-"],
-                        description="Merge adjacent MixedSite BED intervals",
+                        description="Merge adjacent MIXEDSITE BED intervals",
                     ),
                 ],
-                description="Create BED file for MixedSite positions",
+                description="Create BED file for MIXEDSITE positions",
                 output_file=self.output.mixed_site_bed,
             ),
             self.shell_cmd(
                 [
-                    "bedtools", "maskfasta",
-                    "-fi", str(self.fasta),
-                    "-bed", str(self.output.mixed_site_bed),
-                    "-fo", str(self.output.masked_fasta),
+                    "bedtools",
+                    "maskfasta",
+                    "-fi",
+                    str(self.fasta),
+                    "-bed",
+                    str(self.output.mixed_site_bed),
+                    "-fo",
+                    str(self.output.masked_fasta),
                     "-fullHeader",
-                    "-mc", self.mask_char,
+                    "-mc",
+                    self.mask_char,
                 ],
-                description="Mask MixedSite positions in consensus FASTA",
+                description="Mask MIXEDSITE positions in consensus FASTA",
             ),
         ]
-

@@ -53,6 +53,7 @@ def test_short_pipeline_uses_combined_depth_beds(tmp_path):
 
     assert add_deletions.zero_depth_bed == Path("snippy.zerodepth.bed")
     assert add_deletions.zero_depth_bed == depth_beds.output.zero_depth_bed
+    assert add_deletions.low_depth_bed == depth_beds.output.min_depth_bed
     assert depth_mask.mask_bed == Path("snippy.mindepth.bed")
     assert depth_mask.mask_bed == depth_beds.output.min_depth_bed
     # fixed --min-depth is used directly; no dynamic threshold stage
@@ -138,6 +139,7 @@ def test_long_pipeline_uses_combined_depth_beds(tmp_path):
     vcf_filter = _stage_instances(VcfFilterLong)[0]
 
     assert add_deletions.zero_depth_bed == depth_beds.output.zero_depth_bed
+    assert add_deletions.low_depth_bed == depth_beds.output.min_depth_bed
     assert depth_mask.mask_bed == depth_beds.output.min_depth_bed
     # fixed --min-depth is used directly; no dynamic threshold stage
     assert vcf_filter.min_depth == 10

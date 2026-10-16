@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from snippy_ng.context import Context
-from snippy_ng.stages.masks import DepthBedsFromBam, ApplyDepthMaskToFasta, MaskMixedSites, MinDepthThresholdFromBam
+from snippy_ng.stages.masks import (
+    DepthBedsFromBam,
+    ApplyDepthMaskToFasta,
+    MaskMixedSites,
+    MinDepthThresholdFromBam,
+)
 from snippy_ng.stages.vcf import AddDeletionsToVCF
 
 
@@ -14,11 +19,7 @@ def _write_minimal_vcf(vcf_path: Path) -> None:
 
 
 def _write_reference_fasta(reference_path: Path) -> None:
-    reference_path.write_text(
-        ">Wildtype\n"
-        + ("A" * 600000)
-        + "\n"
-    )
+    reference_path.write_text(">Wildtype\n" + ("A" * 600000) + "\n")
 
 
 def _get_variant_rows(vcf_path: Path) -> list[list[str]]:
@@ -41,15 +42,18 @@ def test_add_deletions_to_vcf_symbolic_len_standard_interval(tmp_path: Path):
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t103379\t103380\n")
 
-    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, bed, None, out_vcf, reference
+    )
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
 
     chrom, pos, _id, ref, alt, _qual, _filt, info, fmt, sample = rows[0]
     assert chrom == "Wildtype"
-    assert pos == "103379"
-    assert alt == "<DEL>"
+    assert pos == "103380"
+    assert ref == "A"
+    assert alt == "-"
     assert "ZERODEPTH" in info
     assert "END=103380" in info
     assert "SVLEN=-1" in info
@@ -57,7 +61,9 @@ def test_add_deletions_to_vcf_symbolic_len_standard_interval(tmp_path: Path):
     assert sample == "1/1"
 
 
-def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(tmp_path: Path):
+def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(
+    tmp_path: Path,
+):
     input_vcf = tmp_path / "input.vcf"
     bed = tmp_path / "zero.bed"
     out_vcf = tmp_path / "out.vcf"
@@ -67,7 +73,9 @@ def test_add_deletions_to_vcf_contig_start_interval_uses_anchor_semantics(tmp_pa
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t0\t20\n")
 
-    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, bed, None, out_vcf, reference
+    )
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -107,7 +115,9 @@ def test_add_deletions_to_vcf_skips_existing_explicit_deletion(tmp_path: Path):
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t103379\t103380\n")
 
-    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, bed, None, out_vcf, reference
+    )
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -118,7 +128,9 @@ def test_add_deletions_to_vcf_skips_existing_explicit_deletion(tmp_path: Path):
     assert alt == "G"
 
 
-def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_variant(tmp_path: Path):
+def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_variant(
+    tmp_path: Path,
+):
     input_vcf = tmp_path / "input.vcf"
     bed = tmp_path / "zero.bed"
     out_vcf = tmp_path / "out.vcf"
@@ -133,7 +145,9 @@ def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_varia
     _write_reference_fasta(reference)
     bed.write_text("Wildtype\t560\t570\n")
 
-    AddDeletionsToVCF._merge_zero_depth_deletions_into_vcf(input_vcf, bed, out_vcf, reference)
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, bed, None, out_vcf, reference
+    )
 
     rows = _get_variant_rows(out_vcf)
     assert len(rows) == 1
@@ -142,6 +156,153 @@ def test_add_deletions_to_vcf_skips_zero_depth_del_if_overlapping_existing_varia
     assert pos == "565"
     assert ref == "A"
     assert alt == "G"
+
+
+def test_add_deletions_to_vcf_adds_low_depth_blocks(tmp_path: Path):
+    input_vcf = tmp_path / "input.vcf"
+    zero_bed = tmp_path / "zero.bed"
+    low_bed = tmp_path / "low.bed"
+    out_vcf = tmp_path / "out.vcf"
+    reference = tmp_path / "reference.fa"
+
+    _write_minimal_vcf(input_vcf)
+    _write_reference_fasta(reference)
+    zero_bed.write_text("Wildtype\t100\t101\n")
+    low_bed.write_text("Wildtype\t200\t300\n")
+
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, zero_bed, low_bed, out_vcf, reference
+    )
+
+    rows = _get_variant_rows(out_vcf)
+    assert len(rows) == 2
+
+    (
+        zero_chrom,
+        zero_pos,
+        zero_id,
+        zero_ref,
+        zero_alt,
+        _q,
+        zero_filt,
+        zero_info,
+        fmt,
+        sample,
+    ) = rows[0]
+    assert zero_pos == "101"
+    assert zero_ref == "A"
+    assert zero_alt == "-"
+    assert zero_id == "DEL_1"
+    assert zero_filt == "PASS;ZERODEPTH"
+    assert "ZERODEPTH" in zero_info
+    assert "SVTYPE=DEL" in zero_info
+
+    (
+        low_chrom,
+        low_pos,
+        low_id,
+        low_ref,
+        low_alt,
+        _q,
+        low_filt,
+        low_info,
+        fmt,
+        sample,
+    ) = rows[1]
+    assert low_pos == "201"
+    assert low_ref == "A" * 100
+    assert low_alt == "N" * 100
+    assert low_id == "LOWDEPTH_1"
+    assert low_filt == "LOWDEPTHSPAN"
+    assert "LOWDEPTH" in low_info
+    assert "END=300" in low_info
+    # LOWDEPTH spans are N-mask regions, not deletions
+    assert "SVTYPE=DEL" not in low_info
+    assert "SVLEN" not in low_info
+    assert "TYPE=INDEL" not in low_info
+    assert fmt == "GT"
+    assert sample == "1/1"
+
+    # IDs are unique across both block types
+    assert zero_id != low_id
+    # LOWDEPTH INFO and LOWDEPTHSPAN FILTER headers are auto-added
+    header_text = out_vcf.read_text()
+    assert "##INFO=<ID=LOWDEPTH" in header_text
+    assert "##INFO=<ID=ZERODEPTH" in header_text
+    assert "##FILTER=<ID=LOWDEPTHSPAN" in header_text
+
+
+def test_add_deletions_to_vcf_spans_low_depth_over_existing_variant(tmp_path: Path):
+    input_vcf = tmp_path / "input.vcf"
+    zero_bed = tmp_path / "zero.bed"
+    low_bed = tmp_path / "low.bed"
+    out_vcf = tmp_path / "out.vcf"
+    reference = tmp_path / "reference.fa"
+
+    input_vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=Wildtype,length=500000>\n"
+        '##FILTER=<ID=LOWDEPTH,Description="Low depth">\n'
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tunknown\n"
+        "Wildtype\t565\t.\tA\tG\t15.83\tLOWDEPTH\tDP=14\tGT:GQ:DP:AD:AF\t0/1:15:4:3,1:0.2500\n"
+    )
+    _write_reference_fasta(reference)
+    zero_bed.write_text("")
+    low_bed.write_text("Wildtype\t560\t570\n")
+
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, zero_bed, low_bed, out_vcf, reference
+    )
+
+    rows = _get_variant_rows(out_vcf)
+    assert len(rows) == 2
+
+    # the LOWDEPTH span covers the whole low-depth interval including the variant
+    span_chrom, span_pos, span_id, span_ref, span_alt, *_ = rows[0]
+    assert span_chrom == "Wildtype"
+    assert span_pos == "561"
+    assert span_ref == "A" * 10
+    assert span_alt == "N" * 10
+    assert span_id == "LOWDEPTH_1"
+
+    var_chrom, var_pos, _id, var_ref, var_alt, *_ = rows[1]
+    assert var_chrom == "Wildtype"
+    assert var_pos == "565"
+    assert var_ref == "A"
+    assert var_alt == "G"
+
+
+def test_add_deletions_to_vcf_low_depth_span_sorts_before_same_pos_variant(
+    tmp_path: Path,
+):
+    """The span must precede a variant at the same POS so bcftools consensus applies the N-span."""
+    input_vcf = tmp_path / "input.vcf"
+    zero_bed = tmp_path / "zero.bed"
+    low_bed = tmp_path / "low.bed"
+    out_vcf = tmp_path / "out.vcf"
+    reference = tmp_path / "reference.fa"
+
+    input_vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=Wildtype,length=500000>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tunknown\n"
+        "Wildtype\t561\t.\tA\tG\t15.83\tLOWDEPTH\tDP=14\tGT:GQ:DP:AD:AF\t0/1:15:4:3,1:0.2500\n"
+    )
+    _write_reference_fasta(reference)
+    zero_bed.write_text("")
+    low_bed.write_text("Wildtype\t560\t570\n")
+
+    AddDeletionsToVCF._merge_depth_deletions_into_vcf(
+        input_vcf, zero_bed, low_bed, out_vcf, reference
+    )
+
+    rows = _get_variant_rows(out_vcf)
+    assert len(rows) == 2
+    assert rows[0][0] == "Wildtype"
+    assert rows[0][3] == "A" * 10  # span REF
+    assert rows[0][4] == "N" * 10  # span ALT
+    assert rows[1][1] == "561"
+    assert rows[1][4] == "G"
 
 
 def test_min_depth_threshold_from_bam_uses_samtools_depth_and_python():
@@ -194,7 +355,9 @@ def test_write_min_depth_threshold_empty_depth_falls_back_to_min_depth(tmp_path)
     assert out.read_text().strip() == "10"  # nothing covered: floor applies
 
     out_disabled = tmp_path / "disabled.txt"
-    MinDepthThresholdFromBam.write_min_depth_threshold(depth_txt, out_disabled, min_depth=0)
+    MinDepthThresholdFromBam.write_min_depth_threshold(
+        depth_txt, out_disabled, min_depth=0
+    )
     assert out_disabled.read_text().strip() == "0"  # no floor: masking disabled
 
 
@@ -211,7 +374,8 @@ def test_depth_beds_from_bam_uses_dynamic_min_depth_file(tmp_path):
 
     commands = stage.create_commands(Context())
     assert commands[1].processes[1].command == [
-        "awk", '$3>0 && $3<47 {print $1"\\t"($2-1)"\\t"$2}'
+        "awk",
+        '$3>0 && $3<47 {print $1"\\t"($2-1)"\\t"$2}',
     ]
 
 
@@ -243,20 +407,28 @@ def test_depth_beds_from_bam_uses_samtools_depth_pipelines():
     assert len(commands) == 2
     assert len(commands[0].processes) == 3
     assert commands[0].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam",
+        "samtools",
+        "depth",
+        "-aa",
+        "sample.bam",
     ]
     assert commands[0].processes[1].command == [
-        "awk", '$3==0 {print $1"\\t"($2-1)"\\t"$2}'
+        "awk",
+        '$3==0 {print $1"\\t"($2-1)"\\t"$2}',
     ]
     assert commands[0].processes[2].command == ["bedtools", "merge", "-i", "-"]
     assert commands[0].output_file == Path("sample.zerodepth.bed")
 
     assert len(commands[1].processes) == 3
     assert commands[1].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam",
+        "samtools",
+        "depth",
+        "-aa",
+        "sample.bam",
     ]
     assert commands[1].processes[1].command == [
-        "awk", '$3>0 && $3<10 {print $1"\\t"($2-1)"\\t"$2}'
+        "awk",
+        '$3>0 && $3<10 {print $1"\\t"($2-1)"\\t"$2}',
     ]
     assert commands[1].processes[2].command == ["bedtools", "merge", "-i", "-"]
     assert commands[1].output_file == Path("sample.mindepth.bed")
@@ -272,10 +444,16 @@ def test_depth_beds_from_bam_can_match_variant_calling_quality_thresholds():
     commands = stage.create_commands(Context())
 
     assert commands[0].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam",
+        "samtools",
+        "depth",
+        "-aa",
+        "sample.bam",
     ], "Default quality thresholds should not be included in Zero-depth command"
     assert commands[1].processes[0].command == [
-        "samtools", "depth", "-aa", "sample.bam",
+        "samtools",
+        "depth",
+        "-aa",
+        "sample.bam",
     ]
 
 
@@ -291,12 +469,17 @@ def test_depth_mask_from_bed_uses_maskfasta_with_n():
 
     assert len(commands) == 1
     assert commands[0].command == [
-        "bedtools", "maskfasta",
-        "-fi", "sample.consensus.fasta",
-        "-bed", "sample.mindepth.bed",
-        "-fo", "sample.mindepth_masked.fasta",
+        "bedtools",
+        "maskfasta",
+        "-fi",
+        "sample.consensus.fasta",
+        "-bed",
+        "sample.mindepth.bed",
+        "-fo",
+        "sample.mindepth_masked.fasta",
         "-fullHeader",
-        "-mc", "N",
+        "-mc",
+        "N",
     ]
 
 
@@ -310,10 +493,15 @@ def test_mixed_site_mask_uses_maskfasta_with_lowercase_n():
     commands = stage.create_commands(Context())
 
     assert commands[1].command == [
-        "bedtools", "maskfasta",
-        "-fi", "sample.consensus.fasta",
-        "-bed", "sample.mixed_sites.bed",
-        "-fo", "sample.mixed_masked.fasta",
+        "bedtools",
+        "maskfasta",
+        "-fi",
+        "sample.consensus.fasta",
+        "-bed",
+        "sample.mixed_sites.bed",
+        "-fo",
+        "sample.mixed_masked.fasta",
         "-fullHeader",
-        "-mc", "n",
+        "-mc",
+        "n",
     ]

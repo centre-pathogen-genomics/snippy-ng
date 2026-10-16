@@ -10,7 +10,7 @@ from snippy_ng.stages import PythonCommand
 from snippy_ng.dependencies import seqkit
 from snippy_ng.dependencies import biopython
 from snippy_ng.dependencies import samtools
-from snippy_ng.context import Context 
+from snippy_ng.context import Context
 from snippy_ng.utils.gather import strip_bio_suffixes
 from pydantic import Field, field_validator
 
@@ -34,23 +34,35 @@ def compute_aligned_percentage(seq: str) -> float:
 
 
 class AlignmentStatsOutput(BaseOutput):
-    aligned_tsv: Path = Field(..., description="TSV file containing per-sequence aligned percentages from a multiple sequence alignment")
+    aligned_tsv: Path = Field(
+        ...,
+        description="TSV file containing per-sequence aligned percentages from a multiple sequence alignment",
+    )
 
 
 class VcfStatsOutput(BaseOutput):
-    summary_tsv: Path = Field(..., description="One-row TSV summary of the final VCF for MultiQC ingestion")
-    breakdown_tsv: Path = Field(..., description="Long-format TSV with VCF breakdown counts for MultiQC ingestion")
+    summary_tsv: Path = Field(
+        ..., description="One-row TSV summary of the final VCF for MultiQC ingestion"
+    )
+    breakdown_tsv: Path = Field(
+        ...,
+        description="Long-format TSV with VCF breakdown counts for MultiQC ingestion",
+    )
 
 
 class AlignmentQcStatsOutput(BaseOutput):
     flagstat_txt: Path = Field(..., description="Raw samtools flagstat output")
     stats_txt: Path = Field(..., description="Raw samtools stats output")
     coverage_tsv: Path = Field(..., description="Raw samtools coverage output")
-    summary_tsv: Path = Field(..., description="One-row TSV with normalized alignment QC metrics")
+    summary_tsv: Path = Field(
+        ..., description="One-row TSV with normalized alignment QC metrics"
+    )
 
 
 class FastaCompositionStatsOutput(BaseOutput):
-    summary_tsv: Path = Field(..., description="One-row TSV with final FASTA composition metrics")
+    summary_tsv: Path = Field(
+        ..., description="One-row TSV with final FASTA composition metrics"
+    )
 
 
 class SampleQcSummaryOutput(BaseOutput):
@@ -127,15 +139,15 @@ class AlignmentAlignedPercentage(BaseStage):
     """Compute per-sequence aligned percentage from a multiple sequence alignment."""
 
     alignment: Path = Field(..., description="Input multiple sequence alignment file")
-    alignment_format: str = Field("fasta", description="Alignment format understood by Biopython AlignIO")
+    alignment_format: str = Field(
+        "fasta", description="Alignment format understood by Biopython AlignIO"
+    )
 
     _dependencies = [biopython]
 
     @property
     def output(self) -> AlignmentStatsOutput:
-        return AlignmentStatsOutput(
-            aligned_tsv=Path(f"{self.prefix}.aligned.tsv")
-        )
+        return AlignmentStatsOutput(aligned_tsv=Path(f"{self.prefix}.aligned.tsv"))
 
     def create_commands(self, ctx) -> List[PythonCommand]:
         return [
@@ -167,8 +179,12 @@ class SamtoolsAlignmentQcStats(BaseStage):
     """Generate normalized alignment QC metrics from a BAM/CRAM with samtools."""
 
     bam: Path = Field(..., description="Input BAM/CRAM alignment")
-    reference: Optional[Path] = Field(default=None, description="Reference FASTA for CRAM input")
-    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
+    reference: Optional[Path] = Field(
+        default=None, description="Reference FASTA for CRAM input"
+    )
+    sample_name: Optional[str] = Field(
+        default=None, description="Optional sample name override for output tables"
+    )
 
     _dependencies = [samtools]
 
@@ -316,12 +332,20 @@ class SamtoolsAlignmentQcStats(BaseStage):
         weighted_meandepth = 0.0
         weighted_coverage = 0.0
         for row in rows:
-            length = float(str(row.get("endpos", 0)).replace(",", "") or 0) - float(str(row.get("startpos", 1)).replace(",", "") or 1) + 1
+            length = (
+                float(str(row.get("endpos", 0)).replace(",", "") or 0)
+                - float(str(row.get("startpos", 1)).replace(",", "") or 1)
+                + 1
+            )
             if length <= 0:
                 continue
             total_length += length
-            weighted_meandepth += float(str(row.get("meandepth", 0)).replace(",", "") or 0) * length
-            weighted_coverage += float(str(row.get("coverage", 0)).replace(",", "") or 0) * length
+            weighted_meandepth += (
+                float(str(row.get("meandepth", 0)).replace(",", "") or 0) * length
+            )
+            weighted_coverage += (
+                float(str(row.get("coverage", 0)).replace(",", "") or 0) * length
+            )
 
         if total_length == 0:
             return {"alignment_contigs": len(rows)}
@@ -346,9 +370,7 @@ class SamtoolsAlignmentQcStats(BaseStage):
             **SamtoolsAlignmentQcStats._parse_samtools_coverage(coverage_tsv),
         }
         fieldnames = ["sample"] + [
-            column
-            for column in SAMPLE_QC_COLUMNS
-            if column.startswith("alignment_")
+            column for column in SAMPLE_QC_COLUMNS if column.startswith("alignment_")
         ]
         with output_tsv.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter="\t")
@@ -360,13 +382,13 @@ class FastaCompositionStats(BaseStage):
     """Summarize final pseudo-alignment FASTA composition for QC."""
 
     fasta: Path = Field(..., description="Final per-sample FASTA")
-    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
+    sample_name: Optional[str] = Field(
+        default=None, description="Optional sample name override for output tables"
+    )
 
     @property
     def output(self) -> FastaCompositionStatsOutput:
-        return FastaCompositionStatsOutput(
-            summary_tsv=Path(f"{self.prefix}.fasta.tsv")
-        )
+        return FastaCompositionStatsOutput(summary_tsv=Path(f"{self.prefix}.fasta.tsv"))
 
     def create_commands(self, ctx) -> List[PythonCommand]:
         return [
@@ -426,9 +448,7 @@ class FastaCompositionStats(BaseStage):
     def write_fasta_composition(fasta: Path, output_tsv: Path, sample: str) -> None:
         row = {"sample": sample, **FastaCompositionStats.count_fasta_composition(fasta)}
         fieldnames = ["sample"] + [
-            column
-            for column in SAMPLE_QC_COLUMNS
-            if column.startswith("final_")
+            column for column in SAMPLE_QC_COLUMNS if column.startswith("final_")
         ]
         with output_tsv.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter="\t")
@@ -440,7 +460,9 @@ class VcfStats(BaseStage):
     """Summarize the final VCF into TSV outputs that MultiQC can ingest."""
 
     vcf: Path = Field(..., description="Final annotated VCF file to summarize")
-    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
+    sample_name: Optional[str] = Field(
+        default=None, description="Optional sample name override for output tables"
+    )
 
     @property
     def output(self) -> VcfStatsOutput:
@@ -500,7 +522,9 @@ class VcfStats(BaseStage):
             return None
 
     @staticmethod
-    def _extract_depth(sample_map: Dict[str, str], info_map: Dict[str, str]) -> Optional[float]:
+    def _extract_depth(
+        sample_map: Dict[str, str], info_map: Dict[str, str]
+    ) -> Optional[float]:
         for key in ("DP",):
             value = VcfStats._as_float(sample_map.get(key))
             if value is not None:
@@ -508,7 +532,9 @@ class VcfStats(BaseStage):
         return VcfStats._as_float(info_map.get("DP"))
 
     @staticmethod
-    def _extract_allele_fraction(sample_map: Dict[str, str], info_map: Dict[str, str], depth: Optional[float]) -> Optional[float]:
+    def _extract_allele_fraction(
+        sample_map: Dict[str, str], info_map: Dict[str, str], depth: Optional[float]
+    ) -> Optional[float]:
         af = VcfStats._as_float(sample_map.get("AF"))
         if af is not None:
             return af
@@ -609,14 +635,27 @@ class VcfStats(BaseStage):
                 if len(fields) < 8:
                     continue
 
-                chrom, pos, _id, ref, alt_field, qual_field, filter_field, info_field = fields[:8]
+                (
+                    chrom,
+                    pos,
+                    _id,
+                    ref,
+                    alt_field,
+                    qual_field,
+                    filter_field,
+                    info_field,
+                ) = fields[:8]
                 fmt = fields[8] if len(fields) > 8 else "."
                 sample_field = fields[9] if len(fields) > 9 else "."
 
                 total_records += 1
                 contigs_with_variants.add(chrom)
 
-                filter_labels = ["PASS"] if filter_field in (".", "PASS") else filter_field.split(";")
+                filter_labels = (
+                    ["PASS"]
+                    if filter_field in (".", "PASS")
+                    else filter_field.split(";")
+                )
                 if filter_labels == ["PASS"]:
                     pass_records += 1
                 else:
@@ -639,7 +678,9 @@ class VcfStats(BaseStage):
                     min_depth = depth if min_depth is None else min(min_depth, depth)
                     max_depth = depth if max_depth is None else max(max_depth, depth)
 
-                allele_fraction = VcfStats._extract_allele_fraction(sample_map, info_map, depth)
+                allele_fraction = VcfStats._extract_allele_fraction(
+                    sample_map, info_map, depth
+                )
                 if allele_fraction is not None:
                     af_sum += allele_fraction
                     af_count += 1
@@ -679,7 +720,7 @@ class VcfStats(BaseStage):
             "pass": pass_records,
             "filtered": filtered_records,
             "lowqual": filter_counts.get("LowQual", 0),
-            "lowdepth": filter_counts.get("LowDepth", 0),
+            "lowdepth": filter_counts.get("LOWDEPTH", 0),
             "snp": type_counts.get("SNP", 0),
             "mnp": type_counts.get("MNP", 0),
             "indel": type_counts.get("INDEL", 0),
@@ -689,7 +730,9 @@ class VcfStats(BaseStage):
             "bcsq_annotated": bcsq_annotated_records,
             "transitions": transitions,
             "transversions": transversions,
-            "ts_tv_ratio": round(transitions / transversions, 4) if transversions else "",
+            "ts_tv_ratio": round(transitions / transversions, 4)
+            if transversions
+            else "",
             "qual_mean": round(qual_sum / qual_count, 4) if qual_count else "",
             "depth_mean": round(depth_sum / depth_count, 4) if depth_count else "",
             "depth_min": round(min_depth, 4) if min_depth is not None else "",
@@ -698,7 +741,9 @@ class VcfStats(BaseStage):
         }
 
         with summary_tsv.open("w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(summary_row.keys()), delimiter="\t")
+            writer = csv.DictWriter(
+                handle, fieldnames=list(summary_row.keys()), delimiter="\t"
+            )
             writer.writeheader()
             writer.writerow(summary_row)
 
@@ -707,8 +752,12 @@ class VcfStats(BaseStage):
             writer.writerow(["sample", "section", "label", "count"])
             VcfStats._write_breakdown_rows(writer, sample, "filter", filter_counts)
             VcfStats._write_breakdown_rows(writer, sample, "type", type_counts)
-            VcfStats._write_breakdown_rows(writer, sample, "substitution", substitution_counts)
-            VcfStats._write_breakdown_rows(writer, sample, "consequence", consequence_counts)
+            VcfStats._write_breakdown_rows(
+                writer, sample, "substitution", substitution_counts
+            )
+            VcfStats._write_breakdown_rows(
+                writer, sample, "consequence", consequence_counts
+            )
 
 
 class SampleQcSummary(BaseStage):
@@ -716,16 +765,22 @@ class SampleQcSummary(BaseStage):
 
     sample_name: str = Field(..., description="Sample name for the QC row")
     pipeline_type: str = Field(..., description="Pipeline type: short, long, or asm")
-    reads_tsv: Optional[Path] = Field(default=None, description="Optional SeqKit reads TSV")
-    alignment_tsv: Optional[Path] = Field(default=None, description="Optional alignment QC TSV")
-    vcf_summary_tsv: Optional[Path] = Field(default=None, description="Optional VCF summary TSV")
-    fasta_tsv: Optional[Path] = Field(default=None, description="Optional final FASTA composition TSV")
+    reads_tsv: Optional[Path] = Field(
+        default=None, description="Optional SeqKit reads TSV"
+    )
+    alignment_tsv: Optional[Path] = Field(
+        default=None, description="Optional alignment QC TSV"
+    )
+    vcf_summary_tsv: Optional[Path] = Field(
+        default=None, description="Optional VCF summary TSV"
+    )
+    fasta_tsv: Optional[Path] = Field(
+        default=None, description="Optional final FASTA composition TSV"
+    )
 
     @property
     def output(self) -> SampleQcSummaryOutput:
-        return SampleQcSummaryOutput(
-            qc_tsv=Path(f"{self.prefix}.qc.tsv")
-        )
+        return SampleQcSummaryOutput(qc_tsv=Path(f"{self.prefix}.qc.tsv"))
 
     def create_commands(self, ctx) -> List[PythonCommand]:
         return [
@@ -775,18 +830,26 @@ class SampleQcSummary(BaseStage):
             return {}
 
         files = [row.get("file", "") for row in rows if row.get("file")]
-        num_seqs_values = [SampleQcSummary._parse_numeric(row.get("num_seqs", "")) for row in rows]
-        sum_len_values = [SampleQcSummary._parse_numeric(row.get("sum_len", "")) for row in rows]
-        min_len_values = [SampleQcSummary._parse_numeric(row.get("min_len", "")) for row in rows]
-        avg_len_values = [SampleQcSummary._parse_numeric(row.get("avg_len", "")) for row in rows]
-        max_len_values = [SampleQcSummary._parse_numeric(row.get("max_len", "")) for row in rows]
+        num_seqs_values = [
+            SampleQcSummary._parse_numeric(row.get("num_seqs", "")) for row in rows
+        ]
+        sum_len_values = [
+            SampleQcSummary._parse_numeric(row.get("sum_len", "")) for row in rows
+        ]
+        min_len_values = [
+            SampleQcSummary._parse_numeric(row.get("min_len", "")) for row in rows
+        ]
+        avg_len_values = [
+            SampleQcSummary._parse_numeric(row.get("avg_len", "")) for row in rows
+        ]
+        max_len_values = [
+            SampleQcSummary._parse_numeric(row.get("max_len", "")) for row in rows
+        ]
 
         num_seqs = sum(value for value in num_seqs_values if value is not None)
         sum_len = sum(value for value in sum_len_values if value is not None)
         weighted_avg_denominator = sum(
-            value
-            for value in num_seqs_values
-            if value is not None
+            value for value in num_seqs_values if value is not None
         )
         weighted_avg_numerator = sum(
             (avg or 0) * (count or 0)
@@ -801,7 +864,9 @@ class SampleQcSummary(BaseStage):
             "read_num_seqs": int(num_seqs) if num_seqs else "",
             "read_sum_len": int(sum_len) if sum_len else "",
             "read_min_len": int(min(min_lengths)) if min_lengths else "",
-            "read_avg_len": round(weighted_avg_numerator / weighted_avg_denominator, 4) if weighted_avg_denominator else "",
+            "read_avg_len": round(weighted_avg_numerator / weighted_avg_denominator, 4)
+            if weighted_avg_denominator
+            else "",
             "read_max_len": int(max(max_lengths)) if max_lengths else "",
         }
 
@@ -815,16 +880,19 @@ class SampleQcSummary(BaseStage):
         vcf_summary_tsv: Optional[Path],
         fasta_tsv: Optional[Path],
     ) -> None:
-        row: dict[str, str | int | float] = {
-            column: ""
-            for column in SAMPLE_QC_COLUMNS
-        }
+        row: dict[str, str | int | float] = {column: "" for column in SAMPLE_QC_COLUMNS}
         row["sample"] = sample
         row["pipeline_type"] = pipeline_type
         row.update(SampleQcSummary._merge_read_stats(reads_tsv))
 
         alignment_row = SampleQcSummary._read_first_row(alignment_tsv)
-        row.update({key: value for key, value in alignment_row.items() if key in SAMPLE_QC_COLUMNS and key != "sample"})
+        row.update(
+            {
+                key: value
+                for key, value in alignment_row.items()
+                if key in SAMPLE_QC_COLUMNS and key != "sample"
+            }
+        )
 
         vcf_row = SampleQcSummary._read_first_row(vcf_summary_tsv)
         for key, value in vcf_row.items():
@@ -833,12 +901,19 @@ class SampleQcSummary(BaseStage):
                 row[target_key] = value
 
         fasta_row = SampleQcSummary._read_first_row(fasta_tsv)
-        row.update({key: value for key, value in fasta_row.items() if key in SAMPLE_QC_COLUMNS and key != "sample"})
+        row.update(
+            {
+                key: value
+                for key, value in fasta_row.items()
+                if key in SAMPLE_QC_COLUMNS and key != "sample"
+            }
+        )
 
         fieldnames = [
             column
             for column in SAMPLE_QC_COLUMNS
-            if column in {"sample", "pipeline_type"} or row.get(column) not in ("", None)
+            if column in {"sample", "pipeline_type"}
+            or row.get(column) not in ("", None)
         ]
 
         with output_tsv.open("w", newline="") as handle:
@@ -848,17 +923,21 @@ class SampleQcSummary(BaseStage):
 
 
 class SeqKitReadStatsOutput(BaseOutput):
-    stats_tsv: Path = Field(..., description="Tab Separated Values (TSV) file containing read statistics")
-    raw_tsv: TempPath = Field(..., description="Temporary raw TSV file produced by seqkit stats")
+    stats_tsv: Path = Field(
+        ..., description="Tab Separated Values (TSV) file containing read statistics"
+    )
+    raw_tsv: TempPath = Field(
+        ..., description="Temporary raw TSV file produced by seqkit stats"
+    )
 
 
 class SeqKitReadStats(BaseStage):
     """Generate read statistics using seqkit stats command.
-    
-    This stage analyzes FASTQ/FASTA files and produces a TSV file with 
+
+    This stage analyzes FASTQ/FASTA files and produces a TSV file with
     comprehensive statistics including sequence count, length metrics,
     quality scores, and GC content.
-    
+
     Args:
         reads: List of input read files (FASTQ or FASTA).
         prefix: Output file prefix for the generated stats.tsv file.
@@ -871,10 +950,10 @@ class SeqKitReadStats(BaseStage):
         additional_options: Additional seqkit stats command-line options.
         cpus: Number of CPU cores to use for processing.
         tmpdir: Temporary directory for intermediate files.
-        
+
     Returns:
         SeqKitReadStatsOutput: Output containing path to the generated stats.tsv file.
-        
+
     Example:
         >>> from pathlib import Path
         >>> stage = SeqKitReadStats(
@@ -886,62 +965,79 @@ class SeqKitReadStats(BaseStage):
         >>> print(stage.output.stats_tsv)
         sample_stats.reads.tsv
     """
-    
-    reads: List[Path] = Field(..., description="List of input read files (FASTQ or FASTA)")
-    sample_name: Optional[str] = Field(default=None, description="Optional sample name override for output tables")
-    all_stats: bool = Field(True, description="Output all statistics including quartiles and N50")
+
+    reads: List[Path] = Field(
+        ..., description="List of input read files (FASTQ or FASTA)"
+    )
+    sample_name: Optional[str] = Field(
+        default=None, description="Optional sample name override for output tables"
+    )
+    all_stats: bool = Field(
+        True, description="Output all statistics including quartiles and N50"
+    )
     tabular: bool = Field(True, description="Output in machine-friendly tabular format")
     basename_only: bool = Field(False, description="Only output basename of files")
-    skip_errors: bool = Field(True, description="Skip files with errors and show warnings")
-    fastq_encoding: str = Field("sanger", description="FASTQ quality encoding (sanger, solexa, illumina-1.3+, etc.)")
+    skip_errors: bool = Field(
+        True, description="Skip files with errors and show warnings"
+    )
+    fastq_encoding: str = Field(
+        "sanger",
+        description="FASTQ quality encoding (sanger, solexa, illumina-1.3+, etc.)",
+    )
     gap_letters: str = Field("- .", description="Gap letters to be counted")
     additional_options: str = Field("", description="Additional seqkit stats options")
-    
+
     _dependencies = [seqkit]
-    
+
     @field_validator("reads")
     @classmethod
     def validate_reads(cls, v):
         """Validate that read files are provided and exist.
-        
+
         Args:
             v: List of read file paths to validate.
-            
+
         Returns:
             List[str]: Validated list of read file paths.
-            
+
         Raises:
             ValueError: If no read files provided or if any file doesn't exist.
         """
         if not v or len(v) == 0:
             raise ValueError("At least one read file must be provided")
         return v
-    
+
     @field_validator("fastq_encoding")
     @classmethod
     def validate_fastq_encoding(cls, v):
         """Validate FASTQ quality encoding format.
-        
+
         Args:
             v: FASTQ encoding string to validate.
-            
+
         Returns:
             str: Validated FASTQ encoding string.
-            
+
         Raises:
             ValueError: If encoding is not in the list of supported formats.
         """
         valid_encodings = [
-            "sanger", "solexa", "illumina-1.3+", "illumina-1.5+", "illumina-1.8+"
+            "sanger",
+            "solexa",
+            "illumina-1.3+",
+            "illumina-1.5+",
+            "illumina-1.8+",
         ]
         if v not in valid_encodings:
-            raise ValueError(f"Invalid FASTQ encoding. Must be one of: {', '.join(valid_encodings)}")
+            raise ValueError(
+                f"Invalid FASTQ encoding. Must be one of: {', '.join(valid_encodings)}"
+            )
         return v
-    
+
     @property
     def output(self) -> SeqKitReadStatsOutput:
         """Get the output specification for this stage.
-        
+
         Returns:
             SeqKitReadStatsOutput: Object containing paths to output files.
         """
@@ -949,61 +1045,65 @@ class SeqKitReadStats(BaseStage):
             stats_tsv=Path(f"{self.prefix}.reads.tsv"),
             raw_tsv=Path(f"{self.prefix}.reads.raw.tsv"),
         )
-    
+
     def build_seqkit_stats_command(self, ctx: Context) -> ShellCommand:
         """Constructs the seqkit stats command.
-        
+
         Builds the complete seqkit stats command with all specified options
         including threading, output format, encoding, and file handling options.
-        
+
         Returns:
             ShellCommand: Complete seqkit stats command ready for execution.
         """
         shell_cmd = self.shell_cmd(
             command=["seqkit", "stats"],
             description=f"Generate read statistics for {len(self.reads)} files using seqkit stats",
-            output_file=Path(self.output.raw_tsv)
+            output_file=Path(self.output.raw_tsv),
         )
-        
+
         # Threading
         if ctx.cpus > 1:
             shell_cmd.command.extend(["-j", str(ctx.cpus)])
-        
+
         # Output format options
         if self.tabular:
             shell_cmd.command.append("-T")
-        
+
         if self.all_stats:
             shell_cmd.command.append("-a")
-        
+
         if self.basename_only:
             shell_cmd.command.append("-b")
-        
+
         if self.skip_errors:
             shell_cmd.command.append("-e")
-        
+
         # FASTQ encoding
         if self.fastq_encoding != "sanger":
             shell_cmd.command.extend(["-E", self.fastq_encoding])
-        
+
         # Gap letters
         if self.gap_letters != "- .":
             shell_cmd.command.extend(["-G", self.gap_letters])
-        
+
         # Additional options (split if it contains spaces)
         if self.additional_options:
             import shlex
+
             shell_cmd.command.extend(shlex.split(self.additional_options))
-        
+
         # Input files
         shell_cmd.command.extend(str(r) for r in self.reads)
-        
+
         # Create shell command with output file
         return shell_cmd
-    
+
     @staticmethod
     def add_sample_column(input_tsv: Path, output_tsv: Path, sample_name: str) -> None:
-        with input_tsv.open("r", newline="") as in_handle, output_tsv.open("w", newline="") as out_handle:
+        with (
+            input_tsv.open("r", newline="") as in_handle,
+            output_tsv.open("w", newline="") as out_handle,
+        ):
             reader = csv.reader(in_handle, delimiter="\t")
             writer = csv.writer(out_handle, delimiter="\t")
 
@@ -1018,7 +1118,7 @@ class SeqKitReadStats(BaseStage):
 
     def create_commands(self, ctx) -> List[ShellCommand | PythonCommand]:
         """Get the list of commands to execute for this stage.
-        
+
         Returns:
             List[ShellCommand]: List containing the seqkit stats command.
         """
@@ -1035,17 +1135,17 @@ class SeqKitReadStats(BaseStage):
 
 class SeqKitReadStatsBasic(SeqKitReadStats):
     """Basic read statistics without extra information like quartiles and N50.
-    
+
     This variant of SeqKitReadStats outputs only essential statistics
     without additional metrics like quartiles, N50, or other detailed measures.
     It's useful for quick quality checks when comprehensive statistics aren't needed.
-    
+
     Args:
         all_stats: Set to False to output only basic statistics.
-        
+
     Note:
         Inherits all other parameters from SeqKitReadStats.
-        
+
     Example:
         >>> stage = SeqKitReadStatsBasic(
         ...     reads=["sample.fastq"],
@@ -1054,25 +1154,25 @@ class SeqKitReadStatsBasic(SeqKitReadStats):
         ... )
         >>> # Will generate command without -a flag for basic stats only
     """
-    
+
     all_stats: bool = Field(False, description="Output basic statistics only")
 
 
 class SeqKitReadStatsDetailed(SeqKitReadStats):
     """Detailed read statistics with all available metrics.
-    
+
     This variant provides comprehensive statistics including all standard metrics
     plus additional N-statistics (like N75, N90, N95) that can be customized
     based on analysis requirements.
-    
+
     Args:
         all_stats: Set to True to output all available statistics.
-        additional_n_stats: List of integers (0-100) specifying additional 
+        additional_n_stats: List of integers (0-100) specifying additional
             N-statistics to compute (e.g., [75, 90, 95] for N75, N90, N95).
-            
+
     Note:
         Inherits all other parameters from SeqKitReadStats.
-        
+
     Example:
         >>> stage = SeqKitReadStatsDetailed(
         ...     reads=["assembly.fasta"],
@@ -1082,83 +1182,86 @@ class SeqKitReadStatsDetailed(SeqKitReadStats):
         ... )
         >>> # Will include N75, N90, N95 in addition to standard statistics
     """
-    
+
     all_stats: bool = Field(True, description="Output all available statistics")
     additional_n_stats: List[int] = Field(
-        default_factory=list, 
-        description="Additional N-statistics to compute (e.g., [90, 95] for N90 and N95)"
+        default_factory=list,
+        description="Additional N-statistics to compute (e.g., [90, 95] for N90 and N95)",
     )
-    
+
     @field_validator("additional_n_stats")
     @classmethod
     def validate_n_stats(cls, v):
         """Validate N-statistic values are within valid range.
-        
+
         Args:
             v: List of N-statistic values to validate.
-            
+
         Returns:
             List[int]: Validated list of N-statistic values.
-            
+
         Raises:
             ValueError: If any N-statistic value is not between 0 and 100.
         """
         for stat in v:
             if not (0 <= stat <= 100):
-                raise ValueError(f"N-statistic values must be between 0 and 100, got: {stat}")
+                raise ValueError(
+                    f"N-statistic values must be between 0 and 100, got: {stat}"
+                )
         return v
-    
+
     def build_seqkit_stats_command(self, ctx) -> ShellCommand:
         """Constructs the seqkit stats command with additional N-statistics.
-        
+
         Builds the complete seqkit stats command including any additional
         N-statistics specified in the additional_n_stats parameter.
-        
+
         Returns:
             ShellCommand: Complete seqkit stats command with N-statistics options.
         """
         shell_cmd = self.shell_cmd(
             command=["seqkit", "stats"],
             description=f"Generate detailed read statistics for {len(self.reads)} files using seqkit stats",
-            output_file=Path(self.output.raw_tsv)
-        ) 
-        
+            output_file=Path(self.output.raw_tsv),
+        )
+
         # Threading
         if ctx.cpus > 1:
             shell_cmd.command.extend(["-j", str(ctx.cpus)])
-        
+
         # Output format options
         if self.tabular:
             shell_cmd.command.append("-T")
-        
+
         if self.all_stats:
             shell_cmd.command.append("-a")
-        
+
         # Additional N-statistics
         if self.additional_n_stats:
             n_stats_str = ",".join(map(str, self.additional_n_stats))
             shell_cmd.command.extend(["-N", n_stats_str])
-        
+
         if self.basename_only:
             shell_cmd.command.append("-b")
-        
+
         if self.skip_errors:
             shell_cmd.command.append("-e")
-        
+
         # FASTQ encoding
         if self.fastq_encoding != "sanger":
             shell_cmd.command.extend(["-E", self.fastq_encoding])
-        
+
         # Gap letters
         if self.gap_letters != "- .":
             shell_cmd.command.extend(["-G", self.gap_letters])
-        
+
         # Additional options (split if it contains spaces)
         if self.additional_options:
             import shlex
+
             shell_cmd.command.extend(shlex.split(self.additional_options))
-        
+
         # Input files
         shell_cmd.command.extend(str(r) for r in self.reads)
-        
+
         return shell_cmd
