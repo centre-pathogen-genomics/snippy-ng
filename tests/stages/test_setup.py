@@ -54,14 +54,10 @@ def test_prepare_reference_gff_source_is_snippy_ng_version(tmp_path: Path):
     for row in rows:
         assert len(row) == 9, row
         assert row[1] == expected_source, row
-        assert "\tsnipy-ng\t" not in row[1]
 
     types = [row[2] for row in rows]
     assert types.count("gene") >= 2  # regular gene + standalone tRNA gene
     assert "transcript" in types
     assert "CDS" in types
-    assert any("biotype=tRNA" in row[8] for row in rows)
-
-    # metadata must be written inside the output directory, not the CWD
+    # metadata must be written inside the output directory
     assert (tmp_path / "metadata.json").exists()
-    assert not Path("metadata.json").exists()

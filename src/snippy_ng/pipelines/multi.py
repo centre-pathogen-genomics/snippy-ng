@@ -4,14 +4,171 @@ from pathlib import Path
 from typing import Any, Dict, Optional, TextIO, Tuple
 from collections import OrderedDict
 from snippy_ng.context import Context
-from snippy_ng.exceptions import PipelineExecutionError, SnippyError
+from snippy_ng.exceptions import InvalidReferenceError, PipelineExecutionError, SnippyError
 from snippy_ng.logging import logger, derive_log_path
+from snippy_ng.pipelines.common import is_ncbi_assembly_accession, is_atb_assembly_accession, is_sra_accession
+from snippy_ng.stages.download import DownloadSraReads, DownloadNcbiAssemblyFasta, DownloadAtbAssemblyFasta
+from snippy_ng.dependencies import sracha
 import csv
-import json
 import io
+import json
+import subprocess
 from snippy_ng.stages.stats import SAMPLE_QC_COLUMNS
 
 MultiPipelineResult = tuple[list[str], list[tuple[str, str]]]
+
+
+def _build_jobs(
+    samples: dict[str, Any],
+    global_config: dict[str, Any],
+) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    """Build job tuples for *ProcessPoolExecutor*."""
+    return [
+        (sample_name, sample_cfg, global_config)
+        for sample_name, sample_cfg in samples.items()
+    ]
+
+
+def _predownload_multi_inputs(
+    samples: dict[str, Any],
+    *,
+    cache_dir: Path,
+    run_ctx: Context,
+    failures: list[tuple[str, str]],
+) -> dict[str, Any]:
+    """Download all unique reads/assembly accessions into *cache_dir*.
+
+    Returns a copy of *samples* with accession keys replaced by absolute local
+    file paths.  Failed downloads are appended to *failures* and their samples
+    are dropped from the returned dict so they never reach the executor.
+    """
+    cache_dir = cache_dir.resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    dl_ctx = run_ctx.model_copy(
+        update={
+            "outdir": cache_dir,
+            "cpus": 1,
+        }
+    )
+
+    # ---- 1. collect unique accessions per kind -------------------------------
+    reads_acc_reqs: dict[str, list[str]] = {}
+    asm_acc_reqs: dict[str, list[str]] = {}
+
+    for sample_name, cfg in samples.items():
+        if acc := cfg.get("reads_accession"):
+            reads_acc_reqs.setdefault(str(acc), []).append(sample_name)
+        if acc := cfg.get("assembly_accession"):
+            asm_acc_reqs.setdefault(str(acc), []).append(sample_name)
+
+    downloads: dict[str, list[Path]] = {}
+    asm_downloads: dict[str, Path] = {}
+    failed_by_sample: dict[str, list[str]] = {}
+    checked_deps: set[str] = set()
+
+    def _check_deps(stage) -> None:
+        if run_ctx.skip_check:
+            return
+        for dep in stage._dependencies:
+            if dep.citation_only or dep.name in checked_deps:
+                continue
+            dep.check()
+            checked_deps.add(dep.name)
+
+    # ---- 2. download reads (SRA) in a single batch ---------------------------
+    if reads_acc_reqs:
+        # Validate each accession; reject invalid ones before the batch
+        valid_reads: dict[str, list[str]] = {}
+        for acc, dependents in reads_acc_reqs.items():
+            if not is_sra_accession(acc):
+                msg = f"Unsupported SRA accession '{acc}'"
+                for sname in dependents:
+                    failed_by_sample.setdefault(sname, []).append(msg)
+                logger.warning(msg)
+            else:
+                valid_reads[acc] = dependents
+
+        if valid_reads:
+            try:
+                # Check sracha dependency once
+                if not run_ctx.skip_check:
+                    sracha.check()
+
+                acc_list = cache_dir / "sra_accessions.txt"
+                acc_list.write_text("\n".join(valid_reads) + "\n")
+
+                subprocess.run(
+                    ["sracha", "get", "--accession-list", str(acc_list),
+                     "--output-dir", str(cache_dir)],
+                    check=True, capture_output=True,
+                )
+
+                import shutil
+                for acc in valid_reads:
+                    single_end = cache_dir / f"{acc}.fastq.gz"
+                    r1 = cache_dir / f"{acc}_1.fastq.gz"
+                    if single_end.exists() and not r1.exists():
+                        shutil.move(str(single_end), str(r1))
+                    if not r1.exists():
+                        raise FileNotFoundError(f"Expected r1 not found: {r1}")
+                    paths = [r1]
+                    r2 = cache_dir / f"{acc}_2.fastq.gz"
+                    if r2.exists():
+                        paths.append(r2)
+                    downloads[acc] = paths
+                    logger.info(f"Downloaded reads {acc}")
+            except Exception as e:
+                msg = f"Failed to download reads: {e}"
+                for sname in set().union(*valid_reads.values()):
+                    failed_by_sample.setdefault(sname, []).append(msg)
+                logger.warning(msg)
+
+    # ---- 3. download assembly accessions sequentially ------------------------
+    for acc, dependents in asm_acc_reqs.items():
+        try:
+            if is_ncbi_assembly_accession(acc):
+                stage = DownloadNcbiAssemblyFasta(accession=acc, output_directory=cache_dir)
+            elif is_atb_assembly_accession(acc):
+                stage = DownloadAtbAssemblyFasta(accession=acc, output_directory=cache_dir)
+            else:
+                raise ValueError(f"Unsupported assembly accession: {acc}")
+            _check_deps(stage)
+            stage.run(dl_ctx)
+            stage.error_if_outputs_missing()
+
+            fasta = stage.output.fasta.resolve()
+            asm_downloads[acc] = fasta
+            logger.info(f"Downloaded assembly {acc}")
+        except Exception as e:
+            msg = f"Failed to download assembly {acc}: {e}"
+            for sname in dependents:
+                failed_by_sample.setdefault(sname, []).append(msg)
+            logger.warning(msg)
+
+    # ---- 4. collapse per-sample errors into single entries -------------------
+    for sname, msgs in failed_by_sample.items():
+        failures.append((sname, "; ".join(msgs)))
+
+    # ---- 5. rebuild sample configs with local paths --------------------------
+    resolved: dict[str, Any] = {}
+    for sample_name, cfg in samples.items():
+        sample_cfg = dict(cfg)
+        if acc := sample_cfg.pop("reads_accession", None):
+            if str(acc) not in downloads:
+                continue
+            paths = downloads[str(acc)]
+            if sample_cfg.get("type") == "long":
+                sample_cfg["reads"] = str(paths[0])
+            else:
+                sample_cfg["reads"] = [str(p) for p in paths]
+        if acc := sample_cfg.pop("assembly_accession", None):
+            if str(acc) not in asm_downloads:
+                continue
+            sample_cfg["assembly"] = str(asm_downloads[str(acc)])
+        resolved[sample_name] = sample_cfg
+
+    return resolved
 
 
 def _allocate_multi_cpus(
@@ -63,14 +220,28 @@ def run_multi_pipeline(
         "cpus_per_sample": cpus_per_sample,
     }
 
-    jobs = [
-        (sample_name, sample_cfg, global_config)
-        for sample_name, sample_cfg in samples.items()
-    ]
-
     ctx = mp.get_context("spawn")  # safest cross-platform
     failures = []
     successful_samples = []
+
+    # Pre-download all unique sample accessions centrally so parallel workers
+    # never contend on the same network resources.
+    cache_dir = Path(run_ctx.outdir) / "downloads"
+    samples = _predownload_multi_inputs(
+        samples,
+        cache_dir=cache_dir,
+        run_ctx=run_ctx,
+        failures=failures,
+    )
+
+    jobs = _build_jobs(samples, global_config) if samples else []
+
+    if failures and stop_on_failure:
+        logger.warning(
+            f"Skipping pipeline execution due to {len(failures)} download "
+            f"failure(s) with stop_on_failure=True."
+        )
+        jobs = []
 
     executor = ProcessPoolExecutor(max_workers=max_parallel, mp_context=ctx)
     fail_fast_shutdown = False

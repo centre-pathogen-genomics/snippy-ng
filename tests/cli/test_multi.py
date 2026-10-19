@@ -894,3 +894,304 @@ def test_multi_cli_accepts_reference_accession(monkeypatch, tmp_path):
         "output_directory": outdir / "reference",
     }
     assert captured_multi["snippy_reference_dir"] == tmp_path / "reference"
+
+
+@pytest.fixture
+def monkeypatch_download_stages(monkeypatch):
+    """Replace sracha subprocess with a fake that creates output files."""
+    from pathlib import Path
+    import subprocess
+
+    call_counter = {"reads": 0, "asm": 0}
+
+    # Make sracha dependency check pass silently
+    monkeypatch.setattr("snippy_ng.pipelines.multi.sracha.check", lambda: ("/usr/bin/sracha", "1.0"))
+
+    orig_subprocess_run = subprocess.run
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        asm_cmd = cmd if isinstance(cmd, (list, tuple)) else None
+        if asm_cmd and asm_cmd[:2] == ["sracha", "get"] and "--accession-list" in asm_cmd:
+            call_counter["reads"] += 1
+            ai = asm_cmd.index("--accession-list")
+            acc_list_path = Path(asm_cmd[ai + 1])
+            out_dir = Path(asm_cmd[ai + 3]) if "--output-dir" in asm_cmd else Path(".")
+            for line in acc_list_path.read_text().splitlines():
+                acc = line.strip()
+                if not acc:
+                    continue
+                (out_dir / f"{acc}_1.fastq.gz").write_text("fq1\n")
+            return subprocess.CompletedProcess(cmd, 0)
+        return orig_subprocess_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr("subprocess.run", fake_subprocess_run)
+
+    # Also replace assembly download stages with fakes (they still use stage.run)
+    from types import SimpleNamespace
+
+    class FakeDownloadNcbi:
+        _dependencies = []
+        def __init__(self, **kwargs):
+            self.accession = kwargs["accession"]
+            outdir = kwargs.get("output_directory", Path("."))
+            self.output = SimpleNamespace(fasta=outdir / f"{self.accession}.fa")
+        def run(self, _ctx):
+            call_counter["asm"] += 1
+            self.output.fasta.parent.mkdir(parents=True, exist_ok=True)
+            self.output.fasta.write_text(">seq\nATCG\n")
+        def error_if_outputs_missing(self):
+            pass
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.DownloadNcbiAssemblyFasta", FakeDownloadNcbi)
+    monkeypatch.setattr("snippy_ng.pipelines.multi.DownloadAtbAssemblyFasta", FakeDownloadNcbi)
+    return call_counter
+
+
+def test_predownload_multi_inputs_replaces_accessions_with_abs_paths(
+    tmp_path, monkeypatch_download_stages
+):
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+    from pathlib import Path
+
+    call_counter = monkeypatch_download_stages
+    original = {
+        "S1": {"type": "short", "reads_accession": "SRR0000001"},
+        "S2": {"type": "long", "reads_accession": "SRR0000002"},
+        "S3": {"type": "short", "reads_accession": "SRR0000003"},
+        "S4": {"type": "asm", "assembly_accession": "GCF_000000001.1"},
+    }
+    cache = tmp_path / "cache"
+    failures = []
+    result = _predownload_multi_inputs(
+        original, cache_dir=cache, run_ctx=Context(cpus=1, quiet=True), failures=failures,
+    )
+
+    # original samples dict is not mutated
+    assert "reads_accession" in original["S1"]
+
+    # keys removed, local paths in place
+    assert "reads_accession" not in result["S1"]
+    assert "reads_accession" not in result["S2"]
+    assert "assembly_accession" not in result["S4"]
+
+    # short single-end
+    s1_reads = result["S1"]["reads"]
+    assert isinstance(s1_reads, list) and len(s1_reads) == 1
+    assert Path(s1_reads[0]).is_absolute() and Path(s1_reads[0]).exists()
+
+    # long
+    s2_reads = result["S2"]["reads"]
+    assert isinstance(s2_reads, str)
+    assert Path(s2_reads).is_absolute() and Path(s2_reads).exists()
+
+    # asm
+    s4_asm = result["S4"]["assembly"]
+    assert isinstance(s4_asm, str)
+    assert Path(s4_asm).is_absolute() and Path(s4_asm).exists()
+    assert failures == []
+    # 3 unique SRA calls, 1 assembly call
+    assert call_counter["reads"] == 1  # single batch call for all SRA
+    assert call_counter["asm"] == 1
+
+
+def test_predownload_multi_inputs_paired_end(tmp_path, monkeypatch):
+    """Short paired-end: create both r1 and r2; reads list has both paths."""
+    import subprocess
+    from pathlib import Path
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.sracha.check", lambda: ("/usr/bin/sracha", "1.0"))
+
+    def paired_subprocess(cmd, *args, **kwargs):
+        if isinstance(cmd, (list, tuple)) and cmd[:2] == ["sracha", "get"] and "--accession-list" in cmd:
+            ai = cmd.index("--accession-list")
+            acc_list_path = Path(cmd[ai + 1])
+            out_dir = Path(cmd[ai + 3]) if "--output-dir" in cmd else Path(".")
+            for line in acc_list_path.read_text().splitlines():
+                acc = line.strip()
+                if not acc:
+                    continue
+                (out_dir / f"{acc}_1.fastq.gz").write_text("r1\n")
+                (out_dir / f"{acc}_2.fastq.gz").write_text("r2\n")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr("subprocess.run", paired_subprocess)
+
+    samples = {"PE": {"type": "short", "reads_accession": "SRR0000004"}}
+    result = _predownload_multi_inputs(
+        samples, cache_dir=tmp_path / "c", run_ctx=Context(cpus=1, quiet=True), failures=[],
+    )
+    reads = result["PE"]["reads"]
+    assert len(reads) == 2
+    assert all(Path(p).exists() for p in reads)
+
+
+def test_predownload_multi_inputs_deduplicates_accessions(
+    tmp_path, monkeypatch_download_stages
+):
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+
+    call_counter = monkeypatch_download_stages
+    samples = {
+        "A": {"type": "short", "reads_accession": "SRR0000001"},
+        "B": {"type": "short", "reads_accession": "SRR0000001"},  # duplicate
+    }
+    failures = []
+    result = _predownload_multi_inputs(
+        samples, cache_dir=tmp_path / "cache", run_ctx=Context(cpus=1, quiet=True), failures=failures,
+    )
+
+    assert result["A"]["reads"] == result["B"]["reads"]
+    assert call_counter["reads"] == 1  # one download for two samples
+    assert failures == []
+
+
+def test_predownload_multi_inputs_conditional_failure(tmp_path, monkeypatch):
+    """A failing download drops all batch accessions; none succeed."""
+    import subprocess
+    from pathlib import Path
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+
+    monkeypatch.setattr("snippy_ng.pipelines.multi.sracha.check", lambda: ("/usr/bin/sracha", "1.0"))
+
+    def raising_subprocess(cmd, *args, **kwargs):
+        if isinstance(cmd, (list, tuple)) and cmd[:2] == ["sracha", "get"] and "--accession-list" in cmd:
+            raise RuntimeError("batch failed")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr("subprocess.run", raising_subprocess)
+
+    samples = {
+        "Good": {"type": "short", "reads_accession": "SRR0000010"},
+        "Bad":  {"type": "short", "reads_accession": "SRR9999990"},
+    }
+    failures = []
+    result = _predownload_multi_inputs(
+        samples, cache_dir=tmp_path / "c", run_ctx=Context(cpus=1, quiet=True), failures=failures,
+    )
+    # Batch: one call; failure drops all
+    assert result == {}
+    assert len(failures) == 2
+
+
+def test_predownload_multi_inputs_leaves_original_unchanged(
+    tmp_path, monkeypatch_download_stages
+):
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+
+    original = {"X": {"type": "short", "reads_accession": "SRR0000001"}}
+    failures = []
+    _ = _predownload_multi_inputs(
+        original, cache_dir=tmp_path / "c", run_ctx=Context(cpus=1, quiet=True), failures=failures,
+    )
+    assert "reads_accession" in original["X"]
+
+
+def test_run_multi_pipeline_jobs_have_no_accessions(tmp_path, monkeypatch_download_stages):
+    """_build_jobs receives resolved configs with no accession keys."""
+    from pathlib import Path
+    from copy import deepcopy
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs, _build_jobs
+
+    original = {"X": {"type": "short", "reads_accession": "SRR0000001"}}
+    failures = []
+    resolved = _predownload_multi_inputs(
+        deepcopy(original),
+        cache_dir=tmp_path / "c",
+        run_ctx=Context(cpus=1, quiet=True),
+        failures=failures,
+    )
+    jobs = _build_jobs(resolved, {"reference": str(tmp_path)})
+    assert len(jobs) == 1
+    _, job_cfg, *_ = jobs[0]
+    assert "reads_accession" not in job_cfg
+    assert "reads" in job_cfg
+    assert isinstance(job_cfg["reads"], list)
+
+
+def test_predownload_stop_on_failure_writes_failed_tsv(tmp_path, monkeypatch):
+    """stop_on_failure with predownload failures sets jobs=[] and writes failed.tsv."""
+    from pathlib import Path
+    from copy import deepcopy
+
+    # Inject a failure and a resolved sample into _predownload_multi_inputs
+    import snippy_ng.pipelines.multi as m
+
+    def fake_predownload(samples, **kw):
+        kw["failures"].append(("Bad", "download failed"))
+        return {}
+
+    monkeypatch.setattr(m, "_predownload_multi_inputs", fake_predownload)
+
+    ref_dir = tmp_path / "ref"
+    ref_dir.mkdir(); (ref_dir / "metadata.json").write_text("{}")
+
+    samples = {"Bad": {"type": "short", "reads_accession": "SRR0000001"}}
+    successes, failures = m.run_multi_pipeline(
+        snippy_reference_dir=ref_dir,
+        samples=deepcopy(samples),
+        prefix="test",
+        run_ctx=Context(outdir=tmp_path, cpus=1, quiet=True, skip_check=True),
+        stop_on_failure=True,
+    )
+    assert successes == []
+    assert len(failures) == 1
+    assert "download" in failures[0][1].lower()
+    failed_tsv = tmp_path / "test.failed.tsv"
+    assert failed_tsv.exists()
+    assert failed_tsv.read_text().strip()
+
+
+def test_predownload_dependency_check(monkeypatch, tmp_path):
+    """Dependencies are validated once per unique dependency name."""
+    from pathlib import Path
+    from snippy_ng.pipelines.multi import _predownload_multi_inputs
+
+    calls = {"sracha": 0}
+
+    def counted_check():
+        calls["sracha"] += 1
+        return ("/usr/bin/sracha", "1.0")
+
+    # Patch the module-level sracha imported in multi.py
+    import snippy_ng.pipelines.multi as m
+
+    monkeypatch.setattr(m.sracha, "check", counted_check)
+
+    # Two samples sharing the same accession → one batch call
+    samples = {
+        "A": {"type": "short", "reads_accession": "SRR0000001"},
+        "B": {"type": "short", "reads_accession": "SRR0000001"},
+    }
+    # subprocess.run must succeed so batch proceeds
+    import subprocess
+
+    def ok_subprocess(cmd, *a, **kw):
+        if isinstance(cmd, (list, tuple)) and cmd[:2] == ["sracha", "get"]:
+            ai = cmd.index("--accession-list")
+            acc_list_path = Path(cmd[ai + 1])
+            out_dir = Path(cmd[ai + 3]) if "--output-dir" in cmd else Path(".")
+            for line in acc_list_path.read_text().splitlines():
+                acc = line.strip()
+                if acc:
+                    (out_dir / f"{acc}_1.fastq.gz").write_text("ok\n")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr("subprocess.run", ok_subprocess)
+
+    _ = _predownload_multi_inputs(
+        samples, cache_dir=tmp_path / "c",
+        run_ctx=Context(cpus=1, quiet=True),
+        failures=[],
+    )
+    # checked once (deduplicated), not twice
+    assert calls["sracha"] == 1
+
+    # Skip-check mode
+    calls["sracha"] = 0
+    _ = _predownload_multi_inputs(
+        samples, cache_dir=tmp_path / "c2",
+        run_ctx=Context(cpus=1, quiet=True, skip_check=True),
+        failures=[],
+    )
+    assert calls["sracha"] == 0
