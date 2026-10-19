@@ -17,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
 @click.option("--min-read-len", type=click.INT, default=15, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=20, help="Minimum read quality to keep when cleaning reads")
-@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem"]), help="Aligner program to use")
+@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2", "bwamem", "minibwa"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--caller-opts", default='', type=click.STRING, help="Extra options for Freebayes")
 @click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")

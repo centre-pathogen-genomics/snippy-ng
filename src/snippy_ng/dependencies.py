@@ -161,6 +161,11 @@ bwa = Dependency(
     version_arg=None,
     version_pattern=r"(\d+\.\d+\.\d+)",
 )
+minibwa = Dependency(
+    "minibwa",
+    citation="Li, H., & Homer, N. (2026). Fast genomic read alignment with minibwa. arXiv:2606.15357. https://doi.org/10.48550/arXiv.2606.15357",
+    version_arg=None,
+)
 minimap2 = Dependency(
     "minimap2",
     citation="Heng Li, Minimap2: pairwise alignment for nucleotide sequences, Bioinformatics, Volume 34, Issue 18, 15 September 2018, Pages 3099–3103, https://doi.org/10.1093/bioinformatics/bty191",

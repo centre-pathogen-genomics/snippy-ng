@@ -6,6 +6,7 @@ from snippy_ng.stages.mapping import (
     AssemblyNucmerAligner,
     Minimap2LongReadAligner,
     Minimap2ShortReadAligner,
+    MinibwaShortReadAligner,
 )
 
 
@@ -27,6 +28,46 @@ def test_minimap2_short_read_pipeline_name_sorts_before_filtering(tmp_path):
     assert commands[3][:2] == ["samtools", "fixmate"]
     assert commands[4][:2] == ["samtools", "sort"]
     assert commands[5][:2] == ["samtools", "markdup"]
+
+
+def test_minibwa_short_read_pipeline_indexes_then_uses_common_pipeline(tmp_path):
+    stage = MinibwaShortReadAligner(
+        reference=Path("reference.fa"),
+        reads=[Path("reads_1.fq.gz"), Path("reads_2.fq.gz")],
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))
+
+    # First command: reference indexing
+    assert commands[0].command == ["minibwa", "index", "-t", "4", "reference.fa"]
+
+    # Second command: the alignment pipeline (minibwa map -> common samtools steps)
+    pipeline = commands[1]
+    pipeline_commands = [command.command for command in pipeline.processes]
+
+    assert pipeline_commands[0][:4] == ["minibwa", "map", "-t", "4"]
+    assert pipeline_commands[0][4] == "reference.fa"
+    assert pipeline_commands[0][5:] == ["reads_1.fq.gz", "reads_2.fq.gz"]
+    assert pipeline_commands[1][:5] == ["samtools", "sort", "-n", "-O", "sam"]
+    assert pipeline_commands[2][5] == "samclip"
+    assert pipeline_commands[3][:2] == ["samtools", "fixmate"]
+    assert pipeline_commands[4][:2] == ["samtools", "sort"]
+    assert pipeline_commands[5][:2] == ["samtools", "markdup"]
+
+
+def test_minibwa_short_read_pipeline_honours_aligner_opts(tmp_path):
+    stage = MinibwaShortReadAligner(
+        reference=Path("reference.fa"),
+        reads=[Path("reads_1.fq.gz")],
+        aligner_opts="-x sr --adap=no",
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4, ram=8, tmpdir=tmp_path))
+    pipeline_commands = [command.command for command in commands[1].processes]
+    assert "-x" in pipeline_commands[0]
+    assert "--adap=no" in pipeline_commands[0]
 
 
 def test_minimap2_long_read_pipeline_uses_fraction_based_samclip():

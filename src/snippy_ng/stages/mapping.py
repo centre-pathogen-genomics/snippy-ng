@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 from typing import Annotated, List, Optional
 from snippy_ng.stages import BaseStage, ShellProcessPipe, BaseOutput
-from snippy_ng.dependencies import samtools, bwa, minimap2, nucmer
+from snippy_ng.dependencies import samtools, bwa, minibwa, minimap2, nucmer
 from snippy_ng.envvars import EnvVarInt, EnvVarStr
 from pydantic import Field 
 
@@ -198,6 +198,40 @@ class Minimap2ShortReadAligner(ShortReadAligner):
 
         alignment_pipeline = self.build_alignment_pipeline(minimap_cmd, ctx)
         return [alignment_pipeline]
+
+
+class MinibwaShortReadAligner(ShortReadAligner):
+    """
+    Align reads to a reference using Minibwa.
+    """
+
+    _dependencies = [samtools, minibwa]
+
+    def create_commands(self, ctx) -> List:
+        """Constructs the Minibwa alignment commands."""
+        threads = str(ctx.cpus)
+
+        index_cmd = self.shell_cmd(
+            ["minibwa", "index", "-t", threads, str(self.reference)],
+            description=f"Index reference with Minibwa: {self.reference}",
+        )
+
+        # Build minibwa map command (SAM on stdout by default)
+        minibwa_cmd_parts = ["minibwa", "map", "-t", threads]
+        if self.aligner_opts:
+            import shlex
+
+            minibwa_cmd_parts.extend(shlex.split(self.aligner_opts))
+        minibwa_cmd_parts.append(str(self.reference))
+        minibwa_cmd_parts.extend([str(r) for r in self.reads])
+
+        map_cmd = self.shell_cmd(
+            minibwa_cmd_parts,
+            description=f"Align {len(self.reads)} read files with Minibwa",
+        )
+
+        alignment_pipeline = self.build_alignment_pipeline(map_cmd, ctx)
+        return [index_cmd, alignment_pipeline]
 
 
 class Minimap2LongReadAligner(Aligner):

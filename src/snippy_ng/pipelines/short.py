@@ -12,7 +12,11 @@ from snippy_ng.stages.stats import (
     SeqKitReadStatsBasic,
     VcfStats,
 )
-from snippy_ng.stages.mapping import BWAMEMShortReadAligner, Minimap2ShortReadAligner
+from snippy_ng.stages.mapping import (
+    BWAMEMShortReadAligner,
+    Minimap2ShortReadAligner,
+    MinibwaShortReadAligner,
+)
 from snippy_ng.stages.filtering import BamReferenceValidator, SamtoolsFilter
 from snippy_ng.stages.vcf import (
     AddDeletionsToVCF,
@@ -219,6 +223,13 @@ class ShortPipelineBuilder(PipelineBuilder):
                     reads=current_reads,
                     reference=reference_file,
                     reference_index=reference_index,
+                    aligner_opts=self.aligner_opts,
+                    **globals,
+                )
+            elif self.aligner == "minibwa":
+                aligner_stage = MinibwaShortReadAligner(
+                    reads=current_reads,
+                    reference=reference_file,
                     aligner_opts=self.aligner_opts,
                     **globals,
                 )
