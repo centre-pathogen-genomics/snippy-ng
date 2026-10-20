@@ -1,21 +1,46 @@
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines.common import load_or_prepare_reference
 from snippy_ng.pipelines import SnippyPipeline, PipelineBuilder
-from snippy_ng.stages.alignment_filter import CheckAlignmentClustersByPipelineType, FilterAlignmentByAlignedPercentage
+from snippy_ng.stages.alignment_filter import (
+    CheckAlignmentClustersByPipelineType,
+    FilterAlignmentByAlignedPercentage,
+)
 from snippy_ng.stages.core import CombineFastaFile, DistleDistanceMatrix, SoftCoreFilter
 from snippy_ng.stages.stats import AlignmentAlignedPercentage
 from pathlib import Path
+from typing import Optional
 from pydantic import Field
 
 
 class CorePipelineBuilder(PipelineBuilder):
     """Builder for alignment (MSA) pipeline."""
-    snippy_dirs: list[Path] = Field(..., description="List of Snippy output directories")
+
+    snippy_dirs: list[Path] = Field(
+        ..., description="List of Snippy output directories"
+    )
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
-    inclusion_threshold: float = Field(default=0.20, ge=0.0, le=1.0, description="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
-    snp_distance_format: str = Field(default="tabular", description="Output format for pairwise snip distance matrix")
+    remove_outliers: bool = Field(
+        default=False,
+        description="Remove detected low-alignment outlier samples from the alignment before core filtering",
+    )
+    outlier_threshold: float = Field(
+        default=0.20,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Posterior probability threshold for retaining membership in the retained alignment percentage clusters; "
+            "only used with remove_outliers and cohorts large enough for mixture modelling"
+        ),
+    )
+    snp_distance_format: str = Field(
+        default="tabular", description="Output format for pairwise snip distance matrix"
+    )
     prefix: str = Field(default="core", description="Output file prefix")
+    mask: Optional[Path] = Field(
+        default=None,
+        description="BED file (reference coordinates) of regions to mask in every sample",
+    )
 
     @staticmethod
     def _resolve_reference_id(reference_id: str, snippy_dirs: list[Path]) -> str:
@@ -52,6 +77,7 @@ class CorePipelineBuilder(PipelineBuilder):
             snippy_dirs=self.snippy_dirs,
             reference=reference_file,
             reference_id=reference_id,
+            mask_bed=self.mask,
             prefix=self.prefix,
         )
         stages.append(combine_stage)
@@ -75,7 +101,8 @@ class CorePipelineBuilder(PipelineBuilder):
             aln=combine_stage.output.aln,
             alignment_stats=alignment_stats.output.aligned_tsv,
             prefix=self.prefix,
-            inclusion_threshold=self.inclusion_threshold,
+            remove_outliers=self.remove_outliers,
+            outlier_threshold=self.outlier_threshold,
         )
         stages.append(alignment_filter)
         outputs_to_keep.extend(alignment_filter.output.paths)

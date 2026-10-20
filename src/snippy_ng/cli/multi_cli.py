@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TextIO
 import click
 
-from snippy_ng.cli.utils import reference_or_accession_callback
+from snippy_ng.cli.utils import config_or_url_callback, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 
 
@@ -12,7 +12,8 @@ def run_multi_config(
     reference: Optional[Path],
     cpus_per_sample: Optional[int] = None,
     core: float,
-    inclusion_threshold: float,
+    remove_outliers: bool,
+    outlier_threshold: float,
     stop_on_failure: bool,
     outdir: Path,
     prefix: str,
@@ -83,7 +84,8 @@ def run_multi_config(
         snippy_dirs=[str(outdir / 'samples' / sample) for sample in successful_samples],
         reference=snippy_reference_dir,
         core=core,
-        inclusion_threshold=inclusion_threshold,
+        remove_outliers=remove_outliers,
+        outlier_threshold=outlier_threshold,
     ).build()
     core_outdir = Path(outdir) / 'core'
     context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
@@ -109,7 +111,9 @@ def run_multi_config(
 @click.argument(
     "config",
     required=True,
-    type=click.File(mode="r")
+    type=click.STRING,
+    callback=config_or_url_callback,
+    metavar="CONFIG",
 )
 @click.option(
     "--reference",
@@ -119,14 +123,20 @@ def run_multi_config(
     callback=reference_or_accession_callback,
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
-def multi(config: click.File, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+@click.option("--remove-alignment-outliers", "remove_outliers", is_flag=True, default=False, help="Remove detected low-alignment outlier samples from the alignment before core filtering")
+@click.option("--alignment-outlier-threshold", "outlier_threshold", type=click.FloatRange(min=0.0, max=1.0, min_open=True), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. Only used with --remove-alignment-outliers and cohorts large enough for mixture modelling")
+def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, remove_outliers: bool, outlier_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
-    Multi-sample SNP calling pipeline and core alignment construction 
+    Multi-sample SNP calling pipeline and core alignment construction
+
+    CONFIG is a CSV, TSV, or JSON file describing the samples. It may be a local
+    path, '-' for stdin, or an HTTP(S) URL to download the config from.
 
     Example usage:
 
         $ snippy-ng multi samples.csv --ref reference.fasta
+
+        $ snippy-ng multi https://example.com/samples.json --ref reference.fasta
 
         $ snippy-ng utils gather --ref reference.fasta --json | snippy-ng multi -
 
@@ -143,7 +153,8 @@ def multi(config: click.File, reference: Optional[Path | str], cpus_per_sample: 
         reference=reference,
         cpus_per_sample=cpus_per_sample,
         core=core,
-        inclusion_threshold=inclusion_threshold,
+        remove_outliers=remove_outliers,
+        outlier_threshold=outlier_threshold,
         stop_on_failure=stop_on_failure,
         outdir=outdir,
         prefix=prefix,

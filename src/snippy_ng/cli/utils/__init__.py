@@ -1,6 +1,10 @@
 import click
 from pathlib import Path
+import io
 import re
+import sys
+import urllib.error
+import urllib.request
 
 class AbsolutePath(click.Path):
     """Click path type that always returns absolute `Path` values without resolving symlinks."""
@@ -113,3 +117,51 @@ def reads_or_accession_callback(ctx, param, value):
         ctx=ctx,
         param=param,
     )
+
+
+class NamedStringIO(io.StringIO):
+    """In-memory text stream that carries a ``name`` like a real file object."""
+
+    def __init__(self, content: str, name: str):
+        super().__init__(content)
+        self.name = name
+
+
+def is_url(value) -> bool:
+    """Return True if *value* looks like an HTTP(S) URL."""
+    return isinstance(value, str) and value.lower().startswith(("http://", "https://"))
+
+
+def read_url(url: str) -> NamedStringIO:
+    """Download *url* and return the content as an in-memory text stream."""
+    from snippy_ng.__about__ import __version__
+
+    request = urllib.request.Request(url, headers={"User-Agent": f"snippy-ng/{__version__}"})
+    try:
+        with urllib.request.urlopen(request) as response:
+            content = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise ValueError(f"Could not download config from '{url}' (HTTP {exc.code}).") from exc
+    except urllib.error.URLError as exc:
+        raise ValueError(f"Could not reach '{url}': {exc.reason}") from exc
+    return NamedStringIO(content, url)
+
+
+def config_or_url_callback(ctx, param, value):
+    """Open a config from a local path, stdin ('-'), or an HTTP(S) URL."""
+    if ctx.resilient_parsing or value is None:
+        return value
+
+    if value == "-":
+        return sys.stdin
+
+    if is_url(value):
+        try:
+            return read_url(value)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            raise click.BadParameter(str(exc), ctx=ctx, param=param) from exc
+
+    path = absolute_path(value)
+    if not path.exists():
+        raise click.BadParameter(f"Config file '{path}' does not exist.", ctx=ctx, param=param)
+    return path.open("r")

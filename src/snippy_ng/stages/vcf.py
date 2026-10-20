@@ -5,13 +5,14 @@ from snippy_ng.stages import BaseStage, BaseOutput
 from snippy_ng.dependencies import bcftools
 from snippy_ng.envvars import EnvVarInt
 from snippy_ng.logging import logger
+from snippy_ng.stages.masks import resolve_min_depth
 from snippy_ng.utils.vcf import filter_variant_context_vcf
 from pydantic import Field
 
 HET_GT = {"0/1", "1/0", "0|1", "1|0"}
 HOM_REF_GT = {"0/0", "0|0"}
 HOM_ALT_GT = {"1/1", "1|1"}
-MIXED_SITE_GT_FILTER = ' || '.join(f'GT="{gt}"' for gt in HET_GT)
+MIXED_SITE_GT_FILTER = " || ".join(f'GT="{gt}"' for gt in HET_GT)
 
 
 class VcfFilterOutput(BaseOutput):
@@ -31,33 +32,33 @@ class VcfToTabOutput(BaseOutput):
 
 
 class VcfToTab(BaseStage):
-    vcf: Path = Field(..., description="Input VCF file to convert into a tab-delimited table")
+    vcf: Path = Field(
+        ..., description="Input VCF file to convert into a tab-delimited table"
+    )
 
     _dependencies = [bcftools]
 
     @property
     def output(self) -> VcfToTabOutput:
-        return VcfToTabOutput(
-            tab=Path(f"{self.prefix}.tab")
-        )
+        return VcfToTabOutput(tab=Path(f"{self.prefix}.tab"))
 
     def create_commands(self, ctx) -> List:
         split_bcsq_awk = (
-            'BEGIN {'
+            "BEGIN {"
             'FS=OFS="\t"; '
             'print "CHROM","POS","TYPE","REF","ALT","Consequence","gene","transcript","biotype","strand","amino_acid_change","dna_change"'
-            '} '
+            "} "
             '$5 == "<DEL>" { next } '
-            '{'
+            "{"
             'selected=""; '
             'split($6, annotations, ","); '
-            'for (i = 1; i <= length(annotations); i++) { '
+            "for (i = 1; i <= length(annotations); i++) { "
             'if (annotations[i] != "" && annotations[i] != "." && annotations[i] !~ /^@/) { selected=annotations[i]; break } '
-            '} '
+            "} "
             'split(selected, bcsq, "\\|"); '
             'for (i = 1; i <= 7; i++) { if (!(i in bcsq)) bcsq[i]="" } '
-            'print $1,$2,$3,$4,$5,bcsq[1],bcsq[2],bcsq[3],bcsq[4],bcsq[5],bcsq[6],bcsq[7]'
-            '}'
+            "print $1,$2,$3,$4,$5,bcsq[1],bcsq[2],bcsq[3],bcsq[4],bcsq[5],bcsq[6],bcsq[7]"
+            "}"
         )
         return [
             self.shell_pipe(
@@ -85,16 +86,19 @@ class VcfToTab(BaseStage):
 
 
 class CollapseDiploidGenotypesOutput(BaseOutput):
-    vcf: Path = Field(..., description="VCF with diploid genotypes collapsed to haploid genotypes")
+    vcf: Path = Field(
+        ..., description="VCF with diploid genotypes collapsed to haploid genotypes"
+    )
+
 
 class CollapseDiploidGenotypes(BaseStage):
-    vcf: Path = Field(..., description="Input VCF file whose GT field should be collapsed")
+    vcf: Path = Field(
+        ..., description="Input VCF file whose GT field should be collapsed"
+    )
 
     @property
     def output(self) -> CollapseDiploidGenotypesOutput:
-        return CollapseDiploidGenotypesOutput(
-            vcf=Path(f"{self.prefix}.haploid.vcf")
-        )
+        return CollapseDiploidGenotypesOutput(vcf=Path(f"{self.prefix}.haploid.vcf"))
 
     def create_commands(self, ctx) -> List:
         return [
@@ -119,7 +123,10 @@ class CollapseDiploidGenotypes(BaseStage):
 
     @classmethod
     def collapse_genotypes(cls, input_vcf: Path, output_vcf: Path) -> None:
-        with open(input_vcf, "r", encoding="utf-8") as in_handle, open(output_vcf, "w", encoding="utf-8") as out_handle:
+        with (
+            open(input_vcf, "r", encoding="utf-8") as in_handle,
+            open(output_vcf, "w", encoding="utf-8") as out_handle,
+        ):
             for raw_line in in_handle:
                 if raw_line.startswith("#"):
                     out_handle.write(raw_line)
@@ -154,15 +161,15 @@ class CollapseDiploidGenotypes(BaseStage):
 
 class VcfPassFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to subset to PASS variants")
-    no_insertions: bool = Field(False, description="Remove insertions from the output VCF")
+    no_insertions: bool = Field(
+        False, description="Remove insertions from the output VCF"
+    )
 
     _dependencies = [bcftools]
 
     @property
     def output(self) -> VcfPassFilterOutput:
-        return VcfPassFilterOutput(
-            vcf=Path(f"{self.prefix}.pass.vcf")
-        )
+        return VcfPassFilterOutput(vcf=Path(f"{self.prefix}.pass.vcf"))
 
     def create_commands(self, ctx) -> List:
         cmd = ["bcftools", "view", "-f", "PASS", str(self.vcf)]
@@ -181,6 +188,10 @@ class VcfPassFilter(BaseStage):
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
+    min_depth_file: Optional[Path] = Field(
+        default=None,
+        description="File with a dynamically computed minimum depth threshold",
+    )
 
     _dependencies = [bcftools]
 
@@ -188,7 +199,7 @@ class VcfFilter(BaseStage):
     def output(self) -> VcfFilterOutput:
         filtered_vcf = f"{self.prefix}.filtered.vcf"
         return VcfFilterOutput(vcf=filtered_vcf)
-    
+
     def test_check_if_vcf_has_variants(self):
         """Test that the output VCF file is not empty."""
         vcf_path = self.output.vcf
@@ -197,7 +208,9 @@ class VcfFilter(BaseStage):
                 if not line.startswith("#"):
                     return  # Found a non-header line, VCF is not empty
         # give warning instead of error as some callers may produce empty VCFs if no variants are found
-        logger.warning(f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters.")
+        logger.warning(
+            f"Output VCF file {vcf_path} has no variants (only header lines). Please check if this is expected based on your data and parameters."
+        )
 
 
 class VariantContextFilter(BaseStage):
@@ -206,26 +219,38 @@ class VariantContextFilter(BaseStage):
     """
 
     vcf: Path = Field(..., description="Input VCF")
-    max_local_snps: Annotated[int, EnvVarInt(
-        0,
-        "VARIANT_CONTEXT_MAX_LOCAL_SNPS",
-        description="Maximum SNPs allowed within the local SNP window. 0 disables this filter.",
-    )]
-    local_snp_window: Annotated[int, EnvVarInt(
-        0,
-        "VARIANT_CONTEXT_LOCAL_SNP_WINDOW",
-        description="Reference-base window radius for local SNP density filtering. 0 disables this filter.",
-    )]
-    min_snp_distance_to_indel: Annotated[int, EnvVarInt(
-        0,
-        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL",
-        description="Minimum reference-base distance required between a SNP and any indel. 0 disables this filter.",
-    )]
-    min_snp_distance_to_breakpoint: Annotated[int, EnvVarInt(
-        0,
-        "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_BREAKPOINT",
-        description="Minimum reference-base distance required between a SNP and caller-provided alignment edge distance. 0 disables this filter.",
-    )]
+    max_local_snps: Annotated[
+        int,
+        EnvVarInt(
+            0,
+            "VARIANT_CONTEXT_MAX_LOCAL_SNPS",
+            description="Maximum SNPs allowed within the local SNP window. 0 disables this filter.",
+        ),
+    ]
+    local_snp_window: Annotated[
+        int,
+        EnvVarInt(
+            0,
+            "VARIANT_CONTEXT_LOCAL_SNP_WINDOW",
+            description="Reference-base window radius for local SNP density filtering. 0 disables this filter.",
+        ),
+    ]
+    min_snp_distance_to_indel: Annotated[
+        int,
+        EnvVarInt(
+            0,
+            "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_INDEL",
+            description="Minimum reference-base distance required between a SNP and any indel. 0 disables this filter.",
+        ),
+    ]
+    min_snp_distance_to_breakpoint: Annotated[
+        int,
+        EnvVarInt(
+            0,
+            "VARIANT_CONTEXT_MIN_SNP_DISTANCE_TO_BREAKPOINT",
+            description="Minimum reference-base distance required between a SNP and caller-provided alignment edge distance. 0 disables this filter.",
+        ),
+    ]
 
     @property
     def output(self) -> VariantContextFilterOutput:
@@ -236,10 +261,10 @@ class VariantContextFilter(BaseStage):
     @property
     def enabled(self) -> bool:
         return (
-        (self.max_local_snps > 0 and self.local_snp_window > 0)
-        or self.min_snp_distance_to_indel > 0
-        or self.min_snp_distance_to_breakpoint > 0
-    )
+            (self.max_local_snps > 0 and self.local_snp_window > 0)
+            or self.min_snp_distance_to_indel > 0
+            or self.min_snp_distance_to_breakpoint > 0
+        )
 
     def create_commands(self, ctx) -> List:
         return [
@@ -258,72 +283,110 @@ class VariantContextFilter(BaseStage):
         ]
 
 
-
 class VcfFilterShort(VcfFilter):
     """
     Filter VCF files using Samtools to remove unwanted variants.
     """
 
-    min_qual: float = Field(100.0, description="Mark variants below this QUAL threshold as LowQual")
-    min_depth: int = Field(10, description="Mark variants below this depth threshold as LowDepth")
+    min_qual: float = Field(
+        100.0, description="Mark variants below this QUAL threshold as LowQual"
+    )
+    min_depth: int = Field(
+        10, description="Mark variants below this depth threshold as LOWDEPTH"
+    )
 
     def create_commands(self, ctx) -> List:
         """Constructs the samtools view command for filtering."""
+        min_depth = resolve_min_depth(self.min_depth, self.min_depth_file)
 
         # Build the post-norm filter. We filter AFTER splitting/normalizing and after recomputing TYPE.
-        base_filter = " && ".join([
-            'ALT!="*"'
-        ])
+        base_filter = " && ".join(['ALT!="*"'])
         ram_gb_param = ["-m", f"{ctx.ram}G"] if ctx.ram else []
         commands = [
-                self.shell_cmd(
-                    ["bcftools", "view", "-Ou", "-i", 'GT="alt"', str(self.vcf)],
-                    description="Remove non-alt alleles"
-                ),
+            self.shell_cmd(
+                ["bcftools", "view", "-Ou", "-i", 'GT="alt"', str(self.vcf)],
+                description="Remove non-alt alleles",
+            ),
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "norm",
+                    "-f",
+                    str(self.reference),
+                    "--check-ref",
+                    "e",
+                    "--multiallelics",
+                    "-",  # Split multiallelics
+                    "-Ou",
+                ],
+                description="Normalize and split multiallelic variants",
+            ),
+            self.shell_cmd(
+                ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
+                description="Recompute TYPE from REF/ALT",
+            ),
+            self.shell_cmd(
+                ["bcftools", "sort", "-Ou", *ram_gb_param], description="Sort VCF"
+            ),
+            self.shell_cmd(
+                ["bcftools", "view", "-Ou", "--include", base_filter, "-"],
+                description="Filter variants after normalization and TYPE recomputation",
+            ),
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "filter",
+                    "-s",
+                    "LowQual",
+                    "-m",
+                    "+",
+                    "-e",
+                    f"QUAL<{self.min_qual}",
+                    "-",
+                ],
+                description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
+            ),
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "filter",
+                    "-s",
+                    "MIXEDSITE",
+                    "-m",
+                    "+",
+                    "-e",
+                    MIXED_SITE_GT_FILTER,
+                    "-",
+                ],
+                description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MIXEDSITE and preserve existing FILTER labels",
+            ),
+            self.shell_cmd(
+                [
+                    "awk",
+                    '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\\./, "Number=A"); print }',
+                ],
+                description="Normalize TYPE header Number=. to Number=A without altering other header fields",
+            ),
+        ]
+
+        if min_depth > 0:
+            commands.append(
                 self.shell_cmd(
                     [
                         "bcftools",
-                        "norm",
-                        "-f",
-                        str(self.reference),
-                        "--check-ref", "e",
-                        "--multiallelics", "-", # Split multiallelics
-                        "-Ou",
+                        "filter",
+                        "-s",
+                        "LOWDEPTH",
+                        "-m",
+                        "+",
+                        "-e",
+                        f"FMT/DP<{min_depth}",
+                        "-",
                     ],
-                    description="Normalize and split multiallelic variants",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
-                    description="Recompute TYPE from REF/ALT",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "sort", "-Ou", *ram_gb_param],
-                    description="Sort VCF"
-                ),
-                self.shell_cmd(
-                    ["bcftools", "view", "-Ou", "--include", base_filter, "-"],
-                    description="Filter variants after normalization and TYPE recomputation",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
-                    description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                    description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
-                ),
-                self.shell_cmd(
-                    ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
-                    description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
-                ),
-                self.shell_cmd(
-                    [
-                        "awk",
-                        '{ if ($0 ~ /^##INFO=<ID=TYPE,/) sub(/Number=\\./, "Number=A"); print }',
-                    ],
-                    description="Normalize TYPE header Number=. to Number=A without altering other header fields",
-                ),
-            ]
+                    description=f"Mark variants with DP<{min_depth} as LOWDEPTH and preserve existing FILTER labels",
+                )
+            )
+
         bcftools_pipeline = self.shell_pipe(
             commands=commands,
             description="Normalize, recompute TYPE, filter, and annotate variants",
@@ -331,18 +394,22 @@ class VcfFilterShort(VcfFilter):
         )
         return [bcftools_pipeline]
 
+
 class VcfFilterAsm(VcfFilterShort):
     """
     Filter VCF files for assemblies using bcftools to remove unwanted variants.
     """
-    min_qual: float = Field(60, description="Minimum QUAL score for assembly-based calling")
+
+    min_qual: float = Field(
+        60, description="Minimum QUAL score for assembly-based calling"
+    )
     min_depth: int = Field(1, description="Minimum depth for assembly-based calling")
 
 
 class VcfFilterLong(VcfFilter):
     """
     Filter VCF files for long-read variant calling using bcftools to remove unwanted variants.
-    
+
     This pipeline handles long-read specific filtering including:
     - Reheadering with all reference contigs
     - Making heterozygous calls homozygous for the allele with most depth
@@ -351,59 +418,65 @@ class VcfFilterLong(VcfFilter):
     - Removing long indels and duplicates
     - Converting to haploid genotypes
     """
+
     reference_index: Path = Field(..., description="Reference FASTA index file (.fai)")
-    min_qual: Optional[float] = Field(None, description="Mark variants below this QUAL threshold as LowQual")
-    min_depth: int = Field(10, description="Mark variants below this depth threshold as LowDepth")
+    min_qual: Optional[float] = Field(
+        None, description="Mark variants below this QUAL threshold as LowQual"
+    )
+    min_depth: int = Field(
+        10, description="Mark variants below this depth threshold as LOWDEPTH"
+    )
     max_indel: int = Field(10000, description="Maximum indel length to keep")
-    
+
     def create_commands(self, ctx) -> List:
         """Constructs the bcftools pipeline for long-read variant filtering."""
-        
+        min_depth = resolve_min_depth(self.min_depth, self.min_depth_file)
+
         # Create temp files for contigs and header
         contigs_file = f"{self.prefix}.contigs.txt"
         header_file = f"{self.prefix}.header.txt"
-        
+
         # Generate contig lines from faidx
         create_contigs_cmd = self.shell_cmd(
-            ["awk", '{print "##contig=<ID="$1",length="$2">"}', str(self.reference_index)],
+            [
+                "awk",
+                '{print "##contig=<ID="$1",length="$2">"}',
+                str(self.reference_index),
+            ],
             description="Generate contig lines from reference index",
-            output_file=Path(contigs_file)
+            output_file=Path(contigs_file),
         )
-        
+
         # Create new header with all contigs
         # This combines: bcftools view -h | grep -v "^##contig=" | sed -e "3r $contigs"
         create_header_pipeline = self.shell_pipe(
             commands=[
                 self.shell_cmd(
                     ["bcftools", "view", "-h", str(self.vcf)],
-                    description="Extract VCF header"
+                    description="Extract VCF header",
                 ),
                 self.shell_cmd(
                     ["grep", "-v", "^##contig="],
-                    description="Drop existing contig headers"
+                    description="Drop existing contig headers",
                 ),
                 self.shell_cmd(
                     ["sed", "-e", f"3r {contigs_file}"],
-                    description="Insert all reference contigs into header"
+                    description="Insert all reference contigs into header",
                 ),
             ],
             description="Create VCF header with all contigs",
             output_file=Path(header_file),
         )
-        
+
         # Build the main filtering pipeline
         pipeline_commands = [
             self.shell_cmd(
                 ["bcftools", "reheader", "-h", header_file, str(self.vcf)],
-                description="Replace VCF header with new header containing all contigs"
+                description="Replace VCF header with new header containing all contigs",
             ),
-        ]
-        
-        # Continue with the filtering pipeline
-        pipeline_commands.extend([
             self.shell_cmd(
                 ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
-                description="Remove non-alt alleles"
+                description="Remove non-alt alleles",
             ),
             self.shell_cmd(
                 [
@@ -411,42 +484,83 @@ class VcfFilterLong(VcfFilter):
                     "norm",
                     "-f",
                     str(self.reference),
-                    "--check-ref", "e",
-                    "--multiallelics", "-", # split multiallelics
+                    "--check-ref",
+                    "e",
+                    "--multiallelics",
+                    "-",  # split multiallelics
                     "-Ou",
                 ],
                 description="Normalize and split multiallelic variants",
             ),
             self.shell_cmd(
-                ["bcftools", "filter", "-Ou", "-e", f'abs(ILEN)>{self.max_indel} || ALT="*"'],
-                description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles"
+                [
+                    "bcftools",
+                    "filter",
+                    "-Ou",
+                    "-e",
+                    f'abs(ILEN)>{self.max_indel} || ALT="*"',
+                ],
+                description=f"Remove indels longer than {self.max_indel}bp or sites with unobserved alleles",
             ),
             self.shell_cmd(
-                    ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
-                    description="Recompute TYPE from REF/ALT",
+                ["bcftools", "+fill-tags", "-Ou", "-", "--", "-t", "TYPE"],
+                description="Recompute TYPE from REF/ALT",
             ),
             self.shell_cmd(
-                ["bcftools", "sort", "-Ou", "-m", str(ctx.ram)],
-                description="Sort VCF"
+                ["bcftools", "sort", "-Ou", "-m", str(ctx.ram)], description="Sort VCF"
             ),
             self.shell_cmd(
                 ["bcftools", "view", "-Ou", "-i", 'GT="alt"'],
-                description="Remove non-alt alleles and output final VCF"
+                description="Remove non-alt alleles and output final VCF",
             ),
             self.shell_cmd(
-                ["bcftools", "filter", "-s", "LowDepth", "-m", "+", "-e", f"FMT/DP<{self.min_depth}", "-"],
-                description=f"Mark variants with DP<{self.min_depth} as LowDepth and preserve existing FILTER labels",
+                [
+                    "bcftools",
+                    "filter",
+                    "-s",
+                    "MIXEDSITE",
+                    "-m",
+                    "+",
+                    "-e",
+                    MIXED_SITE_GT_FILTER,
+                    "-",
+                ],
+                description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MIXEDSITE and preserve existing FILTER labels",
             ),
-            self.shell_cmd(
-                ["bcftools", "filter", "-s", "MixedSite", "-m", "+", "-e", MIXED_SITE_GT_FILTER, "-"],
-                description="Mark heterozygous 0/1, 1/0, 0|1, and 1|0 genotypes as MixedSite and preserve existing FILTER labels",
-            ),
-        ])
+        ]
+
+        if min_depth > 0:
+            pipeline_commands.append(
+                self.shell_cmd(
+                    [
+                        "bcftools",
+                        "filter",
+                        "-s",
+                        "LOWDEPTH",
+                        "-m",
+                        "+",
+                        "-e",
+                        f"FMT/DP<{min_depth}",
+                        "-",
+                    ],
+                    description=f"Mark variants with DP<{min_depth} as LOWDEPTH and preserve existing FILTER labels",
+                )
+            )
 
         if self.min_qual is not None:
-            pipeline_commands.append( 
+            pipeline_commands.append(
                 self.shell_cmd(
-                    ["bcftools", "filter", "-s", "LowQual", "-m", "+", "-e", f"QUAL<{self.min_qual}", "-"],
+                    [
+                        "bcftools",
+                        "filter",
+                        "-s",
+                        "LowQual",
+                        "-m",
+                        "+",
+                        "-e",
+                        f"QUAL<{self.min_qual}",
+                        "-",
+                    ],
                     description=f"Mark variants with QUAL<{self.min_qual} as LowQual and others as PASS",
                 )
             )
@@ -454,53 +568,68 @@ class VcfFilterLong(VcfFilter):
         main_pipeline = self.shell_pipe(
             commands=pipeline_commands,
             description="Long-read variant filtering pipeline",
-            output_file=Path(self.output.vcf)
+            output_file=Path(self.output.vcf),
         )
-        
+
         # Step 4: Cleanup temp files
         cleanup_cmd = self.shell_cmd(
             ["rm", "-f", contigs_file, header_file],
-            description="Remove temporary files"
+            description="Remove temporary files",
         )
-        
+
         return [create_contigs_cmd, create_header_pipeline, main_pipeline, cleanup_cmd]
 
-    
+
 class AddDeletionsToVCFOutput(BaseOutput):
-    """Output from the zero-depth deletion annotation stage."""
-    vcf: Path = Field(..., description="VCF with zero-depth regions added as <DEL> blocks")
+    """Output from the depth region annotation stage."""
+
+    vcf: Path = Field(
+        ...,
+        description="VCF with zero-depth (deletion) and low-depth (N-mask) region blocks",
+    )
 
 
 class AddDeletionsToVCF(BaseStage):
     """
-    Add zero-depth regions as symbolic deletion blocks to a VCF.
+    Add zero-depth and low-depth regions to a VCF.
 
-    This stage detects contiguous depth==0 blocks from the BAM and appends
-    `<DEL>` records to the input VCF with valid ALT/INFO headers.
+    This stage detects contiguous depth==0 (ZERODEPTH) and low-depth
+    (LOWDEPTH; 0 < depth < min depth threshold) blocks from the BAM.
+    ZERODEPTH blocks are encoded as explicit deletions (ALT="-"), LOWDEPTH
+    blocks as N-substitutions (ALT="N" x length), with valid ALT/INFO headers.
     """
+
     zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
+    low_depth_bed: Optional[Path] = Field(
+        default=None,
+        description="BED file with low-depth regions below the min depth threshold",
+    )
     vcf: Path = Field(..., description="Input VCF file")
     reference: Path = Field(..., description="Reference FASTA file")
 
     @property
     def output(self) -> AddDeletionsToVCFOutput:
-        return AddDeletionsToVCFOutput(
-            vcf=Path(f"{self.prefix}.with_del.vcf")
-        )
+        return AddDeletionsToVCFOutput(vcf=Path(f"{self.prefix}.with_del.vcf"))
 
     def create_commands(self, ctx) -> List:
-        """Generate zero-depth BED and merge symbolic deletion blocks into VCF."""
+        """Generate depth BEDs and merge symbolic deletion blocks into VCF."""
         return [
             self.python_cmd(
-                func=self._merge_zero_depth_deletions_into_vcf,
-                args=[self.vcf, self.zero_depth_bed, self.output.vcf, self.reference],
-                description="Add zero-depth <DEL> blocks to VCF",
+                func=self._merge_depth_deletions_into_vcf,
+                args=[
+                    self.vcf,
+                    self.zero_depth_bed,
+                    self.low_depth_bed,
+                    self.output.vcf,
+                    self.reference,
+                ],
+                description="Add zero-depth deletion and low-depth N-mask blocks to VCF",
             ),
         ]
 
     @staticmethod
     def _extract_info_int(info_field: str, key: str):
-        match = re.search(rf'(?:^|;){re.escape(key)}=([0-9]+)(?:;|$)', info_field)
+        match = re.search(rf"(?:^|;){re.escape(key)}=([0-9]+)(?:;|$)", info_field)
         if not match:
             return None
         try:
@@ -509,7 +638,9 @@ class AddDeletionsToVCF(BaseStage):
             return None
 
     @staticmethod
-    def _existing_deletion_keys(chrom: str, pos: int, ref: str, alt: str, info_field: str) -> set[tuple[str, int, int]]:
+    def _existing_deletion_keys(
+        chrom: str, pos: int, ref: str, alt: str, info_field: str
+    ) -> set[tuple[str, int, int]]:
         keys: set[tuple[str, int, int]] = set()
 
         if alt == "<DEL>" or "SVTYPE=DEL" in info_field:
@@ -540,7 +671,9 @@ class AddDeletionsToVCF(BaseStage):
         return keys
 
     @staticmethod
-    def _variant_interval(pos: int, ref: str, info_field: str, alt: str) -> tuple[int, int]:
+    def _variant_interval(
+        pos: int, ref: str, info_field: str, alt: str
+    ) -> tuple[int, int]:
         start = pos
         end = pos
 
@@ -566,7 +699,9 @@ class AddDeletionsToVCF(BaseStage):
         occupied_intervals: dict[str, list[tuple[int, int]]],
     ) -> bool:
         for existing_start, existing_end in occupied_intervals.get(chrom, []):
-            if AddDeletionsToVCF._intervals_overlap(start, end, existing_start, existing_end):
+            if AddDeletionsToVCF._intervals_overlap(
+                start, end, existing_start, existing_end
+            ):
                 return True
         return False
 
@@ -596,7 +731,13 @@ class AddDeletionsToVCF(BaseStage):
         return sequences
 
     @staticmethod
-    def _merge_zero_depth_deletions_into_vcf(input_vcf: Path, zero_depth_bed: Path, output_vcf: Path, reference_fasta: Path) -> None:
+    def _merge_depth_deletions_into_vcf(
+        input_vcf: Path,
+        zero_depth_bed: Path,
+        low_depth_bed: Optional[Path],
+        output_vcf: Path,
+        reference_fasta: Path,
+    ) -> None:
         meta_lines: List[str] = []
         chrom_line = ""
         variant_rows: List[tuple[str, int, int, str]] = []
@@ -608,8 +749,12 @@ class AddDeletionsToVCF(BaseStage):
         has_info_svlen = False
         has_info_type = False
         has_info_zd = False
+        has_info_ld = False
+        has_filter_lowdepth_span = False
         sample_count = 0
-        reference_sequences = AddDeletionsToVCF._load_reference_sequences(reference_fasta)
+        reference_sequences = AddDeletionsToVCF._load_reference_sequences(
+            reference_fasta
+        )
 
         existing_del_keys: set[tuple[str, int, int]] = set()
         occupied_intervals: dict[str, list[tuple[int, int]]] = {}
@@ -620,7 +765,11 @@ class AddDeletionsToVCF(BaseStage):
                 if raw_line.startswith("##"):
                     meta_lines.append(raw_line)
                     if raw_line.startswith("##contig=<ID="):
-                        contig_id = raw_line.split("##contig=<ID=", 1)[1].split(",", 1)[0].split(">", 1)[0]
+                        contig_id = (
+                            raw_line.split("##contig=<ID=", 1)[1]
+                            .split(",", 1)[0]
+                            .split(">", 1)[0]
+                        )
                         if contig_id not in contig_rank:
                             contig_rank[contig_id] = len(contig_order)
                             contig_order.append(contig_id)
@@ -636,6 +785,10 @@ class AddDeletionsToVCF(BaseStage):
                         has_info_type = True
                     if raw_line.startswith("##INFO=<ID=ZERODEPTH"):
                         has_info_zd = True
+                    if raw_line.startswith("##INFO=<ID=LOWDEPTH"):
+                        has_info_ld = True
+                    if raw_line.startswith("##FILTER=<ID=LOWDEPTHSPAN"):
+                        has_filter_lowdepth_span = True
                     continue
 
                 if raw_line.startswith("#CHROM"):
@@ -662,10 +815,16 @@ class AddDeletionsToVCF(BaseStage):
                 alt = cols[4]
                 info_field = cols[7]
                 existing_del_keys.update(
-                    AddDeletionsToVCF._existing_deletion_keys(chrom, pos, ref, alt, info_field)
+                    AddDeletionsToVCF._existing_deletion_keys(
+                        chrom, pos, ref, alt, info_field
+                    )
                 )
-                interval_start, interval_end = AddDeletionsToVCF._variant_interval(pos, ref, info_field, alt)
-                occupied_intervals.setdefault(chrom, []).append((interval_start, interval_end))
+                interval_start, interval_end = AddDeletionsToVCF._variant_interval(
+                    pos, ref, info_field, alt
+                )
+                occupied_intervals.setdefault(chrom, []).append(
+                    (interval_start, interval_end)
+                )
 
                 variant_rows.append((chrom, pos, record_index, stripped))
                 record_index += 1
@@ -676,102 +835,173 @@ class AddDeletionsToVCF(BaseStage):
         if not has_alt_del:
             meta_lines.append('##ALT=<ID=DEL,Description="Deletion">\n')
         if not has_info_end:
-            meta_lines.append('##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant">\n')
+            meta_lines.append(
+                '##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant">\n'
+            )
         if not has_info_svtype:
-            meta_lines.append('##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n')
+            meta_lines.append(
+                '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n'
+            )
         if not has_info_svlen:
-            meta_lines.append('##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of structural variant">\n')
+            meta_lines.append(
+                '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of structural variant">\n'
+            )
         if not has_info_type:
-            meta_lines.append('##INFO=<ID=TYPE,Number=A,Type=String,Description="Allele type">\n')
+            meta_lines.append(
+                '##INFO=<ID=TYPE,Number=A,Type=String,Description="Allele type">\n'
+            )
         if not has_info_zd:
-            meta_lines.append('##INFO=<ID=ZERODEPTH,Number=0,Type=Flag,Description="Constructed from a zero-depth alignment interval with no reads spanning the gap">\n')
+            meta_lines.append(
+                '##INFO=<ID=ZERODEPTH,Number=0,Type=Flag,Description="Constructed from a zero-depth alignment interval with no reads spanning the gap">\n'
+            )
+        if low_depth_bed is not None and not has_info_ld:
+            meta_lines.append(
+                '##INFO=<ID=LOWDEPTH,Number=0,Type=Flag,Description="Constructed from a low-depth alignment interval below the minimum depth threshold">\n'
+            )
+        if low_depth_bed is not None and not has_filter_lowdepth_span:
+            meta_lines.append(
+                '##FILTER=<ID=LOWDEPTHSPAN,Description="Low depth span">\n'
+            )
 
-        added_index = len(variant_rows)
-        with open(zero_depth_bed, "r") as bed_handle:
-            del_index = 1
-            for bed_line in bed_handle:
-                fields = bed_line.rstrip("\n").split("\t")
-                if len(fields) < 3:
-                    continue
-                chrom = fields[0]
-                try:
-                    start = int(fields[1])
-                    end = int(fields[2])
-                except ValueError:
-                    continue
+        block_seq = 0
+        del_index = 0
+        ld_index = 0
+        beds: List[tuple[Path, str]] = [(zero_depth_bed, "ZERODEPTH")]
+        if low_depth_bed is not None:
+            beds.append((low_depth_bed, "LOWDEPTH"))
 
-                if end <= start:
-                    continue
+        for bed_path, info_flag in beds:
+            with open(bed_path, "r") as bed_handle:
+                for bed_line in bed_handle:
+                    fields = bed_line.rstrip("\n").split("\t")
+                    if len(fields) < 3:
+                        continue
+                    chrom = fields[0]
+                    try:
+                        start = int(fields[1])
+                        end = int(fields[2])
+                    except ValueError:
+                        continue
 
-                if start == 0:
-                    # For contig-start deletions, use right-anchored explicit alleles:
-                    # POS=1, REF=<deleted_bases + right_anchor>, ALT=<right_anchor>.
-                    ref_seq = reference_sequences.get(chrom)
-                    if ref_seq is None:
-                        raise ValueError(f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}")
-                    if end >= len(ref_seq):
-                        # A complete contig deletion has no valid left or right anchor in VCF.
-                        # Emit a non-standard explicit deletion over the whole contig so downstream
-                        # consensus generation can still remove the sequence instead of aborting.
-                        pos = 1
-                        ref_allele = ref_seq
-                        alt_allele = "-"
-                        end_pos = len(ref_seq)
-                        svlen = -len(ref_seq)
-                        logger.warning(
-                            f"Encoding whole-contig deletion for '{chrom}' without an anchor: "
-                            f"POS={pos}, REF=<len {len(ref_allele)}>, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
-                            f"This is not strict VCF, but preserves deletion semantics for consensus generation."
-                        )
+                    if end <= start:
+                        continue
+
+                    if start == 0:
+                        # For contig-start blocks:
+                        # - ZERODEPTH: right-anchored explicit deletion alleles: POS=1,
+                        #   REF=<deleted_bases + right_anchor>, ALT=<right_anchor>.
+                        # - LOWDEPTH: N-substitution over the leading bases.
+                        ref_seq = reference_sequences.get(chrom)
+                        if ref_seq is None:
+                            raise ValueError(
+                                f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}"
+                            )
+                        if info_flag == "LOWDEPTH":
+                            pos = 1
+                            ref_allele = ref_seq[:end]
+                            alt_allele = "N" * len(ref_allele)
+                            end_pos = end
+                            svlen = -end
+                        elif end >= len(ref_seq):
+                            # A complete contig deletion has no valid left or right anchor in VCF.
+                            # Emit a non-standard explicit deletion over the whole contig so downstream
+                            # consensus generation can still remove the sequence instead of aborting.
+                            pos = 1
+                            ref_allele = ref_seq
+                            alt_allele = "-"
+                            end_pos = len(ref_seq)
+                            svlen = -len(ref_seq)
+                            logger.warning(
+                                f"Encoding whole-contig deletion for '{chrom}' without an anchor: "
+                                f"POS={pos}, REF=<len {len(ref_allele)}>, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                                f"This is not strict VCF, but preserves deletion semantics for consensus generation."
+                            )
+                        else:
+                            pos = 1
+                            deleted_seq = ref_seq[:end]
+                            anchor_base = ref_seq[end]
+                            ref_allele = f"{deleted_seq}{anchor_base}"
+                            # TODO: This is a hack to get bcftools consensus to properly apply the deletion
+                            alt_allele = "-"
+                            end_pos = end
+                            svlen = -end
+                            log_ref_allele = ref_allele[:100]
+                            log_ref_suffix = "..." if len(ref_allele) > 100 else ""
+                            logger.warning(
+                                f"Encoding contig-start deletion for '{chrom}' with right anchor: "
+                                f"POS={pos}, REF={log_ref_allele}{log_ref_suffix}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                                f"Please ensure your downstream tools can handle this encoding."
+                            )
                     else:
-                        pos = 1
-                        deleted_seq = ref_seq[:end]
-                        anchor_base = ref_seq[end]
-                        ref_allele = f"{deleted_seq}{anchor_base}"
-                        # TODO: This is a hack to get bcftools consensus to properly apply the deletion
-                        alt_allele = "-"
+                        # BED is 0-based half-open [start, end), covering 1-based positions start+1..end.
+                        # ZERODEPTH: explicit deletion of exactly the covered bases (POS=start+1, REF=<bases>, ALT="-").
+                        # LOWDEPTH: N-substitution replacing the covered bases with Ns.
+                        ref_seq = reference_sequences.get(chrom)
+                        if ref_seq is None:
+                            raise ValueError(
+                                f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}"
+                            )
+                        pos = start + 1
                         end_pos = end
-                        svlen = -end
-                        log_ref_allele = ref_allele[:100]
-                        log_ref_suffix = "..." if len(ref_allele) > 100 else ""
-                        logger.warning(
-                            f"Encoding contig-start deletion for '{chrom}' with right anchor: "
-                            f"POS={pos}, REF={log_ref_allele}{log_ref_suffix}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
-                            f"Please ensure your downstream tools can handle this encoding."
+                        svlen = -(end_pos - pos + 1)
+                        ref_allele = ref_seq[start:end]
+                        if info_flag == "ZERODEPTH":
+                            alt_allele = "-"
+                        else:
+                            alt_allele = "N" * len(ref_allele)
+
+                    key = (chrom, pos, end_pos)
+                    if key in existing_del_keys:
+                        continue
+                    # ZERODEPTH blocks are skipped when they overlap a called variant;
+                    # LOWDEPTH spans instead cover (span) them so the full low-depth
+                    # region is N-masked when the FASTA is rebuilt from the VCF.
+                    if (
+                        info_flag == "ZERODEPTH"
+                        and AddDeletionsToVCF._overlaps_any_interval(
+                            chrom, pos, end_pos, occupied_intervals
                         )
-                else:
-                    # BED is 0-based half-open [start, end).
-                    # Symbolic DEL uses left-anchor POS with deleted region (POS, END].
-                    pos = start
-                    end_pos = end
-                    svlen = -(end_pos - pos)
-                    ref_allele = "N"
-                    alt_allele = "<DEL>"
+                    ):
+                        logger.debug(
+                            f"Skipping synthetic zero-depth DEL at {chrom}:{pos}-{end_pos} because it overlaps an existing VCF variant"
+                        )
+                        continue
+                    existing_del_keys.add(key)
+                    occupied_intervals.setdefault(chrom, []).append((pos, end_pos))
+                    block_seq += 1
 
-                key = (chrom, pos, end_pos)
-                if key in existing_del_keys:
-                    continue
-                if AddDeletionsToVCF._overlaps_any_interval(chrom, pos, end_pos, occupied_intervals):
-                    logger.debug(
-                        f"Skipping synthetic zero-depth DEL at {chrom}:{pos}-{end_pos} because it overlaps an existing VCF variant"
-                    )
-                    continue
-                existing_del_keys.add(key)
-                occupied_intervals.setdefault(chrom, []).append((pos, end_pos))
+                    if info_flag == "ZERODEPTH":
+                        del_index += 1
+                        variant_id = f"DEL_{del_index}"
+                        info = (
+                            "TYPE=INDEL;"
+                            f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
+                        )
+                        filter_label = "PASS;ZERODEPTH"
+                    else:
+                        ld_index += 1
+                        variant_id = f"LOWDEPTH_{ld_index}"
+                        info = f"LOWDEPTH;END={end_pos}"
+                        filter_label = "LOWDEPTHSPAN"
 
-                info = (
-                    "TYPE=INDEL;"
-                    f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
-                )
-                base_cols = [chrom, str(pos), f"DEL_{del_index}", ref_allele, alt_allele, ".", "PASS;ZERODEPTH", info]
+                    base_cols = [
+                        chrom,
+                        str(pos),
+                        variant_id,
+                        ref_allele,
+                        alt_allele,
+                        ".",
+                        filter_label,
+                        info,
+                    ]
 
-                if sample_count > 0:
-                    base_cols.extend(["GT", *(["1/1"] * sample_count)])
+                    if sample_count > 0:
+                        base_cols.extend(["GT", *(["1/1"] * sample_count)])
 
-                line = "\t".join(base_cols)
-                variant_rows.append((chrom, pos, added_index, line))
-                added_index += 1
-                del_index += 1
+                    line = "\t".join(base_cols)
+                    # Negative sort index keeps depth spans ahead of called variants at the
+                    # same POS, so bcftools consensus (first-seen-wins) applies the span.
+                    variant_rows.append((chrom, pos, -block_seq, line))
 
         unknown_rank = len(contig_rank)
 

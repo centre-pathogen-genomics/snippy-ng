@@ -17,7 +17,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
 @click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
 @click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
 @click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--depth-mask", default=0, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold")
+@click.option("--min-depth", default=None, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold. If not set, the threshold is derived from the BAM depth (median - 2*MAD)")
 @click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
 @click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
 @click.option("--minimap-preset", default="lr:hq", type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
@@ -39,7 +39,7 @@ def long(
     min_read_len: int,
     min_read_qual: float,
     mask: Optional[Path],
-    depth_mask: int,
+    min_depth: Optional[int],
     aligner: str,
     aligner_opts: str,
     minimap_preset: str,
@@ -127,7 +127,7 @@ def long(
         min_mapping_quality=caller_map_qual,
         max_clip_fraction=max_clip_fraction,
         mask=mask,
-        depth_mask=depth_mask,
+        min_depth=min_depth,
         report=report,
     ).build()
     

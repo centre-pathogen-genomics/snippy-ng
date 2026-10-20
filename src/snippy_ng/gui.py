@@ -190,7 +190,8 @@ def run_snippy_multi_gui(
     max_depth: int,
     exclude_name_regex: str,
     core: float,
-    inclusion_threshold: float,
+    remove_outliers: bool,
+    outlier_threshold: float,
     stop_on_failure: bool,
     skip_check: bool,
     force: bool,
@@ -232,7 +233,8 @@ def run_snippy_multi_gui(
             reference=Path(reference),
             cpus_per_sample=max(1, int(cpus_per_sample)),
             core=float(core),
-            inclusion_threshold=float(inclusion_threshold),
+            remove_outliers=bool(remove_outliers),
+            outlier_threshold=float(outlier_threshold),
             stop_on_failure=bool(stop_on_failure),
             outdir=outdir_path,
             prefix=prefix,
@@ -316,7 +318,8 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
             max_depth = gr.Number(label="Maximum directory depth", value=4, precision=0, minimum=0)
             exclude_name_regex = gr.Textbox(label="Exclude filename regex", value=r"^(Undetermined|NTC|PTC)")
             core = gr.Slider(label="Core alignment threshold", minimum=0, maximum=1, value=0.95, step=0.01)
-            inclusion_threshold = gr.Slider(label="Cluster inclusion threshold", minimum=0, maximum=1, value=0.20, step=0.01)
+            remove_outliers = gr.Checkbox(label="Remove low-alignment outlier samples", value=False)
+            outlier_threshold = gr.Slider(label="Alignment outlier threshold", minimum=0.01, maximum=1, value=0.20, step=0.01)
             stop_on_failure = gr.Checkbox(label="Stop on first sample failure", value=False)
             skip_check = gr.Checkbox(label="Skip dependency checks", value=False)
             force = gr.Checkbox(label="Force overwrite existing output directory", value=False)
@@ -373,7 +376,8 @@ def create_app(temp_output: bool = False, server_paths: bool = True, max_cpus: i
                 max_depth,
                 exclude_name_regex,
                 core,
-                inclusion_threshold,
+                remove_outliers,
+                outlier_threshold,
                 stop_on_failure,
                 skip_check,
                 force,

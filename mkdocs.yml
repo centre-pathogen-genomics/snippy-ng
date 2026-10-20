@@ -7,6 +7,8 @@ nav:
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
+  - Multi-sample analysis: multi.md
+  - Core alignment: core.md
   - Utilities:
       - utils/index.md
       - Reference preparation: utils/ref.md
@@ -20,6 +22,7 @@ nav:
           - Tree report: utils/report/tree.md
           - Sample report: utils/report/sample.md
   - GUI: gui.md
+  - One VCF file to rule them all: vcf-to-fasta.md
   - Development:
       - development/index.md
       - CLI: development/cli.md

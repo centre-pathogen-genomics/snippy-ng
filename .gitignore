@@ -32,3 +32,4 @@ snippy/
 .snakemake
 benchmarks/
 samples/
+PIPELINE.txt

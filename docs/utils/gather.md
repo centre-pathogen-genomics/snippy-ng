@@ -13,3 +13,4 @@ snippy-ng utils gather --json --ref reference.gbk *.fastq.gz > samples.json
 ```
 
 This generates a JSON or TSV file listing the samples for multi-sample analysis.
+See [Multi-sample analysis](../multi.md) for the config formats and options.

@@ -100,6 +100,9 @@ class PrepareReference(BaseStage):
         import gzip
         from Bio.SeqFeature import BeforePosition, AfterPosition
 
+        # GFF3 column 2 source: software name + version per the GFF3 spec
+        gff_source = f"snippy-ng:{__version__}"
+
         def to_start_1based(position) -> int:
             """Convert Biopython position object to 1-based inclusive integer start."""
             return int(position) + 1
@@ -314,7 +317,7 @@ class PrepareReference(BaseStage):
                         gene_data["strand"],
                     )
                     gff_out.write(
-                        f"{seq_record.id}\tsnipy-ng\tgene\t{gene_data['start']}\t{gene_data['end']}\t.\t{gene_data['strand']}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{gene_partial}\n"
+                        f"{seq_record.id}\t{gff_source}\tgene\t{gene_data['start']}\t{gene_data['end']}\t.\t{gene_data['strand']}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{gene_partial}\n"
                     )
                     nfeat += 1
 
@@ -324,7 +327,7 @@ class PrepareReference(BaseStage):
                     ].items():
                         # Write transcript line
                         gff_out.write(
-                            f"{seq_record.id}\tsnipy-ng\ttranscript\t{transcript_data['start']}\t{transcript_data['end']}\t.\t{transcript_data['strand']}\t.\tID=transcript:{transcript_id};Parent=gene:{gene_id};biotype={biotype}\n"
+                            f"{seq_record.id}\t{gff_source}\ttranscript\t{transcript_data['start']}\t{transcript_data['end']}\t.\t{transcript_data['strand']}\t.\tID=transcript:{transcript_id};Parent=gene:{gene_id};biotype={biotype}\n"
                         )
                         nfeat += 1
 
@@ -343,7 +346,7 @@ class PrepareReference(BaseStage):
                             feature_partial = partial_attrs(feature, start, end, strand)
 
                             gff_out.write(
-                                f"{seq_record.id}\tsnipy-ng\t{feature.type}\t{start}\t{end}\t.\t{strand}\t{phase}\tParent=transcript:{transcript_id}{feature_partial}\n"
+                                f"{seq_record.id}\t{gff_source}\t{feature.type}\t{start}\t{end}\t.\t{strand}\t{phase}\tParent=transcript:{transcript_id}{feature_partial}\n"
                             )
                             nfeat += 1
 
@@ -386,7 +389,7 @@ class PrepareReference(BaseStage):
                     standalone_partial = partial_attrs(feature, start, end, strand)
 
                     gff_out.write(
-                        f"{seq_record.id}\tsnipy-ng\tgene\t{start}\t{end}\t.\t{strand}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{standalone_partial}\n"
+                        f"{seq_record.id}\t{gff_source}\tgene\t{start}\t{end}\t.\t{strand}\t.\tID=gene:{gene_id};biotype={biotype}{gene_name}{standalone_partial}\n"
                     )
                     nfeat += 1
         
