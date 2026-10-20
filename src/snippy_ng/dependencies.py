@@ -52,8 +52,8 @@ class Dependency:
             requirements.append(f"!={excluded_version}")
         if not requirements:
             return self.name
-        return f'{self.name} {",".join(requirements)}'
-    
+        return f"{self.name} {','.join(requirements)}"
+
     def get_version_from_cli(self):
         command = self.command or self.name
         cmd = [command]
@@ -72,7 +72,7 @@ class Dependency:
             )
 
         return match.group(0)
-    
+
     def _base_validator(self, version_str) -> Version:
         try:
             parsed_version = parse(version_str)
@@ -105,24 +105,30 @@ class Dependency:
                 )
 
         return parsed_version
- 
+
+
 class PythonDependency(Dependency):
     def check(self) -> Tuple[Optional[Path], Version]:
-        from importlib.metadata import version, files 
+        from importlib.metadata import version, files
         from importlib.metadata import PackageNotFoundError
+
         try:
             version = version(self.name)
             pkg_files = files(self.name)
             location = None
             if not pkg_files:
-                raise InvalidDependencyError(f"Could not find files for Python package {self.name}.")
+                raise InvalidDependencyError(
+                    f"Could not find files for Python package {self.name}."
+                )
             for file_ref in pkg_files:
                 location_str = str(file_ref.locate())
-                
+
                 if "site-packages" in location_str:
-                    site_packages, package_suffix = location_str.split("site-packages", 1)
+                    site_packages, package_suffix = location_str.split(
+                        "site-packages", 1
+                    )
                     first_dir = Path(package_suffix).parts[1]
-                    
+
                     # Skip the .dist-info folder metadata
                     if not first_dir.endswith(".dist-info"):
                         location = Path(site_packages) / "site-packages" / first_dir
@@ -133,14 +139,15 @@ class PythonDependency(Dependency):
             )
         return location, self._base_validator(version)
 
+
 # Python Dependencies
 biopython = PythonDependency(
     "biopython",
-    citation="Peter J. A. Cock, Tiago Antao, Jeffrey T. Chang, Brad A. Chapman, Cymon J. Cox, Andrew Dalke, Iddo Friedberg, Thomas Hamelryck, Frank Kauff, Bartek Wilczynski, Michiel J. L. de Hoon, Biopython: freely available Python tools for computational molecular biology and bioinformatics, Bioinformatics, Volume 25, Issue 11, June 2009, Pages 1422-1423, https://doi.org/10.1093/bioinformatics/btp163"
+    citation="Peter J. A. Cock, Tiago Antao, Jeffrey T. Chang, Brad A. Chapman, Cymon J. Cox, Andrew Dalke, Iddo Friedberg, Thomas Hamelryck, Frank Kauff, Bartek Wilczynski, Michiel J. L. de Hoon, Biopython: freely available Python tools for computational molecular biology and bioinformatics, Bioinformatics, Volume 25, Issue 11, June 2009, Pages 1422-1423, https://doi.org/10.1093/bioinformatics/btp163",
 )
 numpy = PythonDependency(
     "numpy",
-    citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2."
+    citation="Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357-362 (2020). DOI: 10.1038/s41586-020-2649-2.",
 )
 scikit_learn = PythonDependency(
     "scikit-learn",
@@ -164,7 +171,8 @@ bwa = Dependency(
 minibwa = Dependency(
     "minibwa",
     citation="Li, H., & Homer, N. (2026). Fast genomic read alignment with minibwa. arXiv:2606.15357. https://doi.org/10.48550/arXiv.2606.15357",
-    version_arg=None,
+    version_pattern=r"(\d+\.\d+)(?:-r\d+)?",
+    version_arg="version",
 )
 minimap2 = Dependency(
     "minimap2",
@@ -225,7 +233,7 @@ seqkit = Dependency(
     "seqkit",
     citation="Wei Shen, Shuai Le, Yan Li, Fuquan Hu, SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA/Q File Manipulation, PLoS ONE 11(10): e0163962. https://doi.org/10.1371/journal.pone.0163962",
     min_version="2.0.0",
-    version_arg="version"
+    version_arg="version",
 )
 
 # Read downsampling
@@ -233,7 +241,7 @@ rasusa = Dependency(
     "rasusa",
     citation="Hall, M. B., (2022). Rasusa: Randomly subsample sequencing reads to a specified coverage. Journal of Open Source Software, 7(69), 3941, https://doi.org/10.21105/joss.03941",
     min_version="0.7.0",
-    version_arg="--version"
+    version_arg="--version",
 )
 
 # Masking and BED operations
@@ -246,8 +254,8 @@ bedtools = Dependency(
 
 # Core alignment
 core_snp_filter = Dependency(
-    'core-snp-filter',
-    command='coresnpfilter',
+    "core-snp-filter",
+    command="coresnpfilter",
     citation="Taouk ML, Featherstone LA, Taiaroa G, Seemann T, Ingle DJ, Stinear TP, Wick RR. Exploring SNP filtering strategies: the influence of strict vs soft core. Microbial Genomics. 2025. doi:10.1099/mgen.0.001346.",
     min_version="0.2.0",
     version_pattern=r"v(\d+\.\d+\.\d+)",
@@ -273,14 +281,18 @@ clonalframeml = Dependency(
     version_pattern=r"(\d+\.\d+)",
 )
 
-# Citations 
+
+# Citations
 @dataclass
 class Citation(Dependency):
     citation_only: bool = True
 
     def check(self):
-        raise NotImplementedError(f"{self.name} is a citation-only dependency and cannot be checked for installation or version.")
-    
+        raise NotImplementedError(
+            f"{self.name} is a citation-only dependency and cannot be checked for installation or version."
+        )
+
+
 phylocanvas = Citation(
     "phylocanvas",
     citation="Abudahab, K., Underwood, A., Taylor, B., Yeats, C., & Aanensen, D. M. (2021, July 2). Phylocanvas.gl: A WebGL-powered JavaScript library for large tree visualisation. https://doi.org/10.31219/osf.io/nfv6m",
