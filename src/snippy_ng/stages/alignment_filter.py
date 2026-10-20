@@ -25,15 +25,22 @@ class AlignmentClusterTechnicalCheckOutput(BaseOutput):
 
 
 class FilterAlignmentByAlignedPercentage(BaseStage):
-    """Remove clear low-alignment outliers using a mixture model or small-cohort MAD rule."""
+    """Detect low-alignment outlier samples with a mixture model or small-cohort MAD rule.
+
+    Samples are only removed when ``inclusion_threshold`` is greater than 0; the
+    default of 0 keeps every sample and warns about the clusters it detected.
+    """
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
     alignment_stats: Path = Field(..., description="TSV file of per-sequence aligned percentages")
     inclusion_threshold: float = Field(
-        0.20,
+        0.0,
         ge=0.0,
         le=1.0,
-        description="Posterior probability threshold for membership in the retained alignment clusters",
+        description=(
+            "Posterior probability threshold for membership in the retained alignment clusters. "
+            "0 (default) disables removal: clusters are still detected and reported, but every sample is kept"
+        ),
     )
     minimum_cluster_separation: float = Field(
         10.0,
@@ -297,7 +304,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         alignment_stats: Path,
         filtered_aln: Path,
         filter_stats: Path | None = None,
-        inclusion_threshold: float = 0.20,
+        inclusion_threshold: float = 0.0,
         minimum_cluster_separation: float = 10.0,
         minimum_mixture_samples: int = 10,
         minimum_samples_per_component: int = 5,
@@ -381,19 +388,24 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             model_stats["mad_cutoff"] = f"{mad_cutoff:.4f}"
             keep_ids = {reference_id}
             removed_ids: list[str] = []
-            for record, aligned, removed in zip(sample_records, sample_values, removed_by_mad):
+            outlier_ids: list[str] = []
+            for record, aligned, is_outlier in zip(sample_records, sample_values, removed_by_mad):
+                # An inclusion threshold of 0 disables removal entirely
+                removed = bool(is_outlier) and inclusion_threshold > 0
                 row = cls._empty_stats_row(
                     record.id,
                     aligned,
                     "removed_by_mad" if removed else "retained_by_mad",
                     model_stats,
                 )
-                row["removed"] = str(bool(removed)).lower()
+                row["removed"] = str(removed).lower()
                 stats_rows.append(row)
                 if removed:
                     removed_ids.append(record.id)
                 else:
                     keep_ids.add(record.id)
+                if is_outlier:
+                    outlier_ids.append(record.id)
 
             kept_records = [record for record in records if record.id in keep_ids]
             if removed_ids:
@@ -402,6 +414,14 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     f"{len(removed_ids)} sample(s) from alignment {aln} "
                     "using the small-cohort lower-tail MAD rule: "
                     + ", ".join(removed_ids)
+                )
+            elif outlier_ids:
+                logger.warning(
+                    f"Detected {len(outlier_ids)} low-alignment outlier sample(s) in alignment {aln} "
+                    f"but removed none because the inclusion threshold is {inclusion_threshold:.2f}: "
+                    + ", ".join(outlier_ids)
+                    + ". Raise --inclusion-threshold to remove them, "
+                    f"or inspect {filter_stats}"
                 )
         elif max(sample_values) - min(sample_values) <= minimum_cluster_separation:
             kept_records = records
@@ -453,8 +473,10 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     )
                 else:
                     model_retained_components = retained_components
+                    excluded_components = {int(component) for component in component_order[: split_idx + 1]}
                     keep_ids = {reference_id}
                     removed_ids: list[str] = []
+                    clustered_ids: list[str] = []
 
                     for record, aligned, probs in zip(sample_records, sample_values, responsibilities):
                         probability_retained = float(probs[retained_components].sum())
@@ -468,13 +490,16 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                         )
                         for component_idx, probability in enumerate(probs):
                             row[f"probability_component_{component_idx}"] = f"{float(probability):.4f}"
-                        row["assigned_component"] = str(int(np.argmax(probs)))
+                        assigned_component = int(np.argmax(probs))
+                        row["assigned_component"] = str(assigned_component)
                         row["probability_retained"] = f"{probability_retained:.4f}"
                         row["probability_main"] = row["probability_retained"]
                         row["removed"] = str(removed).lower()
                         stats_rows.append(row)
                         if not removed:
                             keep_ids.add(record.id)
+                            if assigned_component in excluded_components:
+                                clustered_ids.append(record.id)
                         else:
                             removed_ids.append(record.id)
 
@@ -485,6 +510,16 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                             f"{len(removed_ids)} sample(s) from alignment {aln} "
                             f"using inclusion threshold {inclusion_threshold:.2f}: "
                             + ", ".join(removed_ids)
+                        )
+                    elif clustered_ids:
+                        logger.warning(
+                            f"Alignment {aln} splits into {selected_components} clusters "
+                            f"(largest gap {largest_gap:.1f} percentage points) but no samples were removed "
+                            f"with inclusion threshold {inclusion_threshold:.2f}. "
+                            "Samples in the lower-alignment cluster(s): "
+                            + ", ".join(clustered_ids)
+                            + ". Raise --inclusion-threshold to remove them, "
+                            f"or inspect {filter_stats}"
                         )
 
         if skip_reason is not None:

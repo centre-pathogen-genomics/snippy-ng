@@ -121,7 +121,7 @@ def run_multi_config(
     callback=reference_or_accession_callback,
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
-@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
+@click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.0, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. 0 keeps all samples and only warns about detected clusters")
 def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction

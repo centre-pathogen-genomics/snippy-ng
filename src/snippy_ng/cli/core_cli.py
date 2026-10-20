@@ -48,8 +48,8 @@ from pathlib import Path
     "--inclusion-threshold",
     "-i",
     type=click.FloatRange(min=0, max=1.0),
-    default=0.20,
-    help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters",
+    default=0.0,
+    help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. 0 keeps all samples and only warns about detected clusters",
 )
 @click.option(
     "--snp-distance-format",

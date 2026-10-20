@@ -115,7 +115,7 @@ other.
 | `CONFIG` | – | CSV, TSV, or JSON config, `-` for stdin, or an HTTP(S) URL |
 | `--reference`, `--ref` | from JSON config | Reference genome, prepared reference directory, or assembly accession |
 | `--core` | `0.95` | Fraction of samples a site must be present in to be kept in the core alignment |
-| `-i`, `--inclusion-threshold` | `0.20` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters; low-alignment outlier samples are removed before the core alignment is built |
+| `-i`, `--inclusion-threshold` | `0.0` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters. `0` keeps every sample and only warns about detected clusters; a positive value (for example `0.20`) removes low-alignment outlier samples before the core alignment is built |
 | `--cpus-per-sample` | auto | CPUs allocated to each sample pipeline |
 | `--stop-on-failure` | disabled | Stop the run as soon as any sample fails, instead of continuing |
 
@@ -132,6 +132,24 @@ the number of workers is `--cpus / N`. Without `--cpus-per-sample`, the budget
 is split so that workers divide `--cpus` evenly, preferring fewer workers that
 each get a larger share (roughly one worker per four CPUs, capped at the number
 of samples).
+
+### Alignment clusters
+
+Before the core alignment is built, the per-sample aligned percentages are
+checked for low-alignment outliers. By default nothing is removed: when the
+samples look like they split into clusters, or when a sample looks like a
+low-alignment outlier, `snippy-ng` prints a warning naming the affected samples
+and records the decision for every sample in `core/core.alignment-filter.tsv`.
+
+Re-run with a positive `--inclusion-threshold` to remove those samples:
+
+```console
+snippy-ng multi samples.json -i 0.20
+```
+
+For cohorts of ten or more samples the threshold is applied to the posterior
+probability of belonging to the retained clusters. Smaller cohorts use a robust
+one-sided MAD rule instead, where any positive threshold enables removal.
 
 ## Outputs
 

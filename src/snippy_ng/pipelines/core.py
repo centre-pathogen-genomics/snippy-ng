@@ -21,10 +21,13 @@ class CorePipelineBuilder(PipelineBuilder):
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
     inclusion_threshold: float = Field(
-        default=0.20,
+        default=0.0,
         ge=0.0,
         le=1.0,
-        description="Posterior probability threshold for retaining membership in the retained alignment percentage clusters",
+        description=(
+            "Posterior probability threshold for retaining membership in the retained alignment percentage clusters. "
+            "0 (default) keeps every sample and only reports detected clusters"
+        ),
     )
     snp_distance_format: str = Field(
         default="tabular", description="Output format for pairwise snip distance matrix"

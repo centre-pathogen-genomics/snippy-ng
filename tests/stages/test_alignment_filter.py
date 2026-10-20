@@ -387,6 +387,7 @@ def test_filter_alignment_by_aligned_percentage_removes_zero_alignment_from_smal
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
+        inclusion_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -396,6 +397,71 @@ def test_filter_alignment_by_aligned_percentage_removes_zero_alignment_from_smal
     assert rows[3]["sequence"] == "sample_2"
     assert rows[3]["removed"] == "true"
     assert rows[3]["filter_reason"] == "removed_by_mad"
+
+
+def test_filter_alignment_by_aligned_percentage_keeps_all_samples_by_default(tmp_path, monkeypatch):
+    values = [80.59, 99.88, 0.0, 99.88, 89.87, 89.90]
+    aln, aligned_tsv, filtered_aln = _write_filter_files(tmp_path, values)
+    messages: list[str] = []
+
+    monkeypatch.setattr(logger, "warning", messages.append)
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference"] + [f"sample_{index}" for index in range(6)]
+    with _filter_stats_path(filtered_aln).open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert all(row["removed"] == "false" for row in rows)
+    assert len(messages) == 1
+    assert "removed none because the inclusion threshold is 0.00" in messages[0]
+    assert "sample_2" in messages[0]
+
+
+def test_filter_alignment_by_aligned_percentage_warns_when_clusters_are_kept(tmp_path, monkeypatch):
+    aln, aligned_tsv, filtered_aln = _write_filter_files(
+        tmp_path,
+        [99, 98, 97, 96, 95, 94, 93, 92, 20, 10],
+    )
+
+    def fake_select_gmm(cls, values, **kwargs):
+        return (
+            2,
+            np.array([0.8, 0.2]),
+            np.array([94.5, 15.0]),
+            np.array([2.0, 5.0]),
+            np.array([[1.0, 0.0]] * 8 + [[0.0, 1.0]] * 2),
+            {1: 80.0, 2: 60.0},
+        )
+
+    monkeypatch.setattr(
+        FilterAlignmentByAlignedPercentage,
+        "_select_gmm",
+        classmethod(fake_select_gmm),
+    )
+    messages: list[str] = []
+
+    monkeypatch.setattr(logger, "warning", messages.append)
+
+    FilterAlignmentByAlignedPercentage.filter_alignment(
+        aln=aln,
+        alignment_stats=aligned_tsv,
+        filtered_aln=filtered_aln,
+    )
+
+    kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
+    assert kept_ids == ["reference"] + [f"sample_{index}" for index in range(10)]
+    with _filter_stats_path(filtered_aln).open("r", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert all(row["removed"] == "false" for row in rows)
+    assert len(messages) == 1
+    assert "splits into 2 clusters" in messages[0]
+    assert "sample_8, sample_9" in messages[0]
+
 
 def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_path, monkeypatch):
     aln, aligned_tsv, filtered_aln = _write_filter_files(
