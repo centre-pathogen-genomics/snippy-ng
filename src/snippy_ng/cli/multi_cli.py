@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TextIO
 import click
 
-from snippy_ng.cli.utils import reference_or_accession_callback
+from snippy_ng.cli.utils import config_or_url_callback, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 
 
@@ -109,7 +109,9 @@ def run_multi_config(
 @click.argument(
     "config",
     required=True,
-    type=click.File(mode="r")
+    type=click.STRING,
+    callback=config_or_url_callback,
+    metavar="CONFIG",
 )
 @click.option(
     "--reference",
@@ -120,13 +122,18 @@ def run_multi_config(
 )
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
 @click.option("--inclusion-threshold", "-i",  type=click.FloatRange(min=0, max=1.0), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters")
-def multi(config: click.File, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, inclusion_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
-    Multi-sample SNP calling pipeline and core alignment construction 
+    Multi-sample SNP calling pipeline and core alignment construction
+
+    CONFIG is a CSV, TSV, or JSON file describing the samples. It may be a local
+    path, '-' for stdin, or an HTTP(S) URL to download the config from.
 
     Example usage:
 
         $ snippy-ng multi samples.csv --ref reference.fasta
+
+        $ snippy-ng multi https://example.com/samples.json --ref reference.fasta
 
         $ snippy-ng utils gather --ref reference.fasta --json | snippy-ng multi -
 

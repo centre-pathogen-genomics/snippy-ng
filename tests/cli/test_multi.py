@@ -506,6 +506,77 @@ def test_multi_cli_csv_without_reference(tmp_path):
     assert "Reference must be provided" in result.output
 
 
+def test_multi_cli_downloads_config_from_url(tmp_path):
+    """The CONFIG argument accepts an HTTP(S) URL and downloads it with urllib."""
+    import http.server
+    import socketserver
+    import threading
+
+    (tmp_path / "config.csv").write_text(
+        "sample,type,left,right\n" + "sample1,short,r1.fq,r2.fq\n"
+    )
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(tmp_path), **kwargs)
+
+        def log_message(self, *args):
+            pass
+
+    runner = CliRunner()
+    with socketserver.TCPServer(("127.0.0.1", 0), Handler) as httpd:
+        port = httpd.server_address[1]
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            result = runner.invoke(
+                snippy_ng,
+                [
+                    "multi",
+                    f"http://127.0.0.1:{port}/config.csv",
+                    "--outdir",
+                    str(tmp_path / "output"),
+                    "--skip-check",
+                ],
+            )
+            missing = runner.invoke(
+                snippy_ng,
+                [
+                    "multi",
+                    f"http://127.0.0.1:{port}/missing.csv",
+                    "--outdir",
+                    str(tmp_path / "output_missing"),
+                    "--skip-check",
+                ],
+            )
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    # The remote config was downloaded and parsed, so the CSV reference check fires
+    assert result.exit_code != 0
+    assert "Reference must be provided" in result.output
+    # Download failures are reported against the CONFIG argument
+    assert missing.exit_code == 2
+    assert "Could not download config" in missing.output
+
+
+def test_multi_cli_reports_missing_local_config(tmp_path):
+    """A missing local config path is reported against the CONFIG argument."""
+    result = CliRunner().invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(tmp_path / "nope.csv"),
+            "--outdir",
+            str(tmp_path / "output"),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+
+
 def test_run_one_sample_passes_disambiguated_sample_name_to_builder(monkeypatch, tmp_path):
     captured = {}
 
