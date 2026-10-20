@@ -194,7 +194,8 @@ For cohorts of ten or more samples the mixture model is used and
 its posterior probability of belonging to the retained (higher-alignment)
 clusters falls below the threshold. Smaller cohorts use a robust one-sided MAD
 rule instead, where the flag alone enables removal and the threshold value is
-not used.
+not used. See [Core alignment](core.md#alignment-outliers) for figures explaining
+the mixture model and the threshold.
 
 ## Outputs
 
