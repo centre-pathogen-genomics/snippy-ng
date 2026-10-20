@@ -20,13 +20,17 @@ class CorePipelineBuilder(PipelineBuilder):
     )
     reference: Path = Field(..., description="Reference genome file")
     core: float = Field(default=0.95, description="Core genome threshold (0-1)")
-    inclusion_threshold: float = Field(
-        default=0.0,
-        ge=0.0,
+    remove_outliers: bool = Field(
+        default=False,
+        description="Remove detected low-alignment outlier samples from the alignment before core filtering",
+    )
+    outlier_threshold: float = Field(
+        default=0.20,
+        gt=0.0,
         le=1.0,
         description=(
-            "Posterior probability threshold for retaining membership in the retained alignment percentage clusters. "
-            "0 (default) keeps every sample and only reports detected clusters"
+            "Posterior probability threshold for retaining membership in the retained alignment percentage clusters; "
+            "only used with remove_outliers and cohorts large enough for mixture modelling"
         ),
     )
     snp_distance_format: str = Field(
@@ -97,7 +101,8 @@ class CorePipelineBuilder(PipelineBuilder):
             aln=combine_stage.output.aln,
             alignment_stats=alignment_stats.output.aligned_tsv,
             prefix=self.prefix,
-            inclusion_threshold=self.inclusion_threshold,
+            remove_outliers=self.remove_outliers,
+            outlier_threshold=self.outlier_threshold,
         )
         stages.append(alignment_filter)
         outputs_to_keep.extend(alignment_filter.output.paths)

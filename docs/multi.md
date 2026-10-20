@@ -115,7 +115,8 @@ other.
 | `CONFIG` | – | CSV, TSV, or JSON config, `-` for stdin, or an HTTP(S) URL |
 | `--reference`, `--ref` | from JSON config | Reference genome, prepared reference directory, or assembly accession |
 | `--core` | `0.95` | Fraction of samples a site must be present in to be kept in the core alignment |
-| `-i`, `--inclusion-threshold` | `0.0` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters. `0` keeps every sample and only warns about detected clusters; a positive value (for example `0.20`) removes low-alignment outlier samples before the core alignment is built |
+| `--remove-alignment-outliers` | disabled | Remove detected low-alignment outlier samples from the alignment before core filtering |
+| `--alignment-outlier-threshold` | `0.20` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters; only used with `--remove-alignment-outliers` and cohorts large enough for mixture modelling |
 | `--cpus-per-sample` | auto | CPUs allocated to each sample pipeline |
 | `--stop-on-failure` | disabled | Stop the run as soon as any sample fails, instead of continuing |
 
@@ -136,20 +137,23 @@ of samples).
 ### Alignment clusters
 
 Before the core alignment is built, the per-sample aligned percentages are
-checked for low-alignment outliers. By default nothing is removed: when the
+checked for low-alignment outliers. Nothing is removed by default: when the
 samples look like they split into clusters, or when a sample looks like a
 low-alignment outlier, `snippy-ng` prints a warning naming the affected samples
 and records the decision for every sample in `core/core.alignment-filter.tsv`.
 
-Re-run with a positive `--inclusion-threshold` to remove those samples:
+Re-run with `--remove-alignment-outliers` to drop those samples:
 
 ```console
-snippy-ng multi samples.json -i 0.20
+snippy-ng multi samples.json --remove-alignment-outliers
 ```
 
-For cohorts of ten or more samples the threshold is applied to the posterior
-probability of belonging to the retained clusters. Smaller cohorts use a robust
-one-sided MAD rule instead, where any positive threshold enables removal.
+For cohorts of ten or more samples the mixture model is used and
+`--alignment-outlier-threshold` sets how strict it is: a sample is removed when
+its posterior probability of belonging to the retained (higher-alignment)
+clusters falls below the threshold. Smaller cohorts use a robust one-sided MAD
+rule instead, where the flag alone enables removal and the threshold value is
+not used.
 
 ## Outputs
 

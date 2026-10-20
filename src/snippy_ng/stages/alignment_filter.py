@@ -27,19 +27,24 @@ class AlignmentClusterTechnicalCheckOutput(BaseOutput):
 class FilterAlignmentByAlignedPercentage(BaseStage):
     """Detect low-alignment outlier samples with a mixture model or small-cohort MAD rule.
 
-    Samples are only removed when ``inclusion_threshold`` is greater than 0; the
-    default of 0 keeps every sample and warns about the clusters it detected.
+    Outliers are only removed when ``remove_outliers`` is set; by default the
+    stage keeps every sample and warns about the clusters it detected.
     """
 
     aln: Path = Field(..., description="Input multiple sequence alignment")
     alignment_stats: Path = Field(..., description="TSV file of per-sequence aligned percentages")
-    inclusion_threshold: float = Field(
-        0.0,
-        ge=0.0,
+    remove_outliers: bool = Field(
+        default=False,
+        description="Remove detected low-alignment outlier samples from the alignment before core filtering",
+    )
+    outlier_threshold: float = Field(
+        default=0.20,
+        gt=0.0,
         le=1.0,
         description=(
-            "Posterior probability threshold for membership in the retained alignment clusters. "
-            "0 (default) disables removal: clusters are still detected and reported, but every sample is kept"
+            "Posterior probability threshold for membership in the retained alignment clusters; "
+            "samples below it are removed when remove_outliers is set. Only used for cohorts large "
+            "enough for mixture modelling"
         ),
     )
     minimum_cluster_separation: float = Field(
@@ -79,7 +84,8 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                     self.alignment_stats,
                     self.output.filtered_aln,
                     self.output.filter_stats,
-                    self.inclusion_threshold,
+                    self.remove_outliers,
+                    self.outlier_threshold,
                     self.minimum_cluster_separation,
                     self.minimum_mixture_samples,
                     self.minimum_samples_per_component,
@@ -304,7 +310,8 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
         alignment_stats: Path,
         filtered_aln: Path,
         filter_stats: Path | None = None,
-        inclusion_threshold: float = 0.0,
+        remove_outliers: bool = False,
+        outlier_threshold: float = 0.20,
         minimum_cluster_separation: float = 10.0,
         minimum_mixture_samples: int = 10,
         minimum_samples_per_component: int = 5,
@@ -390,8 +397,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             removed_ids: list[str] = []
             outlier_ids: list[str] = []
             for record, aligned, is_outlier in zip(sample_records, sample_values, removed_by_mad):
-                # An inclusion threshold of 0 disables removal entirely
-                removed = bool(is_outlier) and inclusion_threshold > 0
+                removed = bool(is_outlier) and remove_outliers
                 row = cls._empty_stats_row(
                     record.id,
                     aligned,
@@ -418,10 +424,9 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
             elif outlier_ids:
                 logger.warning(
                     f"Detected {len(outlier_ids)} low-alignment outlier sample(s) in alignment {aln} "
-                    f"but removed none because the inclusion threshold is {inclusion_threshold:.2f}: "
+                    "but removed none; rerun with --remove-alignment-outliers to drop them: "
                     + ", ".join(outlier_ids)
-                    + ". Raise --inclusion-threshold to remove them, "
-                    f"or inspect {filter_stats}"
+                    + f". See {filter_stats} for the per-sample decisions"
                 )
         elif max(sample_values) - min(sample_values) <= minimum_cluster_separation:
             kept_records = records
@@ -480,7 +485,7 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
 
                     for record, aligned, probs in zip(sample_records, sample_values, responsibilities):
                         probability_retained = float(probs[retained_components].sum())
-                        removed = probability_retained < inclusion_threshold
+                        removed = remove_outliers and probability_retained < outlier_threshold
                         filter_reason = "removed_by_gmm" if removed else "retained_by_gmm"
                         row = cls._empty_stats_row(
                             record.id,
@@ -508,17 +513,17 @@ class FilterAlignmentByAlignedPercentage(BaseStage):
                         logger.warning(
                             "Filtered out "
                             f"{len(removed_ids)} sample(s) from alignment {aln} "
-                            f"using inclusion threshold {inclusion_threshold:.2f}: "
+                            f"using alignment outlier threshold {outlier_threshold:.2f}: "
                             + ", ".join(removed_ids)
                         )
                     elif clustered_ids:
                         logger.warning(
                             f"Alignment {aln} splits into {selected_components} clusters "
-                            f"(largest gap {largest_gap:.1f} percentage points) but no samples were removed "
-                            f"with inclusion threshold {inclusion_threshold:.2f}. "
-                            "Samples in the lower-alignment cluster(s): "
+                            f"(largest gap {largest_gap:.1f} percentage points); kept the lower-alignment "
+                            "cluster(s): "
                             + ", ".join(clustered_ids)
-                            + ". Raise --inclusion-threshold to remove them, "
+                            + ". Rerun with --remove-alignment-outliers "
+                            f"(threshold {outlier_threshold:.2f}) to drop them, "
                             f"or inspect {filter_stats}"
                         )
 

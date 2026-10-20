@@ -138,7 +138,8 @@ def test_filter_alignment_retains_components_above_largest_gap(tmp_path, monkeyp
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -233,7 +234,8 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_when_no_outlie
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.1,
+        remove_outliers=True,
+        outlier_threshold=0.1,
     )
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
     assert kept_ids == ["reference"] + [f"sample_{index}" for index in range(10)]
@@ -265,7 +267,8 @@ def test_filter_alignment_by_aligned_percentage_keeps_non_outliers_in_small_coho
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -298,7 +301,8 @@ def test_filter_alignment_by_aligned_percentage_rejects_missing_sample_stats(tmp
             aln=aln,
             alignment_stats=aligned_tsv,
             filtered_aln=filtered_aln,
-            inclusion_threshold=0.50,
+            remove_outliers=True,
+            outlier_threshold=0.50,
         )
 
 
@@ -330,7 +334,8 @@ def test_filter_alignment_by_aligned_percentage_uses_mad_for_small_dataset(tmp_p
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -372,7 +377,8 @@ def test_filter_alignment_by_aligned_percentage_handles_collapsed_mad(tmp_path):
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -387,7 +393,8 @@ def test_filter_alignment_by_aligned_percentage_removes_zero_alignment_from_smal
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     kept_ids = [record.id for record in SeqIO.parse(str(filtered_aln), "fasta")]
@@ -418,7 +425,7 @@ def test_filter_alignment_by_aligned_percentage_keeps_all_samples_by_default(tmp
         rows = list(csv.DictReader(handle, delimiter="\t"))
     assert all(row["removed"] == "false" for row in rows)
     assert len(messages) == 1
-    assert "removed none because the inclusion threshold is 0.00" in messages[0]
+    assert "removed none; rerun with --remove-alignment-outliers" in messages[0]
     assert "sample_2" in messages[0]
 
 
@@ -476,19 +483,21 @@ def test_filter_alignment_by_aligned_percentage_warns_when_samples_removed(tmp_p
         aln=aln,
         alignment_stats=aligned_tsv,
         filtered_aln=filtered_aln,
-        inclusion_threshold=0.50,
+        remove_outliers=True,
+        outlier_threshold=0.50,
     )
 
     assert messages == [
-        f"Filtered out 2 sample(s) from alignment {aln} using inclusion threshold 0.50: sample_8, sample_9"
+        f"Filtered out 2 sample(s) from alignment {aln} using alignment outlier threshold 0.50: sample_8, sample_9"
     ]
 
 
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("inclusion_threshold", -0.01),
-        ("inclusion_threshold", 1.01),
+        ("outlier_threshold", 0.0),
+        ("outlier_threshold", -0.01),
+        ("outlier_threshold", 1.01),
         ("minimum_cluster_separation", -0.01),
         ("minimum_cluster_separation", 100.01),
         ("mad_threshold", 0.0),

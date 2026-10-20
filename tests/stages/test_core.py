@@ -58,7 +58,8 @@ def test_core_pipeline_soft_core_uses_filtered_alignment(tmp_path):
     assert soft_core_stage.aln == filter_stage.output.filtered_aln
     assert filter_stage.output.filtered_aln in pipeline.outputs_to_keep
     assert filter_stage.output.filter_stats in pipeline.outputs_to_keep
-    assert filter_stage.inclusion_threshold == 0.0
+    assert filter_stage.remove_outliers is False
+    assert filter_stage.outlier_threshold == 0.20
     assert technical_check.filter_stats == filter_stage.output.filter_stats
     assert technical_check.qc_files == [tmp_path / "sample1" / "snippy.qc.tsv"]
     assert technical_check.output.summary_tsv in pipeline.outputs_to_keep

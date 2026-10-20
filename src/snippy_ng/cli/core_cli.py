@@ -45,11 +45,18 @@ from pathlib import Path
     help="Proportion of samples a site must be present in to be included in the core alignment",
 )
 @click.option(
-    "--inclusion-threshold",
-    "-i",
-    type=click.FloatRange(min=0, max=1.0),
-    default=0.0,
-    help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. 0 keeps all samples and only warns about detected clusters",
+    "--remove-alignment-outliers",
+    "remove_outliers",
+    is_flag=True,
+    default=False,
+    help="Remove detected low-alignment outlier samples from the alignment before core filtering",
+)
+@click.option(
+    "--alignment-outlier-threshold",
+    "outlier_threshold",
+    type=click.FloatRange(min=0.0, max=1.0, min_open=True),
+    default=0.20,
+    help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. Only used with --remove-alignment-outliers and cohorts large enough for mixture modelling",
 )
 @click.option(
     "--snp-distance-format",
@@ -67,7 +74,8 @@ def core(
     snippy_dirs: tuple[Path, ...],
     reference: Path,
     core: float,
-    inclusion_threshold: float,
+    remove_outliers: bool,
+    outlier_threshold: float,
     snp_distance_format: str,
     mask: Optional[Path],
     outdir: Path,
@@ -91,7 +99,8 @@ def core(
         snippy_dirs=snippy_dirs,
         reference=Path(reference),
         core=core,
-        inclusion_threshold=inclusion_threshold,
+        remove_outliers=remove_outliers,
+        outlier_threshold=outlier_threshold,
         snp_distance_format=snp_distance_format,
         mask=mask,
         prefix=prefix,

@@ -167,12 +167,14 @@ def yolo(directory: Iterable[Path], reference: Optional[Path] | str, outdir: Pat
         for sample in successful_samples
     ]
     soft_core_threshold = 0.95
-    inclusion_threshold = 0.20
+    remove_outliers = True
+    outlier_threshold = 0.20
     aln_pipeline = CorePipelineBuilder(
         snippy_dirs=snippy_dirs,
         reference=snippy_reference_dir,
         core=soft_core_threshold,
-        inclusion_threshold=inclusion_threshold,
+        remove_outliers=remove_outliers,
+        outlier_threshold=outlier_threshold,
     ).build()
     core_outdir = Path(outdir) / "core"
     context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
