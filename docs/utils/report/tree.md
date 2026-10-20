@@ -27,8 +27,8 @@ inspect in a browser.
 ## Quick start
 
 ```console
-snippy-ng utils report tree multi/tree/tree.treefile \
-  --metadata multi/snippy.vcf.summary.tsv
+snippy-ng utils report tree multi/tree/tree.snps.newick \
+  --metadata multi/snippy.qc.tsv
 ```
 
 This writes the HTML report to:
@@ -134,10 +134,10 @@ snippy-ng utils report tree tree.newick --ladderize
 Options can be combined:
 
 ```console
-snippy-ng utils report tree multi/tree/tree.treefile \
-  --metadata multi/snippy.vcf.summary.tsv \
+snippy-ng utils report tree multi/tree/tree.snps.newick \
+  --metadata multi/snippy.qc.tsv \
   --color-by-column lineage \
-  --logs multi/snippy-ng.log \
+  --logs multi/core/LOG.txt \
   --title "Snippy-NG outbreak report" \
   --mid-point-root \
   --ladderize \

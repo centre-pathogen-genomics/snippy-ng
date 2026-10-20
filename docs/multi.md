@@ -14,7 +14,7 @@ assembly, so a single run can mix input types.
 snippy-ng utils gather --json --ref reference.gbk tests/data/*.fastq.gz > samples.json
 snippy-ng multi samples.json --cpus 6 -o multi
 snippy-ng tree --fast multi/core/core.095.aln -o multi/tree
-snippy-ng utils report tree multi/tree/tree.treefile --metadata multi/snippy.qc.tsv -o multi/report
+snippy-ng utils report tree multi/tree/tree.snps.newick --metadata multi/snippy.qc.tsv -o multi/report
 ```
 
 `CONFIG` may be a local path, `-` for stdin, or an HTTP(S) URL:
@@ -29,6 +29,47 @@ The reference is required, either from the config (`JSON` only) or from
 NCBI (`GCF_`/`GCA_`) or AllTheBacteria (`SAMN`/`SAMEA`) assembly accession, which
 is downloaded. The reference is prepared once into `<outdir>/reference` and
 reused by every sample.
+
+## Worked example: phiX174
+
+A complete run over a 5.4 kb phage genome that takes about 30 seconds and needs
+no data of your own. The config
+([`docs/examples/phiX174-samples.json`](examples/phiX174-samples.json)) lists six
+assemblies and one Illumina read set of phiX174, and the reference is given as
+an NCBI accession on the command line, so everything is downloaded for you:
+
+```console
+snippy-ng multi docs/examples/phiX174-samples.json --ref GCF_000819615.1 -o multi-phix --cpus 4
+```
+
+The same config can be fetched over HTTP instead of read from disk:
+
+```console
+snippy-ng multi \
+    https://raw.githubusercontent.com/centre-pathogen-genomics/snippy-ng/main/docs/examples/phiX174-samples.json \
+    --ref GCF_000819615.1 -o multi-phix --cpus 4
+```
+
+The run downloads the reference (`GCF_000819615.1`, 5386 bp) plus six phiX174
+assemblies and one 1.8 MB Illumina run (`ERR098007`), calls variants for every
+sample, and builds the core alignment:
+
+| Output | Result for this example |
+| --- | --- |
+| `snippy.qc.tsv` | 7 samples: 17–30 SNPs per assembly, 7 SNPs for `ERR098007` (mean depth 48x) |
+| `core/core.095.aln` | 8 sequences (reference + 7 samples), 576 variable sites |
+| `snippy.failed.tsv` | header only, every sample succeeded |
+
+Continue with a tree and an interactive report:
+
+```console
+snippy-ng tree --fast multi-phix/core/core.095.aln -o multi-phix/tree
+snippy-ng utils report tree multi-phix/tree/tree.snps.newick --metadata multi-phix/snippy.qc.tsv -o multi-phix/report
+```
+
+This example needs network access to NCBI Datasets (reference and assemblies)
+and to SRA (the read set). Drop the `phiX174-reads-ERR098007` sample if you only
+want the assembly path, which uses the NCBI Datasets API alone.
 
 ## How it works
 
