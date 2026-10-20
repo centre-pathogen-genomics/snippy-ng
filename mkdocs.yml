@@ -7,6 +7,7 @@ nav:
   - Installation:
       - installation/index.md
       - Clair3: installation/clair3.md
+  - Multi-sample analysis: multi.md
   - Utilities:
       - utils/index.md
       - Reference preparation: utils/ref.md
