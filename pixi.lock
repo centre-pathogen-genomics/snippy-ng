@@ -40,6 +40,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/htslib-1.23.1-h633afcb_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/iqtree-3.1.3-h8471819_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/k8-1.2-he8db53b_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-64/minibwa-0.7-h118bc1c_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/minimap2-2.31-h118bc1c_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/mummer4-4.0.1-pl5321h9948957_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/pyfastx-2.3.0-py314h07999bb_1.conda
@@ -335,6 +336,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/htslib-1.21-h7068f72_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/iqtree-3.1.3-h2705416_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/k8-1.2-h1e84f2d_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/minibwa-0.7-he84ed4f_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/minimap2-2.31-he84ed4f_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/mummer4-4.0.1-pl5321h163da20_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/pyfastx-2.3.0-py314h3849975_1.conda
@@ -606,6 +608,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-64/htslib-1.23.1-h09fbe89_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/iqtree-3.1.3-h8792212_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/k8-1.2-h2ec61ea_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-64/minibwa-0.7-h5645c5d_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/minimap2-2.31-h17d07ba_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/mummer4-4.0.1-pl5321h8e8ab34_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/pyfastx-2.3.0-py314hbddbd25_1.conda
@@ -864,6 +867,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/htslib-1.21-hfcd771d_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/iqtree-3.1.3-h6cc7423_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/k8-1.2-hda5e58c_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/minibwa-0.7-h703c44b_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/minimap2-2.31-h6bd33b9_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/mummer4-4.0.1-pl5321h28ef24b_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/pyfastx-2.3.0-py314ha91378b_1.conda
@@ -1114,6 +1118,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/htslib-1.23.1-h633afcb_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/iqtree-3.1.3-h8471819_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/k8-1.2-he8db53b_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-64/minibwa-0.7-h118bc1c_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/minimap2-2.31-h118bc1c_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/mummer4-4.0.1-pl5321h9948957_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/pyfastx-2.3.1-py313hfeada96_0.conda
@@ -1424,6 +1429,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/htslib-1.21-h7068f72_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/iqtree-3.1.3-h2705416_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/k8-1.2-h1e84f2d_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/linux-aarch64/minibwa-0.7-he84ed4f_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/minimap2-2.31-he84ed4f_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/mummer4-4.0.1-pl5321h163da20_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-aarch64/pyfastx-2.3.1-py313h6b429ba_0.conda
@@ -1713,6 +1719,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-64/htslib-1.23.1-h09fbe89_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/iqtree-3.1.3-h8792212_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/k8-1.2-h2ec61ea_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-64/minibwa-0.7-h5645c5d_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/minimap2-2.31-h17d07ba_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-64/mummer4-4.0.1-pl5321h8e8ab34_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-64/pyfastx-2.3.1-py313hda89df1_0.conda
@@ -1986,6 +1993,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/htslib-1.21-hfcd771d_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/iqtree-3.1.3-h6cc7423_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/k8-1.2-hda5e58c_6.tar.bz2
+      - conda: https://conda.anaconda.org/bioconda/osx-arm64/minibwa-0.7-h703c44b_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/minimap2-2.31-h6bd33b9_0.conda
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/mummer4-4.0.1-pl5321h28ef24b_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/osx-arm64/pyfastx-2.3.1-py313hc2bdd96_0.conda
@@ -2431,6 +2439,21 @@ packages:
     - k8 >=1.2,<2.0a0
   size: 7535090
   timestamp: 1748942479223
+- conda: https://conda.anaconda.org/bioconda/linux-64/minibwa-0.7-h118bc1c_0.conda
+  sha256: d5e91ea2cf28facb475a8d0be2892a26254b3553e3a6bca30c44b54e2faba2d1
+  md5: 6f68acc26d3b705db428aee65c86ed47
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=14
+  - libzlib >=1.3.2,<2.0a0
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  run_exports:
+    weak:
+    - minibwa >=0.7,<0.8.0a0
+  size: 306261
+  timestamp: 1786059507162
 - conda: https://conda.anaconda.org/bioconda/linux-64/minimap2-2.31-h118bc1c_0.conda
   sha256: 344fe7b5328ff635dc2b8914b05e003053e136446e456b81e1b4b5fca1a9cedd
   md5: 9134876c84df5b48841bfe743cfd7b67
@@ -2808,6 +2831,20 @@ packages:
     - k8 >=1.2,<2.0a0
   size: 9023150
   timestamp: 1748941474816
+- conda: https://conda.anaconda.org/bioconda/linux-aarch64/minibwa-0.7-he84ed4f_0.conda
+  sha256: bf603a082befe464f798cf2a6ecb444f2c7274ce71591541e96a990b12f7b3ab
+  md5: 171a378ef1eb0d29b7ac3c88203797c1
+  depends:
+  - libgcc >=14
+  - libzlib >=1.3.2,<2.0a0
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  run_exports:
+    weak:
+    - minibwa >=0.7,<0.8.0a0
+  size: 303042
+  timestamp: 1786059050014
 - conda: https://conda.anaconda.org/bioconda/linux-aarch64/minimap2-2.31-he84ed4f_0.conda
   sha256: 932d0fd3eea44ca6b30921214fe1af1592bae249f778c3cbf5e0d6538601de14
   md5: 7b8e6478bce3323b7db9f5bd136d2df5
@@ -3240,6 +3277,21 @@ packages:
     - k8 >=1.2,<2.0a0
   size: 8484801
   timestamp: 1748948933576
+- conda: https://conda.anaconda.org/bioconda/osx-64/minibwa-0.7-h5645c5d_0.conda
+  sha256: bbff573d9c3df89aa7c6d6efedc1509b673886e40e11de322c6df581e34b42b2
+  md5: bd256e9ab95a740072f9e3a298da441f
+  depends:
+  - __osx >=10.13
+  - libzlib >=1.3.2,<2.0a0
+  - llvm-openmp >=19.1.7
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  run_exports:
+    weak:
+    - minibwa >=0.7,<0.8.0a0
+  size: 318150
+  timestamp: 1786060638570
 - conda: https://conda.anaconda.org/bioconda/osx-64/minimap2-2.31-h17d07ba_0.conda
   sha256: 5d83468c18cd86d93d8e6a53260cf80b3967f6612a78e666f4ad54fa4b8869f1
   md5: 8124b4f6a5975ee327de82ddd9045f00
@@ -3623,6 +3675,21 @@ packages:
     - k8 >=1.2,<2.0a0
   size: 8068855
   timestamp: 1748940155242
+- conda: https://conda.anaconda.org/bioconda/osx-arm64/minibwa-0.7-h703c44b_0.conda
+  sha256: 37802f886357d200193e6b0b9d90eba6164b5f866049ed02c7ba2e37181b8646
+  md5: 974f7ec538db5ef36a6142f1ad7190e7
+  depends:
+  - __osx >=11.0
+  - libzlib >=1.3.2,<2.0a0
+  - llvm-openmp >=19.1.7
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  purls: []
+  run_exports:
+    weak:
+    - minibwa >=0.7,<0.8.0a0
+  size: 276104
+  timestamp: 1786058921864
 - conda: https://conda.anaconda.org/bioconda/osx-arm64/minimap2-2.31-h6bd33b9_0.conda
   sha256: 3f7fad486fe25a8ab96b8a99296be7c7ad77d7385436137e8da0be05ab5dc757
   md5: a6de84013b24a869769e01a0bafab4a9
@@ -4395,7 +4462,7 @@ packages:
   license: Apache-2.0
   license_family: APACHE
   purls:
-  - pkg:pypi/hf-xet?source=compressed-mapping
+  - pkg:pypi/hf-xet?source=hash-mapping
   run_exports: {}
   size: 3536864
   timestamp: 1784665043990
@@ -6113,7 +6180,7 @@ packages:
   license: PSF-2.0
   license_family: PSF
   purls:
-  - pkg:pypi/matplotlib?source=compressed-mapping
+  - pkg:pypi/matplotlib?source=hash-mapping
   run_exports: {}
   size: 9005023
   timestamp: 1785211111407
@@ -6162,7 +6229,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/numpy?source=compressed-mapping
+  - pkg:pypi/numpy?source=hash-mapping
   run_exports:
     weak:
     - numpy >=1.25,<3
@@ -6185,7 +6252,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/numpy?source=compressed-mapping
+  - pkg:pypi/numpy?source=hash-mapping
   run_exports:
     weak:
     - numpy >=1.25,<3
@@ -6493,7 +6560,7 @@ packages:
   - openjpeg >=2.5.4,<3.0a0
   license: HPND
   purls:
-  - pkg:pypi/pillow?source=compressed-mapping
+  - pkg:pypi/pillow?source=hash-mapping
   run_exports: {}
   size: 1077037
   timestamp: 1782912080163
@@ -6814,7 +6881,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/ruff?source=compressed-mapping
+  - pkg:pypi/ruff?source=hash-mapping
   run_exports: {}
   size: 9384917
   timestamp: 1784938279462
@@ -6908,7 +6975,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/scipy?source=compressed-mapping
+  - pkg:pypi/scipy?source=hash-mapping
   run_exports: {}
   size: 17260022
   timestamp: 1781912924009
@@ -9667,7 +9734,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/pandas?source=compressed-mapping
+  - pkg:pypi/pandas?source=hash-mapping
   run_exports: {}
   size: 15184630
   timestamp: 1784821753723
@@ -10054,7 +10121,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/ruff?source=compressed-mapping
+  - pkg:pypi/ruff?source=hash-mapping
   run_exports: {}
   size: 9112931
   timestamp: 1784938289859
@@ -10740,7 +10807,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/anyio?source=compressed-mapping
+  - pkg:pypi/anyio?source=hash-mapping
   run_exports: {}
   size: 164465
   timestamp: 1783889660383
@@ -10772,7 +10839,7 @@ packages:
   - python >=3.10
   license: ISC
   purls:
-  - pkg:pypi/certifi?source=compressed-mapping
+  - pkg:pypi/certifi?source=hash-mapping
   run_exports: {}
   size: 137015
   timestamp: 1784717699092
@@ -10786,7 +10853,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/click?source=compressed-mapping
+  - pkg:pypi/click?source=hash-mapping
   run_exports: {}
   size: 107155
   timestamp: 1783085363526
@@ -10911,8 +10978,7 @@ packages:
   - python-multipart
   - uvicorn-standard
   license: MIT
-  purls:
-  - pkg:pypi/fastapi?source=compressed-mapping
+  purls: []
   run_exports: {}
   size: 4840
   timestamp: 1785159301977
@@ -10929,7 +10995,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/fastapi-cli?source=compressed-mapping
+  - pkg:pypi/fastapi-cli?source=hash-mapping
   run_exports: {}
   size: 20791
   timestamp: 1784211753962
@@ -10956,7 +11022,7 @@ packages:
   - uvicorn-standard >=0.12.0
   license: MIT
   purls:
-  - pkg:pypi/fastapi?source=compressed-mapping
+  - pkg:pypi/fastapi?source=hash-mapping
   run_exports: {}
   size: 104985
   timestamp: 1785159301977
@@ -10980,7 +11046,7 @@ packages:
   - python >=3.10
   license: Unlicense
   purls:
-  - pkg:pypi/filelock?source=compressed-mapping
+  - pkg:pypi/filelock?source=hash-mapping
   run_exports: {}
   size: 77187
   timestamp: 1784663191506
@@ -11053,7 +11119,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/fsspec?source=compressed-mapping
+  - pkg:pypi/fsspec?source=hash-mapping
   run_exports: {}
   size: 149709
   timestamp: 1781615868173
@@ -11157,7 +11223,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/h2?source=compressed-mapping
+  - pkg:pypi/h2?source=hash-mapping
   run_exports: {}
   size: 100184
   timestamp: 1784898236952
@@ -11184,7 +11250,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/hpack?source=compressed-mapping
+  - pkg:pypi/hpack?source=hash-mapping
   run_exports: {}
   size: 32884
   timestamp: 1782283986153
@@ -11239,7 +11305,7 @@ packages:
   - python
   license: Apache-2.0
   purls:
-  - pkg:pypi/huggingface-hub?source=compressed-mapping
+  - pkg:pypi/huggingface-hub?source=hash-mapping
   run_exports: {}
   size: 528384
   timestamp: 1785163393260
@@ -11264,7 +11330,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/idna?source=compressed-mapping
+  - pkg:pypi/idna?source=hash-mapping
   run_exports: {}
   size: 163869
   timestamp: 1781620148226
@@ -11364,7 +11430,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/narwhals?source=compressed-mapping
+  - pkg:pypi/narwhals?source=hash-mapping
   run_exports: {}
   size: 289946
   timestamp: 1783943716915
@@ -11413,7 +11479,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/pip?source=compressed-mapping
+  - pkg:pypi/pip?source=hash-mapping
   run_exports: {}
   size: 1202377
   timestamp: 1780262809860
@@ -11481,7 +11547,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/pydantic-settings?source=compressed-mapping
+  - pkg:pypi/pydantic-settings?source=hash-mapping
   run_exports: {}
   size: 52920
   timestamp: 1781884990751
@@ -11553,7 +11619,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/pytest?source=compressed-mapping
+  - pkg:pypi/pytest?source=hash-mapping
   run_exports: {}
   size: 306724
   timestamp: 1782127176429
@@ -11650,7 +11716,7 @@ packages:
   - python
   license: MIT
   purls:
-  - pkg:pypi/pytz?source=compressed-mapping
+  - pkg:pypi/pytz?source=hash-mapping
   run_exports: {}
   size: 201126
   timestamp: 1785077087428
@@ -11719,7 +11785,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/setuptools?source=compressed-mapping
+  - pkg:pypi/setuptools?source=hash-mapping
   run_exports: {}
   size: 642081
   timestamp: 1783619174976
@@ -11839,7 +11905,7 @@ packages:
   - ipywidgets >=6.0
   license: MPL-2.0 and MIT
   purls:
-  - pkg:pypi/tqdm?source=compressed-mapping
+  - pkg:pypi/tqdm?source=hash-mapping
   run_exports: {}
   size: 98184
   timestamp: 1785172528905
@@ -11893,7 +11959,7 @@ packages:
   license: PSF-2.0
   license_family: PSF
   purls:
-  - pkg:pypi/typing-extensions?source=compressed-mapping
+  - pkg:pypi/typing-extensions?source=hash-mapping
   run_exports: {}
   size: 52631
   timestamp: 1783002732887
@@ -11934,7 +12000,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/uvicorn?source=compressed-mapping
+  - pkg:pypi/uvicorn?source=hash-mapping
   run_exports: {}
   size: 57699
   timestamp: 1783518883165
@@ -14176,7 +14242,7 @@ packages:
   - openjpeg >=2.5.4,<3.0a0
   license: HPND
   purls:
-  - pkg:pypi/pillow?source=compressed-mapping
+  - pkg:pypi/pillow?source=hash-mapping
   run_exports: {}
   size: 1029929
   timestamp: 1782912253167
@@ -14448,7 +14514,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/ruff?source=compressed-mapping
+  - pkg:pypi/ruff?source=hash-mapping
   run_exports: {}
   size: 9338197
   timestamp: 1784938409044
@@ -14538,7 +14604,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/scipy?source=compressed-mapping
+  - pkg:pypi/scipy?source=hash-mapping
   run_exports: {}
   size: 15667374
   timestamp: 1781913667133
@@ -15465,7 +15531,7 @@ packages:
   license: Apache-2.0
   license_family: APACHE
   purls:
-  - pkg:pypi/hf-xet?source=compressed-mapping
+  - pkg:pypi/hf-xet?source=hash-mapping
   run_exports: {}
   size: 3346802
   timestamp: 1784665280334
@@ -16640,7 +16706,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/numpy?source=compressed-mapping
+  - pkg:pypi/numpy?source=hash-mapping
   run_exports:
     weak:
     - numpy >=1.25,<3
@@ -16859,7 +16925,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/pandas?source=compressed-mapping
+  - pkg:pypi/pandas?source=hash-mapping
   run_exports: {}
   size: 14402418
   timestamp: 1784821943837
@@ -17305,7 +17371,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/scipy?source=compressed-mapping
+  - pkg:pypi/scipy?source=hash-mapping
   run_exports: {}
   size: 14094513
   timestamp: 1781912946907
@@ -17328,7 +17394,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/scipy?source=compressed-mapping
+  - pkg:pypi/scipy?source=hash-mapping
   run_exports: {}
   size: 14122215
   timestamp: 1781912992503
