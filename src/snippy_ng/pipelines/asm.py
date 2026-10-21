@@ -74,7 +74,7 @@ class AsmPipelineBuilder(PipelineBuilder):
     )
     report: bool = Field(default=True, description="Create a per-sample HTML report")
     report_scope: str = Field(
-        default="all", description="Variant scope for the sample report: pass or all"
+        default="pass", description="Variant scope for the sample report: pass or all"
     )
 
     def build(self) -> SnippyPipeline:
