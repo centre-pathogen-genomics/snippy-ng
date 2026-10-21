@@ -234,8 +234,15 @@ def test_sample_report_render_without_igv_assets(tmp_path):
 
 
 def test_sample_report_commands_window_and_index_cram(tmp_path):
+    vcf = tmp_path / "sample.vcf"
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t3\t.\tAT\tA\t99\tPASS\t.\n",
+        encoding="utf-8",
+    )
     stage = SampleReport(
-        vcf=tmp_path / "sample.vcf",
+        vcf=vcf,
         alignment=tmp_path / "sample.bam",
         reference=tmp_path / "ref.fa",
         reference_index=tmp_path / "ref.fa.fai",
@@ -307,8 +314,15 @@ def test_sample_report_commands_window_and_index_cram(tmp_path):
 
 
 def test_sample_report_excludes_supplementary_in_samtools_view(tmp_path):
+    vcf = tmp_path / "sample.vcf"
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t3\t.\tAT\tA\t99\tPASS\t.\n",
+        encoding="utf-8",
+    )
     stage = SampleReport(
-        vcf=tmp_path / "sample.vcf",
+        vcf=vcf,
         alignment=tmp_path / "sample.bam",
         reference=tmp_path / "ref.fa",
         reference_index=tmp_path / "ref.fa.fai",
@@ -352,3 +366,33 @@ def test_sample_report_commands_without_alignment_only_render_table(tmp_path):
     assert commands[1].args[4] is None
     assert commands[1].args[6] is None
     assert commands[1].args[7] is None
+
+
+def test_sample_report_commands_skip_windowing_without_in_scope_variants(tmp_path):
+    vcf = tmp_path / "sample.vcf"
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t3\t.\tAT\tA\t99\tLowQual\t.\n",
+        encoding="utf-8",
+    )
+    stage = SampleReport(
+        vcf=vcf,
+        alignment=tmp_path / "sample.bam",
+        reference=tmp_path / "ref.fa",
+        reference_index=tmp_path / "ref.fa.fai",
+        prefix="sample",
+    )
+
+    commands = stage.create_commands(Context(cpus=4))
+
+    assert [command.description for command in commands] == [
+        "Create sample-report variant table and alignment windows",
+        "Render sample HTML report",
+    ]
+    assert commands[1].args[3] is None
+    assert commands[1].args[6] is None
+
+    all_scope_stage = stage.model_copy(update={"variant_scope": "all"})
+
+    assert len(all_scope_stage.create_commands(Context(cpus=4))) == 6

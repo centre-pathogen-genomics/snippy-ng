@@ -481,7 +481,12 @@ class SampleReport(BaseStage):
                 description="Create sample-report variant table and alignment windows",
             ),
         ]
-        has_igv_assets = self.alignment is not None and self.reference is not None and reference_index is not None
+        has_igv_assets = (
+            self.alignment is not None
+            and self.reference is not None
+            and reference_index is not None
+            and self.has_in_scope_variants(self.vcf, self.variant_scope)
+        )
         if has_igv_assets:
             commands.extend(
                 [
@@ -739,6 +744,27 @@ class SampleReport(BaseStage):
             }
         return {}
 
+    @staticmethod
+    def _record_in_scope(filter_field: str, variant_scope: str) -> bool:
+        return variant_scope != "pass" or filter_field in (".", "PASS")
+
+    @classmethod
+    def has_in_scope_variants(cls, vcf_path: Path, variant_scope: str = "pass") -> bool:
+        """Return True when the VCF holds at least one record inside the report scope.
+
+        Window extraction requires at least one variant; `samtools view -L` aborts on an empty region list.
+        """
+        with cls._open_text(vcf_path) as handle:
+            for line in handle:
+                if not line or line.startswith("#"):
+                    continue
+                fields = line.rstrip("\n").split("\t")
+                if len(fields) < 8:
+                    continue
+                if cls._record_in_scope(fields[6], variant_scope):
+                    return True
+        return False
+
     @classmethod
     def parse_vcf_records(
         cls,
@@ -781,7 +807,7 @@ class SampleReport(BaseStage):
                     continue
 
                 chrom, pos_field, record_id, ref, alt_field, qual_field, filter_field, info_field = fields[:8]
-                if variant_scope == "pass" and filter_field not in (".", "PASS"):
+                if not cls._record_in_scope(filter_field, variant_scope):
                     continue
 
                 try:
