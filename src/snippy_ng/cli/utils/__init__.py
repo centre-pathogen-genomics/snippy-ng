@@ -6,6 +6,7 @@ import sys
 import urllib.error
 import urllib.request
 
+
 class AbsolutePath(click.Path):
     """Click path type that always returns absolute `Path` values without resolving symlinks."""
 
@@ -18,6 +19,7 @@ class AbsolutePath(click.Path):
         if p is None:
             return None
         return Path(p).absolute()
+
 
 def error(msg):
     click.echo(f"Error: {msg}", err=True)
@@ -38,6 +40,7 @@ def absolute_path(path):
     if not path:
         return path
     return Path(path).absolute()
+
 
 def absolute_path_callback(ctx, param, value):
     if ctx.resilient_parsing:
@@ -90,6 +93,7 @@ assembly_or_accession_callback = _path_or_accession_callback(
 
 SRA_ACCESSION_RE = re.compile(r"^(SRR|ERR|DRR)\d{6,}$")
 
+
 def is_sra_accession(reads_accession) -> bool:
     """Check if a string is a valid SRA accession (SRR, ERR, or DRR format)."""
     return SRA_ACCESSION_RE.fullmatch(str(reads_accession)) is not None
@@ -136,12 +140,16 @@ def read_url(url: str) -> NamedStringIO:
     """Download *url* and return the content as an in-memory text stream."""
     from snippy_ng.__about__ import __version__
 
-    request = urllib.request.Request(url, headers={"User-Agent": f"snippy-ng/{__version__}"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": f"snippy-ng/{__version__}"}
+    )
     try:
         with urllib.request.urlopen(request) as response:
             content = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
-        raise ValueError(f"Could not download config from '{url}' (HTTP {exc.code}).") from exc
+        raise ValueError(
+            f"Could not download config from '{url}' (HTTP {exc.code})."
+        ) from exc
     except urllib.error.URLError as exc:
         raise ValueError(f"Could not reach '{url}': {exc.reason}") from exc
     return NamedStringIO(content, url)
@@ -163,5 +171,7 @@ def config_or_url_callback(ctx, param, value):
 
     path = absolute_path(value)
     if not path.exists():
-        raise click.BadParameter(f"Config file '{path}' does not exist.", ctx=ctx, param=param)
+        raise click.BadParameter(
+            f"Config file '{path}' does not exist.", ctx=ctx, param=param
+        )
     return path.open("r")
