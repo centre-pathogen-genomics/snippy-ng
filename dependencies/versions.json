@@ -27,6 +27,7 @@
             "mummer4": "4.0.1",
             "scikit-learn": "1.9.1",
             "clonalframeml": "1.20",
-            "sracha": "0.3.11"
+            "sracha": "0.3.11",
+            "minibwa": "0.7"
       }
 }
