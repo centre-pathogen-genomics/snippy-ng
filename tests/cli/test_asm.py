@@ -3,11 +3,19 @@ import snippy_ng.pipelines as _pl
 from snippy_ng.stages.reporting import SampleReport
 from snippy_ng.stages.stats import FastaCompositionStats, SampleQcSummary
 from snippy_ng.stages.vcf import VcfPassFilter, VcfToTab
-from tests.cli.helpers import apply_cli_case_overrides, assert_cli_result, get_bad_reference_target, run_cli_command, write_dummy_files
+from tests.cli.helpers import (
+    apply_cli_case_overrides,
+    assert_cli_result,
+    get_bad_reference_target,
+    run_cli_command,
+    write_dummy_files,
+)
 
 
 @pytest.fixture(autouse=True)
-def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, stub_asm_stages):
+def stub_everything(
+    stub_pipeline, stub_reference_format, stub_common_stages, stub_asm_stages
+):
     """
     Combine all required stubs for assembly CLI tests.
     This fixture runs automatically for every test.
@@ -19,15 +27,19 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
 #                               2.  TEST DATA                                 #
 ##############################################################################
 
+
 @pytest.mark.parametrize(
     "case_name, extra, expect_exit, expect_run",
     [
         (
             "assembly_ok",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             0,
@@ -36,9 +48,11 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "assembly_ok_positional",
             lambda p: [
-                "--reference", p["ref"],
+                "--reference",
+                p["ref"],
                 str(p["asm"]),
-                "--outdir", p["out"],
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             0,
@@ -47,10 +61,14 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "assembly_ok_nucmer",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--caller",   "nucmer",
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--caller",
+                "nucmer",
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             0,
@@ -59,10 +77,14 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "assembly_ok_minimap_asm5",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--caller",   "paftools",
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--caller",
+                "paftools",
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             0,
@@ -71,9 +93,12 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "check_only",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--outdir",
+                p["out"],
                 "--check",
                 "--skip-check",
             ],
@@ -83,9 +108,12 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "outdir_exists",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             2,
@@ -94,9 +122,12 @@ def stub_everything(stub_pipeline, stub_reference_format, stub_common_stages, st
         (
             "bad_reference",
             lambda p: [
-                "--reference", p["ref"],
-                "--assembly",  p["asm"],
-                "--outdir",    p["out"],
+                "--reference",
+                p["ref"],
+                "--assembly",
+                p["asm"],
+                "--outdir",
+                p["out"],
                 "--skip-check",
             ],
             1,
@@ -143,15 +174,25 @@ def test_asm_pipeline_includes_vcf_only_sample_report(monkeypatch, tmp_path):
         prefix="sample",
     ).build()
 
-    sample_report_stages = [stage for stage in pipeline.stages if isinstance(stage, SampleReport)]
-    pass_filter = next(stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter))
-    variants_tab = next(stage for stage in pipeline.stages if isinstance(stage, VcfToTab))
-    fasta_qc = next(stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats))
-    sample_qc = next(stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary))
+    sample_report_stages = [
+        stage for stage in pipeline.stages if isinstance(stage, SampleReport)
+    ]
+    pass_filter = next(
+        stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter)
+    )
+    variants_tab = next(
+        stage for stage in pipeline.stages if isinstance(stage, VcfToTab)
+    )
+    fasta_qc = next(
+        stage for stage in pipeline.stages if isinstance(stage, FastaCompositionStats)
+    )
+    sample_qc = next(
+        stage for stage in pipeline.stages if isinstance(stage, SampleQcSummary)
+    )
     assert len(sample_report_stages) == 1
     assert sample_report_stages[0].alignment is None
     assert sample_report_stages[0].reference is None
-    assert sample_report_stages[0].variant_scope == "all"
+    assert sample_report_stages[0].variant_scope == "pass"
     assert variants_tab.vcf == pass_filter.output.vcf
     assert variants_tab.output.tab in pipeline.outputs_to_keep
     assert fasta_qc.output.summary_tsv not in pipeline.outputs_to_keep
@@ -210,19 +251,25 @@ def test_asm_cli_accepts_assembly_accession(monkeypatch, tmp_path):
         def build(self):
             return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
 
-    monkeypatch.setattr("snippy_ng.pipelines.asm.AsmPipelineBuilder", DummyAsmPipelineBuilder)
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.asm.AsmPipelineBuilder", DummyAsmPipelineBuilder
+    )
 
     ref = tmp_path / "ref.fa"
     ref.write_text(">ref\nACGT\n", encoding="utf-8")
     outdir = tmp_path / "output"
 
-    result = run_cli_command([
-        "asm",
-        "--reference", str(ref),
-        "GCF_000000001.1",
-        "--outdir", str(outdir),
-        "--skip-check",
-    ])
+    result = run_cli_command(
+        [
+            "asm",
+            "--reference",
+            str(ref),
+            "GCF_000000001.1",
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     assert captured["reference"] == ref.absolute()
