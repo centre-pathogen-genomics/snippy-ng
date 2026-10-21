@@ -121,7 +121,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     help="Mark variants below this QUAL threshold as LowQual in the output VCF",
 )
 @click.option(
-    "--report/--no-report", default=False, help="Create a per-sample HTML report"
+    "--report/--no-report", default=True, help="Create a per-sample HTML report"
 )
 def short(
     reference: Path | str,

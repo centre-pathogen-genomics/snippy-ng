@@ -1,33 +1,145 @@
 import click
 from typing import Any, Optional, Literal
 from pathlib import Path
-from snippy_ng.cli.utils import AbsolutePath, reference_or_accession_callback, reads_or_accession_callback, resolve_cli_input, is_sra_accession
+from snippy_ng.cli.utils import (
+    AbsolutePath,
+    reference_or_accession_callback,
+    reads_or_accession_callback,
+    resolve_cli_input,
+    is_sra_accession,
+)
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
 
-@click.command(cls=CommandWithGlobals, context_settings={'show_default': True})
+@click.command(cls=CommandWithGlobals, context_settings={"show_default": True})
 @add_snippy_global_options()
-@click.option("--reference", "--ref", required=True, type=click.STRING, callback=reference_or_accession_callback, help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession")
-@click.option("--reads", default=None, type=click.STRING, callback=reads_or_accession_callback, help="Long reads file (FASTQ) or SRA accession (SRR/ERR/DRR)")
-@click.argument("reads_arg", required=False, metavar="READS", type=click.STRING, callback=reads_or_accession_callback)
-@click.option("--bam", default=None, type=AbsolutePath(exists=True), help="Use this BAM file instead of aligning reads")
-@click.option("--vcf", default=None, type=AbsolutePath(exists=True), help="Use this VCF file instead of calling variants")
-@click.option("--clean-reads/--no-clean-reads", is_flag=True, default=True, help="Remove short and low-quality reads before alignment")
-@click.option("--downsample", type=click.FLOAT, default=None, help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)")
-@click.option("--min-read-len", type=click.INT, default=1000, help="Minimum read length to keep when cleaning reads")
-@click.option("--min-read-qual", type=click.FLOAT, default=10, help="Minimum read quality to keep when cleaning reads")
-@click.option("--mask", default=None, type=AbsolutePath(exists=True, readable=True), help="Mask file (BED format) to mask regions in the reference with Ns")
-@click.option("--min-depth", default=None, type=click.INT, help="Mask regions in the output fasta with Ns if the read depth is below this threshold. If not set, the threshold is derived from the BAM depth (median - 2*MAD)")
-@click.option("--aligner", default="minimap2", type=click.Choice(["minimap2"]), help="Aligner program to use")
-@click.option("--aligner-opts", default='', type=click.STRING, help="Extra options for the aligner")
-@click.option("--minimap-preset", default="lr:hq", type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]), help="Preset for minimap2 alignment")
-@click.option("--caller", default="clair3", type=click.Choice(["clair3", "freebayes"]), help="Variant caller to use")
-@click.option("--caller-opts", default="", type=click.STRING, help="Additional options to pass to the variant caller")
-@click.option("--model", default=None, type=AbsolutePath(), help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow")
-@click.option("--caller-map-qual", default=60, type=click.INT, help="Minimum mapping quality for caller to consider a read")
-@click.option("--max-clip-fraction", default=None, type=click.FloatRange(min=0, max=1), help="Optional maximum terminal clipping fraction for long-read alignments")
-@click.option("--min-qual", default=None, type=click.FLOAT, help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes")
-@click.option("--report/--no-report", default=False, help="Create a per-sample HTML report")
+@click.option(
+    "--reference",
+    "--ref",
+    required=True,
+    type=click.STRING,
+    callback=reference_or_accession_callback,
+    help="Reference genome (FASTA or GenBank), prepared reference directory, or NCBI GCF/GCA assembly accession",
+)
+@click.option(
+    "--reads",
+    default=None,
+    type=click.STRING,
+    callback=reads_or_accession_callback,
+    help="Long reads file (FASTQ) or SRA accession (SRR/ERR/DRR)",
+)
+@click.argument(
+    "reads_arg",
+    required=False,
+    metavar="READS",
+    type=click.STRING,
+    callback=reads_or_accession_callback,
+)
+@click.option(
+    "--bam",
+    default=None,
+    type=AbsolutePath(exists=True),
+    help="Use this BAM file instead of aligning reads",
+)
+@click.option(
+    "--vcf",
+    default=None,
+    type=AbsolutePath(exists=True),
+    help="Use this VCF file instead of calling variants",
+)
+@click.option(
+    "--clean-reads/--no-clean-reads",
+    is_flag=True,
+    default=True,
+    help="Remove short and low-quality reads before alignment",
+)
+@click.option(
+    "--downsample",
+    type=click.FLOAT,
+    default=None,
+    help="Downsample reads to a specified coverage (e.g., 30.0 for 30x coverage)",
+)
+@click.option(
+    "--min-read-len",
+    type=click.INT,
+    default=1000,
+    help="Minimum read length to keep when cleaning reads",
+)
+@click.option(
+    "--min-read-qual",
+    type=click.FLOAT,
+    default=10,
+    help="Minimum read quality to keep when cleaning reads",
+)
+@click.option(
+    "--mask",
+    default=None,
+    type=AbsolutePath(exists=True, readable=True),
+    help="Mask file (BED format) to mask regions in the reference with Ns",
+)
+@click.option(
+    "--min-depth",
+    default=None,
+    type=click.INT,
+    help="Mask regions in the output fasta with Ns if the read depth is below this threshold. If not set, the threshold is derived from the BAM depth (median - 2*MAD)",
+)
+@click.option(
+    "--aligner",
+    default="minimap2",
+    type=click.Choice(["minimap2"]),
+    help="Aligner program to use",
+)
+@click.option(
+    "--aligner-opts",
+    default="",
+    type=click.STRING,
+    help="Extra options for the aligner",
+)
+@click.option(
+    "--minimap-preset",
+    default="lr:hq",
+    type=click.Choice(["lr:hq", "map-ont", "map-hifi", "map-pb"]),
+    help="Preset for minimap2 alignment",
+)
+@click.option(
+    "--caller",
+    default="clair3",
+    type=click.Choice(["clair3", "freebayes"]),
+    help="Variant caller to use",
+)
+@click.option(
+    "--caller-opts",
+    default="",
+    type=click.STRING,
+    help="Additional options to pass to the variant caller",
+)
+@click.option(
+    "--model",
+    default=None,
+    type=AbsolutePath(),
+    help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow",
+)
+@click.option(
+    "--caller-map-qual",
+    default=60,
+    type=click.INT,
+    help="Minimum mapping quality for caller to consider a read",
+)
+@click.option(
+    "--max-clip-fraction",
+    default=None,
+    type=click.FloatRange(min=0, max=1),
+    help="Optional maximum terminal clipping fraction for long-read alignments",
+)
+@click.option(
+    "--min-qual",
+    default=None,
+    type=click.FLOAT,
+    help="Minimum QUAL threshold for low quality variant masking. Default is AUTO for Clair3 and 100 for FreeBayes",
+)
+@click.option(
+    "--report/--no-report", default=True, help="Create a per-sample HTML report"
+)
 def long(
     reference: Path | str,
     reads: Optional[Path],
@@ -73,33 +185,37 @@ def long(
     elif reads and isinstance(reads, str) and is_sra_accession(reads):
         reads_accession = reads
         reads = None
-    
+
     reads = resolve_cli_input(
         reads,
         reads_arg,
         option_name="--reads",
         arg_name="reads",
     )
-    
+
     if not reads and not reads_accession and not bam:
         raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
 
     if vcf and not bam:
-        raise click.UsageError("Please provide --bam when using --vcf; the alignment is required for depth masks and QC.")
+        raise click.UsageError(
+            "Please provide --bam when using --vcf; the alignment is required for depth masks and QC."
+        )
 
     if caller == "clair3" and not model and bam and not vcf:
-        raise click.UsageError("Please provide --model when using Clair3 with BAM/CRAM input only.")
-    
+        raise click.UsageError(
+            "Please provide --model when using Clair3 with BAM/CRAM input only."
+        )
+
     # Convert reference to accession if it's a string, otherwise keep as Path
     reference_accession = reference if isinstance(reference, str) else None
     reference_path = None if reference_accession else Path(reference)
-    
+
     if min_qual is None and caller == "freebayes":
         min_qual = 100.0
-    
+
     # Convert reads to Path if needed
     reads_path = reads if reads is None or isinstance(reads, Path) else Path(reads)
-    
+
     # Choose stages to include in the pipeline
     # this will raise ValidationError if config is invalid
     # we let this happen as we want to catch all config errors
@@ -130,7 +246,7 @@ def long(
         min_depth=min_depth,
         report=report,
     ).build()
-    
+
     # Run the pipeline
     run_ctx = Context(**context)
     return pipeline.run(run_ctx)
