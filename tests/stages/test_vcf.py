@@ -8,6 +8,7 @@ from snippy_ng.stages.vcf import CollapseDiploidGenotypes
 from snippy_ng.stages.vcf import VcfFilterLong
 from snippy_ng.stages.vcf import VcfFilterShort
 from snippy_ng.stages.vcf import VcfToTab
+from snippy_ng.stages.vcf import VcfConsensusFilter
 
 
 def _records(vcf: Path) -> list[list[str]]:
@@ -394,3 +395,20 @@ def test_vcf_filter_long_uses_dynamic_min_depth_file(tmp_path):
         "FMT/DP<150",
         "-",
     ]
+
+
+def test_vcf_consensus_filter_keeps_pass_and_zero_depth_only():
+    stage = VcfConsensusFilter(vcf=Path("snippy.all.vcf"), prefix="snippy")
+
+    commands = stage.create_commands(Context())
+
+    assert len(commands) == 1
+    assert commands[0].command == [
+        "bcftools",
+        "view",
+        "-i",
+        '(FILTER~"PASS" || FILTER="ZERODEPTH")',
+        "snippy.all.vcf",
+    ]
+    assert commands[0].output_file == Path("snippy.consensus.vcf")
+    assert stage.output.vcf == Path("snippy.consensus.vcf")

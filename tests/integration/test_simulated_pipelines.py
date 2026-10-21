@@ -192,6 +192,21 @@ def test_assembly_pipeline_handles_whole_contig_deletion(tmp_path):
         for record in deletion_records
     ), deletion_records
 
+    # Synthetic zero-depth blocks are not PASS, so they stay out of the PASS VCF
+    with open(outdir / "snippy.pass.vcf", "r", encoding="utf-8") as handle:
+        pass_records = [
+            line.rstrip("\n").split("\t")
+            for line in handle
+            if not line.startswith("#")
+        ]
+    assert not any(
+        "ZERODEPTH" in record[6] or record[4] in {"-", "<DEL>"}
+        for record in pass_records
+    ), pass_records
+
+    # ... but the consensus still removes the missing contig from the FASTA
+    assert set(_read_fasta_sequence(outdir / "snippy.fna", "contig_10")) == {"-"}
+
 
 def _read_fasta_sequence(path: Path, contig: str) -> str:
     current = None

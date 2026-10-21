@@ -17,6 +17,7 @@ from snippy_ng.stages.vcf import (
     AddDeletionsToVCF,
     CollapseDiploidGenotypes,
     VariantContextFilter,
+    VcfConsensusFilter,
     VcfFilterLong,
     VcfPassFilter,
     VcfToTab,
@@ -383,10 +384,15 @@ class LongPipelineBuilder(PipelineBuilder):
         variants_tab = VcfToTab(vcf=pass_filter.output.vcf, **globals)
         stages.append(variants_tab)
 
+        # The consensus applies PASS variants plus the synthetic ZERODEPTH blocks,
+        # which are kept out of snippy.pass.vcf.
+        consensus_filter = VcfConsensusFilter(vcf=variants_file, **globals)
+        stages.append(consensus_filter)
+
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf=pass_filter.output.vcf,
+            vcf=consensus_filter.output.vcf,
             reference=reference_file,
             **globals,
         )
