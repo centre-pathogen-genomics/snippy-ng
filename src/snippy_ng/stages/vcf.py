@@ -185,6 +185,43 @@ class VcfPassFilter(BaseStage):
         ]
 
 
+class VcfConsensusFilterOutput(BaseOutput):
+    vcf: Path = Field(..., description="VCF with the records the consensus step applies")
+
+
+class VcfConsensusFilter(BaseStage):
+    """Subset a VCF to the records used for consensus calling.
+
+    The consensus applies real PASS variants plus the synthetic ZERODEPTH
+    deletion blocks, which are not PASS so that they only appear in the
+    all-variant VCF. Low-depth spans and masked/filtered records are handled by
+    the later masking stages, so they are dropped here.
+    """
+
+    vcf: Path = Field(..., description="Input all-variant VCF")
+
+    _dependencies = [bcftools]
+
+    @property
+    def output(self) -> VcfConsensusFilterOutput:
+        return VcfConsensusFilterOutput(vcf=Path(f"{self.prefix}.consensus.vcf"))
+
+    def create_commands(self, ctx) -> List:
+        return [
+            self.shell_cmd(
+                [
+                    "bcftools",
+                    "view",
+                    "-i",
+                    '(FILTER~"PASS" || FILTER="ZERODEPTH")',
+                    str(self.vcf),
+                ],
+                description="Filter VCF to PASS variants and ZERODEPTH blocks for consensus",
+                output_file=self.output.vcf,
+            )
+        ]
+
+
 class VcfFilter(BaseStage):
     vcf: Path = Field(..., description="Input VCF file to filter")
     reference: Path = Field(..., description="Reference FASTA file")
@@ -595,8 +632,12 @@ class AddDeletionsToVCF(BaseStage):
 
     This stage detects contiguous depth==0 (ZERODEPTH) and low-depth
     (LOWDEPTH; 0 < depth < min depth threshold) blocks from the BAM.
-    ZERODEPTH blocks are encoded as explicit deletions (ALT="-"), LOWDEPTH
-    blocks as N-substitutions (ALT="N" x length), with valid ALT/INFO headers.
+    Both kinds are encoded as left-anchored symbolic deletion blocks
+    (POS=<anchor base>, ALT="<DEL>", INFO=END/SVLEN), which keeps the REF
+    allele a single base instead of the whole region. Regions that start at
+    position 1 of a contig have no base to anchor on, so they keep an explicit
+    REF sequence, and a region covering a whole contig is emitted as a
+    non-standard explicit deletion.
     """
 
     zero_depth_bed: Path = Field(..., description="BED file with zero-depth regions")
@@ -750,6 +791,7 @@ class AddDeletionsToVCF(BaseStage):
         has_info_type = False
         has_info_zd = False
         has_info_ld = False
+        has_filter_zerodepth = False
         has_filter_lowdepth_span = False
         sample_count = 0
         reference_sequences = AddDeletionsToVCF._load_reference_sequences(
@@ -787,6 +829,8 @@ class AddDeletionsToVCF(BaseStage):
                         has_info_zd = True
                     if raw_line.startswith("##INFO=<ID=LOWDEPTH"):
                         has_info_ld = True
+                    if raw_line.startswith("##FILTER=<ID=ZERODEPTH"):
+                        has_filter_zerodepth = True
                     if raw_line.startswith("##FILTER=<ID=LOWDEPTHSPAN"):
                         has_filter_lowdepth_span = True
                     continue
@@ -854,6 +898,10 @@ class AddDeletionsToVCF(BaseStage):
             meta_lines.append(
                 '##INFO=<ID=ZERODEPTH,Number=0,Type=Flag,Description="Constructed from a zero-depth alignment interval with no reads spanning the gap">\n'
             )
+        if not has_filter_zerodepth:
+            meta_lines.append(
+                '##FILTER=<ID=ZERODEPTH,Description="Synthetic zero-depth deletion block">\n'
+            )
         if low_depth_bed is not None and not has_info_ld:
             meta_lines.append(
                 '##INFO=<ID=LOWDEPTH,Number=0,Type=Flag,Description="Constructed from a low-depth alignment interval below the minimum depth threshold">\n'
@@ -863,7 +911,7 @@ class AddDeletionsToVCF(BaseStage):
                 '##FILTER=<ID=LOWDEPTHSPAN,Description="Low depth span">\n'
             )
 
-        block_seq = 0
+        added_index = len(variant_rows)
         del_index = 0
         ld_index = 0
         beds: List[tuple[Path, str]] = [(zero_depth_bed, "ZERODEPTH")]
@@ -886,30 +934,25 @@ class AddDeletionsToVCF(BaseStage):
                     if end <= start:
                         continue
 
+                    ref_seq = reference_sequences.get(chrom)
+                    if ref_seq is None:
+                        raise ValueError(
+                            f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}"
+                        )
+
                     if start == 0:
-                        # For contig-start blocks:
-                        # - ZERODEPTH: right-anchored explicit deletion alleles: POS=1,
-                        #   REF=<deleted_bases + right_anchor>, ALT=<right_anchor>.
-                        # - LOWDEPTH: N-substitution over the leading bases.
-                        ref_seq = reference_sequences.get(chrom)
-                        if ref_seq is None:
-                            raise ValueError(
-                                f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}"
-                            )
-                        if info_flag == "LOWDEPTH":
-                            pos = 1
-                            ref_allele = ref_seq[:end]
-                            alt_allele = "N" * len(ref_allele)
-                            end_pos = end
-                            svlen = -end
-                        elif end >= len(ref_seq):
-                            # A complete contig deletion has no valid left or right anchor in VCF.
-                            # Emit a non-standard explicit deletion over the whole contig so downstream
+                        # There is no base before position 1 to anchor a symbolic block on, so
+                        # contig-start regions keep an explicit REF sequence: POS=1,
+                        # REF=<region bases>, ALT="-".
+                        pos = 1
+                        end_pos = end
+                        span_start = 1
+                        alt_allele = "-"
+                        if end >= len(ref_seq):
+                            # A complete contig region has no anchor at either end. Emit a
+                            # non-standard explicit deletion over the whole contig so downstream
                             # consensus generation can still remove the sequence instead of aborting.
-                            pos = 1
                             ref_allele = ref_seq
-                            alt_allele = "-"
-                            end_pos = len(ref_seq)
                             svlen = -len(ref_seq)
                             logger.warning(
                                 f"Encoding whole-contig deletion for '{chrom}' without an anchor: "
@@ -917,58 +960,48 @@ class AddDeletionsToVCF(BaseStage):
                                 f"This is not strict VCF, but preserves deletion semantics for consensus generation."
                             )
                         else:
-                            pos = 1
-                            deleted_seq = ref_seq[:end]
-                            anchor_base = ref_seq[end]
-                            ref_allele = f"{deleted_seq}{anchor_base}"
-                            # TODO: This is a hack to get bcftools consensus to properly apply the deletion
-                            alt_allele = "-"
-                            end_pos = end
+                            ref_allele = ref_seq[:end]
                             svlen = -end
-                            log_ref_allele = ref_allele[:100]
-                            log_ref_suffix = "..." if len(ref_allele) > 100 else ""
                             logger.warning(
-                                f"Encoding contig-start deletion for '{chrom}' with right anchor: "
-                                f"POS={pos}, REF={log_ref_allele}{log_ref_suffix}, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                                f"Encoding contig-start deletion for '{chrom}' with an explicit REF sequence: "
+                                f"POS={pos}, REF=<len {len(ref_allele)}>, ALT={alt_allele}, END={end_pos}, SVLEN={svlen}. "
+                                f"A symbolic <DEL> block needs a base before the region to anchor on. "
                                 f"Please ensure your downstream tools can handle this encoding."
                             )
                     else:
                         # BED is 0-based half-open [start, end), covering 1-based positions start+1..end.
-                        # ZERODEPTH: explicit deletion of exactly the covered bases (POS=start+1, REF=<bases>, ALT="-").
-                        # LOWDEPTH: N-substitution replacing the covered bases with Ns.
-                        ref_seq = reference_sequences.get(chrom)
-                        if ref_seq is None:
-                            raise ValueError(
-                                f"Contig '{chrom}' not found in reference FASTA: {reference_fasta}"
-                            )
-                        pos = start + 1
+                        # Both kinds are left-anchored symbolic <DEL> blocks: POS is the base
+                        # before the region and bcftools consensus removes POS+1..END. Keeping the
+                        # block symbolic means REF holds a single base instead of the whole region,
+                        # which keeps the VCF small.
+                        pos = start
                         end_pos = end
-                        svlen = -(end_pos - pos + 1)
-                        ref_allele = ref_seq[start:end]
-                        if info_flag == "ZERODEPTH":
-                            alt_allele = "-"
-                        else:
-                            alt_allele = "N" * len(ref_allele)
+                        span_start = pos + 1
+                        ref_allele = ref_seq[pos - 1]
+                        alt_allele = "<DEL>"
+                        svlen = -(end_pos - pos)
 
-                    key = (chrom, pos, end_pos)
+                    key = (chrom, span_start, end_pos)
                     if key in existing_del_keys:
                         continue
                     # ZERODEPTH blocks are skipped when they overlap a called variant;
                     # LOWDEPTH spans instead cover (span) them so the full low-depth
                     # region is N-masked when the FASTA is rebuilt from the VCF.
+                    # Intervals use the bases the block removes, not the anchor base at POS.
                     if (
                         info_flag == "ZERODEPTH"
                         and AddDeletionsToVCF._overlaps_any_interval(
-                            chrom, pos, end_pos, occupied_intervals
+                            chrom, span_start, end_pos, occupied_intervals
                         )
                     ):
                         logger.debug(
-                            f"Skipping synthetic zero-depth DEL at {chrom}:{pos}-{end_pos} because it overlaps an existing VCF variant"
+                            f"Skipping synthetic zero-depth DEL at {chrom}:{span_start}-{end_pos} because it overlaps an existing VCF variant"
                         )
                         continue
                     existing_del_keys.add(key)
-                    occupied_intervals.setdefault(chrom, []).append((pos, end_pos))
-                    block_seq += 1
+                    occupied_intervals.setdefault(chrom, []).append(
+                        (span_start, end_pos)
+                    )
 
                     if info_flag == "ZERODEPTH":
                         del_index += 1
@@ -977,11 +1010,16 @@ class AddDeletionsToVCF(BaseStage):
                             "TYPE=INDEL;"
                             f"ZERODEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
                         )
-                        filter_label = "PASS;ZERODEPTH"
+                        # Not PASS: zero-depth blocks are synthetic and only belong to
+                        # the all-VCF, like the low-depth spans.
+                        filter_label = "ZERODEPTH"
                     else:
                         ld_index += 1
                         variant_id = f"LOWDEPTH_{ld_index}"
-                        info = f"LOWDEPTH;END={end_pos}"
+                        info = (
+                            "TYPE=LOWDEPTH;"
+                            f"LOWDEPTH;SVTYPE=DEL;END={end_pos};SVLEN={svlen}"
+                        )
                         filter_label = "LOWDEPTHSPAN"
 
                     base_cols = [
@@ -999,9 +1037,12 @@ class AddDeletionsToVCF(BaseStage):
                         base_cols.extend(["GT", *(["1/1"] * sample_count)])
 
                     line = "\t".join(base_cols)
-                    # Negative sort index keeps depth spans ahead of called variants at the
-                    # same POS, so bcftools consensus (first-seen-wins) applies the span.
-                    variant_rows.append((chrom, pos, -block_seq, line))
+                    # A symbolic block is anchored on the base before the region it removes,
+                    # and that base can carry a real variant. Sorting blocks after the records
+                    # already read from the VCF keeps such variants (first-seen-wins in
+                    # bcftools consensus), while variants inside a span still follow it.
+                    variant_rows.append((chrom, pos, added_index, line))
+                    added_index += 1
 
         unknown_rank = len(contig_rank)
 

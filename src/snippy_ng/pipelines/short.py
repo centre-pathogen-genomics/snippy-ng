@@ -22,6 +22,7 @@ from snippy_ng.stages.vcf import (
     AddDeletionsToVCF,
     CollapseDiploidGenotypes,
     VariantContextFilter,
+    VcfConsensusFilter,
     VcfFilterShort,
     VcfPassFilter,
     VcfToTab,
@@ -107,7 +108,7 @@ class ShortPipelineBuilder(PipelineBuilder):
     )
     report: bool = Field(default=True, description="Create per-sample HTML report")
     report_scope: str = Field(
-        default="all", description="Variant scope for the sample report: pass or all"
+        default="pass", description="Variant scope for the sample report: pass or all"
     )
     report_window_size: int = Field(
         default=100, description="Base pairs of context around each report variant"
@@ -366,10 +367,15 @@ class ShortPipelineBuilder(PipelineBuilder):
         variants_tab = VcfToTab(vcf=pass_filter.output.vcf, **globals)
         stages.append(variants_tab)
 
+        # The consensus applies PASS variants plus the synthetic ZERODEPTH blocks,
+        # which are kept out of snippy.pass.vcf.
+        consensus_filter = VcfConsensusFilter(vcf=variants_file, **globals)
+        stages.append(consensus_filter)
+
         # Pseudo-alignment
         pseudo = BcftoolsPseudoAlignment(
             ref_metadata=ref_metadata,
-            vcf=pass_filter.output.vcf,
+            vcf=consensus_filter.output.vcf,
             reference=reference_file,
             **globals,
         )

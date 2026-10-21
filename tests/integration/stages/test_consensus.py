@@ -245,3 +245,115 @@ def test_bcftools_consensus_masks_zero_depth_deletions_with_gaps(tmp_path: Path)
 
     consensus_sequence = _load_fasta(stage.output.fasta)["ref"]
     assert consensus_sequence[8:12] == "----"
+
+
+def _run_consensus(tmp_path: Path, reference_sequence: str, records: list[str]) -> str:
+    reference = tmp_path / "reference.fa"
+    vcf = tmp_path / "snippy.pass.vcf"
+    reference.write_text(f">ref\n{reference_sequence}\n", encoding="utf-8")
+    vcf.write_text(
+        "##fileformat=VCFv4.2\n"
+        f"##contig=<ID=ref,length={len(reference_sequence)}>\n"
+        '##ALT=<ID=DEL,Description="Deletion">\n'
+        '##INFO=<ID=ZERODEPTH,Number=0,Type=Flag,Description="Zero-depth region">\n'
+        '##INFO=<ID=LOWDEPTH,Number=0,Type=Flag,Description="Low-depth region">\n'
+        '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Structural variant type">\n'
+        '##INFO=<ID=END,Number=1,Type=Integer,Description="End position">\n'
+        '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Structural variant length">\n'
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"
+        + "".join(f"{record}\n" for record in records),
+        encoding="utf-8",
+    )
+    stage = BcftoolsPseudoAlignment(
+        prefix=str(tmp_path / "snippy"),
+        reference=reference,
+        vcf=vcf,
+        ref_metadata=ReferenceMetadata(
+            total_length=len(reference_sequence),
+            num_sequences=1,
+        ),
+    )
+    stage.run(Context(quiet=True))
+    return _load_fasta(stage.output.fasta)["ref"]
+
+
+def test_bcftools_consensus_keeps_variant_on_symbolic_del_anchor(tmp_path: Path):
+    """A symbolic <DEL> anchored on a variant must not swallow that variant."""
+    missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
+    if missing_commands:
+        pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
+
+    reference_sequence = "ACGT" * 12
+    consensus_sequence = _run_consensus(
+        tmp_path,
+        reference_sequence,
+        [
+            # Variant on the anchor base (POS=7), then the block it anchors, as the
+            # AddDeletionsToVCF stage sorts them.
+            "ref\t7\t.\tG\tT\t.\tPASS\tDP=11\tGT\t1/1",
+            "ref\t7\tDEL_1\tG\t<DEL>\t.\tPASS;ZERODEPTH\tZERODEPTH;SVTYPE=DEL;END=12;SVLEN=-5\tGT\t1/1",
+        ],
+    )
+
+    # _load_fasta uppercases, so the applied SNV shows as 'T' where the reference has 'G'
+    assert consensus_sequence == (
+        reference_sequence[:6] + "T" + "-" * 5 + reference_sequence[12:]
+    )
+
+
+def test_bcftools_consensus_applies_contig_start_explicit_deletion(tmp_path: Path):
+    missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
+    if missing_commands:
+        pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
+
+    reference_sequence = "ACGT" * 12
+    consensus_sequence = _run_consensus(
+        tmp_path,
+        reference_sequence,
+        [
+            # No base before position 1 to anchor on: explicit REF sequence instead.
+            f"ref\t1\tDEL_1\t{reference_sequence[:20]}\t-\t.\tPASS;ZERODEPTH\t"
+            "ZERODEPTH;SVTYPE=DEL;END=20;SVLEN=-20\tGT\t1/1",
+        ],
+    )
+
+    assert consensus_sequence[:20] == "-" * 20
+    assert consensus_sequence[20:] == reference_sequence[20:]
+
+
+def test_bcftools_consensus_applies_whole_contig_explicit_deletion(tmp_path: Path):
+    missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
+    if missing_commands:
+        pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
+
+    reference_sequence = "ACGT" * 12
+    consensus_sequence = _run_consensus(
+        tmp_path,
+        reference_sequence,
+        [
+            f"ref\t1\tDEL_1\t{reference_sequence}\t-\t.\tPASS;ZERODEPTH\t"
+            f"ZERODEPTH;SVTYPE=DEL;END={len(reference_sequence)};SVLEN=-{len(reference_sequence)}\tGT\t1/1",
+        ],
+    )
+
+    assert consensus_sequence == "-" * len(reference_sequence)
+
+
+def test_bcftools_consensus_applies_low_depth_block_as_deletion(tmp_path: Path):
+    """Low-depth blocks are deletions in the VCF; the N-masking happens afterwards."""
+    missing_commands = [command for command in ("bcftools", "bgzip") if shutil.which(command) is None]
+    if missing_commands:
+        pytest.skip(f"{', '.join(missing_commands)} required for this consensus regression test")
+
+    reference_sequence = "ACGT" * 12
+    consensus_sequence = _run_consensus(
+        tmp_path,
+        reference_sequence,
+        [
+            "ref\t8\tLOWDEPTH_1\tT\t<DEL>\t.\tLOWDEPTHSPAN\t"
+            "LOWDEPTH;SVTYPE=DEL;END=12;SVLEN=-4\tGT\t1/1",
+        ],
+    )
+
+    assert consensus_sequence[8:12] == "----"
+    assert consensus_sequence[:8] == reference_sequence[:8]
