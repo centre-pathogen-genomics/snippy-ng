@@ -40,16 +40,20 @@ Will be available on first official release.
 ## Quick Start
 
 ```bash
-snippy-ng short --ref tests/data/reference.gbk --R1 tests/data/mutant_R1.fastq.gz --R2 tests/data/mutant_R2.fastq.gz
+snippy-ng short --ref tests/data/reference.gbk tests/data/mutant_R1.fastq.gz tests/data/mutant_R2.fastq.gz
 ```
 
 ```bash
 snippy-ng asm --ref tests/data/reference.gbk tests/data/wildtype.contigs.fa
 ```
 
+Long read support is available via the `long` subcommand and uses [Clair3](https://cpg.org.au/snippy-ng/installation/clair3) by default. 
 ```bash
-export CLAIR3_MODELS=./clair3_models # try to find appropriate models in this directory
-snippy-ng long --ref tests/data/JKD6159.fasta tests/data/JKD6159.fastq.gz
+snippy-ng utils model download r1041_e82_400bps_hac_v500
+
+snippy-ng long \
+  --ref GCF_000840245.1 \
+  --reads https://raw.githubusercontent.com/nanoporetech/medaka/master/medaka/test/data/workflow/reads.fq.gz
 ```
 
 ```bash
