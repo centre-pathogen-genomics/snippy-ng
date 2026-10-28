@@ -156,6 +156,7 @@ other.
 | `CONFIG` | – | CSV, TSV, or JSON config, `-` for stdin, or an HTTP(S) URL |
 | `--reference`, `--ref` | from JSON config | Reference genome, prepared reference directory, or assembly accession |
 | `--core` | `0.95` | Fraction of samples a site must be present in to be kept in the core alignment |
+| `--mask` | none | BED file (reference coordinates) of regions to mask with `N` in every sequence |
 | `--remove-alignment-outliers` | disabled | Remove detected low-alignment outlier samples from the alignment before core filtering |
 | `--alignment-outlier-threshold` | `0.20` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters; only used with `--remove-alignment-outliers` and cohorts large enough for mixture modelling |
 | `--cpus-per-sample` | auto | CPUs allocated to each sample pipeline |

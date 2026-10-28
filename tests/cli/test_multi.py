@@ -722,7 +722,68 @@ def test_multi_cli_default_keeps_going_and_uses_only_successful_samples_for_core
 
     assert result.exit_code == 0, result.output
     assert captured_core["snippy_dirs"] == [str(outdir / "samples" / "sample1")]
+    assert captured_core["mask"] is None
     assert captured_multi["run_ctx"].log_path == (outdir / "LOG.txt").absolute()
+
+
+def test_multi_cli_passes_mask_to_core(monkeypatch, tmp_path):
+    ref_file = tmp_path / "ref.fa"
+    ref_file.write_text(">dummy\nATCG")
+
+    mask_file = tmp_path / "mask.bed"
+    mask_file.write_text("dummy\t0\t2\n")
+
+    r1 = tmp_path / "sample1_R1.fq"
+    r2 = tmp_path / "sample1_R2.fq"
+    r1.write_text("@read\nACGT\n+\nIIII\n")
+    r2.write_text("@read\nTGCA\n+\nIIII\n")
+
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "samples": {
+            "sample1": {"type": "short", "reads": [str(r1), str(r2)]},
+        }
+    }))
+
+    captured_core = {}
+
+    monkeypatch.setattr(
+        "snippy_ng.pipelines.multi.run_multi_pipeline",
+        lambda **kwargs: (["sample1"], []),
+    )
+    _stub_multi_reference_loader(monkeypatch, tmp_path)
+
+    class DummyCorePipeline:
+        def run(self, _ctx):
+            return 0
+
+    class DummyCorePipelineBuilder:
+        def __init__(self, **kwargs):
+            captured_core.update(kwargs)
+
+        def build(self):
+            return DummyCorePipeline()
+
+    monkeypatch.setattr("snippy_ng.pipelines.core.CorePipelineBuilder", DummyCorePipelineBuilder)
+
+    outdir = tmp_path / "output"
+    result = CliRunner().invoke(
+        snippy_ng,
+        [
+            "multi",
+            str(config_file),
+            "--reference",
+            str(ref_file),
+            "--mask",
+            str(mask_file),
+            "--outdir",
+            str(outdir),
+            "--skip-check",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured_core["mask"] == mask_file
 
 
 def test_multi_cli_partial_success_exits_nonzero_after_core(monkeypatch, tmp_path):

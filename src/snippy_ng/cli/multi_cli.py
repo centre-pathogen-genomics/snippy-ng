@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Optional, TextIO
 import click
 
-from snippy_ng.cli.utils import config_or_url_callback, reference_or_accession_callback
+from snippy_ng.cli.utils import AbsolutePath, config_or_url_callback, reference_or_accession_callback
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options, GlobalOption
 
 
@@ -18,6 +18,7 @@ def run_multi_config(
     outdir: Path,
     prefix: str,
     context: dict[str, Any],
+    mask: Optional[Path] = None,
 ):
     from snippy_ng.pipelines.common import (
         download_reference,
@@ -86,6 +87,7 @@ def run_multi_config(
         core=core,
         remove_outliers=remove_outliers,
         outlier_threshold=outlier_threshold,
+        mask=mask,
     ).build()
     core_outdir = Path(outdir) / 'core'
     context["log_path"] = derive_log_path(run_ctx.log_path, core_outdir)
@@ -125,7 +127,13 @@ def run_multi_config(
 @click.option("--core", type=click.FloatRange(min=0, max=1.0), default=0.95, help="Proportion of samples a site must be present in to be included in the core alignment")
 @click.option("--remove-alignment-outliers", "remove_outliers", is_flag=True, default=False, help="Remove detected low-alignment outlier samples from the alignment before core filtering")
 @click.option("--alignment-outlier-threshold", "outlier_threshold", type=click.FloatRange(min=0.0, max=1.0, min_open=True), default=0.20, help="Posterior probability threshold for retaining membership in the retained alignment percentage clusters. Only used with --remove-alignment-outliers and cohorts large enough for mixture modelling")
-def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, remove_outliers: bool, outlier_threshold: float, stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
+@click.option(
+    "--mask",
+    default=None,
+    type=AbsolutePath(exists=True, readable=True),
+    help="Mask file (BED format, reference coordinates) to mask regions with Ns in every sample of the alignment",
+)
+def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Optional[int], core: float, remove_outliers: bool, outlier_threshold: float, mask: Optional[Path], stop_on_failure: bool, outdir: Path, prefix: str, **context: Any):
     """
     Multi-sample SNP calling pipeline and core alignment construction
 
@@ -155,6 +163,7 @@ def multi(config: TextIO, reference: Optional[Path | str], cpus_per_sample: Opti
         core=core,
         remove_outliers=remove_outliers,
         outlier_threshold=outlier_threshold,
+        mask=mask,
         stop_on_failure=stop_on_failure,
         outdir=outdir,
         prefix=prefix,
