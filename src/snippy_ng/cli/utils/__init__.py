@@ -4,6 +4,7 @@ import io
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -99,16 +100,16 @@ def is_sra_accession(reads_accession) -> bool:
     return SRA_ACCESSION_RE.fullmatch(str(reads_accession)) is not None
 
 
-def reads_or_accession_callback(ctx, param, value):
-    """Callback for read files or SRA accessions."""
+def reads_or_url_or_accession_callback(ctx, param, value):
+    """Callback for read files, HTTP(S) URLs, or SRA accessions."""
     if ctx.resilient_parsing or value is None:
         return value
 
     # If it's a tuple (multiple files), convert each element individually
     if isinstance(value, tuple):
-        return tuple(reads_or_accession_callback(ctx, param, v) for v in value)
+        return tuple(reads_or_url_or_accession_callback(ctx, param, v) for v in value)
 
-    # Try as path first
+    # Try as a local path first
     path = absolute_path(value)
     if path.exists():
         return path
@@ -116,8 +117,19 @@ def reads_or_accession_callback(ctx, param, value):
     if is_sra_accession(value):
         return value
 
+    if is_url(value):
+        name = Path(urllib.parse.unquote(urllib.parse.urlparse(value).path)).name
+        if not name:
+            raise click.BadParameter(
+                f"Reads URL '{value}' has no filename; use a URL ending in a file name.",
+                ctx=ctx,
+                param=param,
+            )
+        return value
+
     raise click.BadParameter(
-        f"Reads file '{path}' does not exist. If you meant to provide an SRA accession, use SRR/ERR/DRR format (e.g. SRR1234567).",
+        f"Reads file '{path}' does not exist. If you meant to provide an SRA accession, "
+        "use SRR/ERR/DRR format (e.g. SRR1234567), or provide an HTTP(S) read URL.",
         ctx=ctx,
         param=param,
     )

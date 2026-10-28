@@ -157,6 +157,9 @@ def test_long_cli(monkeypatch, tmp_path, case_name, extra, expect_exit, expect_r
         "model": tmp_path / "clair3_model",
     }
     write_dummy_files(paths, ["ref", "reads", "bam"])
+    models_root = tmp_path / "models"
+    (models_root / "r1041_e82_400bps_sup_v520").mkdir(parents=True)
+    monkeypatch.setenv("CLAIR3_MODELS", str(models_root))
     apply_cli_case_overrides(
         monkeypatch,
         case_name,
@@ -198,3 +201,36 @@ def test_long_cli_accepts_read_accession(monkeypatch, tmp_path):
     assert captured["reference"] == ref.absolute()
     assert captured["reads_accession"] == "ERR1234567"
     assert captured["reads"] is None
+
+
+def test_long_cli_accepts_reads_url(monkeypatch, tmp_path):
+    """Test long-read CLI accepts HTTP(S) read URLs."""
+    captured = {}
+
+    class DummyLongPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            import snippy_ng.pipelines as _pl
+            return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
+
+    monkeypatch.setattr("snippy_ng.pipelines.long.LongPipelineBuilder", DummyLongPipelineBuilder)
+
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+    outdir = tmp_path / "output"
+    url = "https://example.com/reads.fastq.gz"
+
+    result = run_cli_command([
+        "long",
+        "--reference", str(ref),
+        "--reads", url,
+        "--outdir", str(outdir),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert captured["reads_url"] == url
+    assert captured["reads"] is None
+    assert captured["reads_accession"] is None

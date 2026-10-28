@@ -106,14 +106,41 @@ responsible for filling in missing pipeline dependencies.
 
 ## Clair3 Models
 
-Snippy-NG can use Longbow to predict a Clair3 model for read input, but the
-model files still need to exist somewhere accessible.
+Snippy-NG can choose a Clair3 model automatically, but the model files still
+need to exist somewhere accessible.
 
 Set a model root with either:
 
 ```console
 export CLAIR3_MODELS=/path/to/clair3_models
 export CLAIR3_MODEL_ROOT=/path/to/clair3_models
+```
+
+Individual PyTorch models can be downloaded with:
+
+```console
+snippy-ng utils model download r1041_e82_400bps_hac_v500
+```
+
+See [Clair3 model utilities](../utils/model.md) for destination and naming
+details.
+
+When `--model` is not given, Snippy-NG reads the first read header and selects
+the model matching the `basecall_model_version_id` (or Dorado `RG:Z`) tag from
+the model root. For local reads this happens before the pipeline starts. For SRA
+accessions it happens immediately after the download and before alignment or
+Longbow. If the header has no basecall model id, Snippy-NG falls back to
+Longbow; if the model root contains no models at all, or the id has no matching
+model, the run stops before alignment.
+
+Long reads can also be supplied as an HTTP(S) URL. The file is downloaded into
+`data/` before processing, and the header-based model selection runs after that
+download:
+
+```console
+snippy-ng long \
+  --ref reference.fasta \
+  --reads https://example.org/reads.fastq.gz
 ```
 
 Or pass a model directly:

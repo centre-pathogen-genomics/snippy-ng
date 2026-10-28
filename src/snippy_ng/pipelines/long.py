@@ -1,6 +1,7 @@
+import urllib.parse
 from pathlib import Path
-from typing import Optional
-from pydantic import Field
+from typing import List, Optional
+from pydantic import Field, field_validator
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.reporting import PrintVcfHistogram, SampleReport
@@ -28,6 +29,7 @@ from snippy_ng.stages.calling import (
     FreebayesCallerLong,
     Clair3Caller,
     LongbowClair3ModelSelector,
+    PostDownloadClair3ModelSelector,
 )
 from snippy_ng.stages.consequences import BcftoolsConsequencesCaller
 from snippy_ng.stages.consensus import BcftoolsPseudoAlignment
@@ -42,10 +44,13 @@ from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import (
     download_reference,
     download_reads,
+    download_url_reads,
     load_or_prepare_reference,
     get_download_stage_outputs,
 )
 from snippy_ng.utils.gather import strip_bio_suffixes
+from snippy_ng.utils.clair3_models import choose_model, ensure_models_available
+from snippy_ng.logging import logger
 
 
 class LongPipelineBuilder(PipelineBuilder):
@@ -57,9 +62,24 @@ class LongPipelineBuilder(PipelineBuilder):
     reference_accession: Optional[str] = Field(
         default=None, description="Reference assembly accession to download"
     )
-    reads: Optional[Path] = Field(default=None, description="Long reads file (FASTQ)")
+    reads: Optional[List[Path]] = Field(
+        default=None, description="Long read FASTQ files (one or more)"
+    )
+
+    @field_validator("reads", mode="before")
+    @classmethod
+    def _coerce_reads(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, (str, Path)):
+            return [value]
+        return value
+
     reads_accession: Optional[str] = Field(
         default=None, description="SRA read accession to download"
+    )
+    reads_url: Optional[str] = Field(
+        default=None, description="HTTP(S) URL of a long-read FASTQ file"
     )
     bam: Optional[Path] = Field(default=None, description="Pre-aligned BAM/CRAM file")
     vcf: Optional[Path] = Field(
@@ -130,7 +150,11 @@ class LongPipelineBuilder(PipelineBuilder):
         if sample_name is None and self.bam:
             sample_name = strip_bio_suffixes(Path(self.bam).name)
         if sample_name is None and self.reads:
-            sample_name = strip_bio_suffixes(Path(self.reads).name)
+            sample_name = strip_bio_suffixes(Path(self.reads[0]).name)
+        if sample_name is None and self.reads_url:
+            sample_name = strip_bio_suffixes(
+                Path(urllib.parse.urlparse(self.reads_url).path).name
+            )
         reference_input = self.reference
 
         if self.reference_accession:
@@ -155,16 +179,22 @@ class LongPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
 
-        # Download reads from SRA if accession provided
-        if self.reads_accession:
-            reads_input = download_reads(
+        if self.reads_url and self.reads_accession:
+            raise ValueError("Provide either reads_url or reads_accession, not both.")
+
+        # Download reads from a URL or SRA accession if provided
+        if self.reads_url:
+            current_reads = download_url_reads(self.reads_url, stages)
+        elif self.reads_accession:
+            current_reads = download_reads(
                 self.reads_accession,
                 stages,
+                combine_pairs=True,
             )
-            self.reads = reads_input
+        else:
+            current_reads = list(self.reads) if self.reads else []
 
         # Track current reads through potential cleaning and downsampling
-        current_reads: list[Path] = [self.reads] if self.reads else []
 
         if not current_reads and not self.bam:
             raise ValueError("At least one of reads or bam must be provided.")
@@ -176,7 +206,7 @@ class LongPipelineBuilder(PipelineBuilder):
         # Clean reads
         if self.clean_reads and current_reads:
             clean_reads_stage = SeqkitCleanLongReads(
-                reads=current_reads[0],
+                reads=current_reads,
                 min_length=self.min_read_len,
                 min_qscore=self.min_read_qual,
                 **globals,
@@ -204,15 +234,33 @@ class LongPipelineBuilder(PipelineBuilder):
         # Clair3 model selection (only needed when calling with clair3 and no pre-called VCF)
         clair3_model = self.model
         if clair3_model is None and self.caller == "clair3" and self.vcf is None:
-            if not current_reads:
-                raise ValueError(
-                    "Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input."
-                )
-            longbow_stage = LongbowClair3ModelSelector(
-                reads=Path(current_reads[0]), **globals
+            # Prefer the basecall model id in the read header: it is available
+            # before the pipeline runs and avoids the Longbow prediction step.
+            header_reads = next(
+                (Path(reads) for reads in self.reads or [] if Path(reads).exists()),
+                None,
             )
-            stages.append(longbow_stage)
-            clair3_model = longbow_stage.output.clair3_model
+            if header_reads is not None:
+                clair3_model = choose_model(header_reads)
+                if clair3_model is not None:
+                    logger.info(
+                        f"Selected Clair3 model '{clair3_model}' from the read header basecall model id."
+                    )
+
+            if clair3_model is None:
+                if not current_reads:
+                    raise ValueError(
+                        "Clair3 model can not be auto-detected without reads. Provide --model when using BAM/CRAM input."
+                    )
+                ensure_models_available()
+                selector_cls = (
+                    LongbowClair3ModelSelector
+                    if header_reads is not None
+                    else PostDownloadClair3ModelSelector
+                )
+                model_selector = selector_cls(reads=Path(current_reads[0]), **globals)
+                stages.append(model_selector)
+                clair3_model = model_selector.output.clair3_model
 
         # Aligner
         if self.bam:
@@ -462,8 +510,13 @@ class LongPipelineBuilder(PipelineBuilder):
 
         sample_report_stage = None
         if self.report:
+            report_vcf = (
+                pass_filter.output.vcf
+                if self.report_scope == "pass"
+                else variants_file
+            )
             sample_report_stage = SampleReport(
-                vcf=variants_file,
+                vcf=report_vcf,
                 alignment=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,

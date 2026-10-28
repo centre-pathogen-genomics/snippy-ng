@@ -135,7 +135,8 @@ Sample names must be unique.
 | --- | --- | --- |
 | `type` | all | `short`, `long`, or `asm` (required) |
 | `left`, `right` | short | Read files; `left` alone means single-end |
-| `reads` | short, long | Read file(s); a string or a list of paths |
+| `reads` | short, long | Read file(s); a string or list of paths; short reads also accept HTTP(S) URLs |
+| `reads_url` | long | HTTP(S) URL of a long-read FASTQ file to download |
 | `assembly` | asm | Assembly FASTA |
 | `reads_accession` | short, long | SRA accession (`SRR`/`ERR`/`DRR`) to download |
 | `assembly_accession` | asm | NCBI (`GCF_`/`GCA_`) or AllTheBacteria (`SAMN`/`SAMEA`) accession |

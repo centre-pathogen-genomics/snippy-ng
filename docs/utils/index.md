@@ -10,6 +10,7 @@ Snippy-NG provides utility commands that support the main SNP-calling pipelines.
 
 - [ref](ref.md): prepare a reference genome for Snippy-NG
 - [gather](gather.md): discover sample files and write input for `snippy-ng multi`
+- [model](model.md): download individual Clair3 models
 
 ## Alignment utilities
 

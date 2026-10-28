@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import tempfile
 from bisect import bisect_right
 from collections import defaultdict
@@ -13,6 +14,7 @@ from snippy_ng.dependencies import freebayes, bcftools, bedtools, paftools, clai
 from snippy_ng.exceptions import StageExecutionError
 from snippy_ng.logging import logger
 from snippy_ng.envvars import EnvVarBool, EnvVarFloat, EnvVarInt, EnvVarStr
+from snippy_ng.utils.clair3_models import candidate_model_roots, choose_model, container_model_roots
 
 from pydantic import Field, AfterValidator
 
@@ -1180,23 +1182,52 @@ class LongbowClair3ModelSelector(BaseStage):
         )
 
     def create_commands(self, ctx) -> List:
-        logger.warning("Running Longbow to predict ONT basecalling configuration for Clair3 model selection. This may take a few minutes... Specify --model to skip this step and use a specific model.")
         return [
-            self.shell_cmd(
-                [
-                    "longbow",
-                    "-i", str(self.reads),
-                    "-o", str(self.output.prediction_json),
-                    "-t", str(ctx.cpus),
-                ],
-                description="Predict ONT basecalling configuration with Longbow",
-            ),
             self.python_cmd(
-                self.resolve_clair3_model,
-                args=[self.output.prediction_json, self.output.clair3_model],
-                description="Resolve the Clair3 model from Longbow output",
+                self.select_from_header_or_predict,
+                args=[
+                    self.reads,
+                    self.output.prediction_json,
+                    self.output.clair3_model,
+                    ctx.cpus,
+                ],
+                description="Select Clair3 model from read header or Longbow prediction",
             ),
         ]
+
+    @classmethod
+    def _ensure_longbow_available(cls) -> None:
+        """Longbow is checked by the pipeline for this stage."""
+
+    @classmethod
+    def select_from_header_or_predict(
+        cls,
+        reads: Path,
+        prediction_json: Path,
+        output_path: Path,
+        cpus: int,
+    ) -> None:
+        """Use the read header when possible, otherwise run Longbow."""
+        model = choose_model(Path(reads))
+        if model is not None:
+            output_path.write_text(f"{model}\n", encoding="utf-8")
+            logger.info(
+                f"Selected Clair3 model '{model}' from the read header basecall model id."
+            )
+            return
+
+        cls._ensure_longbow_available()
+        logger.warning("Running Longbow to predict ONT basecalling configuration for Clair3 model selection. This may take a few minutes... Specify --model to skip this step and use a specific model.")
+        subprocess.run(
+            [
+                "longbow",
+                "-i", str(reads),
+                "-o", str(prediction_json),
+                "-t", str(cpus),
+            ],
+            check=True,
+        )
+        cls.resolve_clair3_model(prediction_json, output_path)
 
     @staticmethod
     def _normalize_string(value) -> Optional[str]:
@@ -1289,50 +1320,11 @@ class LongbowClair3ModelSelector(BaseStage):
 
     @staticmethod
     def _candidate_roots() -> list[Path]:
-        launch_dir = Path(os.environ.get("PWD", str(Path.cwd()))).expanduser()
-        roots: list[Path] = []
-        for env_var in ("CLAIR3_MODELS", "CLAIR3_MODEL_ROOT"):
-            value = os.environ.get(env_var)
-            if value:
-                root = Path(value).expanduser()
-                if not root.is_absolute():
-                    root = launch_dir / root
-                roots.append(root)
-
-        conda_prefix = os.environ.get("CONDA_PREFIX")
-        if conda_prefix:
-            roots.extend(
-                [
-                    Path(conda_prefix) / "bin" / "models",
-                    Path(conda_prefix) / "models",
-                ]
-            )
-
-        roots.extend(
-            [
-                Path("/opt/models"),
-                Path("/opt/models/clair3_models"),
-            ]
-        )
-
-        unique_roots: list[Path] = []
-        seen: set[Path] = set()
-        for root in roots:
-            root = root.expanduser()
-            if root in seen:
-                continue
-            seen.add(root)
-            unique_roots.append(root)
-        return unique_roots
+        return candidate_model_roots()
 
     @staticmethod
     def _container_roots() -> list[Path]:
-        roots: list[Path] = []
-        for env_var in ("CLAIR3_MODEL_CONTAINER_ROOT", "CLAIR3_MODELS_CONTAINER_ROOT"):
-            value = os.environ.get(env_var)
-            if value:
-                roots.append(Path(value))
-        return roots
+        return container_model_roots()
 
     @staticmethod
     def _unique_preserving_order(items: list[str]) -> list[str]:
@@ -1499,6 +1491,20 @@ class LongbowClair3ModelSelector(BaseStage):
         logger.info(
             f"Resolved Clair3 model '{model_dir}' from Longbow prediction ({cls._longbow_summary(prediction)})."
         )
+
+
+class PostDownloadClair3ModelSelector(LongbowClair3ModelSelector):
+    """Select a Clair3 model from reads that only exist after an SRA download.
+
+    Longbow is checked only when the downloaded read header has no basecall
+    model id, so it is not a hard dependency for header-annotated runs.
+    """
+
+    _dependencies = []
+
+    @classmethod
+    def _ensure_longbow_available(cls) -> None:
+        longbow.check()
 
 
 class Clair3Caller(Caller):

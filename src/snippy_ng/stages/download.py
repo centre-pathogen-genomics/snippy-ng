@@ -224,21 +224,78 @@ class DownloadAtbAssemblyFasta(BaseDownloadStage):
         return f"https://allthebacteria-assemblies.s3.eu-west-2.amazonaws.com/{urllib.parse.quote(accession)}.fa.gz"
 
 
+class DownloadUrlReads(BaseDownloadStage):
+    """Download a reads file from an HTTP(S) URL."""
+
+    url: str = Field(..., description="HTTP(S) URL of a reads file")
+
+    @property
+    def filename(self) -> str:
+        path = urllib.parse.urlparse(self.url).path
+        name = Path(urllib.parse.unquote(path)).name
+        if not name:
+            raise ValueError(
+                f"Reads URL '{self.url}' has no filename; use a URL ending in a file name."
+            )
+        return name
+
+    @property
+    def output(self) -> ReadDownloadOutput:
+        return ReadDownloadOutput(r1=self.resolved_output_directory / self.filename)
+
+    def create_commands(self, ctx):
+        return [
+            self.python_cmd(
+                self.download_file,
+                args=[self.url, self.output.r1],
+                description=f"Download reads from URL: {self.url}",
+            ),
+        ]
+
+    @staticmethod
+    def download_file(url: str, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        request = urllib.request.Request(
+            url, headers={"User-Agent": f"snippy-ng/{__version__}"}
+        )
+        try:
+            with urllib.request.urlopen(request) as response, output_path.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+        except urllib.error.HTTPError as exc:
+            raise StageExecutionError(
+                f"Could not download reads from '{url}' (HTTP {exc.code})."
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise StageExecutionError(
+                f"Could not reach reads URL '{url}': {exc.reason}"
+            ) from exc
+
+
 class DownloadSraReads(BaseDownloadStage):
     """Download reads from SRA using sracha-rs."""
 
     _dependencies = [sracha]
 
     accession: str = Field(..., description="SRA accession (SRR, ERR, or DRR format)")
+    combine_pairs: bool = Field(
+        False,
+        description="Concatenate any downloaded read files into one single-end FASTQ",
+    )
 
     @property
     def read_prefix(self) -> str:
         return self.accession
 
     @property
+    def combined_path(self) -> Path:
+        return self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
+
+    @property
     def output(self) -> ReadDownloadOutput:
         # sracha outputs paired-end reads as {acc}_1.fastq.gz / {acc}_2.fastq.gz
         # and single-end reads as {acc}.fastq.gz
+        if self.combine_pairs:
+            return ReadDownloadOutput(r1=self.combined_path)
         return ReadDownloadOutput(
             r1=self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz",
             r2=self.resolved_output_directory / f"{self.read_prefix}_2.fastq.gz",
@@ -247,8 +304,14 @@ class DownloadSraReads(BaseDownloadStage):
     def error_if_outputs_missing(self, include_temporary: bool = False):
         """Override to also accept single-end output ({acc}.fastq.gz)."""
         from snippy_ng.exceptions import MissingOutputError
-        single_end = self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
         paired_r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
+        single_end = self.combined_path
+        if self.combine_pairs:
+            if self.combined_path.exists():
+                return
+            raise MissingOutputError(
+                f"Expected combined reads output is missing: {self.combined_path}"
+            )
         if single_end.exists() or paired_r1.exists():
             return
         raise MissingOutputError(
@@ -257,13 +320,24 @@ class DownloadSraReads(BaseDownloadStage):
 
     def _normalize_sracha_output(self):
         """Rename single-end {acc}.fastq.gz → {acc}_1.fastq.gz for consistent output naming."""
-        single_end = self.resolved_output_directory / f"{self.read_prefix}.fastq.gz"
+        single_end = self.combined_path
         r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
         if single_end.exists() and not r1.exists():
             shutil.move(str(single_end), str(r1))
 
+    def _combine_sracha_output(self):
+        """Concatenate all downloaded read files into one gzip stream."""
+        r1 = self.resolved_output_directory / f"{self.read_prefix}_1.fastq.gz"
+        r2 = self.resolved_output_directory / f"{self.read_prefix}_2.fastq.gz"
+        with self.combined_path.open("wb") as output_handle:
+            for read_file in (r1, r2):
+                if not read_file.exists():
+                    continue
+                with read_file.open("rb") as input_handle:
+                    shutil.copyfileobj(input_handle, output_handle)
+
     def create_commands(self, ctx):
-        return [
+        commands = [
             self.shell_cmd(
                 ["sracha", "get", str(self.accession), "--output-dir", str(self.resolved_output_directory), "--prefer-ena"],
                 description=f"Download SRA reads: {self.accession}",
@@ -273,3 +347,11 @@ class DownloadSraReads(BaseDownloadStage):
                 description=f"Normalize sracha output paths for {self.accession}",
             ),
         ]
+        if self.combine_pairs:
+            commands.append(
+                self.python_cmd(
+                    self._combine_sracha_output,
+                    description=f"Combine downloaded reads for {self.accession}",
+                )
+            )
+        return commands

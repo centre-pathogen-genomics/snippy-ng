@@ -148,7 +148,9 @@ class SeqkitCleanLongReads(BaseStage):
     from long read FASTQ files using the seqkit toolkit.
     """
     
-    reads: Path = Field(..., description="Long read file (FASTQ format)")
+    reads: List[Path] = Field(
+        ..., min_length=1, description="Long read FASTQ files (one or more)"
+    )
     min_length: int = Field(1000, description="Minimum read length")
     min_qscore: float = Field(10, description="Minimum average quality score for reads")
 
@@ -168,7 +170,7 @@ class SeqkitCleanLongReads(BaseStage):
             "-m", str(self.min_length),
             "-Q", str(self.min_qscore),
             "-o", str(self.output.cleaned_reads),
-            str(self.reads)
+            *[str(reads) for reads in self.reads],
         ]
         
         if ctx.cpus > 1:

@@ -15,6 +15,7 @@ from snippy_ng.cli.samcrop_cli import samcrop
 from snippy_ng.cli.report_cli.report_tree_cli import tree as report_tree
 from snippy_ng.cli.report_cli.sample_report_cli import sample as sample_report
 from snippy_ng.cli.yolo_cli import yolo
+from snippy_ng.cli.model_cli import model
 from snippy_ng.cli.cnv_cli import cnv
 from snippy_ng.cli.vcf.strand_bias_cli import strand_bias
 from snippy_ng.cli.vcf.context_filter_cli import context_filter
@@ -85,6 +86,7 @@ def utils():
 
 utils.add_command(ref)
 utils.add_command(gather)
+utils.add_command(model)
 
 @utils.group(context_settings={"show_default": True})
 def aln():

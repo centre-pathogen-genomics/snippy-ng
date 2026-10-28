@@ -1113,8 +1113,8 @@ def test_predownload_multi_inputs_replaces_accessions_with_abs_paths(
 
     # long
     s2_reads = result["S2"]["reads"]
-    assert isinstance(s2_reads, str)
-    assert Path(s2_reads).is_absolute() and Path(s2_reads).exists()
+    assert isinstance(s2_reads, list) and len(s2_reads) == 1
+    assert Path(s2_reads[0]).is_absolute() and Path(s2_reads[0]).exists()
 
     # asm
     s4_asm = result["S4"]["assembly"]

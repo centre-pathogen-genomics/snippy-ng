@@ -158,10 +158,7 @@ def _predownload_multi_inputs(
             if str(acc) not in downloads:
                 continue
             paths = downloads[str(acc)]
-            if sample_cfg.get("type") == "long":
-                sample_cfg["reads"] = str(paths[0])
-            else:
-                sample_cfg["reads"] = [str(p) for p in paths]
+            sample_cfg["reads"] = [str(p) for p in paths]
         if acc := sample_cfg.pop("assembly_accession", None):
             if str(acc) not in asm_downloads:
                 continue
