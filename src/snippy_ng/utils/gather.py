@@ -9,7 +9,16 @@ import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Iterable, Literal, Mapping, Optional, TypeAlias, TypedDict, Union
+from typing import (
+    Callable,
+    Iterable,
+    Literal,
+    Mapping,
+    Optional,
+    TypeAlias,
+    TypedDict,
+    Union,
+)
 
 from snippy_ng.exceptions import SnippyError
 
@@ -47,7 +56,7 @@ BIO_EXTENSION_RE = re.compile(
     flags=re.IGNORECASE,
 )
 READ_DIRECTION_SUFFIX_RE = re.compile(
-    r"(?:_|^)(?:R?[12])(?:(?:[._-][A-Za-z0-9]+)*)$",
+    r"(?:_|^)(?:S[1-9]_)?(?:L[0-9]{3}_)?(?:R?[12])(?:(?:[._-][A-Za-z0-9]+)*)$",
     flags=re.IGNORECASE,
 )
 READ_PAIR_TOKEN_RE = re.compile(
@@ -81,10 +90,12 @@ def _absolute(path: PathLike) -> Path:
 
 
 def _format_paths(paths: Iterable[Path]) -> str:
-    return "\n".join(f"- {path}" for path in paths)    
+    return "\n".join(f"- {path}" for path in paths)
 
 
-def _raise_duplicate_pair_error(sample_id: str, read_name: str, first: Path, second: Path) -> None:
+def _raise_duplicate_pair_error(
+    sample_id: str, read_name: str, first: Path, second: Path
+) -> None:
     raise GatherSamplesError(
         f"{sample_id} (ILL) has multiple {read_name} candidates!\n\n"
         f"Found:\n{_format_paths([first, second])}"
@@ -125,7 +136,9 @@ def _open_text_maybe_gzip(path: Path) -> io.TextIOBase:
     """Open a text stream, handling gzip by extension."""
 
     if path.suffix.lower() == ".gz":
-        return io.TextIOWrapper(gzip.open(path, "rb"), encoding="utf-8", errors="replace")
+        return io.TextIOWrapper(
+            gzip.open(path, "rb"), encoding="utf-8", errors="replace"
+        )
     return path.open("r", encoding="utf-8", errors="replace")
 
 
@@ -332,7 +345,9 @@ def _looks_like_ont_read_id(read_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def iter_candidate_files(inputs: Iterable[PathLike], *, max_depth: int) -> Iterable[Path]:
+def iter_candidate_files(
+    inputs: Iterable[PathLike], *, max_depth: int
+) -> Iterable[Path]:
     """Yield files from input files or directories, respecting max_depth."""
 
     for input_path in inputs:
@@ -362,7 +377,9 @@ def _iter_directory_files(root: Path, *, max_depth: int) -> Iterable[Path]:
         yield candidate
 
 
-def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optional[PathLike], list[Path]]:
+def collect_reference_exclusions(
+    reference: Optional[PathLike],
+) -> tuple[Optional[PathLike], list[Path]]:
     """
     Normalize the reference path and return files that should be ignored while scanning.
 
@@ -389,9 +406,13 @@ def collect_reference_exclusions(reference: Optional[PathLike]) -> tuple[Optiona
             raise GatherSamplesError(
                 f"Reference path '{normalized}' is a directory but does not contain metadata.json."
             )
-        return normalized, [_absolute(path) for path in normalized.rglob("*") if path.is_file()]
+        return normalized, [
+            _absolute(path) for path in normalized.rglob("*") if path.is_file()
+        ]
 
-    raise GatherSamplesError(f"Reference path '{normalized}' is neither a file nor a directory.")
+    raise GatherSamplesError(
+        f"Reference path '{normalized}' is neither a file nor a directory."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -412,7 +433,7 @@ def scan_sequence_files(
     `exclude_name_regex` is applied to the basename only. Shell-style glob
     patterns such as ``*.fa`` are also accepted.
 
-    If `reserved_ids` is provided, discovered files with the same 
+    If `reserved_ids` is provided, discovered files with the same
     IDs are disambiguated using the parent folder.
     """
 
@@ -443,7 +464,9 @@ def _compile_exclude_pattern(pattern: Optional[str]) -> Optional[re.Pattern[str]
     except re.error:
         if any(character in pattern for character in "*?["):
             return re.compile(fnmatch.translate(pattern))
-        raise GatherSamplesError(f"Invalid exclusion pattern {pattern!r}. Use a regular expression or glob such as '*.fa'.")
+        raise GatherSamplesError(
+            f"Invalid exclusion pattern {pattern!r}. Use a regular expression or glob such as '*.fa'."
+        )
 
 
 def _reserved_reference_id(reference: Optional[PathLike]) -> Optional[str]:
@@ -452,7 +475,9 @@ def _reserved_reference_id(reference: Optional[PathLike]) -> Optional[str]:
     return strip_bio_suffixes(Path(reference).name)
 
 
-def _should_scan_file(path: Path, *, exclude_re: Optional[re.Pattern[str]], excluded: set[Path]) -> bool:
+def _should_scan_file(
+    path: Path, *, exclude_re: Optional[re.Pattern[str]], excluded: set[Path]
+) -> bool:
     if path in excluded:
         return False
     if exclude_re and exclude_re.search(path.name):
@@ -473,7 +498,9 @@ def _seqfile_from_path(
     if reserved_ids and sample_id in reserved_ids:
         sample_id = build_disambiguated_id(sample_id, path.parent.name)
 
-    return SeqFile(path=path, kind=kind, sample_id=sample_id, is_alignment=_is_alignment_path(path))
+    return SeqFile(
+        path=path, kind=kind, sample_id=sample_id, is_alignment=_is_alignment_path(path)
+    )
 
 
 def normalize_paired_illumina_ids(seqfiles: list[SeqFile]) -> list[SeqFile]:
@@ -486,7 +513,9 @@ def normalize_paired_illumina_ids(seqfiles: list[SeqFile]) -> list[SeqFile]:
 
     pairs_by_path: dict[Path, str] = {}
 
-    for (_parent, base_id), files in _group_illumina_by_parent_and_base(seqfiles).items():
+    for (_parent, base_id), files in _group_illumina_by_parent_and_base(
+        seqfiles
+    ).items():
         r1, r2 = find_r1_r2([seqfile.path for seqfile in files])
         if r1 is None or r2 is None:
             continue
@@ -501,13 +530,17 @@ def normalize_paired_illumina_ids(seqfiles: list[SeqFile]) -> list[SeqFile]:
     ]
 
 
-def _group_illumina_by_parent_and_base(seqfiles: list[SeqFile]) -> dict[tuple[Path, str], list[SeqFile]]:
+def _group_illumina_by_parent_and_base(
+    seqfiles: list[SeqFile],
+) -> dict[tuple[Path, str], list[SeqFile]]:
     grouped: dict[tuple[Path, str], list[SeqFile]] = defaultdict(list)
 
     for seqfile in seqfiles:
         if seqfile.kind != "ILL":
             continue
-        base_id = strip_read_direction_suffix(seqfile.sample_id) or seqfile.path.parent.name
+        base_id = (
+            strip_read_direction_suffix(seqfile.sample_id) or seqfile.path.parent.name
+        )
         grouped[(_absolute(seqfile.path.parent), base_id)].append(seqfile)
 
     return dict(grouped)
@@ -558,7 +591,9 @@ def resolve_duplicate_sample_ids(seqfiles: list[SeqFile]) -> list[SeqFile]:
 
         parent_labels = build_parent_labels(list(by_parent.keys()))
         for files_in_parent, parent_label in zip(by_parent.values(), parent_labels):
-            resolved.extend(_resolve_multi_parent_group(sample_id, files_in_parent, parent_label))
+            resolved.extend(
+                _resolve_multi_parent_group(sample_id, files_in_parent, parent_label)
+            )
 
     return resolved
 
@@ -618,7 +653,9 @@ def build_parent_labels(parents: list[Path]) -> list[str]:
         return []
 
     absolute_parents = [_absolute(parent) for parent in parents]
-    common_parent = Path(os.path.commonpath([str(parent) for parent in absolute_parents]))
+    common_parent = Path(
+        os.path.commonpath([str(parent) for parent in absolute_parents])
+    )
 
     labels: list[str] = []
     for parent in absolute_parents:
@@ -649,7 +686,9 @@ def handle_ILL(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     """Build a config entry for Illumina short-read data."""
 
     if any(seqfile.is_alignment for seqfile in seqfiles) and len(seqfiles) != 1:
-        raise GatherSamplesError(f"{sample_id} (ILL) sample has multiple alignment files!")
+        raise GatherSamplesError(
+            f"{sample_id} (ILL) sample has multiple alignment files!"
+        )
     alignment = _single_alignment(seqfiles)
     if alignment is not None:
         return {"type": "short", "bam": str(alignment)}
@@ -667,7 +706,9 @@ def handle_ILL(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     }
 
 
-def _fallback_illumina_pair(sample_id: str, paths: list[Path]) -> tuple[Path, Optional[Path]]:
+def _fallback_illumina_pair(
+    sample_id: str, paths: list[Path]
+) -> tuple[Path, Optional[Path]]:
     """
     Handle Illumina files whose names do not encode R1/R2.
 
@@ -690,7 +731,9 @@ def handle_ONT(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     """Build a config entry for Oxford Nanopore long-read data."""
 
     if any(seqfile.is_alignment for seqfile in seqfiles) and len(seqfiles) != 1:
-        raise GatherSamplesError(f"{sample_id} (ONT) sample has multiple alignment files!")
+        raise GatherSamplesError(
+            f"{sample_id} (ONT) sample has multiple alignment files!"
+        )
     alignment = _single_alignment(seqfiles)
     if alignment is not None:
         return {
@@ -724,16 +767,18 @@ def handle_ASM(sample_id: str, seqfiles: list[SeqFile]) -> SampleEntry:
     }
 
 
-def _require_single_file(sample_id: str, kind: SeqKind, seqfiles: list[SeqFile]) -> Path:
+def _require_single_file(
+    sample_id: str, kind: SeqKind, seqfiles: list[SeqFile]
+) -> Path:
     paths = sorted(seqfile.path for seqfile in seqfiles)
 
     if not paths:
         raise GatherSamplesError(f"{sample_id} ({kind}) sample has no files")
     if len(paths) > 1:
         raise GatherSamplesError(
-        f"{sample_id} ({kind}) sample has multiple files!\n\n"
-        f"Found:\n{_format_paths(paths)}"
-    )
+            f"{sample_id} ({kind}) sample has multiple files!\n\n"
+            f"Found:\n{_format_paths(paths)}"
+        )
 
     return paths[0]
 

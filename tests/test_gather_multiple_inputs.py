@@ -3,7 +3,7 @@ import gzip
 from pathlib import Path
 import pytest
 from snippy_ng.utils.gather import gather
-from snippy_ng.utils.gather import strip_bio_suffixes
+from snippy_ng.utils.gather import strip_bio_suffixes, strip_read_direction_suffix
 from snippy_ng.utils.gather import GatherSamplesError
 
 
@@ -531,6 +531,65 @@ def test_gather_kitchen_sink_mixed_layouts_and_naming_styles(tmp_path):
     assert "outbreak_b-reference" in samples
     assert samples["outbreak_b-reference"]["type"] == "short"
     assert "reference" not in samples
+
+
+@pytest.mark.parametrize(
+    "filename, expected_sample_id",
+    [
+        ("Sample01_S1_L001_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L001_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L002_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L002_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L003_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L003_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L004_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L004_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L001_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L001_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L002_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L002_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L003_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L003_R2_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L004_R1_001.fastq.gz", "Sample01"),
+        ("Sample01_S1_L004_R2_001.fastq.gz", "Sample01"),
+        ("sample_A_R1.fastq.gz", "sample_A"),
+        ("sample_A_R2.fastq.gz", "sample_A"),
+        ("sample_B_R1.fastq.gz", "sample_B"),
+        ("sample_B_R2.fastq.gz", "sample_B"),
+        ("sample_C_1.fq.gz", "sample_C"),
+        ("sample_C_2.fq.gz", "sample_C"),
+        ("sample_D_R1.fastq", "sample_D"),
+        ("sample_D_R2.fastq", "sample_D"),
+        ("Ecoli_001_S1_L001_R1_001.fastq.gz", "Ecoli_001"),
+        ("Ecoli_001_S1_L001_R2_001.fastq.gz", "Ecoli_001"),
+        ("Salmonella_002_S2_L001_R1_001.fastq.gz", "Salmonella_002"),
+        ("Salmonella_002_S2_L001_R2_001.fastq.gz", "Salmonella_002"),
+        ("Ranavirus_003_S3_L001_R1_001.fastq.gz", "Ranavirus_003"),
+        ("Ranavirus_003_S3_L001_R2_001.fastq.gz", "Ranavirus_003"),
+        ("Metagenome_004_S4_L001_R1_001.fastq.gz", "Metagenome_004"),
+        ("Metagenome_004_S4_L001_R2_001.fastq.gz", "Metagenome_004"),
+        ("SampleName_L001_R1_001.fastq.gz", "SampleName"),
+        ("SampleName_L001_R2_001.fastq.gz", "SampleName"),
+        ("SampleName_L001_R1.fastq.gz", "SampleName"),
+        ("SampleName_L001_R2.fastq.gz", "SampleName"),
+        ("SampleName_S1_R1_001.fastq.gz", "SampleName"),
+        ("SampleName_S1_R2_001.fastq.gz", "SampleName"),
+        ("SampleName_S1_R1.fastq.gz", "SampleName"),
+        ("SampleName_S1_R2.fastq.gz", "SampleName"),
+        ("SRR12345678.fastq.gz", "SRR12345678"),
+        ("SRR12345678_1.fastq.gz", "SRR12345678"),
+        ("SRR12345678_2.fastq.gz", "SRR12345678"),
+        ("ERR12345678.fastq.gz", "ERR12345678"),
+        ("ERR12345678_1.fastq.gz", "ERR12345678"),
+        ("ERR12345678_2.fastq.gz", "ERR12345678"),
+        ("DRR12345678.fastq.gz", "DRR12345678"),
+        ("DRR12345678_1.fastq.gz", "DRR12345678"),
+        ("DRR12345678_2.fastq.gz", "DRR12345678"),
+    ],
+)
+def test_strip_read_direction_suffix(filename, expected_sample_id):
+    stem = strip_bio_suffixes(filename)
+    assert strip_read_direction_suffix(stem) == expected_sample_id
 
 
 def test_gather_many_directories_deep_with_same_basename(tmp_path):
