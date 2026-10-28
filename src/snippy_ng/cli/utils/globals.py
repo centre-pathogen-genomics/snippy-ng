@@ -5,10 +5,12 @@ import os
 
 from snippy_ng.cli.utils import absolute_path
 
+
 class GlobalOption(click.Option):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_global = True
+
 
 def debug_callback(ctx, param, value):
     if value is None or ctx.resilient_parsing:
@@ -19,6 +21,7 @@ def debug_callback(ctx, param, value):
     os.environ["SNIPPY_NG_DEBUG"] = "1"
     return value
 
+
 def break_points_callback(ctx, param, value):
     if value is None or ctx.resilient_parsing:
         return
@@ -28,6 +31,7 @@ def break_points_callback(ctx, param, value):
     os.environ["SNIPPY_NG_BREAK_POINTS"] = "1"
     return value
 
+
 def check_outdir_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
@@ -35,7 +39,9 @@ def check_outdir_callback(ctx, param, value):
         return value
     value = absolute_path(value)
     if value.exists() and not ctx.params.get("force", False):
-        raise click.UsageError(f"Output folder '{value}' already exists! Use --force to overwrite.")
+        raise click.UsageError(
+            f"Output folder '{value}' already exists! Use --force to overwrite."
+        )
 
     probe = value if value.exists() else value.parent
     while probe != probe.parent and not probe.exists():
@@ -47,6 +53,7 @@ def check_outdir_callback(ctx, param, value):
         )
     return value
 
+
 def not_implemented_callback(ctx, param, value):
     if ctx.resilient_parsing:
         return
@@ -54,19 +61,23 @@ def not_implemented_callback(ctx, param, value):
         raise NotImplementedError(f"The option '{param.name}' is not yet implemented.")
     return value
 
+
 def cap_cpus_callback(ctx, param, value):
     from snippy_ng.utils.system import available_cpu_count
-    
+
     if ctx.resilient_parsing:
         return
     available = available_cpu_count()
     return min(available, value)
 
+
 GLOBAL_DEFS = [
     {
         "param_decls": ("--outdir", "-o"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True),
+            "type": click.Path(
+                writable=True, readable=True, file_okay=False, dir_okay=True
+            ),
             "default": Path("out"),
             "help": "Where to put everything",
             "callback": check_outdir_callback,
@@ -75,7 +86,13 @@ GLOBAL_DEFS = [
     {
         "param_decls": ("--tmpdir", "-t"),
         "attrs": {
-            "type": click.Path(writable=True, readable=True, file_okay=False, dir_okay=True, path_type=Path),
+            "type": click.Path(
+                writable=True,
+                readable=True,
+                file_okay=False,
+                dir_okay=True,
+                path_type=Path,
+            ),
             "default": tempfile.gettempdir(),
             "help": "Temporary directory for fast storage",
         },
@@ -99,7 +116,7 @@ GLOBAL_DEFS = [
         "param_decls": ("--cpus", "-c"),
         "attrs": {
             "type": int,
-            "default": 1,
+            "default": 8,
             "help": "Max cores to use",
             "callback": cap_cpus_callback,
         },
@@ -135,8 +152,8 @@ GLOBAL_DEFS = [
             "is_flag": True,
             "default": False,
             "help": "Print debug output",
-            "callback": debug_callback, 
-        }, 
+            "callback": debug_callback,
+        },
     },
     {
         "param_decls": ("--break-points",),
@@ -144,7 +161,7 @@ GLOBAL_DEFS = [
             "is_flag": True,
             "default": False,
             "help": "Break at the start of each stage",
-        }, 
+        },
     },
     {
         "param_decls": ("--skip-check",),
@@ -183,9 +200,9 @@ GLOBAL_DEFS = [
         "attrs": {
             "is_flag": True,
             "default": False,
-            "help": "Do not delete intermediary files after run"
+            "help": "Do not delete intermediary files after run",
         },
-    }
+    },
 ]
 
 
@@ -196,6 +213,7 @@ def add_snippy_global_options(exclude: list = None):
     """
     if exclude is None:
         exclude = []
+
     def wraps(f):
         # Click stores params after decoration, so inspect __click_params__ first
         existing = {
@@ -218,6 +236,7 @@ def add_snippy_global_options(exclude: list = None):
             f = click.option(*param_decls, cls=GlobalOption, **attrs)(f)
 
         return f
+
     return wraps
 
 
@@ -229,19 +248,25 @@ class CommandWithGlobals(click.Command):
             # Only Options belong in format_options()
             if not isinstance(param, click.Option):
                 continue
-            if getattr(param, 'is_global', False):
+            if getattr(param, "is_global", False):
                 global_opts.append(param)
             else:
                 other_opts.append(param)
 
         if global_opts:
-            order = {opts['param_decls'][0]: i for i, opts in enumerate(GLOBAL_DEFS)}
-            global_opts.sort(key=lambda p: order.get(p.opts[0], float('inf')))
-            with formatter.section('Globals'):
-                rows = [p.get_help_record(ctx) for p in global_opts if p.get_help_record(ctx)]
+            order = {opts["param_decls"][0]: i for i, opts in enumerate(GLOBAL_DEFS)}
+            global_opts.sort(key=lambda p: order.get(p.opts[0], float("inf")))
+            with formatter.section("Globals"):
+                rows = [
+                    p.get_help_record(ctx)
+                    for p in global_opts
+                    if p.get_help_record(ctx)
+                ]
                 formatter.write_dl(rows)
 
         if other_opts:
-            with formatter.section('Options'):
-                rows = [p.get_help_record(ctx) for p in other_opts if p.get_help_record(ctx)]
+            with formatter.section("Options"):
+                rows = [
+                    p.get_help_record(ctx) for p in other_opts if p.get_help_record(ctx)
+                ]
                 formatter.write_dl(rows)
