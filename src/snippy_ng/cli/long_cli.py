@@ -4,9 +4,10 @@ from pathlib import Path
 from snippy_ng.cli.utils import (
     AbsolutePath,
     reference_or_accession_callback,
-    reads_or_accession_callback,
+    reads_or_url_or_accession_callback,
     resolve_cli_input,
     is_sra_accession,
+    is_url,
 )
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -25,15 +26,15 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     "--reads",
     default=None,
     type=click.STRING,
-    callback=reads_or_accession_callback,
-    help="Long reads file (FASTQ) or SRA accession (SRR/ERR/DRR)",
+    callback=reads_or_url_or_accession_callback,
+    help="Long reads FASTQ file, SRA accession (SRR/ERR/DRR), or HTTP(S) URL",
 )
 @click.argument(
     "reads_arg",
     required=False,
     metavar="READS",
     type=click.STRING,
-    callback=reads_or_accession_callback,
+    callback=reads_or_url_or_accession_callback,
 )
 @click.option(
     "--bam",
@@ -117,7 +118,7 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     "--model",
     default=None,
     type=AbsolutePath(),
-    help="Path to Clair3 model file. If not provided, will attempt to find a suitable model using LongBow",
+    help="Path to Clair3 model file. If not provided, the model is chosen from the read header basecall model id, falling back to LongBow when the header has no id",
 )
 @click.option(
     "--caller-map-qual",
@@ -193,8 +194,15 @@ def long(
         arg_name="reads",
     )
 
-    if not reads and not reads_accession and not bam:
-        raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
+    reads_url = None
+    if reads and isinstance(reads, str) and is_url(reads):
+        reads_url = reads
+        reads = None
+
+    if not reads and not reads_accession and not reads_url and not bam:
+        raise click.UsageError(
+            "Please provide reads, a read URL, a read accession, or a BAM file!"
+        )
 
     if vcf and not bam:
         raise click.UsageError(
@@ -225,6 +233,7 @@ def long(
         reference_accession=reference_accession,
         reads=reads_path,
         reads_accession=reads_accession,
+        reads_url=reads_url,
         prefix=prefix,
         sample_name=sample_name,
         bam=bam,

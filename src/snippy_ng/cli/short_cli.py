@@ -4,9 +4,10 @@ from pathlib import Path
 from snippy_ng.cli.utils import (
     AbsolutePath,
     reference_or_accession_callback,
-    reads_or_accession_callback,
+    reads_or_url_or_accession_callback,
     resolve_cli_input,
     is_sra_accession,
+    is_url,
 )
 from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_options
 
@@ -27,23 +28,24 @@ from snippy_ng.cli.utils.globals import CommandWithGlobals, add_snippy_global_op
     "--left",
     default=None,
     type=click.STRING,
-    callback=reads_or_accession_callback,
-    help="Reads, paired-end R1 (left) or SRA accession (SRR/ERR/DRR)",
+    callback=reads_or_url_or_accession_callback,
+    help="Reads, paired-end R1 (left), SRA accession (SRR/ERR/DRR), or HTTP(S) URL",
 )
 @click.option(
     "--R2",
     "--pe2",
     "--right",
     default=None,
-    type=AbsolutePath(exists=True, readable=True),
-    help="Reads, paired-end R2 (right)",
+    type=click.STRING,
+    callback=reads_or_url_or_accession_callback,
+    help="Reads, paired-end R2 (right), or HTTP(S) URL",
 )
 @click.argument(
     "read_args",
     nargs=-1,
     metavar="READS",
     type=click.STRING,
-    callback=reads_or_accession_callback,
+    callback=reads_or_url_or_accession_callback,
 )
 @click.option(
     "--bam",
@@ -180,14 +182,19 @@ def short(
     r1 = resolve_cli_input(r1, arg_r1, option_name="--R1/--pe1/--left", arg_name="R1")
     r2 = resolve_cli_input(r2, arg_r2, option_name="--R2/--pe2/--right", arg_name="R2")
 
+    if r2 and isinstance(r2, str) and is_sra_accession(r2):
+        raise click.UsageError("R2 cannot be an SRA accession; provide a read file or URL for R2.")
+
     reads = []
-    if r1:
-        reads.append(r1 if isinstance(r1, Path) else Path(r1))
-    if r2:
-        reads.append(r2)
+    for read in (r1, r2):
+        if not read:
+            continue
+        reads.append(read if isinstance(read, Path) or is_url(read) else Path(read))
 
     if not reads and not reads_accession and not bam:
-        raise click.UsageError("Please provide reads, a read accession, or a BAM file!")
+        raise click.UsageError(
+            "Please provide reads, a read URL, a read accession, or a BAM file!"
+        )
 
     if vcf and not bam:
         raise click.UsageError(

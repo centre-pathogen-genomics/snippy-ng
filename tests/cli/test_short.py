@@ -146,3 +146,53 @@ def test_short_cli_accepts_read_accession(monkeypatch, tmp_path):
     assert captured["reference"] == ref.absolute()
     assert captured["reads_accession"] == "SRR1234567"
     assert captured["reads"] == []
+
+def test_short_cli_accepts_url_reads(monkeypatch, tmp_path):
+    """Test short-read CLI accepts URL R1 and R2."""
+    captured = {}
+
+    class DummyShortPipelineBuilder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def build(self):
+            import snippy_ng.pipelines as _pl
+            return _pl.SnippyPipeline(stages=[], outputs_to_keep=[])
+
+    monkeypatch.setattr("snippy_ng.pipelines.short.ShortPipelineBuilder", DummyShortPipelineBuilder)
+
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+    outdir = tmp_path / "output"
+    r1 = "https://example.com/reads_1.fastq.gz"
+    r2 = "https://example.com/reads_2.fastq.gz"
+
+    result = run_cli_command([
+        "short",
+        "--reference", str(ref),
+        "--R1", r1,
+        "--R2", r2,
+        "--outdir", str(outdir),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert captured["reads"] == [r1, r2]
+    assert captured["reads_accession"] is None
+
+
+def test_short_cli_rejects_sra_accession_for_r2(tmp_path):
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">ref\nACGT\n", encoding="utf-8")
+
+    result = run_cli_command([
+        "short",
+        "--reference", str(ref),
+        "--R1", "SRR1234567",
+        "--R2", "SRR1234568",
+        "--outdir", str(tmp_path / "output"),
+        "--skip-check",
+    ])
+
+    assert result.exit_code == 2
+    assert "R2 cannot be an SRA accession" in result.output

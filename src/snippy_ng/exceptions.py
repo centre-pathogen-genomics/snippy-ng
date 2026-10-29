@@ -37,3 +37,11 @@ class PipelineExecutionError(SnippyError):
 
 class InvalidReferenceError(SnippyError):
     pass
+
+class Clair3ModelSelectionError(SnippyError):
+    """Raised when a Clair3 model cannot be selected or found."""
+    pass
+
+class Clair3ModelDownloadError(SnippyError):
+    """Raised when a Clair3 model cannot be downloaded."""
+    pass

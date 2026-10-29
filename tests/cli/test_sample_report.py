@@ -237,6 +237,10 @@ def test_short_pipeline_includes_sample_report_by_default(monkeypatch, tmp_path)
     ]
     assert len(sample_report_stages) == 1
     assert sample_report_stages[0].variant_scope == "pass"
+    pass_filter = next(
+        stage for stage in pipeline.stages if isinstance(stage, VcfPassFilter)
+    )
+    assert sample_report_stages[0].vcf == pass_filter.output.vcf
 
 
 def test_long_pipeline_can_omit_sample_report(monkeypatch, tmp_path):
@@ -490,3 +494,37 @@ def test_long_pipeline_skips_genotype_collapse_when_haploid_disabled(
         if isinstance(stage, CopyFile) and stage.output_path == Path("sample.all.vcf")
     )
     assert final_vcf.input == Path("sample.annotated.vcf")
+
+
+def test_short_pipeline_downloads_url_reads(monkeypatch, tmp_path):
+    from snippy_ng.pipelines.short import ShortPipelineBuilder
+    from snippy_ng.stages.clean_reads import FastpCleanReads
+    from snippy_ng.stages.download import DownloadUrlReads
+
+    _, ref_file = make_prepared_reference(tmp_path)
+    stub_load_or_prepare_reference(
+        monkeypatch,
+        ref_file,
+        target="snippy_ng.pipelines.short.load_or_prepare_reference",
+    )
+    urls = [
+        "https://example.com/reads_1.fastq.gz",
+        "https://example.com/reads_2.fastq.gz",
+    ]
+
+    pipeline = ShortPipelineBuilder(
+        reference=ref_file,
+        reads=urls,
+        clean_reads=True,
+        prefix="sample",
+    ).build()
+
+    downloads = [
+        stage for stage in pipeline.stages if isinstance(stage, DownloadUrlReads)
+    ]
+    cleaner = next(
+        stage for stage in pipeline.stages if isinstance(stage, FastpCleanReads)
+    )
+
+    assert [stage.url for stage in downloads] == urls
+    assert cleaner.reads == [stage.output.r1 for stage in downloads]

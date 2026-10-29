@@ -24,13 +24,19 @@ def is_assembly_accession(accession) -> bool:
     return is_ncbi_assembly_accession(accession) or is_atb_assembly_accession(accession)
 
 
-def download_reads(reads_accession, stages: list) -> list[Path]:
+def download_reads(
+    reads_accession,
+    stages: list,
+    *,
+    combine_pairs: bool = False,
+) -> list[Path]:
     """Download reads from SRA accession using sracha-rs. Returns list of read paths (1 for single-end, 2 for paired-end)."""
     from snippy_ng.stages.download import DownloadSraReads
 
     if is_sra_accession(reads_accession):
         download_stage = DownloadSraReads(
             accession=str(reads_accession),
+            combine_pairs=combine_pairs,
         )
         stages.append(download_stage)
         output = download_stage.output
@@ -41,12 +47,26 @@ def download_reads(reads_accession, stages: list) -> list[Path]:
     )
 
 
+def download_url_reads(url: str, stages: list) -> list[Path]:
+    """Download reads from an HTTP(S) URL. Returns the downloaded read path."""
+    from snippy_ng.stages.download import DownloadUrlReads
+
+    download_stage = DownloadUrlReads(url=str(url))
+    stages.append(download_stage)
+    return [download_stage.output.r1]
+
+
 def get_download_stage_outputs(stages: list) -> list:
     """Return output paths from any download stages in the pipeline."""
-    from snippy_ng.stages.download import DownloadAtbAssemblyFasta, DownloadNcbiAssemblyFasta, DownloadSraReads
+    from snippy_ng.stages.download import (
+        DownloadAtbAssemblyFasta,
+        DownloadNcbiAssemblyFasta,
+        DownloadSraReads,
+        DownloadUrlReads,
+    )
     outputs = []
     for stage in stages:
-        if isinstance(stage, (DownloadNcbiAssemblyFasta, DownloadAtbAssemblyFasta, DownloadSraReads)):
+        if isinstance(stage, (DownloadNcbiAssemblyFasta, DownloadAtbAssemblyFasta, DownloadSraReads, DownloadUrlReads)):
             outputs.extend(stage.output.paths)
     return outputs
 

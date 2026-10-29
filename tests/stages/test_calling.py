@@ -468,6 +468,59 @@ def test_longbow_resolver_allows_container_only_model_root(tmp_path, monkeypatch
     assert output_path.read_text(encoding="utf-8").strip() == "/opt/models/r1041_e82_400bps_sup_v500"
 
 
+def test_longbow_selector_prefers_header_model_and_skips_longbow(tmp_path, monkeypatch):
+    models_root = tmp_path / "models"
+    expected_model = models_root / "r1041_e82_400bps_hac_v520"
+    expected_model.mkdir(parents=True)
+    reads = tmp_path / "reads.fastq"
+    reads.write_text(
+        "@read1 basecall_model_version_id=dna_r10.4.1_e8.2_400bps_hac@v5.2.0\nACGT\n+\nIIII\n"
+    )
+    prediction_json = tmp_path / "longbow.json"
+    output_path = tmp_path / "resolved_model"
+
+    monkeypatch.setenv("CLAIR3_MODELS", str(models_root))
+
+    def fail_longbow(*args, **kwargs):
+        raise AssertionError("Longbow should not run when the read header has a model id")
+
+    monkeypatch.setattr("snippy_ng.stages.calling.subprocess.run", fail_longbow)
+
+    LongbowClair3ModelSelector.select_from_header_or_predict(
+        reads, prediction_json, output_path, 1
+    )
+
+    assert output_path.read_text(encoding="utf-8").strip() == str(expected_model.resolve())
+
+
+def test_longbow_selector_runs_longbow_without_header_model_id(tmp_path, monkeypatch):
+    models_root = tmp_path / "models"
+    expected_model = models_root / "r1041_e82_400bps_sup_v520"
+    expected_model.mkdir(parents=True)
+    reads = tmp_path / "reads.fastq"
+    reads.write_text("@read1\nACGT\n+\nIIII\n")
+    prediction_json = tmp_path / "longbow.json"
+    output_path = tmp_path / "resolved_model"
+    calls = []
+
+    monkeypatch.setenv("CLAIR3_MODELS", str(models_root))
+
+    def fake_longbow(command, check):
+        calls.append(command)
+        prediction_json.write_text(
+            '{"flowcell_version":"R10","basecaller":"Dorado","major_version":"Dorado0","basecalling_mode":"SUP"}'
+        )
+
+    monkeypatch.setattr("snippy_ng.stages.calling.subprocess.run", fake_longbow)
+
+    LongbowClair3ModelSelector.select_from_header_or_predict(
+        reads, prediction_json, output_path, 3
+    )
+
+    assert calls and calls[0][0] == "longbow"
+    assert output_path.read_text(encoding="utf-8").strip() == str(expected_model.resolve())
+
+
 def test_clair3_caller_reads_model_path_from_manifest_file(tmp_path):
     manifest = tmp_path / "snippy.clair3_model.txt"
     manifest.write_text("/opt/models/r1041_e82_400bps_sup_v520\n", encoding="utf-8")

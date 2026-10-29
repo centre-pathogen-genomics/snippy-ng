@@ -13,6 +13,7 @@ nav:
       - utils/index.md
       - Reference preparation: utils/ref.md
       - Sample discovery: utils/gather.md
+      - Clair3 models: utils/model.md
       - Alignment utilities:
           - utils/aln/index.md
           - Samclip: utils/aln/samclip.md

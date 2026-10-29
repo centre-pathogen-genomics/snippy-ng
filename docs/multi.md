@@ -135,7 +135,8 @@ Sample names must be unique.
 | --- | --- | --- |
 | `type` | all | `short`, `long`, or `asm` (required) |
 | `left`, `right` | short | Read files; `left` alone means single-end |
-| `reads` | short, long | Read file(s); a string or a list of paths |
+| `reads` | short, long | Read file(s); a string or list of paths; short reads also accept HTTP(S) URLs |
+| `reads_url` | long | HTTP(S) URL of a long-read FASTQ file to download |
 | `assembly` | asm | Assembly FASTA |
 | `reads_accession` | short, long | SRA accession (`SRR`/`ERR`/`DRR`) to download |
 | `assembly_accession` | asm | NCBI (`GCF_`/`GCA_`) or AllTheBacteria (`SAMN`/`SAMEA`) accession |
@@ -156,6 +157,7 @@ other.
 | `CONFIG` | – | CSV, TSV, or JSON config, `-` for stdin, or an HTTP(S) URL |
 | `--reference`, `--ref` | from JSON config | Reference genome, prepared reference directory, or assembly accession |
 | `--core` | `0.95` | Fraction of samples a site must be present in to be kept in the core alignment |
+| `--mask` | none | BED file (reference coordinates) of regions to mask with `N` in every sequence |
 | `--remove-alignment-outliers` | disabled | Remove detected low-alignment outlier samples from the alignment before core filtering |
 | `--alignment-outlier-threshold` | `0.20` | Posterior probability threshold for retaining a sample in the alignment-percentage clusters; only used with `--remove-alignment-outliers` and cohorts large enough for mixture modelling |
 | `--cpus-per-sample` | auto | CPUs allocated to each sample pipeline |

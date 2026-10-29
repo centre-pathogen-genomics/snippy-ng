@@ -1,6 +1,7 @@
+import urllib.parse
 from pathlib import Path
 from typing import Optional, List
-from pydantic import Field
+from pydantic import Field, field_validator
 from snippy_ng.metadata import ReferenceMetadata
 from snippy_ng.pipelines import PipelineBuilder, SnippyPipeline
 from snippy_ng.stages.clean_reads import FastpCleanReads
@@ -42,6 +43,7 @@ from snippy_ng.stages.copy import CopyFile, FinaliseFasta
 from snippy_ng.pipelines.common import (
     download_reference,
     download_reads,
+    download_url_reads,
     load_or_prepare_reference,
     get_download_stage_outputs,
 )
@@ -57,10 +59,23 @@ class ShortPipelineBuilder(PipelineBuilder):
     reference_accession: Optional[str] = Field(
         default=None, description="Reference assembly accession to download"
     )
-    reads: List[Path] = Field(
+    reads: List[str | Path] = Field(
         default_factory=list,
-        description="Short read files (FASTQ, R1 and optionally R2)",
+        description="Short read files (FASTQ, R1 and optionally R2) or HTTP(S) URLs",
     )
+
+    @field_validator("reads", mode="before")
+    @classmethod
+    def _normalize_reads(cls, value):
+        if value is None:
+            return []
+        normalized = []
+        for read in value:
+            if isinstance(read, str) and read.lower().startswith(("http://", "https://")):
+                normalized.append(read)
+            else:
+                normalized.append(Path(read))
+        return normalized
     reads_accession: Optional[str] = Field(
         default=None, description="SRA read accession to download"
     )
@@ -123,8 +138,14 @@ class ShortPipelineBuilder(PipelineBuilder):
         if sample_name is None and self.bam:
             sample_name = strip_bio_suffixes(Path(self.bam).name)
         if sample_name is None and self.reads:
+            first_read = self.reads[0]
+            read_name = (
+                Path(urllib.parse.urlparse(first_read).path).name
+                if isinstance(first_read, str)
+                else Path(first_read).name
+            )
             sample_name = strip_read_direction_suffix(
-                strip_bio_suffixes(Path(self.reads[0]).name)
+                strip_bio_suffixes(read_name)
             )
         reference_input = self.reference
         reference_input = self.reference
@@ -151,16 +172,23 @@ class ShortPipelineBuilder(PipelineBuilder):
         ref_metadata = ReferenceMetadata(setup.output.metadata)
         stages.append(setup)
 
-        # Download reads from SRA if accession provided
-        if self.reads_accession:
-            reads_input = download_reads(
-                self.reads_accession,
-                stages,
-            )
-            self.reads = reads_input
+        if self.reads_accession and self.reads:
+            raise ValueError("Provide either reads or a reads accession, not both.")
 
-        # Track current reads through potential cleaning and downsampling
-        current_reads = self.reads.copy() if self.reads else []
+        # Download URL reads and SRA accession reads
+        current_reads: list[Path] = []
+        for read in self.reads:
+            if isinstance(read, str):
+                current_reads.extend(download_url_reads(read, stages))
+            else:
+                current_reads.append(Path(read))
+        if self.reads_accession:
+            current_reads.extend(
+                download_reads(
+                    self.reads_accession,
+                    stages,
+                )
+            )
 
         if not current_reads and not self.bam:
             raise ValueError("At least one of reads or bam must be provided.")
@@ -445,8 +473,13 @@ class ShortPipelineBuilder(PipelineBuilder):
 
         sample_report_stage = None
         if self.report:
+            report_vcf = (
+                pass_filter.output.vcf
+                if self.report_scope == "pass"
+                else variants_file
+            )
             sample_report_stage = SampleReport(
-                vcf=variants_file,
+                vcf=report_vcf,
                 alignment=aligned_reads,
                 reference=reference_file,
                 reference_index=reference_index,
