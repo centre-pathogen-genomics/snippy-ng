@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block libs %}
+  <!-- Add scripts that need to run before here -->
+  <script defer data-domain="cpg.org.au/snippy-ng" src="https://plausible.io/js/script.tagged-events.js"></script>
+  {{ super() }}
+
+  <!-- Add scripts that need to run afterwards here -->
+{% endblock %}
