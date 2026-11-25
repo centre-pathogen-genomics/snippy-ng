@@ -1,0 +1,32 @@
+{
+  "samples": {
+    "phiX174-evolved-J1": {
+      "type": "asm",
+      "assembly_accession": "GCA_003342635.1"
+    },
+    "phiX174-evolved-J2": {
+      "type": "asm",
+      "assembly_accession": "GCA_003342615.1"
+    },
+    "phiX174-evolved-J3": {
+      "type": "asm",
+      "assembly_accession": "GCA_003342595.1"
+    },
+    "phiX174-SCSC2": {
+      "type": "asm",
+      "assembly_accession": "GCA_002585655.1"
+    },
+    "phiX174-XC-MbD22ic5": {
+      "type": "asm",
+      "assembly_accession": "GCA_002587385.1"
+    },
+    "phiX174-XC-MbD22ic6": {
+      "type": "asm",
+      "assembly_accession": "GCA_002587405.1"
+    },
+    "phiX174-reads-ERR098007": {
+      "type": "short",
+      "reads_accession": "ERR098007"
+    }
+  }
+}
